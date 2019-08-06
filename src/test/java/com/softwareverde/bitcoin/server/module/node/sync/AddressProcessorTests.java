@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
-import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -21,25 +20,19 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
-import com.softwareverde.util.Util;
 import org.bouncycastle.util.Arrays;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
 public class AddressProcessorTests extends IntegrationTest {
 
-    protected static TransactionId storeTransaction(final String hexString, final TransactionDatabaseManager transactionDatabaseManager) throws DatabaseException {
+    public static TransactionId storeTransaction(final String hexString, final TransactionDatabaseManager transactionDatabaseManager) throws DatabaseException {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(hexString));
         return transactionDatabaseManager.storeTransaction(transaction);
     }
 
-    protected static void storeFakeTransactionOutputs(final String transactionHashString, final int[] outputIndices, final DatabaseManager databaseManager) throws DatabaseException {
+    public static void storeFakeTransactionOutputs(final String transactionHashString, final int[] outputIndices, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final Long transactionId = databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
@@ -57,16 +50,8 @@ public class AddressProcessorTests extends IntegrationTest {
         }
     }
 
-    protected static List<TransactionId> loadBvtTokens(final DatabaseManager databaseManager) throws DatabaseException {
+    public static List<TransactionId> loadBvtTokens(final DatabaseManager databaseManager) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-        // Insert fake Outputs used as gas...
-//        AddressProcessorTests.storeFakeTransactionOutputs("60886A9756C0A9CD2EECFE9C2D0297D5D6F2BA9DD38362F3D31412A1D6D149AF", new int[]{ 0, 1 }, databaseManager);
-//        AddressProcessorTests.storeFakeTransactionOutputs("5353A1069E04D43FEE09B32C2B7589D76E39E0D9BE41B30EC5A846DD477CF542", new int[]{ 0 }, databaseManager);
-//        AddressProcessorTests.storeFakeTransactionOutputs("E6EDCF4842A95138B4256CA304017F0FFDD01ADF92A74A67061287105BAE9F1F", new int[]{ 0 }, databaseManager);
-//        AddressProcessorTests.storeFakeTransactionOutputs("B9C86AFB9027C041ABA93022991C895D68C0A0EFBF73F1A35BBD7A9164159FE2", new int[]{ 0 }, databaseManager);
-//        AddressProcessorTests.storeFakeTransactionOutputs("4F2B5CAC1B7465C86794134FBCBA031F6B8A5ADB266994CDABDFBFD388500E70", new int[]{ 0 }, databaseManager);
-//        AddressProcessorTests.storeFakeTransactionOutputs("DFB097581C42EC941289A9D1C839B8668A253F7BB7AF9FB1AAFB5A5875509DDA", new int[]{ 1 }, databaseManager);
 
         AddressProcessorTests.storeFakeTransactionOutputs("C5498D00002572CA9690A3520E5D12868E06BC1ED5672F5A4413C64C3F67F16A", new int[]{ 0 }, databaseManager);
         AddressProcessorTests.storeFakeTransactionOutputs("9405B76E7984D10F8079B228D1E769F103A47C8ED50A840E03514D1185655ED7", new int[]{ 0 }, databaseManager);
@@ -144,22 +129,22 @@ public class AddressProcessorTests extends IntegrationTest {
         // 08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842
         transactionIds.add(AddressProcessorTests.storeTransaction("0200000003F057F1F71163E118E86083D7F6E6A4782448786D8C9EFAF5E5E905CC7979B187010000006B483045022100D33AEE948D5AD56FBDC3EEDA11B55FED40D1D623086A7987AC3CFAEA0267F834022039F986425F2982D0E06039B1ABCFEF384281914D1B1274CE468D4556A7687A9E4121038EEF79415708264AF600AEC113C83BBC98288E1C6370F6DC0B61BC73408DEC59FFFFFFFF99DE8664E361B448FF6214D0004D69B05F91A947DAF3AD48429D5CA02A49274C010000006B483045022100B5CC2D1BEC4401796D0311AC5B8116FDFD8AAF514ED5AB1AD85757A12E3AE50E02202DF848135E54380A29A4212BDCE691645DEF548174AB1A659DA3BFEA168E4DD1412102EF9BCABA5380573B78508C02BC6545094BD2B4135D39202771105C9913DF6B05FFFFFFFFCE16AED196BB768A2C01055B0716BE0A4293A9A0ECD63CD4CBEEB106D157D49B010000006B483045022100B6163B97EA96193F274DA6F4D70C0216555AAB866083DB4DB2AED1DB96BCD01902207D362ED2CE615A4EE652F2243F2132AB865552DF031334AB3DC90C65075F0A2C4121029CBCE30D90DDFD1B530ABD63C9A7C49999BD5888DA09C7D05667CAB476697B6CFFFFFFFF020000000000000000376A04534C500001010453454E442034DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED008000000001DCD651EB0360000000000001976A91415E0A3C870799DE9823C3F4433A283A9731B1DDD88AC00000000", transactionDatabaseManager));
 
-        // BVT Send
+        // BVT Invalid Send (Previous Input Is Invalid)
         // 9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64
         transactionIds.add(AddressProcessorTests.storeTransaction("02000000024238CEC222298D79A95B159E1E948A3B756292742A380D60301396BA51709308010000006A473044022013121F277F1E1A66D9B202518773483056BCB90A3EA0E8E017E42B3B88A93374022036FC7D602C91CE14C01B0E08C30F02C71F9339CBB98D3FC10499F27BF017657D41210306CA102E0633D379AFA3DD3D90A6FDDDFA336B76827E5647D4CD516E705F2D40FFFFFFFF700E5088D3BFDFABCD946926DB5A8A6B1F03BABC4F139467C865741BAC5C2B4F000000006A47304402206ACDA67F1EC61D79B684CE6772E14D801A5A817C3E07B194FD34A5C612E6B24C02200D8932EC6387F2789361BA1FF769E0E235F381D83AD9E319BD410992EDFC52F941210306CA102E0633D379AFA3DD3D90A6FDDDFA336B76827E5647D4CD516E705F2D40FFFFFFFF020000000000000000376A04534C500001010453454E442034DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED008000000001DCD651EB6350000000000001976A91415E0A3C870799DE9823C3F4433A283A9731B1DDD88AC00000000", transactionDatabaseManager));
 
-        // BVT Send
+        // BVT Invalid Send (Previous Input Is Invalid)
         // 25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1
         transactionIds.add(AddressProcessorTests.storeTransaction("020000000164CD7D00A37B42362F9DEBC8F89A14556B700891E9947F2008F48768223EF19D010000006B483045022100C123B3A219ECB38F712EDC47C3D68C712A038927E419A70C6B7847D6DE33FC4D02201EF816223AAF4A5D9F6703C0AF211DA476F10FD81B6D170F3C97CD34D2A3882241210306CA102E0633D379AFA3DD3D90A6FDDDFA336B76827E5647D4CD516E705F2D40FFFFFFFF020000000000000000376A04534C500001010453454E442034DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED008000000001DCD651E74340000000000001976A91415E0A3C870799DE9823C3F4433A283A9731B1DDD88AC00000000", transactionDatabaseManager));
 
-        // BVT Send
+        // BVT Invalid Send (Previous Input Is Invalid)
         // 19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478
         transactionIds.add(AddressProcessorTests.storeTransaction("0200000001C1887B3DD9E843530478B810B3E80E54984852A6F52A63EDD0D04A151E9E0325010000006A473044022044B04414FCEC21B9E811EE33A64B58A1781866229ED96679C7BF7076E89D560502202264C8AF69CEA244F16E6F4842F3D7D0CC6D7ACFF82FCE5FEEC26B0E370260A841210306CA102E0633D379AFA3DD3D90A6FDDDFA336B76827E5647D4CD516E705F2D40FFFFFFFF030000000000000000376A04534C500001010453454E442034DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED008000000001DCD651E22020000000000001976A91415E0A3C870799DE9823C3F4433A283A9731B1DDD88AC10310000000000001976A914395D58ECA9E61FBB078D2D813B2ED6B52337B76088AC00000000", transactionDatabaseManager));
 
         return transactionIds;
     }
 
-    protected static void assertTransactionSlpOutputs(final String transactionHash, final int[] slpOutputs, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    public static void assertTransactionSlpOutputs(final String transactionHash, final int[] slpOutputs, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
@@ -222,93 +207,6 @@ public class AddressProcessorTests extends IntegrationTest {
             AddressProcessorTests.assertTransactionSlpOutputs("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[]{ 0, 1 }, databaseManager);
             AddressProcessorTests.assertTransactionSlpOutputs("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[]{ 0, 1 }, databaseManager);
             AddressProcessorTests.assertTransactionSlpOutputs("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647", new int[]{ }, databaseManager);
-        }
-        finally {
-            addressProcessor.stop();
-        }
-    }
-
-    @Test
-    public void should_validate_slp_transactions() throws Exception {
-        final AddressProcessor addressProcessor = new AddressProcessor(_fullNodeDatabaseManagerFactory);
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            // Setup
-            final List<TransactionId> transactionIds = AddressProcessorTests.loadBvtTokens(databaseManager);
-
-            // Action
-            addressProcessor.start();
-
-            final int maxSleepCount = 10;
-            int sleepCount = 0;
-            while (addressProcessor.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
-                Thread.sleep(250L);
-                sleepCount += 1;
-
-                if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
-            }
-
-            final AtomicInteger validationCount = new AtomicInteger(0);
-            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new SlpTransactionValidator.TransactionAccumulator() {
-                @Override
-                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
-                    try {
-                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
-                        for (final Sha256Hash transactionHash : transactionHashes) {
-                            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                            transactions.put(transactionHash, transaction);
-                        }
-                        return transactions;
-                    }
-                    catch (final DatabaseException databaseException) {
-                        Logger.log(databaseException);
-                        return null;
-                    }
-                }
-            });
-
-            for (final TransactionId transactionId : transactionIds) {
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-
-                try {
-                    final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                    Logger.log(transaction.getHash() + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
-                }
-                finally {
-                    synchronized (validationCount) {
-                        validationCount.incrementAndGet();
-                        validationCount.notify();
-                    }
-                }
-            }
-
-            // Assert
-            final FullNodeAddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
-            final List<TransactionId> slpTransactionIds = addressDatabaseManager.getSlpTransactionIds(SlpTokenId.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"));
-            Assert.assertEquals(14, slpTransactionIds.getSize());
-
-            AddressProcessorTests.assertTransactionSlpOutputs("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[]{ 0, 1 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("0F58E80BF3E747E32BCF3218D77DC01495622D723589D1F1D1FD98AEFA798D3D", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("4C27492AA05C9D4248ADF3DA47A9915FB0694D00D01462FF48B461E36486DE99", new int[]{ 0, 1, 2, 3 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("87B17979CC05E9E5F5FA9E8C6D78482478A4E6F6D78360E818E16311F7F157F0", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("731B7493DCAF21A368F384D75AD820F73F72DE9479622B35EF935E5D5C9D6F0E", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("AE0D9AE505E4B75619A376FA70F7C295245F8FD28F3B625FBEA19E26AB29A928", new int[]{ 0, 1, 2 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[]{ 0, 1 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[]{ 0, 1 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[]{ 0, 1 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[]{ 0, 1 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[]{ 0, 1 }, databaseManager);
-            AddressProcessorTests.assertTransactionSlpOutputs("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647", new int[]{ }, databaseManager);
-
-            synchronized (validationCount) {
-                while (validationCount.get() < transactionIds.getSize()) {
-                    validationCount.wait();
-                }
-            }
         }
         finally {
             addressProcessor.stop();

@@ -157,8 +157,6 @@ public class SlpTransactionValidator {
         final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs);
         if (previousTransactions == null) { return false; }
 
-        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
-
         long totalSlpAmountReceived = 0L;
         for (final TransactionInput transactionInput : transactionInputs) {
             final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
@@ -177,8 +175,18 @@ public class SlpTransactionValidator {
 
                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) previousTransactionSlpScript;
                 if (Util.areEqual(previousTransactionOutputIndex, SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX)) {
-                    totalSlpAmountReceived += slpGenesisScript.getTokenCount();
-                    ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
+
+                    final Boolean isValid;
+                    {
+                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                        ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
+                        isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate);
+                        recursiveTransactionsToValidate.clear();
+                    }
+
+                    if (isValid) {
+                        totalSlpAmountReceived += slpGenesisScript.getTokenCount();
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.MINT) {
@@ -186,25 +194,43 @@ public class SlpTransactionValidator {
                 if (! Util.areEqual(slpTokenId, slpMintScript.getTokenId())) { continue; }
 
                 if (Util.areEqual(previousTransactionOutputIndex, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX)) {
-                    totalSlpAmountReceived += slpMintScript.getTokenCount();
-                    ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
+                    final Boolean isValid;
+                    {
+                        final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                        ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
+                        isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate);
+                        recursiveTransactionsToValidate.clear();
+                    }
+
+                    if (isValid) {
+                        totalSlpAmountReceived += slpMintScript.getTokenCount();
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.SEND) {
                 final SlpSendScript previousTransactionSlpSendScript = (SlpSendScript) previousTransactionSlpScript;
                 if (! Util.areEqual(slpTokenId, previousTransactionSlpSendScript.getTokenId())) { continue; }
 
-                totalSlpAmountReceived += Util.coalesce(previousTransactionSlpSendScript.getAmount(previousTransactionOutputIndex));
-                ConstUtil.addToListMap(SlpScriptType.SEND, previousTransaction, recursiveTransactionsToValidate);
+                final Boolean isValid;
+                {
+                    final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
+                    ConstUtil.addToListMap(SlpScriptType.SEND, previousTransaction, recursiveTransactionsToValidate);
+                    isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate);
+                    recursiveTransactionsToValidate.clear();
+                }
+
+                if (isValid) {
+                    totalSlpAmountReceived += Util.coalesce(previousTransactionSlpSendScript.getAmount(previousTransactionOutputIndex));
+                }
             }
             else if (slpScriptType == SlpScriptType.COMMIT) {
                 // Nothing.
             }
         }
 
-        if (totalSlpAmountReceived < totalSendAmount) { return false; }
+        return (totalSlpAmountReceived >= totalSendAmount);
 
-        return _validateRecursiveTransactions(recursiveTransactionsToValidate);
+        // return _validateRecursiveTransactions(recursiveTransactionsToValidate);
     }
 
     public SlpTransactionValidator(final TransactionAccumulator transactionAccumulator) {
