@@ -20,7 +20,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -77,10 +77,10 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             associateTransactionsTimer.start();
             _associateTransactionsToBlock(transactionIds, blockId);
             associateTransactionsTimer.stop();
-            Logger.log("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
+            Logger.info("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
         }
         storeBlockTimer.stop();
-        Logger.log("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
+        Logger.info("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
     }
 
     protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
@@ -158,20 +158,20 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
         if (blockHeader == null) {
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-            Logger.log("ERROR: Unable to inflate block. BlockId: " + blockId + " Hash: " + blockHash);
+            Logger.warn("Unable to inflate block. BlockId: " + blockId + " Hash: " + blockHash);
             return null;
         }
 
         final List<Transaction> transactions = _getBlockTransactions(blockId, shouldUpdateUnspentOutputCache);
         if (transactions == null) {
-            Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
+            Logger.warn("Unable to inflate block: " + blockHeader.getHash());
             return null;
         }
 
         final MutableBlock block = new MutableBlock(blockHeader, transactions);
 
         if (! Util.areEqual(blockHeader.getHash(), block.getHash())) {
-            Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
+            Logger.warn("Unable to inflate block: " + blockHeader.getHash());
             return null;
         }
 
@@ -224,7 +224,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) {
-            Logger.log("Attempting to insert transactions without BlockHeader stored: "+ blockHash);
+            Logger.warn("Attempting to insert transactions without BlockHeader stored: "+ blockHash);
             return false;
         }
 
@@ -311,7 +311,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) {
-            Logger.log("Block not found: " + blockHash);
+            Logger.warn("Block not found: " + blockHash);
             return;
         }
 
@@ -333,12 +333,12 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
                 if (transactionExistsInUpdatedBlock) {
                     final Transaction transaction = existingTransactionHashes.get(transactionHash);
-                    Logger.log("Updating Transaction: " + transactionHash + " Id: " + transactionId);
+                    Logger.info("Updating Transaction: " + transactionHash + " Id: " + transactionId);
                     transactionDatabaseManager.updateTransaction(transaction);
                     updatedTransactions.add(transactionHash);
                 }
                 else {
-                    Logger.log("Deleting Transaction: " + transactionHash + " Id: " + transactionId);
+                    Logger.info("Deleting Transaction: " + transactionHash + " Id: " + transactionId);
                     transactionDatabaseManager.deleteTransaction(transactionId);
                 }
             }
@@ -349,7 +349,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             final boolean transactionHasBeenProcessed = updatedTransactions.contains(transactionHash);
             if (transactionHasBeenProcessed) { continue; }
 
-            Logger.log("Inserting Transaction: " + transactionHash);
+            Logger.info("Inserting Transaction: " + transactionHash);
             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
             if (transactionId == null) { throw new DatabaseException("Error inserting Transaction."); }
         }

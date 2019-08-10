@@ -12,8 +12,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.HexUtil;
@@ -104,7 +104,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         {
             java.net.Socket socket = null;
             try { socket = new java.net.Socket(hostname, port); }
-            catch (final Exception exception) { Logger.log(exception); }
+            catch (final Exception exception) { Logger.debug(exception); }
             javaSocket = socket;
         }
 
@@ -345,7 +345,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
                         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (blockHeader == null) {
-                            Logger.log("Error inflating block: " + objectData);
+                            Logger.warn("Error inflating block: " + objectData);
                             return;
                         }
 
@@ -357,7 +357,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (transaction == null) {
-                            Logger.log("Error inflating transaction: " + objectData);
+                            Logger.warn("Error inflating transaction: " + objectData);
                             return;
                         }
 
@@ -371,7 +371,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
                         if (transaction == null) {
-                            Logger.log("Error inflating transaction: " + transactionData);
+                            Logger.warn("Error inflating transaction: " + transactionData);
                             return;
                         }
 

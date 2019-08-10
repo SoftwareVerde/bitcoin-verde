@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
@@ -31,7 +31,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, false, desiredBlockHash, databaseManager);
 
             if (startingBlock == null) {
-                Logger.log("Unable to send headers: No blocks available.");
+                Logger.debug("Unable to send headers: No blocks available.");
                 return;
             }
 
@@ -68,6 +68,6 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
 
             bitcoinNode.transmitBlockHeaders(blockHeaders);
         }
-        catch (final Exception exception) { Logger.log(exception); }
+        catch (final Exception exception) { Logger.warn(exception); }
     }
 }

@@ -27,7 +27,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
@@ -118,7 +118,7 @@ public class ChainValidationModule {
                         transactionsPerSecond = (validatedTransactionCount / (seconds.floatValue() + 1));
                     }
 
-                    Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
+                    Logger.info(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
                 final MilliTimer blockInflaterTimer = new MilliTimer();
@@ -169,8 +169,7 @@ public class ChainValidationModule {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
-            Logger.log("Last validated block: " + nextBlockHash);
+            Logger.error("Last validated block: " + nextBlockHash, exception);
             BitcoinUtil.exitFailure();
         }
 

@@ -19,7 +19,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
@@ -568,7 +568,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
             for (final Row row : rows) {
                 final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-                Logger.log("Deleting Failed Pending Block: " + pendingBlockId);
+                Logger.debug("Deleting Failed Pending Block: " + pendingBlockId);
                 pendingBlockIds.add(pendingBlockId);
             }
 
@@ -599,7 +599,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
             for (final Row row : rows) {
                 final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-                Logger.log("Deleting Unlocatable Pending Block: " + pendingBlockId);
+                Logger.debug("Deleting Unlocatable Pending Block: " + pendingBlockId);
                 pendingBlockIds.add(pendingBlockId);
             }
 

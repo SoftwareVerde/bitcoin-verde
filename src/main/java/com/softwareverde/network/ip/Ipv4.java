@@ -20,7 +20,7 @@ public class Ipv4 implements Ip {
 
         final List<String> ipSegments = StringUtil.pregMatch("^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$", strippedIp);
         final byte[] bytes = new byte[ipSegments.size()];
-        for (int i=0; i<bytes.length; ++i) {
+        for (int i = 0; i < bytes.length; ++i) {
             final String ipSegment = ipSegments.get(i);
             final Integer intValue = Util.parseInt(ipSegment);
             if (intValue > 255) { return null; }

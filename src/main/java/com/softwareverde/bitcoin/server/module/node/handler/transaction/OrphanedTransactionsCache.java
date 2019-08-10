@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,7 +40,7 @@ public class OrphanedTransactionsCache {
             }
         }
 
-        Logger.log("Purging old orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
+        Logger.debug("Purging old orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
     }
 
     protected void _purgeOldTransactions() {
@@ -63,7 +63,7 @@ public class OrphanedTransactionsCache {
         final boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
         if (! transactionIsUnique) { return; }
 
-        Logger.log("Queuing orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
+        Logger.debug("Queuing orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
 
         _orphanedTransactionsByAge.addLast(transaction);
         if (_orphanedTransactionSet.size() > MAX_ORPHANED_TRANSACTION_COUNT) {
@@ -99,7 +99,7 @@ public class OrphanedTransactionsCache {
 
             possiblyEligibleTransactions.addAll(queuedTransactions);
 
-            Logger.log("Promoting orphaned Transaction: " + transaction.getHash());
+            Logger.debug("Promoting orphaned Transaction: " + transaction.getHash());
         }
 
         if (_orphanedTransactionSet.contains(transaction)) {

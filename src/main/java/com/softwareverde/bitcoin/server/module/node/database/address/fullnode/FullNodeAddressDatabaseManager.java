@@ -30,7 +30,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -208,7 +208,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
 
         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) {
-            Logger.log("Error determining address.");
+            Logger.warn("Error determining address.");
             return null;
         }
 
@@ -266,7 +266,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
 
             final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
             if (address == null) {
-                Logger.log("Error determining address.");
+                Logger.warn("Error determining address.");
                 return null;
             }
 

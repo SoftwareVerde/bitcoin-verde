@@ -20,7 +20,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -68,7 +68,7 @@ public class BlockDownloader extends SleepyService {
             pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
@@ -93,7 +93,7 @@ public class BlockDownloader extends SleepyService {
         }
 
         for (final Sha256Hash stalledBlockHash : stalledBlockHashes) {
-            Logger.log("Stalled Block Detected: " + stalledBlockHash);
+            Logger.warn("Stalled Block Detected: " + stalledBlockHash);
             _currentBlockDownloadSet.remove(stalledBlockHash);
             _blockDownloadedCallback.onFailure(stalledBlockHash);
         }
@@ -121,7 +121,7 @@ public class BlockDownloader extends SleepyService {
                     catch (final InterruptedException exception) { return false; }
 
                     if (waitTimer.getMillisecondsElapsed() >= MAX_TIMEOUT) {
-                        Logger.log("NOTICE: Block download stalled.");
+                        Logger.warn("Block download stalled.");
 
                         _markPendingBlockIdsAsFailed(_currentBlockDownloadSet.keySet());
                         _currentBlockDownloadSet.clear();
@@ -178,7 +178,7 @@ public class BlockDownloader extends SleepyService {
                 TransactionUtil.commitTransaction(databaseConnection);
             }
             catch (final DatabaseException exception) {
-                Logger.log("Unable to cleanup pending blocks..."); // Often encounters SQL deadlock...
+                Logger.warn("Unable to cleanup pending blocks..."); // Often encounters SQL deadlock...
             }
 
             final Map<PendingBlockId, NodeId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(nodeIds, maximumConcurrentDownloadCount * 2);
@@ -213,7 +213,7 @@ public class BlockDownloader extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
 
@@ -232,7 +232,7 @@ public class BlockDownloader extends SleepyService {
             //  The purge should be performed, but BlockDownloader sleeps too frequently.
             //  Particularly, the purge deletes the unlocatable (but desired) entry recorded by the BlockRequester.
 
-            // Logger.log("Searching for Unlocatable Pending Blocks...");
+            // Logger.info("Searching for Unlocatable Pending Blocks...");
             // try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             //     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             //
@@ -241,7 +241,7 @@ public class BlockDownloader extends SleepyService {
             //     TransactionUtil.commitTransaction(databaseConnection);
             // }
             // catch (final DatabaseException exception) {
-            //     Logger.log(exception);
+            //     Logger.warn(exception);
             // }
         }
     }
@@ -260,13 +260,13 @@ public class BlockDownloader extends SleepyService {
                     timer.stop();
                 }
 
-                Logger.log("Downloaded Block: " + blockHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+                Logger.info("Downloaded Block: " + blockHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                     _onBlockDownloaded(block, databaseManager);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     return;
                 }
                 finally {
@@ -288,7 +288,7 @@ public class BlockDownloader extends SleepyService {
 
                     final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
                     if (pendingBlockId == null) {
-                        Logger.log("Unable to increment download failure count for block: " + blockHash);
+                        Logger.warn("Unable to increment download failure count for block: " + blockHash);
                         return;
                     }
 
@@ -296,8 +296,8 @@ public class BlockDownloader extends SleepyService {
                     pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                    Logger.log("Unable to increment download failure count for block: " + blockHash);
+                    Logger.warn(exception);
+                    Logger.warn("Unable to increment download failure count for block: " + blockHash);
                 }
                 finally {
                     _currentBlockDownloadSet.remove(blockHash);
@@ -317,10 +317,10 @@ public class BlockDownloader extends SleepyService {
     public void submitBlock(final Block block) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _onBlockDownloaded(block, databaseManager);
-            Logger.log("Block submitted: " + block.getHash());
+            Logger.info("Block submitted: " + block.getHash());
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return;
         }
 

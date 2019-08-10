@@ -1,7 +1,7 @@
 package com.softwareverde.concurrent.pool;
 
 import com.softwareverde.concurrent.service.SleepyService;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -49,7 +49,7 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
             // Only log once every 5 seconds to prevent spam...
             final Long now = System.currentTimeMillis();
             if (now - _lastLogStatement > 5000L) {
-                Logger.log("ThreadPoolThrottle is " + (_queueSize.get() / _maxSubmissionsPerSecond) + " seconds behind.");
+                Logger.warn("ThreadPoolThrottle is " + (_queueSize.get() / _maxSubmissionsPerSecond) + " seconds behind.");
                 _lastLogStatement = now;
             }
         }
@@ -64,7 +64,7 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
     public void execute(final Runnable runnable) {
         if (_queueSize.get() >= MAX_QUEUE_SIZE) {
             if (_droppedSubmissionsCount.get() % _maxSubmissionsPerSecond == 0) {
-                Logger.log("ThreadPoolThrottle: Exceeded max queue size. " + _droppedSubmissionsCount);
+                Logger.warn("ThreadPoolThrottle: Exceeded max queue size. " + _droppedSubmissionsCount);
             }
 
             _droppedSubmissionsCount.incrementAndGet();

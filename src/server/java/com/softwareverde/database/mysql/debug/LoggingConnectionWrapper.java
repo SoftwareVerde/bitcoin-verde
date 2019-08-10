@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -38,7 +38,7 @@ public class LoggingConnectionWrapper extends DatabaseConnection {
     protected static long queryCount = 0L;
 
     protected static void _printLogs() {
-        Logger.log("");
+        Logger.debug("");
         for (final String queryString : queryValues.keySet()) {
             final Double qsDuration = queryValues.get(queryString);
             final Long qsCount = queryCounts.get(queryString);
@@ -53,9 +53,9 @@ public class LoggingConnectionWrapper extends DatabaseConnection {
                 }
             }
 
-            Logger.log(String.format("%.2f", qsDuration) + " - " + qsCount + " (" + (qsDuration / qsCount.floatValue()) + ") " + displayedQueryString);
+            Logger.debug(String.format("%.2f", qsDuration) + " - " + qsCount + " (" + (qsDuration / qsCount.floatValue()) + ") " + displayedQueryString);
         }
-        Logger.log("");
+        Logger.debug("");
     }
 
     protected void _log(final Query query, final Double duration) {

@@ -2,7 +2,7 @@ package com.softwareverde.network.p2p.node;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
@@ -15,8 +15,6 @@ import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
-    public static Boolean LOGGING_ENABLED = false;
-
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
     }
@@ -43,9 +41,7 @@ public class NodeConnection {
                 }
                 _socketUsedToBeConnected = false;
 
-                if (LOGGING_ENABLED) {
-                    Logger.log("IO: NodeConnection: Connection lost. " + _toString());
-                }
+                Logger.debug("Connection lost. " + _toString());
             }
 
             Socket socket = null;
@@ -53,9 +49,7 @@ public class NodeConnection {
             int attemptCount = 0;
             while (true) {
                 if (attemptCount >= MAX_CONNECTION_ATTEMPTS) {
-                    if (LOGGING_ENABLED) {
-                        Logger.log("IO: NodeConnection: Connection could not be established. Max attempts reached. " + _toString());
-                    }
+                    Logger.info("Connection could not be established. Max attempts reached. " + _toString());
                     break;
                 }
 
@@ -67,17 +61,13 @@ public class NodeConnection {
                     if (socket.isConnected()) { break; }
                 }
                 catch (final UnknownHostException exception) {
-                    if (LOGGING_ENABLED) {
-                        Logger.log("IO: NodeConnection: Connection could not be established. Unknown host: " + _toString());
-                    }
+                    Logger.info("Connection could not be established. Unknown host: " + _toString());
                     break;
                 }
                 catch (final IOException exception) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    if (LOGGING_ENABLED) {
-                        Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms... (" + _toString() + ")");
-                    }
+                    Logger.debug("Connection failed. Retrying in 3000ms... (" + _toString() + ")");
                     try { Thread.sleep(3000); } catch (final Exception exception) { break; }
                 }
             }
@@ -154,10 +144,8 @@ public class NodeConnection {
 
                 final ProtocolMessage protocolMessage = binarySocket.popMessage();
 
-                if (LOGGING_ENABLED) {
-                    if (protocolMessage instanceof BitcoinProtocolMessage) {
-                        Logger.log("Received: " + ((BitcoinProtocolMessage) protocolMessage).getCommand() + " " + _toString());
-                    }
+                if (protocolMessage instanceof BitcoinProtocolMessage) {
+                    Logger.debug("Received: " + ((BitcoinProtocolMessage) protocolMessage).getCommand() + " " + _toString());
                 }
 
                 final MessageReceivedCallback messageReceivedCallback = _messageReceivedCallback;
@@ -170,9 +158,7 @@ public class NodeConnection {
 
         final Boolean isFirstConnection = (_connectionCount == 0);
         if (isFirstConnection) {
-            if (LOGGING_ENABLED) {
-                Logger.log("IO: NodeConnection: Connection established. " + _toString());
-            }
+            Logger.debug("Connection established. " + _toString());
 
             _processOutboundMessageQueue();
 
@@ -182,9 +168,7 @@ public class NodeConnection {
             }
         }
         else {
-            if (LOGGING_ENABLED) {
-                Logger.log("IO: NodeConnection: Connection regained. " + _toString());
-            }
+            Logger.debug("Connection regained. " + _toString());
             _processOutboundMessageQueue();
 
             final Runnable onReconnectCallback = _onReconnectCallback;
@@ -207,7 +191,8 @@ public class NodeConnection {
     }
 
     protected void _disconnect() {
-        Logger.log("DISCONNECT: " + this.getIp() + ":" + this.getPort());
+        Logger.debug("Disconnecting " + _toString());
+
         final Runnable onDisconnectCallback = _onDisconnectCallback;
 
         _messageReceivedCallback = null;
@@ -263,10 +248,8 @@ public class NodeConnection {
             messageWasQueued = true;
         }
 
-        if (LOGGING_ENABLED) {
-            if (message instanceof BitcoinProtocolMessage) {
-                Logger.log((messageWasQueued ? "Queued" : "Wrote") + ": " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
-            }
+        if (message instanceof BitcoinProtocolMessage) {
+            Logger.debug((messageWasQueued ? "Queued" : "Wrote") + ": " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
         }
 
         if (! messageWasQueued) {

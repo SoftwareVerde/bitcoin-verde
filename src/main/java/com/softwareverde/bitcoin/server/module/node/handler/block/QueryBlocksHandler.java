@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlocksCallback {
     public static final BitcoinNode.QueryBlocksCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.QueryBlocksCallback() {
@@ -33,7 +33,7 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, true, desiredBlockHash, databaseManager);
 
             if (startingBlock == null) {
-                Logger.log("Unable to send blocks: No blocks available.");
+                Logger.debug("Unable to send blocks: No blocks available.");
                 return;
             }
 
@@ -60,11 +60,13 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
                 final Sha256Hash firstBlockHash = ((! blockHashes.isEmpty()) ? blockHashes.get(0) : null);
                 final List<InventoryItem> responseHashes = responseMessage.getInventoryItems();
                 final Sha256Hash responseHash = ((! responseHashes.isEmpty()) ? responseHashes.get(0).getItemHash() : null);
-                Logger.log("QueryBlocksHandler : " + bitcoinNode.getRemoteNodeIpAddress() + " " + firstBlockHash + " - " + desiredBlockHash + " -> " + responseHash);
+                Logger.debug("QueryBlocksHandler : " + bitcoinNode.getRemoteNodeIpAddress() + " " + firstBlockHash + " - " + desiredBlockHash + " -> " + responseHash);
             }
 
             bitcoinNode.queueMessage(responseMessage);
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
     }
 }

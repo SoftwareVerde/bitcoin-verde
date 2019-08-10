@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class DatabaseMaintainer {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
@@ -49,7 +49,7 @@ public class DatabaseMaintainer {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 }

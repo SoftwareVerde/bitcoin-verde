@@ -14,7 +14,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
     public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
@@ -76,7 +76,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                     break;
                 }
                 catch (final DatabaseException databaseException) {
-                    Logger.log("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+                    Logger.debug("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
                     try {
                         Thread.sleep(50L);
                     }
@@ -92,7 +92,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return storeBlockHashesResult;
@@ -136,7 +136,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 //                    }
 //                }
 //                catch (final DatabaseException databaseException) {
-//                    Logger.log(databaseException);
+//                    Logger.warn(databaseException);
 //                }
 //            }
 //

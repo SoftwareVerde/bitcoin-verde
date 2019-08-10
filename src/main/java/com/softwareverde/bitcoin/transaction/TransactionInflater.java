@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -21,7 +20,7 @@ public class TransactionInflater {
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
         final Integer transactionInputCount = byteArrayReader.readVariableSizedInteger().intValue();
-        for (int i=0; i<transactionInputCount; ++i) {
+        for (int i = 0; i < transactionInputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionInput transactionInput = transactionInputInflater.fromBytes(byteArrayReader);
             if (transactionInput == null) { return null; }
@@ -30,7 +29,7 @@ public class TransactionInflater {
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final Integer transactionOutputCount = byteArrayReader.readVariableSizedInteger().intValue();
-        for (int i=0; i<transactionOutputCount; ++i) {
+        for (int i = 0; i < transactionOutputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
             if (transactionOutput == null) { return null; }
@@ -48,11 +47,11 @@ public class TransactionInflater {
     }
 
     public void debugBytes(final ByteArrayReader byteArrayReader) {
-        Logger.log("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
+        System.out.println("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
 
         {
             final ByteArrayReader.VariableSizedInteger inputCount = byteArrayReader.peakVariableSizedInteger();
-            Logger.log("Tx Input Count: " + HexUtil.toHexString(byteArrayReader.readBytes(inputCount.bytesConsumedCount)));
+            System.out.println("Tx Input Count: " + HexUtil.toHexString(byteArrayReader.readBytes(inputCount.bytesConsumedCount)));
 
             final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
             for (int i = 0; i < inputCount.value; ++i) {
@@ -62,14 +61,14 @@ public class TransactionInflater {
 
         {
             final ByteArrayReader.VariableSizedInteger outputCount = byteArrayReader.peakVariableSizedInteger();
-            Logger.log("Tx Output Count: " + HexUtil.toHexString(byteArrayReader.readBytes(outputCount.bytesConsumedCount)));
+            System.out.println("Tx Output Count: " + HexUtil.toHexString(byteArrayReader.readBytes(outputCount.bytesConsumedCount)));
             final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-            for (int i=0; i<outputCount.value; ++i) {
+            for (int i = 0; i < outputCount.value; ++i) {
                 transactionOutputInflater._debugBytes(byteArrayReader);
             }
         }
 
-        Logger.log("LockTime: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
+        System.out.println("LockTime: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
     }
 
     public Transaction fromBytes(final ByteArrayReader byteArrayReader) {

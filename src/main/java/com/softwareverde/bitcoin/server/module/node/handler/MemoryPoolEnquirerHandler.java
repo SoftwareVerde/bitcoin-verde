@@ -12,7 +12,7 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -37,7 +37,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
             return bloomFilter;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return BloomFilter.MATCH_NONE;
@@ -50,7 +50,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
             return transactionDatabaseManager.getUnconfirmedTransactionCount();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return 0;
@@ -66,7 +66,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
             return transactionDatabaseManager.getTransaction(transactionId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;

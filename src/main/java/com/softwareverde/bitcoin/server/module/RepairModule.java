@@ -43,7 +43,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class RepairModule {
@@ -134,7 +134,7 @@ public class RepairModule {
             bitcoinNodes = bitcoinNodeListBuilder.build();
 
             if (bitcoinNodes.isEmpty()) {
-                Logger.log("ERROR: No trusted nodes set.");
+                Logger.error("No trusted nodes set.");
                 BitcoinUtil.exitFailure();
             }
         }
@@ -158,7 +158,7 @@ public class RepairModule {
                 for (final Row row : rows) {
                     final BlockId blockId = BlockId.wrap(row.getLong("id"));
 
-                    Logger.log(i + " of " + rows.size() + " (" + blockId + ")");
+                    Logger.debug(i + " of " + rows.size() + " (" + blockId + ")");
                     synchronized (BlockHeaderDatabaseManager.MUTEX) {
                         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
                     }
@@ -168,8 +168,7 @@ public class RepairModule {
                 TransactionUtil.commitTransaction(databaseConnection);
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
-                Logger.log("Error repairing BlockchainSegments.");
+                Logger.error("Error repairing BlockchainSegments.", exception);
             }
 
             _environment.getMasterDatabaseManagerCache().close();
@@ -188,7 +187,7 @@ public class RepairModule {
 
                         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                         if (blockId == null) {
-                            Logger.log("Block not found: " + blockHash);
+                            Logger.error("Block not found: " + blockHash);
                             return;
                         }
 
@@ -196,12 +195,11 @@ public class RepairModule {
                         blockDatabaseManager.repairBlock(block);
                         TransactionUtil.commitTransaction(databaseConnection);
 
-                        Logger.log("Repaired block: " + blockHash);
+                        Logger.info("Repaired block: " + blockHash);
 
                     }
                     catch (final DatabaseException exception) {
-                        Logger.log(exception);
-                        Logger.log("Error repairing block: " + blockHash);
+                        Logger.error("Error repairing block: " + blockHash, exception);
                     }
 
                     synchronizer.notifyAll();

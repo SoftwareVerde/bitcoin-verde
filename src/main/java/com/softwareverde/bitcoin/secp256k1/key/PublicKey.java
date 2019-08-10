@@ -74,7 +74,7 @@ public class PublicKey extends ImmutableByteArray implements Const {
         final byte[] compressedPublicKeyPoint = new byte[coordinateByteCount + prefixByteCount];
         {
             compressedPublicKeyPoint[0] = compressedPublicKeyPrefix;
-            for (int i=0; i<publicKeyPointX.length; ++i) {
+            for (int i = 0; i < publicKeyPointX.length; ++i) {
                 compressedPublicKeyPoint[prefixByteCount + i] = publicKeyPointX[i];
             }
         }

@@ -6,7 +6,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -20,7 +20,7 @@ public class ScriptInflater {
             final Operation opcode = operationInflater.fromBytes(byteArrayReader);
             if (opcode == null) {
                 byteArrayReader.setPosition(scriptPosition);
-                Logger.log("NOTICE: Unable to inflate opcode. 0x"+ HexUtil.toHexString(new byte[] { byteArrayReader.peakByte() }));
+                Logger.debug("NOTICE: Unable to inflate opcode. 0x"+ HexUtil.toHexString(new byte[] { byteArrayReader.peakByte() }));
                 return null;
             }
 

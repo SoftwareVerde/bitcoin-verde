@@ -38,7 +38,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -92,7 +92,7 @@ public class TransactionOutputDatabaseManager {
         { // Attempt to find the UTXO from the in-memory cache...
             final TransactionOutputId cachedUnspentTransactionOutputId = databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
             if (cachedUnspentTransactionOutputId != null) { cacheHit.incrementAndGet(); return cachedUnspentTransactionOutputId; }
-            // Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+            // Logger.debug("Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
         }
 
         final TransactionId cachedTransactionId = databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
@@ -435,7 +435,7 @@ public class TransactionOutputDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         if (! Util.areEqual(transactionIds.size(), transactions.getSize())) {
-            Logger.log("NOTICE: Error storing TransactionOutputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
+            Logger.warn("Error storing TransactionOutputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
             return null;
         }
         if (transactions.isEmpty()) { return new MutableList<TransactionOutputId>(0); }
@@ -451,7 +451,7 @@ public class TransactionOutputDatabaseManager {
             final Transaction transaction = transactions.get(i);
             final Sha256Hash transactionHash = transaction.getHash();
             if (! transactionIds.containsKey(transactionHash)) {
-                Logger.log("NOTICE: Error storing TransactionOutputs. Missing Transaction: " + transactionHash);
+                Logger.warn("Error storing TransactionOutputs. Missing Transaction: " + transactionHash);
                 return null;
             }
             final TransactionId transactionId = transactionIds.get(transactionHash);
@@ -478,7 +478,7 @@ public class TransactionOutputDatabaseManager {
 
         final Long firstTransactionOutputId = databaseConnection.executeSql(batchInsertQuery);
         if (firstTransactionOutputId == null) {
-            Logger.log("NOTICE: Error storing TransactionOutputs. Error running batch insert.");
+            Logger.warn("Error storing TransactionOutputs. Error running batch insert.");
             return null;
         }
 
@@ -507,7 +507,7 @@ public class TransactionOutputDatabaseManager {
         final TransactionOutputId unspentTransactionOutputId = _findUnspentTransactionOutput(transactionHash, transactionOutputIndex);
         if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
 
-        // Logger.log("INFO: Unspent Index Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+        // Logger.debug("Unspent Index Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
         if (transactionId == null) { return null; }

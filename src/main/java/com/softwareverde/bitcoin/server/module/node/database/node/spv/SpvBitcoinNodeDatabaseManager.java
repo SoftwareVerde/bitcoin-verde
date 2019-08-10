@@ -12,7 +12,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
@@ -33,6 +33,11 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         for (final Row nodeFeatureRow : nodeFeatureRows) {
             final String featureString = nodeFeatureRow.getString("feature");
             final NodeFeatures.Feature feature = NodeFeatures.Feature.fromString(featureString);
+            if (feature == null) {
+                Logger.debug("Unknown feature: " + featureString);
+                continue;
+            }
+
             nodeFeatures.enableFeature(feature);
         }
 
@@ -71,7 +76,7 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
 
         final Ip ip = node.getIp();
         if (ip == null) {
-            Logger.log("NOTICE: Unable to store node: " + node.getConnectionString());
+            Logger.warn("Unable to store node: " + node.getConnectionString());
             return;
         }
 

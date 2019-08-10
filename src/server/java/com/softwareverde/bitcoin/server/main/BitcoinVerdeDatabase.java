@@ -14,7 +14,7 @@ import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.properties.DatabaseCredentials;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.io.StringReader;
@@ -60,8 +60,7 @@ public class BitcoinVerdeDatabase extends Database {
                         return true;
                     }
                     catch (final Exception exception) {
-                        Logger.log("Unable to upgrade database.");
-                        Logger.log(exception);
+                        Logger.error("Unable to upgrade database.", exception);
                         return false;
                     }
                 }
@@ -77,7 +76,7 @@ public class BitcoinVerdeDatabase extends Database {
                 final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
                 DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
 
-                Logger.log("[Initializing Database]");
+                Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
 
                 if (onShutdownCallback != null) {
@@ -118,7 +117,7 @@ public class BitcoinVerdeDatabase extends Database {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.error(exception);
         }
 
         return null;

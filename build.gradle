@@ -4,7 +4,7 @@ version '1.1.1'
 apply plugin: 'java'
 apply plugin: 'java-library'
 
-sourceCompatibility = JavaVersion.VERSION_1_8
+sourceCompatibility = 1.8
 
 sourceSets {
     main {
@@ -45,21 +45,18 @@ dependencies {
 
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
 
-    api             group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
+    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v1.0.1'
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.0.0'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
-    api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.7'
-    implementation  group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: '2161b7efdd'
+    api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.0'
 
     // Server
-    serverImplementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
-    serverImplementation (group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: '36e623b905') {
+    serverImplementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.1.0'
+    serverImplementation(group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v2.0.0') {
         exclude group: 'org.apache.logging.log4j',  module: 'log4j-to-slf4j'
         exclude group: 'ch.qos.logback',            module: 'logback-classic'
     }
-    serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',       version: '2.12.0'
-    serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-api',              version: '2.12.0'
-    serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-core',             version: '2.12.0'
 
     serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
 

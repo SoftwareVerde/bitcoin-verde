@@ -24,8 +24,8 @@ public class GpuSha256Tests {
         {
             final MutableByteArray mutableByteArray = new MutableByteArray(32);
             final ImmutableListBuilder<Sha256Hash> immutableListBuilder = new ImmutableListBuilder<Sha256Hash>(totalHashCount);
-            for (int i=0; i<totalHashCount; ++i) {
-                for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
+            for (int i = 0; i < totalHashCount; ++i) {
+                for (int j = 0; j < mutableByteArray.getByteCount(); ++j) {
                     mutableByteArray.set(j, (byte) i);
                 }
 
@@ -44,9 +44,9 @@ public class GpuSha256Tests {
 
             final ImmutableListBuilder<ByteArray> hashBatchBuilder = new ImmutableListBuilder<ByteArray>(batchSize);
             for (int hashCount=0; hashCount<totalHashCount;) {
-                for (int i=0; i<Math.min(batchSize, (totalHashCount - hashCount)); ++i) {
+                for (int i = 0; i < Math.min(batchSize, (totalHashCount - hashCount)); ++i) {
                     final MutableByteArray mutableByteArray = new MutableByteArray(32);
-                    for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
+                    for (int j = 0; j < mutableByteArray.getByteCount(); ++j) {
                         mutableByteArray.set(j, (byte) (hashCount + i));
                     }
                     hashBatchBuilder.add(mutableByteArray);
@@ -73,7 +73,7 @@ public class GpuSha256Tests {
 
         Assert.assertEquals(expectedValues.getSize(), values.getSize());
 
-        for (int i=0; i<values.getSize(); ++i) {
+        for (int i = 0; i < values.getSize(); ++i) {
             final Sha256Hash expectedHash = expectedValues.get(i);
             final Sha256Hash hash = values.get(i);
 

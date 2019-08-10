@@ -1,7 +1,7 @@
 package com.softwareverde.network.socket;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 
 import java.io.IOException;
@@ -34,9 +34,7 @@ public class BinarySocket extends Socket {
                     }
 
                     _protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                    if (LOGGING_ENABLED) {
-                        Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ _protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ _protocolMessageBuffer.getBufferCount() +") ("+ ((int) (_protocolMessageBuffer.getByteCount() / (_protocolMessageBuffer.getBufferCount() * _protocolMessageBuffer.getBufferSize().floatValue()) * 100)) +"%)");
-                    }
+                    Logger.debug("[Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ _protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ _protocolMessageBuffer.getBufferCount() +") ("+ ((int) (_protocolMessageBuffer.getByteCount() / (_protocolMessageBuffer.getBufferCount() * _protocolMessageBuffer.getBufferSize().floatValue()) * 100)) +"%)");
 
                     while (_protocolMessageBuffer.hasMessage()) {
                         final ProtocolMessage message = _protocolMessageBuffer.popMessage();
@@ -51,9 +49,7 @@ public class BinarySocket extends Socket {
                     if (this.isInterrupted()) { break; }
                 }
                 catch (final Exception exception) {
-                    if (LOGGING_ENABLED) {
-                        Logger.log(exception);
-                    }
+                    Logger.debug(exception);
                     break;
                 }
             }

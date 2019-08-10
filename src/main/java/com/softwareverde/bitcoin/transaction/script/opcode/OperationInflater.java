@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -12,7 +12,7 @@ public class OperationInflater {
         final byte b = byteArrayReader.peakByte();
         final Operation.Type type = Operation.Type.getType(b);
         if (type == null) {
-            Logger.log("Unknown Operation Type: 0x"+ HexUtil.toHexString(new byte[]{ b }));
+            Logger.debug("Unknown Operation Type: 0x"+ HexUtil.toHexString(new byte[]{ b }));
             return null;
         }
 
@@ -33,7 +33,7 @@ public class OperationInflater {
             case OP_INVALID:        { operation = InvalidOperation.fromBytes(byteArrayReader, false); }  break;
             case OP_BITWISE:        { operation = BitwiseOperation.fromBytes(byteArrayReader); }                    break;
             default: {
-                Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
+                Logger.debug("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
                 operation = null;
             }
         }

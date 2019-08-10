@@ -27,7 +27,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -192,10 +192,10 @@ public class AddressProcessor extends SleepyService {
             TransactionUtil.commitTransaction(databaseConnection);
             processTimer.stop();
 
-            Logger.log("Processed " + lockingScriptCount + " LockingScript Addresses in " + processTimer.getMillisecondsElapsed() + "ms.");
+            Logger.info("Processed " + lockingScriptCount + " LockingScript Addresses in " + processTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
 

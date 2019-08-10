@@ -1,6 +1,6 @@
 package com.softwareverde.concurrent.service;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public abstract class SleepyService {
     public enum Status {
@@ -44,13 +44,13 @@ public abstract class SleepyService {
                             }
                         }
                         catch (final Exception exception) {
-                            Logger.log(exception);
+                            Logger.warn(exception);
                             break;
                         }
                     }
                 }
                 catch (final Exception exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                 }
                 _onSleep();
             }
@@ -94,8 +94,7 @@ public abstract class SleepyService {
                         _loop();
                     }
                     catch (final Exception exception) {
-                        Logger.log("Exception encountered in " + this.getClass().getSimpleName());
-                        Logger.log(exception);
+                        Logger.warn("Exception encountered in " + this.getClass().getSimpleName(), exception);
 
                         if (! thread.isInterrupted()) {
                             try {

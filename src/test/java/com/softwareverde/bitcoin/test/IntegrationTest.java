@@ -12,13 +12,13 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 
 import java.sql.Connection;
 
-public class IntegrationTest {
+public class IntegrationTest extends Test {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
     protected static final Boolean _nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
     protected static Boolean _nativeCacheWasInitialized = false;
@@ -64,7 +64,7 @@ public class IntegrationTest {
                 _nativeCacheWasInitialized = true;
             }
             else {
-                Logger.log("NOTICE: NativeUtxoCache not enabled.");
+                Logger.info("NOTICE: NativeUtxoCache not enabled.");
             }
         }
         catch (final Exception exception) {

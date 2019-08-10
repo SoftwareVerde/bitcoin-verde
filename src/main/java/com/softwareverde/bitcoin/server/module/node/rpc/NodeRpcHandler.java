@@ -26,8 +26,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -1076,7 +1076,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
                         }
                     }
                 }
@@ -1170,7 +1170,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
                         }
                     }
                 }

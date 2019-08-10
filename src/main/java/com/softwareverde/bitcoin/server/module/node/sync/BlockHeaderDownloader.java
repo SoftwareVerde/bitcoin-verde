@@ -19,7 +19,7 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -69,7 +69,7 @@ public class BlockHeaderDownloader extends SleepyService {
             return _hasGenesisBlock;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
     }
@@ -87,7 +87,7 @@ public class BlockHeaderDownloader extends SleepyService {
             @Override
             public void onResult(final Block block) {
                 final Sha256Hash blockHash = block.getHash();
-                Logger.log("GENESIS RECEIVED: " + blockHash);
+                Logger.trace("GENESIS RECEIVED: " + blockHash);
                 if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
 
                 try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -97,7 +97,7 @@ public class BlockHeaderDownloader extends SleepyService {
                         return;
                     }
 
-                    Logger.log("GENESIS STORED: " + block.getHash());
+                    Logger.trace("GENESIS STORED: " + block.getHash());
 
                     synchronized (_genesisBlockPin) {
                         _hasGenesisBlock = true;
@@ -105,7 +105,7 @@ public class BlockHeaderDownloader extends SleepyService {
                     }
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     _threadPool.execute(retry);
                 }
             }
@@ -121,7 +121,7 @@ public class BlockHeaderDownloader extends SleepyService {
         final Sha256Hash blockHash = blockHeader.getHash();
 
         if (! blockHeader.isValid()) {
-            Logger.log("Invalid BlockHeader: " + blockHash);
+            Logger.info("Invalid BlockHeader: " + blockHash);
             return false;
         }
 
@@ -134,14 +134,14 @@ public class BlockHeaderDownloader extends SleepyService {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
             if (blockId == null) {
-                Logger.log("Error storing BlockHeader: " + blockHash);
+                Logger.info("Error storing BlockHeader: " + blockHash);
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }
 
             final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockValidator.validateBlockHeader(blockHeader);
             if (! blockHeaderValidationResponse.isValid) {
-                Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
+                Logger.info("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }
@@ -219,7 +219,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
             final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockValidator.validateBlockHeaders(batchedBlockHeaders);
             if (! blockHeaderValidationResponse.isValid) {
-                Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage);
+                Logger.info("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage);
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }
@@ -239,7 +239,7 @@ public class BlockHeaderDownloader extends SleepyService {
         storeHeadersTimer.start();
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
+        Logger.debug("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager);
@@ -267,13 +267,12 @@ public class BlockHeaderDownloader extends SleepyService {
             _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
-            Logger.log("Processing BlockHeaders failed.");
+            Logger.warn("Processing BlockHeaders failed.", exception);
             return;
         }
 
         storeHeadersTimer.stop();
-        Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
+        Logger.info("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
     public BlockHeaderDownloader(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager nodeManager, final BlockValidatorFactory blockValidatorFactory, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
@@ -337,7 +336,7 @@ public class BlockHeaderDownloader extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             _lastBlockHash = Util.coalesce(_lastBlockHash, Block.GENESIS_BLOCK_HASH);
         }
 

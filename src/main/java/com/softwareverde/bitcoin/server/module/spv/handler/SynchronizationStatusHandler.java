@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class SynchronizationStatusHandler implements SynchronizationStatus {
@@ -22,7 +22,7 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
     }
 
     public void setState(final State state) {
-        Logger.log("Synchronization State: " + state);
+        Logger.debug("Synchronization State: " + state);
         _state = state;
     }
 
@@ -55,7 +55,7 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
             return (secondsBehind < (24 * secondsInAnHour));
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
     }
@@ -71,7 +71,7 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
             return blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return 0L;
         }
     }

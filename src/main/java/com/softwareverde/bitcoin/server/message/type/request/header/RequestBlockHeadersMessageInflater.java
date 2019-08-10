@@ -26,7 +26,7 @@ public class RequestBlockHeadersMessageInflater extends BitcoinProtocolMessageIn
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
-        for (int i=0; i<blockHeaderCount; ++i) {
+        for (int i = 0; i < blockHeaderCount; ++i) {
             final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
             requestBlockHeadersMessage._blockHeaderHashes.add(MutableSha256Hash.wrap(blockHeaderHashBytes));
         }

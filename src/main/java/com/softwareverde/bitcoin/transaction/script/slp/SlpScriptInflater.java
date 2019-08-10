@@ -47,6 +47,15 @@ public class SlpScriptInflater {
 
                 final int opcodeByte = ByteUtil.byteToInteger(pushOperation.getOpcodeByte());
                 if ( (opcodeByte < 0x01) || (opcodeByte > 0x4E) ) { return false; }
+
+                if (i == 1) {
+                    if (! Util.areEqual(SlpScriptType.LOKAD_ID, pushOperation.getValue())) { return false; }
+                }
+                else if (i == 2) {
+                    final Long bigEndianLongValue = ByteUtil.bytesToLong(pushOperation.getValue());
+                    final Long expectedValue = ByteUtil.bytesToLong(SlpScriptType.TOKEN_TYPE);
+                    if (! Util.areEqual(SlpScriptType.TOKEN_TYPE, pushOperation.getValue())) { return false; }
+                }
             }
         }
 

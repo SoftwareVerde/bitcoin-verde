@@ -17,8 +17,10 @@ import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.io.Logger;
 import com.softwareverde.jocl.JoclGpuSha256;
+import com.softwareverde.logging.LineNumberAnnotatedLog;
+import com.softwareverde.logging.LogLevel;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
@@ -42,6 +44,9 @@ public class Main {
     }
 
     public static void main(final String[] commandLineArguments) {
+        Logger.LOG = LineNumberAnnotatedLog.getBufferedInstance();
+        Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
+
         final Main application = new Main(commandLineArguments);
         application.run();
     }
@@ -185,11 +190,11 @@ public class Main {
                     }
                 });
                 if (database == null) {
-                    Logger.log("Error initializing database.");
+                    Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                     throw new RuntimeException("");
                 }
-                Logger.log("[Database Online]");
+                Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
                 final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
@@ -199,7 +204,7 @@ public class Main {
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "EXPLORER": {
@@ -225,14 +230,14 @@ public class Main {
                     break;
                 }
 
-                final String configurationFilenamr = _arguments[1];
-                final Configuration configuration = _loadConfigurationFile(configurationFilenamr);
+                final String configurationFilename = _arguments[1];
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final WalletProperties walletProperties = configuration.getWalletProperties();
                 final WalletModule walletModule = new WalletModule(walletProperties);
                 walletModule.start();
                 walletModule.loop();
                 walletModule.stop();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "VALIDATE": {
@@ -251,10 +256,10 @@ public class Main {
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
-                    Logger.log("Error initializing database.");
+                    Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
-                Logger.log("[Database Online]");
+                Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
                 final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
@@ -264,7 +269,7 @@ public class Main {
 
                 final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash, blockValidatorFactory);
                 chainValidationModule.run();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "REPAIR": {
@@ -287,10 +292,10 @@ public class Main {
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
-                    Logger.log("Error initializing database.");
+                    Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
-                Logger.log("[Database Online]");
+                Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
                 final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
@@ -299,7 +304,7 @@ public class Main {
 
                 final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);
                 repairModule.run();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "STRATUM": {
@@ -316,16 +321,16 @@ public class Main {
                 final DatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
                 if (database == null) {
-                    Logger.log("Error initializing database.");
+                    Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
-                Logger.log("[Database Online]");
+                Logger.info("[Database Online]");
 
                 final Environment environment = new Environment(database, null);
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
                 stratumModule.loop();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "PROXY": {
@@ -342,7 +347,7 @@ public class Main {
                 final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
                 final ProxyModule proxyModule = new ProxyModule(proxyProperties, stratumProperties, explorerProperties);
                 proxyModule.loop();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "DATABASE": {
@@ -359,20 +364,20 @@ public class Main {
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
-                    Logger.log("Error initializing database.");
+                    Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
-                Logger.log("[Database Online]");
+                Logger.info("[Database Online]");
 
                 final Environment environment = new Environment(database, null);
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "ADDRESS": {
                 AddressModule.execute();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             case "MINER": {
@@ -389,7 +394,7 @@ public class Main {
                 final GpuSha256 gpuSha256 = JoclGpuSha256.getInstance();
                 final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount, gpuSha256);
                 minerModule.run();
-                Logger.shutdown();
+                Logger.flush();
             } break;
 
             default: {

@@ -17,7 +17,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 /**
  * NOTE: It seems that all values within Bitcoin Core scripts are stored as little-endian.
@@ -96,7 +96,7 @@ public class ScriptRunner {
                 }
             }
             catch (final Exception exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return false;
             }
 
@@ -149,7 +149,7 @@ public class ScriptRunner {
                     }
                 }
                 catch (final Exception exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     return false;
                 }
 

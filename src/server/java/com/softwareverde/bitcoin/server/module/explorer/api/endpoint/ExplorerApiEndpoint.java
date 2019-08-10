@@ -9,7 +9,7 @@ import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.net.Socket;
 
@@ -35,7 +35,7 @@ public abstract class ExplorerApiEndpoint implements Servlet {
             }
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;
@@ -52,7 +52,7 @@ public abstract class ExplorerApiEndpoint implements Servlet {
             }
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;
@@ -64,7 +64,7 @@ public abstract class ExplorerApiEndpoint implements Servlet {
             return this._onRequest(request);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "An internal error occurred."));

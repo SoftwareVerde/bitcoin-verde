@@ -15,7 +15,7 @@ import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.servlet.AuthenticatedServlet;
 
 public class PayoutAddressApi extends AuthenticatedServlet {
@@ -45,7 +45,7 @@ public class PayoutAddressApi extends AuthenticatedServlet {
                 return new JsonResponse(Response.Codes.OK, apiResult);
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }
@@ -76,7 +76,7 @@ public class PayoutAddressApi extends AuthenticatedServlet {
                 return new JsonResponse(Response.Codes.OK, new StratumApiResult(true, null));
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }

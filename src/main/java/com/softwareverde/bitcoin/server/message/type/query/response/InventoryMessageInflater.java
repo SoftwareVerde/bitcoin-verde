@@ -22,7 +22,7 @@ public class InventoryMessageInflater extends BitcoinProtocolMessageInflater {
         if (protocolMessageHeader == null) { return null; }
 
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
-        for (int i=0; i<inventoryCount; ++i) {
+        for (int i = 0; i < inventoryCount; ++i) {
             final Integer inventoryTypeCode = byteArrayReader.readInteger(4, Endian.LITTLE);
             final Sha256Hash objectHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(HASH_BYTE_COUNT, Endian.LITTLE));
 

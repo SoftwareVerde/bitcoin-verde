@@ -1,11 +1,12 @@
 package com.softwareverde.bitcoin.server.module.stratum.api;
 
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HashUtil;
 
@@ -25,7 +26,7 @@ public class Account implements Jsonable {
      * @param id                    - The id of the Account. Returns null if the id is null or equal to zero.
      * @param databaseConnection    - May be null if the id exists in the cache.
      */
-    synchronized public static Account loadAccount(final Long id, final MysqlDatabaseConnection databaseConnection) {
+    public synchronized static Account loadAccount(final Long id, final MysqlDatabaseConnection databaseConnection) {
         if ((id == null) || (id == 0)) { return null; }
 
         if (_cachedAccounts.containsKey(id)) {
@@ -35,10 +36,13 @@ public class Account implements Jsonable {
 
         final List<Row> rows;
         try {
-            rows = databaseConnection.query("SELECT * FROM accounts WHERE id = ?", new String[]{id.toString()});
+            rows = databaseConnection.query(
+                new Query("SELECT * FROM accounts WHERE id = ?")
+                    .setParameter(id)
+            );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
         if (rows.isEmpty()) { return null; }
@@ -67,10 +71,14 @@ public class Account implements Jsonable {
     public static Account loadAccount(final String email, final String password, final MysqlDatabaseConnection databaseConnection) {
         final List<Row> rows;
         try {
-            rows = databaseConnection.query("SELECT id FROM accounts WHERE email = ? AND password = ?", new String[]{email, Account.hashPassword(password)});
+            rows = databaseConnection.query(
+                new Query("SELECT id FROM accounts WHERE email = ? AND password = ?")
+                    .setParameter(email)
+                    .setParameter(Account.hashPassword(password))
+            );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
         if (rows.isEmpty()) { return null; }
@@ -88,10 +96,13 @@ public class Account implements Jsonable {
     public static Account loadAccount(final String email, final MysqlDatabaseConnection databaseConnection) {
         final List<Row> rows;
         try {
-            rows = databaseConnection.query("SELECT id FROM accounts WHERE email = ?", new String[]{email});
+            rows = databaseConnection.query(
+                new Query("SELECT id FROM accounts WHERE email = ?")
+                    .setParameter(email)
+            );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
 
@@ -110,10 +121,13 @@ public class Account implements Jsonable {
     public static Account loadAccountFromAuthorizationToken(final String authorizationToken, final MysqlDatabaseConnection databaseConnection) {
         final List<Row> rows;
         try {
-            rows = databaseConnection.query("SELECT id FROM accounts WHERE authorization_token = ?", new String[]{authorizationToken});
+            rows = databaseConnection.query(
+                new Query("SELECT id FROM accounts WHERE authorization_token = ?")
+                    .setParameter(authorizationToken)
+            );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
 
@@ -137,12 +151,13 @@ public class Account implements Jsonable {
         final Long accountId;
         try {
             accountId = databaseConnection.executeSql(
-                "INSERT INTO accounts (email, password) VALUES (?, ?)",
-                new String[]{email, Account.hashPassword(password)}
+                new Query("INSERT INTO accounts (email, password) VALUES (?, ?)")
+                    .setParameter(email)
+                    .setParameter(Account.hashPassword(password))
             );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
 
@@ -178,15 +193,13 @@ public class Account implements Jsonable {
     public void setLastActivity(final Long lastActivity, final MysqlDatabaseConnection databaseConnection) {
         try {
             databaseConnection.executeSql(
-                "UPDATE accounts SET last_activity = ? WHERE id = ?",
-                new String[]{
-                    (lastActivity != null ? lastActivity.toString() : null),
-                    _id.toString()
-                }
+                new Query("UPDATE accounts SET last_activity = ? WHERE id = ?")
+                    .setParameter(lastActivity)
+                    .setParameter(_id)
             );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
         _lastActivity = lastActivity;
     }
@@ -194,15 +207,13 @@ public class Account implements Jsonable {
     public void setAuthorizationToken(final String authorizationToken, final MysqlDatabaseConnection databaseConnection) {
         try {
             databaseConnection.executeSql(
-                "UPDATE accounts SET authorization_token = ? WHERE id = ?",
-                new String[]{
-                    authorizationToken,
-                    _id.toString()
-                }
+                new Query("UPDATE accounts SET authorization_token = ? WHERE id = ?")
+                    .setParameter(authorizationToken)
+                    .setParameter(_id)
             );
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
         _authorizationToken = authorizationToken;
     }

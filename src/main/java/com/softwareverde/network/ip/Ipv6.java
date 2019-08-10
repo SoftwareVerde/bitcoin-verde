@@ -61,15 +61,15 @@ public class Ipv6 implements Ip {
                     final Boolean containsTooManySegments = ((firstHalfSegments.length + secondHalfSegments.length) >= 8);
                     if (containsTooManySegments) { return null; }
 
-                    for (int i=0; i < firstHalfSegments.length; ++i) {
+                    for (int i = 0; i < firstHalfSegments.length; ++i) {
                         ipSegmentStrings[i] = firstHalfSegments[i];
                     }
 
-                    for (int i=0; i < (8 - firstHalfSegments.length - secondHalfSegments.length); ++i) {
+                    for (int i = 0; i < (8 - firstHalfSegments.length - secondHalfSegments.length); ++i) {
                         ipSegmentStrings[firstHalfSegments.length + i] = "0";
                     }
 
-                    for (int i=0; i < secondHalfSegments.length; ++i) {
+                    for (int i = 0; i < secondHalfSegments.length; ++i) {
                         ipSegmentStrings[(ipSegmentStrings.length - i) - 1] = secondHalfSegments[(secondHalfSegments.length - i) - 1];
                     }
                 }

@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
@@ -34,7 +34,7 @@ public class InvalidOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        Logger.log("NOTICE: Attempted to execute an unknown opcode: 0x" + HexUtil.toHexString(new byte[] { _opcodeByte }));
+        Logger.debug("NOTICE: Attempted to execute an unknown opcode: 0x" + HexUtil.toHexString(new byte[] { _opcodeByte }));
         return false;
     }
 

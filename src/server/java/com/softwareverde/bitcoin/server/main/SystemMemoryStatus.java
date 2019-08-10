@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.sun.management.OperatingSystemMXBean;
 
 import java.lang.management.ManagementFactory;
@@ -51,6 +51,6 @@ public class SystemMemoryStatus implements MemoryStatus {
 
     @Override
     public void logCurrentMemoryUsage() {
-        Logger.log("Current System Memory Usage : " + _operatingSystem.getFreePhysicalMemorySize() + " bytes | MAX=" + _calculateMaxMemory());
+        Logger.info("Current System Memory Usage : " + _operatingSystem.getFreePhysicalMemorySize() + " bytes | MAX=" + _calculateMaxMemory());
     }
 }

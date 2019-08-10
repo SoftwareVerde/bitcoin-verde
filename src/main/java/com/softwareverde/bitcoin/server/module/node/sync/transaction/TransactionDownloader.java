@@ -14,7 +14,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -56,7 +56,7 @@ public class TransactionDownloader extends SleepyService {
             pendingTransactionDatabaseManager.purgeFailedPendingTransactions(MAX_DOWNLOAD_FAILURE_COUNT);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
@@ -82,7 +82,7 @@ public class TransactionDownloader extends SleepyService {
 
         if (! stalledTransactionHashes.isEmpty()) {
             for (final Sha256Hash stalledTransactionHash : stalledTransactionHashes) {
-                Logger.log("Stalled Transaction Detected: " + stalledTransactionHash);
+                Logger.warn("Stalled Transaction Detected: " + stalledTransactionHash);
                 _currentTransactionDownloadSet.remove(stalledTransactionHash);
             }
             _transactionDownloadedCallback.onFailure(stalledTransactionHashes);
@@ -111,7 +111,7 @@ public class TransactionDownloader extends SleepyService {
                     catch (final InterruptedException exception) { return false; }
 
                     if (waitTimer.getMillisecondsElapsed() > MAX_TIMEOUT) {
-                        Logger.log("NOTICE: Transaction download stalled.");
+                        Logger.warn("Transaction download stalled.");
                         _markPendingTransactionIdsAsFailed(_currentTransactionDownloadSet.keySet());
                         _currentTransactionDownloadSet.clear();
                         return false;
@@ -168,7 +168,7 @@ public class TransactionDownloader extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
 
@@ -189,7 +189,7 @@ public class TransactionDownloader extends SleepyService {
                     _onTransactionDownloaded(transaction, databaseManager);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     return;
                 }
                 finally {
@@ -201,7 +201,7 @@ public class TransactionDownloader extends SleepyService {
                         timer.stop();
                     }
 
-                    Logger.log("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+                    Logger.info("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
                     synchronized (_downloadCallbackPin) {
                         _downloadCallbackPin.notifyAll();
@@ -222,7 +222,7 @@ public class TransactionDownloader extends SleepyService {
                     for (final Sha256Hash transactionHash : transactionHashes) {
                         final PendingTransactionId pendingTransactionId = pendingTransactionDatabaseManager.getPendingTransactionId(transactionHash);
                         if (pendingTransactionId == null) {
-                            Logger.log("Unable to increment download failure count for transaction: " + transactionHash);
+                            Logger.warn("Unable to increment download failure count for transaction: " + transactionHash);
                             return;
                         }
 
@@ -232,8 +232,8 @@ public class TransactionDownloader extends SleepyService {
                     pendingTransactionDatabaseManager.purgeFailedPendingTransactions(MAX_DOWNLOAD_FAILURE_COUNT);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                    Logger.log("Unable to increment download failure count for transactions...");
+                    Logger.warn(exception);
+                    Logger.warn("Unable to increment download failure count for transactions...");
                 }
                 finally {
                     for (final Sha256Hash transactionHash : transactionHashes) {
@@ -255,10 +255,10 @@ public class TransactionDownloader extends SleepyService {
     public void submitTransaction(final Transaction transaction) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _onTransactionDownloaded(transaction, databaseManager);
-            Logger.log("Transaction submitted: " + transaction.getHash());
+            Logger.info("Transaction submitted: " + transaction.getHash());
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return;
         }
 

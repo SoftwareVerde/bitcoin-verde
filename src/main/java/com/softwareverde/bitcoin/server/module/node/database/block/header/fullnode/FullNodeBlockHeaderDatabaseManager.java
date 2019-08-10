@@ -27,7 +27,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -176,7 +176,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
             final Sha256Hash expectedHash = Sha256Hash.fromHexString(row.getString("hash"));
             final Sha256Hash actualHash = blockHeader.getHash();
             if (! Util.areEqual(expectedHash, actualHash)) {
-                Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
+                Logger.warn("Unable to inflate block: " + blockHeader.getHash());
                 return null;
             }
         }
@@ -266,7 +266,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
             final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-            for (int i=batchStartIndex; i < (batchStartIndex + batchSize); i++) {
+            for (int i = batchStartIndex; i < (batchStartIndex + batchSize); i++) {
                 final BlockHeader blockHeader = blockHeaders.get(i);
 
                 long blockHeight = (previousBlockId == null ? 0 : (previousBlockHeight + 1L));

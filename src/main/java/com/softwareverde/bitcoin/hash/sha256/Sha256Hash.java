@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.hash.sha256;
 
 import com.softwareverde.bitcoin.hash.Hash;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
@@ -27,7 +27,7 @@ public interface Sha256Hash extends Hash, Comparable<Sha256Hash> {
 
         final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
         if (hashBytes == null) {
-            Logger.log("NOTICE: Unable to parse hash from string. Invalid hex string: "+ hexString);
+            Logger.warn("NOTICE: Unable to parse hash from string. Invalid hex string: "+ hexString);
             return null;
         }
         if (hashBytes.length != BYTE_COUNT) { return null; }

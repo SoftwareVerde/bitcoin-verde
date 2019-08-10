@@ -6,7 +6,7 @@ import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.servlet.session.SessionManager;
 
 public abstract class StratumApiEndpoint implements Servlet {
@@ -26,7 +26,7 @@ public abstract class StratumApiEndpoint implements Servlet {
             return this._onRequest(request);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "An internal error occurred."));

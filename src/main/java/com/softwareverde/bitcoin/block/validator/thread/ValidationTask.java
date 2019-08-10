@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -65,7 +65,7 @@ class ValidationTask<T, S> implements Runnable {
             }
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.debug(exception);
             _didEncounterError.value = true;
         }
         finally {
@@ -75,7 +75,7 @@ class ValidationTask<T, S> implements Runnable {
             }
 
             batchTimer.stop();
-            Logger.log(_name + " completed batch. " + _startIndex + " - " + (_startIndex + _itemCount - 1) + ". " + _itemCount + " in " + batchTimer.getMillisecondsElapsed() + "ms.");
+            Logger.info(_name + " completed batch. " + _startIndex + " - " + (_startIndex + _itemCount - 1) + ". " + _itemCount + " in " + batchTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 
@@ -88,7 +88,7 @@ class ValidationTask<T, S> implements Runnable {
                     _isFinished.wait();
                 }
                 catch (final Exception exception) {
-                    Logger.log(exception);
+                    Logger.trace(exception);
 
                     final Thread currentThread = Thread.currentThread();
                     currentThread.interrupt(); // Do not consume the interrupted status...

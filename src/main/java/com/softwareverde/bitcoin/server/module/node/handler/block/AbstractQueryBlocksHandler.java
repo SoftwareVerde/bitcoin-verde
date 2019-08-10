@@ -12,7 +12,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
@@ -111,7 +111,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
         }
 
         if ( (blockchainSegmentId == null) || (startingBlockId == null) ) {
-            Logger.log("QueryBlocksHandler._getStartingBlock: " + blockchainSegmentId + " " + startingBlockId);
+            Logger.debug("QueryBlocksHandler.getStartingBlock: " + blockchainSegmentId + " " + startingBlockId);
             return null;
         }
 

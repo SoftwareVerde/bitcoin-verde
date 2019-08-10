@@ -24,8 +24,8 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
@@ -85,7 +85,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                         previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
 
                         if (previousTransactionOutputId == null) {
-                            Logger.log("NOTICE: Error calculating fee for Transaction: " + transactionHashString);
+                            Logger.warn("Error calculating fee for Transaction: " + transactionHashString);
                         }
                     }
                     else {
@@ -162,7 +162,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             _addMetadataForBlockHeaderToJson(blockHash, blockJson, databaseManager);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
@@ -172,7 +172,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             _addMetadataForTransactionToJson(transaction, transactionJson, databaseManager);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 }

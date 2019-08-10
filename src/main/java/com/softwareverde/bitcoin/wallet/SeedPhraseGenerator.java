@@ -8,7 +8,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -84,7 +84,7 @@ public class SeedPhraseGenerator {
             }
             final ByteArray seedWordIndexBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(index));
             final int seedWordIndexBitCount = seedWordIndexBytes.getByteCount() * 8;
-            for (int i= 10; i >= 0; --i) {
+            for (int i = 10; i >= 0; --i) {
                 final boolean seedWordBitIsSet = seedWordIndexBytes.getBit(seedWordIndexBitCount - 1 - i);
                 byteArray.setBit(runningBitIndex, seedWordBitIsSet);
                 runningBitIndex++;
@@ -169,7 +169,7 @@ public class SeedPhraseGenerator {
             return _fromSeedPhrase(expectedSeedPhrase);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }

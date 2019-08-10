@@ -23,7 +23,7 @@ import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
@@ -63,15 +63,15 @@ public class StratumModule {
                     final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
                     final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
                     if (workerId == null) {
-                        Logger.log("NOTICE: Unknown worker: " + workerUsername);
+                        Logger.debug("Unknown worker: " + workerUsername);
                     }
                     else {
                         accountDatabaseManager.addWorkerShare(workerId, shareDifficulty);
-                        Logger.log("Added worker share: " + workerUsername + " " + shareDifficulty);
+                        Logger.debug("Added worker share: " + workerUsername + " " + shareDifficulty);
                     }
                 }
                 catch (final DatabaseException databaseException) {
-                    Logger.log("NOTICE: Unable to add worker share.");
+                    Logger.warn("Unable to add worker share: " + workerUsername + " " + shareDifficulty, databaseException);
                 }
             }
         });

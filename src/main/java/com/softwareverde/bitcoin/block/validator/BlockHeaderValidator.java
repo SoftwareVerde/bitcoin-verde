@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
 
@@ -52,7 +52,7 @@ public class BlockHeaderValidator {
             return (blockTime >= minimumTimeInSeconds);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
     }
@@ -80,7 +80,7 @@ public class BlockHeaderValidator {
             if (blockTime < minimumTimeInSeconds) {
                 final Boolean blockHeaderIsValidOnAlternateChain = _validateBlockTimeForAlternateChain(blockHeader);
                 if (blockHeaderIsValidOnAlternateChain) {
-                    Logger.log("INFO: Allowing header with timestamp from alternate chain.");
+                    Logger.info("Allowing header with timestamp from alternate chain.");
                 }
                 else {
                     return BlockHeaderValidationResponse.invalid("Invalid block. Header invalid. BlockTime < MedianBlockTime. BlockTime: " + blockTime + " Minimum: " + minimumTimeInSeconds);
@@ -123,7 +123,7 @@ public class BlockHeaderValidator {
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return BlockHeaderValidationResponse.invalid("An internal error occurred.");
         }
 

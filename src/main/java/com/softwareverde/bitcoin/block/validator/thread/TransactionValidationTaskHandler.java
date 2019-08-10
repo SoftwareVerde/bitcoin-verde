@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFacto
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
 public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
@@ -75,7 +75,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
             try {
                 inputsAreUnlocked = _transactionValidator.validateTransaction(_blockchainSegmentId, _blockHeight, transaction, false);
             }
-            catch (final Exception exception) { Logger.log(exception); }
+            catch (final Exception exception) { Logger.warn(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;
         }
 

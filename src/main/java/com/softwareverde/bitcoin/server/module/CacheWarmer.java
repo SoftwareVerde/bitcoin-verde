@@ -12,7 +12,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -74,7 +74,7 @@ public class CacheWarmer {
                     }
 
                     nanoTimer.stop();
-                    Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + cachedCount + " of " + maxUtxoCount + ") (" + (cachedCount / maxUtxoCount.floatValue() * 100.0F) + "%) (" + nanoTimer.getMillisecondsElapsed() + "ms)");
+                    Logger.debug("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + cachedCount + " of " + maxUtxoCount + ") (" + (cachedCount / maxUtxoCount.floatValue() * 100.0F) + "%) (" + nanoTimer.getMillisecondsElapsed() + "ms)");
                 }
             }
 
@@ -82,7 +82,7 @@ public class CacheWarmer {
             masterDatabaseManagerCache.commit();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.error(exception);
             BitcoinUtil.exitFailure();
         }
     }

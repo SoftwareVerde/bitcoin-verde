@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.database.cache.conscientious;
 import com.softwareverde.bitcoin.server.database.cache.MutableCache;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class MemoryConscientiousMutableCache<T, S> implements MutableCache<T, S> {
 
@@ -12,7 +12,7 @@ public class MemoryConscientiousMutableCache<T, S> implements MutableCache<T, S>
     protected final MutableCache<T, S> _cache;
 
     protected void _pruneHalf() {
-        Logger.log("NOTICE: Pruning cache by half: " + _cache.toString() + " (" + _memoryStatus.getMemoryUsedPercent() + " / " + _memoryPercentThreshold + ")");
+        Logger.debug("Pruning cache by half: " + _cache.toString() + " (" + _memoryStatus.getMemoryUsedPercent() + " / " + _memoryPercentThreshold + ")");
         _memoryStatus.logCurrentMemoryUsage();
 
         boolean shouldPrune = true;

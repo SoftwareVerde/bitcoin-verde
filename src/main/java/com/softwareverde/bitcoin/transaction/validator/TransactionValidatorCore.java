@@ -36,7 +36,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -68,18 +68,18 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         synchronized (LOG_INVALID_TRANSACTION_MUTEX) {
             // NOTE: These logging statements are synchronized since Transaction validation is multithreaded, and it is possible to have these log statements intermingle if multiple errors are found...
-            Logger.log("\n------------");
-            Logger.log("Tx Hash:\t\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
-            Logger.log("Tx Bytes:\t\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
-            Logger.log("Tx Input:\t\t\t" + (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
-            Logger.log("Tx Output:\t\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
-            Logger.log("Block Height:\t\t" + context.getBlockHeight());
-            Logger.log("Tx Input Index\t\t" + transactionInputIndex);
-            Logger.log("Locking Script:\t\t" + lockingScript);
-            Logger.log("Unlocking Script:\t\t" + unlockingScript);
-            Logger.log("Median Block Time:\t\t" + _medianBlockTime.getCurrentTimeInSeconds());
-            Logger.log("Network Time:\t\t" + _networkTime.getCurrentTimeInSeconds());
-            Logger.log("\n------------\n");
+            Logger.debug("\n------------");
+            Logger.debug("Tx Hash:\t\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
+            Logger.debug("Tx Bytes:\t\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
+            Logger.debug("Tx Input:\t\t\t" + (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
+            Logger.debug("Tx Output:\t\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
+            Logger.debug("Block Height:\t\t" + context.getBlockHeight());
+            Logger.debug("Tx Input Index\t\t" + transactionInputIndex);
+            Logger.debug("Locking Script:\t\t" + lockingScript);
+            Logger.debug("Unlocking Script:\t\t" + unlockingScript);
+            Logger.debug("Median Block Time:\t\t" + _medianBlockTime.getCurrentTimeInSeconds());
+            Logger.debug("Network Time:\t\t" + _networkTime.getCurrentTimeInSeconds());
+            Logger.debug("\n------------\n");
         }
     }
 
@@ -159,7 +159,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     final boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
                     if (! sequenceNumberIsValid) {
                         if (_shouldLogInvalidTransactions) {
-                            Logger.log("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
+                            Logger.debug("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
                         }
                         return false;
                     }
@@ -172,7 +172,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     final boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
                     if (! sequenceNumberIsValid) {
                         if (_shouldLogInvalidTransactions) {
-                            Logger.log("(BlockHeight) Sequence Number Invalid: " + blockCount + " >= " + requiredBlockCount);
+                            Logger.debug("(BlockHeight) Sequence Number Invalid: " + blockCount + " >= " + requiredBlockCount);
                         }
                         return false;
                     }
@@ -257,7 +257,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     }
 
     protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
-        Logger.log("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
+        Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
     @Override
@@ -281,7 +281,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
                 if (transactionByteCount < 100) {
                     if (_shouldLogInvalidTransactions) {
-                        Logger.log("Invalid Transaction Byte Count: " + transactionByteCount + " " + transactionHash);
+                        Logger.debug("Invalid Transaction Byte Count: " + transactionByteCount + " " + transactionHash);
                     }
                     return false;
                 }
@@ -294,7 +294,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final Boolean lockTimeIsValid = _validateTransactionLockTime(context);
                 if (! lockTimeIsValid) {
                     if (_shouldLogInvalidTransactions) {
-                        Logger.log("Invalid LockTime for Tx.");
+                        Logger.debug("Invalid LockTime for Tx.");
                     }
                     _logInvalidTransaction(transaction, context);
                     return false;
@@ -308,14 +308,14 @@ public class TransactionValidatorCore implements TransactionValidator {
                     final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockchainSegmentId, transaction, blockHeight, validateForMemoryPool);
                     if (! sequenceNumbersAreValid) {
                         if (_shouldLogInvalidTransactions) {
-                            Logger.log("Transaction SequenceNumber validation failed.");
+                            Logger.debug("Transaction SequenceNumber validation failed.");
                         }
                         _logInvalidTransaction(transaction, context);
                         return false;
                     }
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     _logInvalidTransaction(transaction, context);
                     return false;
                 }
@@ -326,7 +326,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         try {
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) {
-                Logger.log("Could not find transaction: " + transactionHash);
+                Logger.debug("Could not find transaction: " + transactionHash);
                 return false;
             }
 
@@ -336,7 +336,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
             if (transactionInputs.isEmpty()) {
                 if (_shouldLogInvalidTransactions) {
-                    Logger.log("Invalid Transaction (No Inputs) " + transactionHash);
+                    Logger.debug("Invalid Transaction (No Inputs) " + transactionHash);
                 }
                 return false;
             }
@@ -361,7 +361,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                         final Long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
                         if (coinbaseMaturity <= COINBASE_MATURITY) {
                             if (_shouldLogInvalidTransactions) {
-                                Logger.log("Invalid Transaction. Attempted to spend coinbase before maturity." + transactionHash);
+                                Logger.debug("Invalid Transaction. Attempted to spend coinbase before maturity." + transactionHash);
                             }
                             return false;
                         }
@@ -393,7 +393,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     // TODO: The logic currently implemented would allow for duplicate transactions to be spent (which is partially against BIP30 and is definitely counter to how the reference client handles it).  What consensus considers "correct" is that the first duplicate becomes unspendable.
                     if (outputBeingSpentSpendCount >= outputBeingSpentMinedCount) {
                         if (_shouldLogInvalidTransactions) {
-                            Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " Mined Count: " + outputBeingSpentMinedCount + " | Spend Count: " + outputBeingSpentSpendCount);
+                            Logger.debug("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " Mined Count: " + outputBeingSpentMinedCount + " | Spend Count: " + outputBeingSpentSpendCount);
                         }
                         return false;
                     }
@@ -413,7 +413,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
                 if (! inputIsUnlocked) {
                     if (_shouldLogInvalidTransactions) {
-                        Logger.log("Transaction failed to verify: " + transactionHash);
+                        Logger.debug("Transaction failed to verify: " + transactionHash);
                     }
                     _logInvalidTransaction(transaction, context);
                     return false;
@@ -423,7 +423,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             totalTransactionInputValue = totalInputValue;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
 
@@ -433,14 +433,14 @@ public class TransactionValidatorCore implements TransactionValidator {
                 long totalOutputValue = 0L;
                 final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
                 if (transactionOutputs.isEmpty()) {
-                    Logger.log("Transaction contains no outputs: " + transaction.getHash());
+                    Logger.debug("Transaction contains no outputs: " + transaction.getHash());
                     return false;
                 }
 
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                     final Long transactionOutputAmount = transactionOutput.getAmount();
                     if (transactionOutputAmount < 0L) {
-                        Logger.log("TransactionOutput has negative amount: " + transaction.getHash());
+                        Logger.debug("TransactionOutput has negative amount: " + transaction.getHash());
                         return false;
                     }
                     totalOutputValue += transactionOutputAmount;
@@ -451,7 +451,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
 
             if (totalTransactionInputValue < totalTransactionOutputValue) {
-                Logger.log("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ") Tx: " + transactionHash);
+                Logger.debug("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ") Tx: " + transactionHash);
                 return false;
             }
         }

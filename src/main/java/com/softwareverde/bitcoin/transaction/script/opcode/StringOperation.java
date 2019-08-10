@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class StringOperation extends SubTypedOperation {
@@ -34,7 +34,7 @@ public class StringOperation extends SubTypedOperation {
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
 
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("Opcode is disabled: " + _opcode);
             return false;
         }
 
@@ -54,7 +54,7 @@ public class StringOperation extends SubTypedOperation {
                 //  multiple COPY_1ST STRING_CONCATENATE commands multiple times.  For instance, every 10 repetitions,
                 //  the memory usage increases 1024 times.
                 if (totalByteCount > MAX_BYTE_COUNT) {
-                    Logger.log("NOTICE: Max byte-count exceeded for Opcode: " + _opcode);
+                    Logger.debug("Max byte-count exceeded for Opcode: " + _opcode);
                     return false;
                 }
 
@@ -82,7 +82,7 @@ public class StringOperation extends SubTypedOperation {
                 final Integer index = beginIndexValue.asInteger();
 
                 if ( (index < 0) || (index > valueByteCount) ) {
-                    Logger.log("NOTICE: Index out of bounds for Opcode: " + _opcode);
+                    Logger.debug("Index out of bounds for Opcode: " + _opcode);
                     return false;
                 }
 

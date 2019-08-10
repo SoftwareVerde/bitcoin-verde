@@ -7,8 +7,8 @@ import com.softwareverde.http.server.servlet.WebSocketServlet;
 import com.softwareverde.http.server.servlet.request.WebSocketRequest;
 import com.softwareverde.http.server.servlet.response.WebSocketResponse;
 import com.softwareverde.http.websocket.WebSocket;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.RotatingQueue;
 
@@ -94,7 +94,7 @@ public class AnnouncementsApi implements WebSocketServlet {
                 }
             }
             catch (final Exception exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
             }
         }
     }

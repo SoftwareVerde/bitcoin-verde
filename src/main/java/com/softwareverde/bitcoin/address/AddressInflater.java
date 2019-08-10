@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -96,7 +96,7 @@ public class AddressInflater {
             }
             case PayToScriptHashAddress.PREFIX: { return new PayToScriptHashAddress(bytesWithoutPrefixAndWithoutChecksum); }
             default: {
-                Logger.log("NOTICE: Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
+                Logger.warn("Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
                 return null;
             }
         }

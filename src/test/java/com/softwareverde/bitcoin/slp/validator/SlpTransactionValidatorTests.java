@@ -1,19 +1,17 @@
 package com.softwareverde.bitcoin.slp.validator;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.FullNodeAddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessorTests;
-import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import org.junit.Assert;
 import org.junit.Test;
@@ -75,7 +73,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
                         return transactions;
                     }
                     catch (final DatabaseException databaseException) {
-                        Logger.log(databaseException);
+                        Logger.info(databaseException);
                         return null;
                     }
                 }
@@ -88,7 +86,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
 
                 try {
                     final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                    Logger.log(transactionHash + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
+                    Logger.info(transactionHash + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
                     Assert.assertEquals(slpValidityMap.get(transactionHash), isValid);
                 }
                 finally {

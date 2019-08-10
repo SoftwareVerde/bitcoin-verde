@@ -19,7 +19,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -213,7 +213,7 @@ public class PendingTransactionDatabaseManager {
         final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
-            Logger.log("Deleting Failed Pending Transaction: " + pendingTransactionId);
+            Logger.debug("Deleting Failed Pending Transaction: " + pendingTransactionId);
             pendingTransactionIds.add(pendingTransactionId);
         }
 
@@ -278,7 +278,7 @@ public class PendingTransactionDatabaseManager {
         final Transaction transaction = _transactionInflater.fromBytes(transactionData);
         if (transaction == null) {
             _deletePendingTransaction(pendingTransactionId);
-            Logger.log("NOTICE: Error inflating pending transaction: " + transactionHash + " " + transactionData);
+            Logger.warn("Error inflating pending transaction: " + transactionHash + " " + transactionData);
         }
 
         return transaction;

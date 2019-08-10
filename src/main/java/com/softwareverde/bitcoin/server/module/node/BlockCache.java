@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.io.File;
 
@@ -59,7 +59,7 @@ public class BlockCache {
             if (! directory.exists()) {
                 final Boolean mkdirSuccessful = directory.mkdirs();
                 if (! mkdirSuccessful) {
-                    Logger.log("Unable to create block cache directory: " + cacheDirectory);
+                    Logger.warn("Unable to create block cache directory: " + cacheDirectory);
                     return;
                 }
             }

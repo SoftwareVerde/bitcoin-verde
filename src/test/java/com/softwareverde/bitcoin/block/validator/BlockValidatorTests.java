@@ -49,7 +49,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
@@ -100,7 +100,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            for (int i=0; i<blockCount; ++i) {
+            for (int i = 0; i < blockCount; ++i) {
                 final Sha256Hash mostRecentBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
                 MutableBlock block;
 
@@ -959,7 +959,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory(coreDatabaseConnectionFactory) {
                 @Override
                 public DatabaseConnection newConnection() throws DatabaseException {
-                    // Logger.log(" ***** NEW CONNECTION *****");
+                    // Logger.info(" ***** NEW CONNECTION *****");
                     return new DatabaseConnectionWrapper(new MonitoredDatabaseConnection(coreDatabaseConnectionFactory.newConnection().getRawConnection()));
                 }
             };
@@ -1004,14 +1004,14 @@ public class BlockValidatorTests extends IntegrationTest {
 
             for (int j = 0; j < 6; ++j) {
                 final int threadCount = (int) Math.pow(2, j);
-                Logger.log("");
-                Logger.log("Validating Block w/ " + threadCount + " threads.");
+                Logger.info("");
+                Logger.info("Validating Block w/ " + threadCount + " threads.");
                 blockValidator.setMaxThreadCount(threadCount);
                 blockValidator.validateBlock(lastBlockId, lastBlock);
 
-                Logger.log("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
-                Logger.log("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
-                Logger.log("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
+                Logger.info("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
+                Logger.info("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
+                Logger.info("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
                 Assert.assertEquals(Integer.valueOf(0), databaseConnectionPool.getInUseConnectionCount());
             }
 

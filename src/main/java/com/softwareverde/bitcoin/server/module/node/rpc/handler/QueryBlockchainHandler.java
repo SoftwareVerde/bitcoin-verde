@@ -11,7 +11,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHandler {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
@@ -58,7 +58,7 @@ public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHan
             return blockchainMetadataList.build();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }

@@ -1,6 +1,6 @@
 package com.softwareverde.concurrent.pool;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -87,13 +87,13 @@ public class MainThreadPool implements ThreadPool {
                         runnable.run();
                     }
                     catch (final Exception exception) {
-                        Logger.log(exception);
+                        Logger.warn(exception);
                     }
                 }
             });
         }
         catch (final RejectedExecutionException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             // Execution rejected due to shutdown race condition...
         }
     }
@@ -126,7 +126,7 @@ public class MainThreadPool implements ThreadPool {
             executorService.shutdownNow(); // Cancel currently executing tasks...
             // Wait a while for tasks to respond to being cancelled...
             if (! executorService.awaitTermination(30, TimeUnit.SECONDS))
-                Logger.log("NOTICE: ThreadPool did not exit cleanly.");
+                Logger.warn("ThreadPool did not exit cleanly.");
             }
         }
         catch (final InterruptedException exception) {

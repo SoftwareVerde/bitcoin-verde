@@ -34,7 +34,7 @@ import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -123,11 +123,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                         BitcoinNodeManager.this.addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
-                        Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
+                        Logger.info("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
                     }
                 }
                 catch (final DatabaseException databaseException) {
-                    Logger.log(databaseException);
+                    Logger.warn(databaseException);
                 }
 
                 nextWait = Math.min((2L * nextWait), maxWait);
@@ -192,7 +192,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             bitcoinNode.transmitBlockFinder(blockFinderHashes);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
@@ -230,7 +230,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
         final Boolean blockchainIsSynchronized = _synchronizationStatusHandler.isBlockchainSynchronized();
         if (blockchainIsEnabled == null) {
-            Logger.log("NOTICE: Unable to determine feature for node: " + node.getConnectionString());
+            Logger.debug("Unable to determine feature for node: " + node.getConnectionString());
         }
 
         if ( (! Util.coalesce(blockchainIsEnabled, false)) && (! blockchainIsSynchronized) ) {
@@ -263,7 +263,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             nodeDatabaseManager.storeNode(bitcoinNode);
         }
         catch (final DatabaseException databaseException) {
-            Logger.log(databaseException);
+            Logger.warn(databaseException);
         }
     }
 
@@ -277,7 +277,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             nodeDatabaseManager.updateUserAgent(node);
         }
         catch (final DatabaseException databaseException) {
-            Logger.log(databaseException);
+            Logger.warn(databaseException);
         }
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
@@ -319,7 +319,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             @Override
             public void onFailure() {
                 final Sha256Hash firstBlockHash = (blockHashes.isEmpty() ? null : blockHashes.get(0));
-                Logger.log("Request failed: BitcoinNodeManager.requestBlockHeader("+ firstBlockHash +")");
+                Logger.debug("Request failed: BitcoinNodeManager.requestBlockHeader("+ firstBlockHash +")");
 
                 if (callback != null) {
                     callback.onFailure();
@@ -375,11 +375,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         for (final QueryBlocksMessage queryBlocksMessage : queryBlocksMessages) {
-            Logger.log("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
+            Logger.debug("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
             for (final BitcoinNode bitcoinNode : _nodes.values()) {
                 bitcoinNode.queueMessage(queryBlocksMessage);
             }
@@ -403,7 +403,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         if (apiRequest.didTimeout) { return; }
 
                         if (callback != null) {
-                            Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getConnectionString());
+                            Logger.debug("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getConnectionString());
                             callback.onResult(block);
                         }
                     }
@@ -421,7 +421,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             @Override
             public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
+                Logger.debug("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
 
                 if (callback != null) {
                     callback.onFailure(blockHash);
@@ -456,7 +456,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                         final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
                         if (callback != null) {
-                            Logger.log("Received Merkle Block: "+ merkleBlock.getHash() +" from Node: " + bitcoinNode.getConnectionString());
+                            Logger.debug("Received Merkle Block: "+ merkleBlock.getHash() +" from Node: " + bitcoinNode.getConnectionString());
                             callback.onResult(merkleBlockParameters);
                         }
                     }
@@ -474,7 +474,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             @Override
             public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestMerkleBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
+                Logger.debug("Request failed: BitcoinNodeManager.requestMerkleBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
 
                 if (callback != null) {
                     callback.onFailure(blockHash);
@@ -515,7 +515,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             @Override
             public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
+                Logger.debug("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
 
                 if (callback != null) {
                     callback.onFailure(transactionHashes);
@@ -559,12 +559,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                                             final Block block = thinBlockAssembler.reassembleThinBlock(assembleThinBlockResult, missingTransactions);
                                             if (block == null) {
-                                                Logger.log("NOTICE: Falling back to traditional block.");
+                                                Logger.debug("NOTICE: Falling back to traditional block.");
                                                 // Fallback on downloading block traditionally...
                                                 _requestBlock(blockHash, callback);
                                             }
                                             else {
-                                                Logger.log("NOTICE: Thin block assembled. " + System.currentTimeMillis());
+                                                Logger.debug("NOTICE: Thin block assembled. " + System.currentTimeMillis());
                                                 if (callback != null) {
                                                     callback.onResult(assembleThinBlockResult.block);
                                                 }
@@ -575,7 +575,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                                 @Override
                                 public void onFailure() {
-                                    Logger.log("NOTICE: Falling back to traditional block.");
+                                    Logger.debug("NOTICE: Falling back to traditional block.");
 
                                     _pendingRequestsManager.removePendingRequest(apiRequest);
 
@@ -584,7 +584,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                             });
                         }
                         else {
-                            Logger.log("NOTICE: Thin block assembled on first trip. " + System.currentTimeMillis());
+                            Logger.debug("NOTICE: Thin block assembled on first trip. " + System.currentTimeMillis());
                             if (callback != null) {
                                 callback.onResult(assembleThinBlockResult.block);
                             }
@@ -595,7 +595,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             @Override
             public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestThinBlock("+ blockHash +")");
+                Logger.debug("Request failed: BitcoinNodeManager.requestThinBlock("+ blockHash +")");
 
                 if (callback != null) {
                     callback.onFailure(blockHash);
@@ -628,7 +628,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             final BitcoinNode selectedNode = _selectBestNode(nodeFilter);
             if (selectedNode != null) {
-                Logger.log("NOTICE: Requesting thin block. " + System.currentTimeMillis());
+                Logger.debug("NOTICE: Requesting thin block. " + System.currentTimeMillis());
                 _selectNodeForRequest(selectedNode, thinBlockApiRequest);
             }
             else {
@@ -650,7 +650,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
         if (_bloomFilter == null) {
-            Logger.log("WARNING: Requesting MerkleBlock without a BloomFilter.");
+            Logger.warn("Requesting MerkleBlock without a BloomFilter.");
         }
 
         _requestMerkleBlock(blockHash, callback);
@@ -691,7 +691,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     bitcoinNode.transmitBlockHeader(blockHeaderWithTransactionCount);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                 }
             }
         }
@@ -746,7 +746,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             nodeDatabaseManager.setIsBanned(ip, true);
         }
         catch (final DatabaseException databaseException) {
-            Logger.log(databaseException);
+            Logger.debug(databaseException);
             // Still continue to disconnect from any nodes at that ip, even upon an error...
         }
 

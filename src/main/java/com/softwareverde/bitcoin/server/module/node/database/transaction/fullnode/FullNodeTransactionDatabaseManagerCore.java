@@ -35,8 +35,8 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -84,7 +84,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     final Row row = rows.get(0);
                     final Sha256Hash lastTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
-                        Logger.log("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
+                        Logger.debug("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
 
                         final MutableBloomFilter loadedBloomFilter = _loadBloomFilterFromFile(filename, FILTER_ITEM_COUNT, FILTER_NONCE);
                         if (loadedBloomFilter != null) {
@@ -93,7 +93,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         }
                     }
                     else {
-                        Logger.log("Rebuilding ExistingTransactionFilter. Filter TransactionHash: " + filterLastTransactionHash + ", Database TransactionHash: " + lastTransactionHash);
+                        Logger.debug("Rebuilding ExistingTransactionFilter. Filter TransactionHash: " + filterLastTransactionHash + ", Database TransactionHash: " + lastTransactionHash);
                     }
                 }
             }
@@ -101,7 +101,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
 
-            Logger.log("[Building TransactionBloomFilter]");
+            Logger.info("[Building TransactionBloomFilter]");
             final Long batchSize = 4096L;
             long lastTransactionId = 0L;
             Sha256Hash lastTransactionHash = null;
@@ -366,7 +366,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final Long firstTransactionId = databaseConnection.executeSql(batchedInsertQuery);
         if (firstTransactionId == null) {
-            Logger.log("NOTICE: Error storing transactions.");
+            Logger.warn("Error storing transactions.");
             return null;
         }
 
@@ -385,7 +385,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
         );
         if (! Util.areEqual(rows.size(), affectedRowCount)) {
-            Logger.log("NOTICE: Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
+            Logger.warn("Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
             return null;
         }
 
@@ -442,7 +442,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             for (final TransactionInputId transactionInputId : transactionInputIds) {
                 final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
                 if (transactionInput == null) {
-                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    Logger.warn("Error inflating transaction: " + expectedTransactionHash);
                     return null;
                 }
 
@@ -453,7 +453,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
                 final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
                 if (transactionOutput == null) {
-                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    Logger.warn("Error inflating transaction: " + expectedTransactionHash);
                     return null;
                 }
 
@@ -465,7 +465,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             { // Validate inflated transaction hash...
                 if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
-                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    Logger.warn("Error inflating transaction: " + expectedTransactionHash);
                     return null;
                 }
             }
@@ -578,7 +578,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             final float falsePositiveRate = ( ((float) falsePositiveCount) / transactionCount );
             if ( (EXISTING_TRANSACTIONS_FILTER != null) && (falsePositiveRate > FILTER_FALSE_POSITIVE_RATE) ) {
-                Logger.log("INFO: TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
+                Logger.debug("TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
             }
         }
 
@@ -601,7 +601,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         //             newTransactionsBuilder.add(transaction);
         //         }
         //         else {
-        //             Logger.log("NOTICE: TxBloomFilter rendered false negative for: " + transactionHash + ". Recovering.");
+        //             Logger.warn("TxBloomFilter rendered false negative for: " + transactionHash + ". Recovering.");
         //         }
         //     }
         //     newTransactions = newTransactionsBuilder.build();
@@ -635,7 +635,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             if (transactionId == null) { // Should only happen (rarely) when another thread is attempting to insert the same Transaction at the same time as this thread...
                 final TransactionId missingTransactionId = _getTransactionIdFromHash(transactionHash);
                 if (missingTransactionId == null) {
-                    Logger.log("NOTICE: Error storing Transactions. Missing Transaction: " + transactionHash);
+                    Logger.warn("Error storing Transactions. Missing Transaction: " + transactionHash);
                     return null;
                 }
 
@@ -646,11 +646,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        Logger.log("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("txHashMapTimer: " + txHashMapTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("txHashMapTimer: " + txHashMapTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");
 
         return allTransactionIds;
     }

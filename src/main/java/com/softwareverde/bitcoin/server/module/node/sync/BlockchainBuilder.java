@@ -29,7 +29,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class BlockchainBuilder extends SleepyService {
@@ -88,7 +88,7 @@ public class BlockchainBuilder extends SleepyService {
             return blockWasValid;
         }
         else {
-            Logger.log("NOTICE: Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
+            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
             return false;
         }
     }
@@ -173,7 +173,7 @@ public class BlockchainBuilder extends SleepyService {
                     final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
                     if (nextBlockId != null) {
                         final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-                        Logger.log("Requesting Block: " + nextBlockHash);
+                        Logger.debug("Requesting Block: " + nextBlockHash);
                         _blockDownloadRequester.requestBlock(nextBlockHash);
                     }
                     break;
@@ -186,7 +186,7 @@ public class BlockchainBuilder extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                     TransactionUtil.commitTransaction(databaseConnection);
-                    Logger.log("Deleted failed pending block.");
+                    Logger.debug("Deleted failed pending block.");
                     continue;
                 }
 
@@ -208,7 +208,7 @@ public class BlockchainBuilder extends SleepyService {
                             TransactionUtil.startTransaction(databaseConnection);
                             pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                             TransactionUtil.commitTransaction(databaseConnection);
-                            Logger.log("Deleted failed pending block.");
+                            Logger.debug("Deleted failed pending block.");
                             break;
                         }
 
@@ -222,7 +222,7 @@ public class BlockchainBuilder extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return false;
@@ -238,7 +238,7 @@ public class BlockchainBuilder extends SleepyService {
                 _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
             }
         }
     }
@@ -269,7 +269,7 @@ public class BlockchainBuilder extends SleepyService {
             _hasGenesisBlock = blockDatabaseManager.hasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             _hasGenesisBlock = false;
         }
     }

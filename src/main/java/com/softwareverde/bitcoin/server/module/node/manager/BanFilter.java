@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -27,7 +27,7 @@ public class BanFilter {
             return nodeDatabaseManager.isBanned(ip, sinceTimestamp);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
     }
@@ -42,13 +42,13 @@ public class BanFilter {
             return (failedConnectionCount >= BitcoinNodeManager.BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
     }
 
     public void banIp(final Ip ip) {
-        Logger.log("Banning Node: " + ip);
+        Logger.debug("Banning Node: " + ip);
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
@@ -56,7 +56,7 @@ public class BanFilter {
             nodeDatabaseManager.setIsBanned(ip, true);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
@@ -67,7 +67,7 @@ public class BanFilter {
             nodeDatabaseManager.setIsBanned(ip, false);
         }
         catch (final DatabaseException databaseException) {
-            Logger.log(databaseException);
+            Logger.warn(databaseException);
         }
     }
 }

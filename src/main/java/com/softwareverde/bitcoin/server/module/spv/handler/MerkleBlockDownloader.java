@@ -20,7 +20,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -72,14 +72,14 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             if (transactions == null) { return false; }
 
             if (! merkleBlock.isValid()) {
-                Logger.log("Invalid MerkleBlock received. Discarding. " + merkleBlock.getHash());
+                Logger.debug("Invalid MerkleBlock received. Discarding. " + merkleBlock.getHash());
                 return false;
             }
 
             for (final Transaction transaction : transactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
                 if (! merkleBlock.containsTransaction(transactionHash)) {
-                    Logger.log("MerkleBlock did not contain transaction. Block: " + merkleBlock.getHash() + " Tx: " + transactionHash);
+                    Logger.debug("MerkleBlock did not contain transaction. Block: " + merkleBlock.getHash() + " Tx: " + transactionHash);
                     return false;
                 }
             }
@@ -98,7 +98,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
                 if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
                     final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
                     if (previousBlockId == null) {
-                        Logger.log("NOTICE: Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
+                        Logger.debug("NOTICE: Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
                         return false;
                     }
                 }
@@ -115,7 +115,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
                 TransactionUtil.commitTransaction(databaseConnection);
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return false;
             }
 
@@ -151,7 +151,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             }
 
             if (recentFailureCount <= 3) {
-                Logger.log("Retrying Merkle: " + merkleBlockHash);
+                Logger.debug("Retrying Merkle: " + merkleBlockHash);
                 _requestMerkleBlock(merkleBlockHash);
                 return false;
             }
@@ -159,7 +159,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             if (totalFailureCount <= 21) {
                 // TODO: Does sequential-ness matter?
                 // Add the block to the back of the stack and try again later...
-                Logger.log("Will Try Merkle Later: " + merkleBlockHash);
+                Logger.debug("Re-Queueing Merkle for Download: " + merkleBlockHash);
                 _queuedBlockHashes.add(merkleBlockHash);
             }
 
@@ -209,7 +209,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             }
         }
         catch (final DatabaseException exception) {
-                Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
@@ -247,7 +247,6 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     }
 
     protected synchronized void _downloadNextMerkleBlock() {
-        // Logger.log("_downloadNextMerkleBlock");
         if (_isPaused.get()) { return; }
         if (! _blockIsInFlight.compareAndSet(false, true)) { return; }
 
@@ -270,7 +269,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         // No block ended up being requested...
