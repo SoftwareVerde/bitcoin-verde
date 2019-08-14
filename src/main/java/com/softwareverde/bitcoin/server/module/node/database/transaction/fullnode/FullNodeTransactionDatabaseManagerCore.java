@@ -95,6 +95,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     }
                     else {
                         Logger.debug("Rebuilding ExistingTransactionFilter. Filter TransactionHash: " + filterLastTransactionHash + ", Database TransactionHash: " + lastTransactionHash);
+                        Logger.flush();
                     }
                 }
             }
