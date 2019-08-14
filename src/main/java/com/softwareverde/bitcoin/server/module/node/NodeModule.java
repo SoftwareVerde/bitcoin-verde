@@ -73,6 +73,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Log;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -698,6 +700,22 @@ public class NodeModule {
                     serviceInquisitor.addService(sleepyService.getClass().getSimpleName(), sleepyService.getStatusMonitor());
                 }
 
+                final NodeRpcHandler.LogLevelSetter logLevelSetter = new NodeRpcHandler.LogLevelSetter() {
+                    @Override
+                    public void setLogLevel(final String packageName, final String logLevelString) {
+                        final LogLevel logLevel = LogLevel.fromString(logLevelString);
+                        if (logLevel == null) { return; }
+
+                        final Log log = Logger.LOG;
+                        if (log != null) {
+                            // Intentionally bypass logging level settings...
+                            log.write(NodeModule.class, LogLevel.WARN, "Updating Log Level: " + packageName + "=" + logLevel, null);
+                        }
+
+                        Logger.setLogLevel(packageName, logLevel);
+                    }
+                };
+
                 rpcSocketServerHandler.setSynchronizationStatusHandler(synchronizationStatusHandler);
                 rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
                 rpcSocketServerHandler.setNodeHandler(nodeHandler);
@@ -707,6 +725,7 @@ public class NodeModule {
                 rpcSocketServerHandler.setDataHandler(dataHandler);
                 rpcSocketServerHandler.setMetadataHandler(metadataHandler);
                 rpcSocketServerHandler.setQueryBlockchainHandler(queryBlockchainHandler);
+                rpcSocketServerHandler.setLogLevelSetter(logLevelSetter);
             }
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);

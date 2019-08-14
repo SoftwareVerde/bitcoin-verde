@@ -113,6 +113,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         void submitBlock(Block block);
     }
 
+    public interface LogLevelSetter {
+        void setLogLevel(String packageName, String logLevel);
+    }
+
     public interface MetadataHandler {
         void applyMetadataToBlockHeader(Sha256Hash blockHash, Json blockJson);
         void applyMetadataToTransaction(Transaction transaction, Json transactionJson);
@@ -183,6 +187,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected DataHandler _dataHandler = null;
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
+    protected LogLevelSetter _logLevelSetter = null;
 
     public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
         this(statisticsContainer, threadPool, new CoreInflater());
@@ -1035,6 +1040,32 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires POST: <packageName, logLevel>
+    protected void _setLogLevel(final Json parameters, final Json response) {
+        final LogLevelSetter logLevelSetter = _logLevelSetter;
+        if (logLevelSetter == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("packageName")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: packageName");
+            return;
+        }
+
+        if (! parameters.hasKey("logLevel")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: logLevel");
+            return;
+        }
+
+        final String packageName = parameters.getString("packageName");
+        final String logLevel = parameters.getString("logLevel");
+
+        logLevelSetter.setLogLevel(packageName, logLevel);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires GET:
     protected void _listNodes(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1120,6 +1151,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public void setQueryBlockchainHandler(final QueryBlockchainHandler queryBlockchainHandler) {
         _queryBlockchainHandler = queryBlockchainHandler;
+    }
+
+    public void setLogLevelSetter(final LogLevelSetter logLevelSetter) {
+        _logLevelSetter = logLevelSetter;
     }
 
     public void onNewBlock(final BlockHeader block) {
@@ -1404,6 +1439,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "VALIDATE_PROTOTYPE_BLOCK": {
                                 _validatePrototypeBlock(parameters, response);
+                            } break;
+
+                            case "SET_LOGGING": {
+                                _setLogLevel(parameters, response);
                             } break;
 
                             default: {

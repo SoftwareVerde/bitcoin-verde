@@ -45,17 +45,15 @@ dependencies {
 
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
 
-    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v1.0.1'
-    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.0.0'
+    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v1.0.2'
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.0.1'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
-    implementation  (group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.1') {
-        force = true
-    }
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.1'
 
     // Server
     serverImplementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.1.0'
-    serverImplementation(group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v2.0.0') {
+    serverImplementation(group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v2.0.1') {
         exclude group: 'org.apache.logging.log4j',  module: 'log4j-to-slf4j'
         exclude group: 'ch.qos.logback',            module: 'logback-classic'
     }
