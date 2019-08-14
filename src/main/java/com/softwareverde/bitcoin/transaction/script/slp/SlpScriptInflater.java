@@ -22,9 +22,12 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class SlpScriptInflater {
+    protected static final Long TOKEN_TYPE_VALUE = ByteUtil.bytesToLong(SlpScriptType.TOKEN_TYPE);
+
     protected static Boolean _matchesSlpFormat(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
         if (operations.getSize() < 5) { return false; }
@@ -52,9 +55,12 @@ public class SlpScriptInflater {
                     if (! Util.areEqual(SlpScriptType.LOKAD_ID, pushOperation.getValue())) { return false; }
                 }
                 else if (i == 2) {
-                    final Long bigEndianLongValue = ByteUtil.bytesToLong(pushOperation.getValue());
-                    final Long expectedValue = ByteUtil.bytesToLong(SlpScriptType.TOKEN_TYPE);
-                    if (! Util.areEqual(SlpScriptType.TOKEN_TYPE, pushOperation.getValue())) { return false; }
+                    final Value value = pushOperation.getValue();
+                    final int valueByteCount = value.getByteCount();
+                    if ( (valueByteCount < 1) || (valueByteCount > 2) ) { return false; }
+
+                    final Long bigEndianLongValue = ByteUtil.bytesToLong(value);
+                    if (! Util.areEqual(TOKEN_TYPE_VALUE, bigEndianLongValue)) { return false; }
                 }
             }
         }
@@ -99,6 +105,7 @@ public class SlpScriptInflater {
         slpGenesisScript.setDocumentHash(Sha256Hash.copyOf(tokenDocumentHashValue.getBytes()));
 
         final Value tokenDecimalValue = ((PushOperation) operations.get(8)).getValue();
+        if (tokenDecimalValue.getByteCount() != 1) { return null; } // The "decimal" value must be 1 byte according to the specification.
         final Integer decimalCount = ByteUtil.bytesToInteger(tokenDecimalValue.getBytes());
         if ( (decimalCount < 0) || (decimalCount > 9) ) { return null; }
         slpGenesisScript.setDecimalCount(decimalCount);
@@ -150,11 +157,15 @@ public class SlpScriptInflater {
         final MutableSlpSendScript slpSendScript = new MutableSlpSendScript();
         slpSendScript.setTokenId(tokenId);
 
-        int transactionOutputIndex = 1;
         final List<Operation> operations = lockingScript.getOperations();
+        final int outputCount = ((operations.getSize() - 5) + 1); // +1 for the OP_RETURN output...
+        if (outputCount > SlpSendScript.MAX_OUTPUT_COUNT) { return null; }
+
+        int transactionOutputIndex = 1;
         for (int i = 5; i < operations.getSize(); ++i) {
             final PushOperation operation = (PushOperation) operations.get(i);
             final ByteArray value = operation.getValue();
+            if (value.getByteCount() != 8) { return null; } // The "amount" byte count must be 8, according to the specification.
             final Long amount = ByteUtil.bytesToLong(value.getBytes());
             slpSendScript.setAmount(transactionOutputIndex, amount);
             transactionOutputIndex += 1;

@@ -18,7 +18,7 @@ import com.softwareverde.test.database.TestDatabase;
 
 import java.sql.Connection;
 
-public class IntegrationTest extends Test {
+public class IntegrationTest extends UnitTest {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
     protected static final Boolean _nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
     protected static Boolean _nativeCacheWasInitialized = false;

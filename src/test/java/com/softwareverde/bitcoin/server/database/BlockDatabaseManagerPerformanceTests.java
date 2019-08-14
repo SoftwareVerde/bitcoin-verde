@@ -134,7 +134,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
 
     // TODO: Create a test that has a transaction whose transactionInputs spends a previousOutputTransactionHash of EMPTY_HASH and whose index is -1, but is not a coinbase transaction... (Probably fails...)
 
-    @Test
+    // @Test
     public void should_store_giant_block_quickly() throws Exception {
         // Setup
         final MilliTimer setupTimer = new MilliTimer();

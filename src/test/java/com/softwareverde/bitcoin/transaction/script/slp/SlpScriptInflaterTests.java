@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.slp;
 
+import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -11,7 +12,7 @@ import com.softwareverde.util.Util;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class SlpScriptInflaterTests {
+public class SlpScriptInflaterTests extends UnitTest {
 
     @Test
     public void run_slp_test_vectors() {
