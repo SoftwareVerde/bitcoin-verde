@@ -749,6 +749,23 @@ public class TransactionOutputDatabaseManager {
         return SlpTokenId.wrap(slpTokenId);
     }
 
+    public SlpTokenId getSlpTokenId(final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT locking_scripts.slp_transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON locking_scripts.transaction_output_id = transaction_outputs.id WHERE transaction_outputs.transaction_id = ? AND transaction_outputs.`index` = 0")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final TransactionId slpTransactionId = TransactionId.wrap(row.getLong("slp_transaction_id"));
+
+        final Sha256Hash slpTokenId = transactionDatabaseManager.getTransactionHash(slpTransactionId);
+        return SlpTokenId.wrap(slpTokenId);
+    }
+
     public void setSlpTransactionId(final TransactionId slpTokenTransactionId, final TransactionOutputId transactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 

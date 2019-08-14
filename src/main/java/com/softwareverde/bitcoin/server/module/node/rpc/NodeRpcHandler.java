@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -102,6 +103,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         List<TransactionWithFee> getUnconfirmedTransactionsWithFees();
 
         Long getBlockReward();
+
+        Boolean isSlpTransaction(Sha256Hash transactionHash);
+        Boolean isValidSlpTransaction(Sha256Hash transactionHash);
+        SlpTokenId getSlpTokenId(Sha256Hash transactionHash);
 
         BlockValidationResult validatePrototypeBlock(final Block block);
         void submitTransaction(Transaction transaction);
@@ -674,6 +679,102 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         response.put("address", addressJson);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <hash>
+    protected void _queryIsSlpTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final Boolean isSlpTransaction = _dataHandler.isSlpTransaction(transactionHash);
+
+        if (isSlpTransaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP transaction status.");
+            return;
+        }
+
+        response.put("isSlpTransaction", isSlpTransaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <hash>
+    protected void _queryIsValidSlpTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final Boolean isValidSlpTransaction = _dataHandler.isValidSlpTransaction(transactionHash);
+
+        if (isValidSlpTransaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP transaction validity.");
+            return;
+        }
+
+        response.put("isValidSlpTransaction", isValidSlpTransaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <slpTokenId>
+    protected void _querySlpTokenId(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final SlpTokenId slpTokenId = _dataHandler.getSlpTokenId(transactionHash);
+
+        if (slpTokenId == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP Token Id.");
+            return;
+        }
+
+        response.put("slpTokenId", slpTokenId);
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -1250,6 +1351,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "BLOCKCHAIN": {
                                 _queryBlockchainMetadata(response);
+                            } break;
+
+                            case "IS_SLP_TRANSACTION": {
+                                _queryIsSlpTransaction(parameters, response);
+                            } break;
+
+                            case "IS_VALID_SLP_TRANSACTION": {
+                                _queryIsValidSlpTransaction(parameters, response);
+                            } break;
+
+                            case "SLP_TOKEN_ID": {
+                                _querySlpTokenId(parameters, response);
                             } break;
 
                             default: {

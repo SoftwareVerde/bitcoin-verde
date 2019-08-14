@@ -32,7 +32,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
             slpValidityMap.put(Sha256Hash.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"), true);
             slpValidityMap.put(Sha256Hash.fromHexString("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887"), true);
-            slpValidityMap.put(Sha256Hash.fromHexString("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647"), false);
+            slpValidityMap.put(Sha256Hash.fromHexString("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647"), false); // Invalid format.
             slpValidityMap.put(Sha256Hash.fromHexString("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE"), false);
             slpValidityMap.put(Sha256Hash.fromHexString("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373"), true);
             slpValidityMap.put(Sha256Hash.fromHexString("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A"), true);
@@ -41,10 +41,10 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             slpValidityMap.put(Sha256Hash.fromHexString("87B17979CC05E9E5F5FA9E8C6D78482478A4E6F6D78360E818E16311F7F157F0"), true);
             slpValidityMap.put(Sha256Hash.fromHexString("731B7493DCAF21A368F384D75AD820F73F72DE9479622B35EF935E5D5C9D6F0E"), true);
             slpValidityMap.put(Sha256Hash.fromHexString("AE0D9AE505E4B75619A376FA70F7C295245F8FD28F3B625FBEA19E26AB29A928"), true);
-            slpValidityMap.put(Sha256Hash.fromHexString("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842"), false);
-            slpValidityMap.put(Sha256Hash.fromHexString("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64"), false);
-            slpValidityMap.put(Sha256Hash.fromHexString("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1"), false);
-            slpValidityMap.put(Sha256Hash.fromHexString("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478"), false);
+            slpValidityMap.put(Sha256Hash.fromHexString("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842"), false); // Attempts to spend outputs as SLP outputs that are not SLP outputs...
+            slpValidityMap.put(Sha256Hash.fromHexString("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64"), false); // Attempts to spend not SLP outputs belonging to invalid SLP transactions...
+            slpValidityMap.put(Sha256Hash.fromHexString("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1"), false); // Attempts to spend not SLP outputs belonging to invalid SLP transactions...
+            slpValidityMap.put(Sha256Hash.fromHexString("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478"), false); // Attempts to spend not SLP outputs belonging to invalid SLP transactions...
 
             // Action
             addressProcessor.start();

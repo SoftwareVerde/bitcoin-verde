@@ -27,6 +27,16 @@ public class SlpTransactionValidator {
         Map<Sha256Hash, Transaction> getTransactions(List<Sha256Hash> transactionHashes);
     }
 
+    public interface SlpTransactionValidationCache {
+        /**
+         * Returns null if validity of the associated transaction has not been cached.
+         * Returns true if validity of the associated transaction has been cached and is valid.
+         * Returns false if validity of the associated transaction has been cached and is invalid.
+         */
+        Boolean isValid(Sha256Hash transactionHash);
+    }
+
+    protected final SlpTransactionValidationCache _validationCache;
     protected final TransactionAccumulator _transactionAccumulator;
 
     protected SlpScript _getSlpScript(final Transaction transaction) {
@@ -55,25 +65,57 @@ public class SlpTransactionValidator {
             switch (slpScriptType) {
                 case GENESIS: {
                     for (final Transaction transaction : transactions) {
-                        final Boolean isValid = _validateSlpGenesisTransaction(transaction, null);
+                        if (_validationCache != null) {
+                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                            if (isCachedAsValid != null) {
+                                if (isCachedAsValid) { continue; }
+                                else { return false; }
+                            }
+                        }
+
+                        final Boolean isValid = _validateSlpGenesisTransaction(transaction);
                         if (! isValid) { return false; }
                     }
                 } break;
                 case MINT: {
                     for (final Transaction transaction : transactions) {
+                        if (_validationCache != null) {
+                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                            if (isCachedAsValid != null) {
+                                if (isCachedAsValid) { continue; }
+                                else { return false; }
+                            }
+                        }
+
                         final Boolean isValid = _validateSlpMintTransaction(transaction, null);
                         if (! isValid) { return false; }
                     }
                 } break;
                 case SEND: {
                     for (final Transaction transaction : transactions) {
+                        if (_validationCache != null) {
+                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                            if (isCachedAsValid != null) {
+                                if (isCachedAsValid) { continue; }
+                                else { return false; }
+                            }
+                        }
+
                         final Boolean isValid = _validateSlpSendTransaction(transaction, null);
                         if (! isValid) { return false; }
                     }
                 } break;
                 case COMMIT: {
                     for (final Transaction transaction : transactions) {
-                        final Boolean isValid = _validateSlpCommitTransaction(transaction, null);
+                        if (_validationCache != null) {
+                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                            if (isCachedAsValid != null) {
+                                if (isCachedAsValid) { continue; }
+                                else { return false; }
+                            }
+                        }
+
+                        final Boolean isValid = _validateSlpCommitTransaction(transaction);
                         if (! isValid) { return false; }
                     }
                 } break;
@@ -83,12 +125,40 @@ public class SlpTransactionValidator {
         return true;
     }
 
-    protected Boolean _validateSlpGenesisTransaction(final Transaction transaction, final SlpGenesisScript nullableSlpGenesisScript) {
-        return true;
+    protected Boolean _validateSlpGenesisScript(final SlpGenesisScript slpGenesisScript) {
+        return (slpGenesisScript != null);
     }
 
-    protected Boolean _validateSlpCommitTransaction(final Transaction transaction, final SlpCommitScript nullableSlpCommitScript) {
-        return true;
+    protected Boolean _validateSlpGenesisTransaction(final Transaction transaction) {
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final TransactionOutput transactionOutput = transactionOutputs.get(0);
+        final LockingScript slpLockingScript = transactionOutput.getLockingScript();
+
+        if (! SlpScriptInflater.matchesSlpFormat(slpLockingScript)) { return null; }
+
+        final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
+        final SlpScript slpScript = slpScriptInflater.fromLockingScript(slpLockingScript);
+        if (slpScript == null) { return false; }
+
+        return (slpScript instanceof SlpGenesisScript);
+    }
+
+    protected Boolean _validateSlpCommitScript(final SlpCommitScript slpCommitScript) {
+        return (slpCommitScript != null);
+    }
+
+    protected Boolean _validateSlpCommitTransaction(final Transaction transaction) {
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final TransactionOutput transactionOutput = transactionOutputs.get(0);
+        final LockingScript slpLockingScript = transactionOutput.getLockingScript();
+
+        if (! SlpScriptInflater.matchesSlpFormat(slpLockingScript)) { return null; }
+
+        final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
+        final SlpScript slpScript = slpScriptInflater.fromLockingScript(slpLockingScript);
+        if (slpScript == null) { return false; }
+
+        return (slpScript instanceof SlpCommitScript);
     }
 
     protected Boolean _validateSlpMintTransaction(final Transaction transaction, final SlpMintScript nullableSlpMintScript) {
@@ -229,15 +299,24 @@ public class SlpTransactionValidator {
         }
 
         return (totalSlpAmountReceived >= totalSendAmount);
-
-        // return _validateRecursiveTransactions(recursiveTransactionsToValidate);
     }
 
     public SlpTransactionValidator(final TransactionAccumulator transactionAccumulator) {
         _transactionAccumulator = transactionAccumulator;
+        _validationCache = null;
+    }
+
+    public SlpTransactionValidator(final TransactionAccumulator transactionAccumulator, final SlpTransactionValidationCache validationCache) {
+        _transactionAccumulator = transactionAccumulator;
+        _validationCache = validationCache;
     }
 
     public Boolean validateTransaction(final Transaction transaction) {
+        if (_validationCache != null) {
+            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+            if (isCachedAsValid != null) { return isCachedAsValid; }
+        }
+
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
@@ -252,7 +331,7 @@ public class SlpTransactionValidator {
         switch (slpScript.getType()) {
             case GENESIS: {
                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) slpScript;
-                return _validateSlpGenesisTransaction(transaction, slpGenesisScript);
+                return _validateSlpGenesisScript(slpGenesisScript);
             }
             case MINT: {
                 final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
@@ -260,7 +339,7 @@ public class SlpTransactionValidator {
             }
             case COMMIT: {
                 final SlpCommitScript slpCommitScript = (SlpCommitScript) slpScript;
-                return _validateSlpCommitTransaction(transaction, slpCommitScript);
+                return _validateSlpCommitScript(slpCommitScript);
             }
             case SEND: {
                 final SlpSendScript slpSendScript = (SlpSendScript) slpScript;

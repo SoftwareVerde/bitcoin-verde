@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -215,7 +216,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
      */
-    protected TransactionId _getTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+    protected TransactionId _getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
+        if (transactionHash == null) { return null; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
@@ -507,7 +510,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             return cachedTransactionId;
         }
 
-        final TransactionId existingTransactionId = _getTransactionIdFromHash(transactionHash);
+        final TransactionId existingTransactionId = _getTransactionId(transactionHash);
         if (existingTransactionId != null) {
             return existingTransactionId;
         }
@@ -633,7 +636,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         for (final Sha256Hash transactionHash : transactionHashes) {
             final TransactionId transactionId = existingTransactions.get(transactionHash);
             if (transactionId == null) { // Should only happen (rarely) when another thread is attempting to insert the same Transaction at the same time as this thread...
-                final TransactionId missingTransactionId = _getTransactionIdFromHash(transactionHash);
+                final TransactionId missingTransactionId = _getTransactionId(transactionHash);
                 if (missingTransactionId == null) {
                     Logger.warn("Error storing Transactions. Missing Transaction: " + transactionHash);
                     return null;
@@ -657,7 +660,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
-        return _getTransactionIdFromHash(transactionHash);
+        return _getTransactionId(transactionHash);
     }
 
     @Override
@@ -848,7 +851,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public List<BlockId> getBlockIds(final Sha256Hash transactionHash) throws DatabaseException {
-        final TransactionId transactionId = _getTransactionIdFromHash(transactionHash);
+        final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return new MutableList<BlockId>(); }
 
         return _getBlockIds(transactionId);
@@ -899,7 +902,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         databaseManagerCache.invalidateTransactionIdCache();
         databaseManagerCache.invalidateTransactionCache();
 
-        final TransactionId transactionId = _getTransactionIdFromHash(transaction.getHash());
+        final TransactionId transactionId = _getTransactionId(transaction.getHash());
 
         _updateTransaction(transactionId, transaction);
 
@@ -1005,5 +1008,14 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             new Query("DELETE FROM transactions WHERE id = ?")
                 .setParameter(transactionId)
         );
+    }
+
+    @Override
+    public SlpTokenId getSlpTokenId(final Sha256Hash transactionHash) throws DatabaseException {
+        final TransactionId transactionId = _getTransactionId(transactionHash);
+        if (transactionId == null) { return null; }
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+        return transactionOutputDatabaseManager.getSlpTokenId(transactionId);
     }
 }

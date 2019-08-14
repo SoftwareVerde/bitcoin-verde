@@ -26,6 +26,8 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
@@ -35,6 +37,9 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -364,6 +369,69 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return BlockHeader.calculateBlockReward(blockHeight);
         }
         catch (final DatabaseException exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean isSlpTransaction(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final SlpTokenId slpTokenId = transactionDatabaseManager.getSlpTokenId(transactionHash);
+            return (slpTokenId != null);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean isValidSlpTransaction(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new SlpTransactionValidator.TransactionAccumulator() {
+                @Override
+                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
+                    try {
+                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
+                        for (final Sha256Hash transactionHash : transactionHashes) {
+                            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                            if (transactionId == null) { continue; }
+
+                            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                            transactions.put(transactionHash, transaction);
+                        }
+                        return transactions;
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.warn(exception);
+                        return null;
+                    }
+                }
+            });
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return false; }
+
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            return slpTransactionValidator.validateTransaction(transaction);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public SlpTokenId getSlpTokenId(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            return transactionDatabaseManager.getSlpTokenId(transactionHash);
+        }
+        catch (final Exception exception) {
             Logger.warn(exception);
             return null;
         }

@@ -427,6 +427,42 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json isSlpTransaction(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "IS_SLP_TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json isValidSlpTransaction(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "IS_VALID_SLP_TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getSlpTokenId(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "SLP_TOKEN_ID");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public JsonSocket getJsonSocket() {
         return _jsonSocket;
     }
