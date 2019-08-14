@@ -1441,7 +1441,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _validatePrototypeBlock(parameters, response);
                             } break;
 
-                            case "SET_LOGGING": {
+                            case "SET_LOG_LEVEL": {
                                 _setLogLevel(parameters, response);
                             } break;
 

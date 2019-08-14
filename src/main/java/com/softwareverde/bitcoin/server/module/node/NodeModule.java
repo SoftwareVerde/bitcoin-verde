@@ -872,7 +872,7 @@ public class NodeModule {
         _databaseMaintenanceThread.start();
 
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
-            try { Thread.sleep(10000); } catch (final Exception exception) { break; }
+            try { Thread.sleep(5000); } catch (final Exception exception) { break; }
 
             Logger.debug("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             Logger.debug("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
@@ -881,6 +881,12 @@ public class NodeModule {
             Logger.debug("Alive Connections Count: " + _databaseConnectionPool.getAliveConnectionCount());
             Logger.debug("Buffered Connections Count: " + _databaseConnectionPool.getCurrentPoolSize());
             Logger.debug("In-Use Connections Count: " + _databaseConnectionPool.getInUseConnectionCount());
+
+            Logger.flush();
+
+            try { Thread.sleep(5000); } catch (final Exception exception) { break; }
+
+            Logger.flush();
         }
 
         System.exit(0);

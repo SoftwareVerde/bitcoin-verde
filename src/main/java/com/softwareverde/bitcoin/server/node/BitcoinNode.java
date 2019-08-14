@@ -89,17 +89,25 @@ public class BitcoinNode extends Node {
     public interface DownloadBlockCallback extends Callback<Block> {
         default void onFailure(Sha256Hash blockHash) { }
     }
+
     public interface DownloadMerkleBlockCallback extends Callback<MerkleBlockParameters> {
         default void onFailure(Sha256Hash blockHash) { }
     }
+
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeader>> { }
+
     public interface DownloadTransactionCallback extends Callback<Transaction> {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
+
     public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters> { }
+
     public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters> { }
+
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
+
     public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+
     public interface SpvBlockInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
