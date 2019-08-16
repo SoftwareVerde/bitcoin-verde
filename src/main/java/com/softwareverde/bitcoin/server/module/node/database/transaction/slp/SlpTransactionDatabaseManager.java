@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
@@ -28,7 +30,6 @@ import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.util.Util;
 
 import java.util.LinkedHashMap;
-import java.util.TreeMap;
 
 public class SlpTransactionDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
@@ -95,14 +96,24 @@ public class SlpTransactionDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, is_valid FROM validated_slp_transactions WHERE transaction_id = ? AND blockchain_segment_id = ?")
+            new Query("SELECT id, blockchain_segment_id, is_valid FROM validated_slp_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }
 
-        final Row row = rows.get(0);
-        return row.getBoolean("is_valid");
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+
+        for (final Row row : rows) {
+            final BlockchainSegmentId slpBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
+
+            final Boolean isConnectedToChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, slpBlockchainSegmentId, BlockRelationship.ANY);
+            if (isConnectedToChain) {
+                return row.getBoolean("is_valid");
+            }
+        }
+
+        return null;
     }
 
     public void setSlpTransactionValidationResult(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId, final Boolean isValid) throws DatabaseException {

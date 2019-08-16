@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
@@ -391,41 +392,15 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     public Boolean isValidSlpTransaction(final Sha256Hash transactionHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            // final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-            final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new SlpTransactionValidator.TransactionAccumulator() {
-                @Override
-                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
-                    try {
-                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
-                        for (final Sha256Hash transactionHash : transactionHashes) {
-                            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                            if (transactionId == null) { continue; }
-
-                            // final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
-                            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
-                            if (blockId == null) { continue; }
-
-                            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                            transactions.put(transactionHash, transaction);
-                        }
-                        return transactions;
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.warn(exception);
-                        return null;
-                    }
-                }
-            });
+            final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) { return false; }
 
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-            return slpTransactionValidator.validateTransaction(transaction);
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            return slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
