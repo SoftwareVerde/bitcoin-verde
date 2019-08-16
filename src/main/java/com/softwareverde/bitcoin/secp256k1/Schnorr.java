@@ -82,7 +82,7 @@ public class Schnorr {
         {
             final ByteArrayBuilder hashPreImageBuilder = new ByteArrayBuilder();
             hashPreImageBuilder.appendBytes(signature.getR());
-            hashPreImageBuilder.appendBytes(P.getEncoded());
+            hashPreImageBuilder.appendBytes(P.getEncoded(false));
             hashPreImageBuilder.appendBytes(message);
             e = new BigInteger(1, BitcoinUtil.sha256(hashPreImageBuilder.build())).mod(CURVE_N);
         }

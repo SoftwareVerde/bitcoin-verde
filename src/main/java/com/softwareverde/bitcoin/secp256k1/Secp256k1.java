@@ -42,12 +42,12 @@ public class Secp256k1 {
 
     public static byte[] getPublicKeyPoint(final byte[] privateKeyBytes) {
         final ECPoint pointQ = Secp256k1.CURVE_POINT_G.multiply(new BigInteger(1, privateKeyBytes));
-        return pointQ.getEncoded();
+        return pointQ.getEncoded(false);
     }
 
     public static ByteArray getPublicKeyPoint(final ByteArray privateKey) {
         final ECPoint pointQ = Secp256k1.CURVE_POINT_G.multiply(new BigInteger(1, privateKey.getBytes()));
-        return MutableByteArray.wrap(pointQ.getEncoded());
+        return MutableByteArray.wrap(pointQ.getEncoded(false));
     }
 
     protected static Boolean _verifySignatureViaBouncyCastle(final Signature signature, final PublicKey publicKey, final byte[] message) {

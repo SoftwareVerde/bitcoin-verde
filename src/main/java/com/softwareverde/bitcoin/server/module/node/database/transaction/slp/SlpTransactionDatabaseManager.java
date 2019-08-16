@@ -123,6 +123,10 @@ public class SlpTransactionDatabaseManager {
         return _calculateSlpTokenGenesisTransactionId(null, lockingScriptId, nullableLockingScript);
     }
 
+    public TransactionId calculateSlpTokenGenesisTransactionId(final TransactionId transactionId, final LockingScript nullableLockingScript) throws DatabaseException {
+        return _calculateSlpTokenGenesisTransactionId(transactionId, null, nullableLockingScript);
+    }
+
     public SlpTokenId getSlpTokenId(final TransactionOutputId transactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();

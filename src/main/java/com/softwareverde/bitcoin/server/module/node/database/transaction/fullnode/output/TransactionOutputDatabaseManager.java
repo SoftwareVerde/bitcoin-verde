@@ -261,7 +261,7 @@ public class TransactionOutputDatabaseManager {
             } break;
 
             default: {
-                slpTokenTransactionId = slpTransactionDatabaseManager.calculateSlpTokenGenesisTransactionId(transactionId, null, lockingScript);
+                slpTokenTransactionId = slpTransactionDatabaseManager.calculateSlpTokenGenesisTransactionId(transactionId, lockingScript);
                 addressId = null;
             }
         }

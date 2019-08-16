@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
@@ -53,6 +54,7 @@ public class AddressProcessor extends SleepyService {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+            final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
             final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
             final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
             final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
@@ -83,7 +85,7 @@ public class AddressProcessor extends SleepyService {
                         scriptTypesBuilder.add(scriptType);
 
                         if (ScriptType.isSlpScriptType(scriptType)) {
-                            final TransactionId slpTokenTransactionId = transactionOutputDatabaseManager.calculateSlpTokenGenesisTransactionId(lockingScriptId, lockingScript);
+                            final TransactionId slpTokenTransactionId = slpTransactionDatabaseManager.calculateSlpTokenGenesisTransactionId(lockingScriptId, lockingScript);
 
                             boolean slpTransactionIsValid;
                             { // Validate SLP Transaction...
@@ -186,7 +188,7 @@ public class AddressProcessor extends SleepyService {
 
                 for (final TransactionId slpGenesisTransactionId : slpTransactionOutputs.keySet()) {
                     final List<TransactionOutputId> transactionOutputIds = slpTransactionOutputs.get(slpGenesisTransactionId);
-                    transactionOutputDatabaseManager.setSlpTransactionIds(slpGenesisTransactionId, transactionOutputIds);
+                    slpTransactionDatabaseManager.setSlpTransactionIds(slpGenesisTransactionId, transactionOutputIds);
                 }
             }
             TransactionUtil.commitTransaction(databaseConnection);

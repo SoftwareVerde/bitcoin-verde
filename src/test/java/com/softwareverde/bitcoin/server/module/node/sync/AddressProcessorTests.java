@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.Fu
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -147,6 +148,7 @@ public class AddressProcessorTests extends IntegrationTest {
     public static void assertTransactionSlpOutputs(final String transactionHash, final int[] slpOutputs, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(Sha256Hash.fromHexString(transactionHash));
 
@@ -154,7 +156,7 @@ public class AddressProcessorTests extends IntegrationTest {
         for (int i = 0; i < transactionOutputIds .getSize(); ++i) {
             final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
 
-            final SlpTokenId slpTokenId = transactionOutputDatabaseManager.getSlpTokenId(transactionOutputId);
+            final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionOutputId);
             if (Arrays.contains(slpOutputs, i)) {
                 if (slpTokenId == null) {
                     Assert.fail(transactionHash + ":" + i + " was not marked as an SLP Output.");
