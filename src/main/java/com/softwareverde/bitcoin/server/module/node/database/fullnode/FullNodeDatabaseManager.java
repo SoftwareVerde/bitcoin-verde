@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Util;
 
@@ -33,6 +34,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected TransactionInputDatabaseManager _transactionInputDatabaseManager;
     protected TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
+    protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
 
     public FullNodeDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
@@ -138,6 +140,14 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         }
 
         return _pendingTransactionDatabaseManager;
+    }
+
+    public SlpTransactionDatabaseManager getSlpTransactionDatabaseManager() {
+        if (_slpTransactionDatabaseManager == null) {
+            _slpTransactionDatabaseManager = new SlpTransactionDatabaseManager(this);
+        }
+
+        return _slpTransactionDatabaseManager;
     }
 
     @Override

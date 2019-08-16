@@ -18,7 +18,7 @@ import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.jocl.JoclGpuSha256;
-import com.softwareverde.logging.LineNumberAnnotatedLog;
+import com.softwareverde.logging.BitcoinNodeLog;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
@@ -44,8 +44,9 @@ public class Main {
     }
 
     public static void main(final String[] commandLineArguments) {
-        Logger.LOG = LineNumberAnnotatedLog.getBufferedInstance();
+        Logger.LOG = BitcoinNodeLog.getBufferedInstance();
         Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
+        Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
 
         final Main application = new Main(commandLineArguments);
         application.run();

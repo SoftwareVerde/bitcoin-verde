@@ -390,7 +390,11 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public Boolean isValidSlpTransaction(final Sha256Hash transactionHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            // final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new SlpTransactionValidator.TransactionAccumulator() {
                 @Override
@@ -400,6 +404,10 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
                         for (final Sha256Hash transactionHash : transactionHashes) {
                             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                             if (transactionId == null) { continue; }
+
+                            // final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+                            if (blockId == null) { continue; }
 
                             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                             transactions.put(transactionHash, transaction);

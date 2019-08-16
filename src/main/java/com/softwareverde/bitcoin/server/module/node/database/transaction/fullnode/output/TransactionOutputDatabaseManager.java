@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.module.node.database.address.AddressData
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
@@ -25,11 +25,6 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
-import com.softwareverde.bitcoin.transaction.script.slp.commit.SlpCommitScript;
-import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
-import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
-import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -241,61 +236,10 @@ public class TransactionOutputDatabaseManager {
         return TransactionId.wrap(row.getLong("transaction_id"));
     }
 
-    /**
-     * Returns the TransactionId of the SLP Token's Genesis Transaction.
-     *  If the TransactionId cannot be found then null is returned.
-     *  At least `nullableTransactionId` or `nullableLockingScriptId` must be provided.
-     *  For better performance, provide `nullableLockingScript` when available.
-     */
-    protected TransactionId _calculateSlpTokenGenesisTransactionId(final TransactionId nullableTransactionId, final LockingScriptId nullableLockingScriptId, final LockingScript nullableLockingScript) throws DatabaseException {
-        final LockingScript lockingScript = ( (nullableLockingScript != null) ? nullableLockingScript : _getLockingScript(nullableLockingScriptId));
-        if (lockingScript == null) { return null; }
-
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-
-        final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
-
-        final TransactionId slpTokenTransactionId;
-        switch (scriptType) {
-            case SLP_GENESIS_SCRIPT: {
-                final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
-                if (slpGenesisScript != null) {
-                    slpTokenTransactionId = (nullableTransactionId != null ? nullableTransactionId : _getTransactionId(nullableLockingScriptId));
-                }
-                else {
-                    slpTokenTransactionId = null;
-                }
-            } break;
-
-            case SLP_MINT_SCRIPT: {
-                final SlpMintScript slpMintScript = slpScriptInflater.mintScriptFromScript(lockingScript);
-                final SlpTokenId slpTokenId = (slpMintScript != null ? slpMintScript.getTokenId() : null);
-                slpTokenTransactionId = (slpTokenId != null ? transactionDatabaseManager.getTransactionId(slpTokenId) : null);
-            } break;
-
-            case SLP_COMMIT_SCRIPT: {
-                final SlpCommitScript slpCommitScript = slpScriptInflater.commitScriptFromScript(lockingScript);
-                final SlpTokenId slpTokenId = (slpCommitScript != null ? slpCommitScript.getTokenId() : null);
-                slpTokenTransactionId = (slpTokenId != null ? transactionDatabaseManager.getTransactionId(slpTokenId) : null);
-            } break;
-
-            case SLP_SEND_SCRIPT: {
-                final SlpSendScript slpSendScript = slpScriptInflater.sendScriptFromScript(lockingScript);
-                final SlpTokenId slpTokenId = (slpSendScript != null ? slpSendScript.getTokenId() : null);
-                slpTokenTransactionId = (slpTokenId != null ? transactionDatabaseManager.getTransactionId(slpTokenId) : null);
-            } break;
-
-            default: { slpTokenTransactionId = null; }
-        }
-
-        return slpTokenTransactionId;
-    }
-
     protected void _updateLockingScript(final TransactionId transactionId, final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final AddressDatabaseManager addressDatabaseManager = _databaseManager.getAddressDatabaseManager();
+        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = _databaseManager.getSlpTransactionDatabaseManager();
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
@@ -317,7 +261,7 @@ public class TransactionOutputDatabaseManager {
             } break;
 
             default: {
-                slpTokenTransactionId = _calculateSlpTokenGenesisTransactionId(transactionId, null, lockingScript);
+                slpTokenTransactionId = slpTransactionDatabaseManager.calculateSlpTokenGenesisTransactionId(transactionId, null, lockingScript);
                 addressId = null;
             }
         }
@@ -612,6 +556,10 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
+    public TransactionId getTransactionId(final LockingScriptId lockingScriptId) throws DatabaseException {
+        return _getTransactionId(lockingScriptId);
+    }
+
     public List<LockingScriptId> getLockingScriptsWithUnprocessedTypes(final Integer maxCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -726,62 +674,5 @@ public class TransactionOutputDatabaseManager {
         final Row row = rows.get(0);
         final Long transactionId = row.getLong("transaction_id");
         return TransactionId.wrap(transactionId);
-    }
-
-    public TransactionId calculateSlpTokenGenesisTransactionId(final LockingScriptId lockingScriptId, final LockingScript nullableLockingScript) throws DatabaseException {
-        return _calculateSlpTokenGenesisTransactionId(null, lockingScriptId, nullableLockingScript);
-    }
-
-    public SlpTokenId getSlpTokenId(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, slp_transaction_id FROM locking_scripts WHERE transaction_output_id = ?")
-                .setParameter(transactionOutputId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final TransactionId slpTransactionId = TransactionId.wrap(row.getLong("slp_transaction_id"));
-
-        final Sha256Hash slpTokenId = transactionDatabaseManager.getTransactionHash(slpTransactionId);
-        return SlpTokenId.wrap(slpTokenId);
-    }
-
-    public SlpTokenId getSlpTokenId(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT locking_scripts.slp_transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON locking_scripts.transaction_output_id = transaction_outputs.id WHERE transaction_outputs.transaction_id = ? AND transaction_outputs.`index` = 0")
-                .setParameter(transactionId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final TransactionId slpTransactionId = TransactionId.wrap(row.getLong("slp_transaction_id"));
-
-        final Sha256Hash slpTokenId = transactionDatabaseManager.getTransactionHash(slpTransactionId);
-        return SlpTokenId.wrap(slpTokenId);
-    }
-
-    public void setSlpTransactionId(final TransactionId slpTokenTransactionId, final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id = ?")
-                .setParameter(slpTokenTransactionId)
-                .setParameter(transactionOutputId)
-        );
-    }
-
-    public void setSlpTransactionIds(final TransactionId slpTokenTransactionId, final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id IN (" + DatabaseUtil.createInClause(transactionOutputIds) + ")")
-                .setParameter(slpTokenTransactionId)
-        );
     }
 }
