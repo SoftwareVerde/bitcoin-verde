@@ -38,6 +38,7 @@ public class AddressProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected Runnable _onSleepCallback;
 
     public AddressProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
@@ -205,5 +206,14 @@ public class AddressProcessor extends SleepyService {
     }
 
     @Override
-    protected void _onSleep() { }
+    protected void _onSleep() {
+        final Runnable onSleepCallback = _onSleepCallback;
+        if (onSleepCallback != null) {
+            onSleepCallback.run();
+        }
+    }
+
+    public void setOnSleepCallback(final Runnable onSleepCallback) {
+        _onSleepCallback = onSleepCallback;
+    }
 }

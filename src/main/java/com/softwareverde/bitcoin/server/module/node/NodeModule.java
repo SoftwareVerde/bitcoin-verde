@@ -107,6 +107,7 @@ public class NodeModule {
     protected final TransactionProcessor _transactionProcessor;
     protected final BlockchainBuilder _blockchainBuilder;
     protected final AddressProcessor _addressProcessor;
+    protected final SlpTransactionProcessor _slpTransactionProcessor;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -475,10 +476,19 @@ public class NodeModule {
         }
 
         if (bitcoinProperties.isTrimBlocksEnabled()) {
+            _slpTransactionProcessor = null;
             _addressProcessor = new DisabledAddressProcessor();
         }
         else {
+            _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
+
             _addressProcessor = new AddressProcessor(databaseManagerFactory);
+            _addressProcessor.setOnSleepCallback(new Runnable() {
+                @Override
+                public void run() {
+                    _slpTransactionProcessor.wakeUp();
+                }
+            });
         }
 
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
@@ -696,8 +706,12 @@ public class NodeModule {
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
-                for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
-                    serviceInquisitor.addService(sleepyService.getClass().getSimpleName(), sleepyService.getStatusMonitor());
+                for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
+                    if (sleepyService != null) {
+                        final Class<?> clazz = sleepyService.getClass();
+                        final String serviceName = clazz.getSimpleName();
+                        serviceInquisitor.addService(serviceName, sleepyService.getStatusMonitor());
+                    }
                 }
 
                 final NodeRpcHandler.LogLevelSetter logLevelSetter = new NodeRpcHandler.LogLevelSetter() {
