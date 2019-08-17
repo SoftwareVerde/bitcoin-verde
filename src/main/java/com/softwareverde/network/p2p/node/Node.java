@@ -151,12 +151,19 @@ public abstract class Node {
 
         if (nodeDisconnectedCallback != null) {
             // Intentionally not using the thread pool since it has been shutdown...
-            (new Thread(new Runnable() {
+            final Thread thread = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     nodeDisconnectedCallback.onNodeDisconnected();
                 }
-            })).start();
+            });
+            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.error("Uncaught exception in Thread.", exception);
+                }
+            });
+            thread.start();
         }
     }
 

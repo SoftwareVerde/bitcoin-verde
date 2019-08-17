@@ -31,9 +31,9 @@ public class MainThreadPool implements ThreadPool {
                     @Override
                     public void uncaughtException(final Thread thread, final Throwable throwable) {
                         try {
-                            throwable.printStackTrace(System.err);
+                            Logger.error("Uncaught exception in Thread Pool.", throwable);
                         }
-                        catch (final Throwable t) { }
+                        catch (final Throwable exception) { }
 
                         if (throwable instanceof Error) {
                             final Runnable shutdownCallback = _shutdownCallback;

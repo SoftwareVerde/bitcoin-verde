@@ -216,7 +216,14 @@ public class NodeConnection {
         }
 
         if (onDisconnectCallback != null) {
-            (new Thread(onDisconnectCallback)).start();
+            final Thread thread = new Thread(onDisconnectCallback);
+            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.error("Uncaught exception in thread.", exception);
+                }
+            });
+            thread.start();
         }
     }
 

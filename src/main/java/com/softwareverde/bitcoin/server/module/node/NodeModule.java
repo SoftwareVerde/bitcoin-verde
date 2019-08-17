@@ -794,6 +794,12 @@ public class NodeModule {
             });
             _databaseMaintenanceThread.setName("Database Maintenance Thread");
             _databaseMaintenanceThread.setDaemon(false);
+            _databaseMaintenanceThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.error("Uncaught exception in Database Maintenance Thread", exception);
+                }
+            });
         }
     }
 

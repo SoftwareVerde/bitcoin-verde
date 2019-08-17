@@ -149,6 +149,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             if (_pollForReconnectionThread != null) { return; }
 
             _pollForReconnectionThread = new Thread(_pollForReconnection);
+            _pollForReconnectionThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.error("Uncaught exception in thread.", exception);
+                }
+            });
             _pollForReconnectionThread.start();
         }
     }

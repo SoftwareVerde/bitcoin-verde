@@ -21,6 +21,14 @@ public abstract class SleepyService {
     private void _startThread() {
         _thread = new Thread(_coreRunnable);
         _thread.setName(this.getClass().getSimpleName());
+        _thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                final Class<?> clazz = SleepyService.this.getClass();
+                final String serviceName = clazz.getSimpleName();
+                Logger.error("Uncaught exception in SleepyService (" + serviceName + ").", exception);
+            }
+        });
         _thread.start();
     }
 
