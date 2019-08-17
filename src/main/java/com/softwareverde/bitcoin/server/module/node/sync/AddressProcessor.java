@@ -45,10 +45,14 @@ public class AddressProcessor extends SleepyService {
     }
 
     @Override
-    protected void _onStart() { }
+    protected void _onStart() {
+        Logger.trace("AddressProcessor Starting.");
+    }
 
     @Override
     protected Boolean _run() {
+        Logger.trace("AddressProcessor Running.");
+
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final MilliTimer processTimer = new MilliTimer();
 
@@ -202,11 +206,13 @@ public class AddressProcessor extends SleepyService {
             return false;
         }
 
+        Logger.trace("AddressProcessor Stopping.");
         return true;
     }
 
     @Override
     protected void _onSleep() {
+        Logger.trace("AddressProcessor Sleeping.");
         final Runnable onSleepCallback = _onSleepCallback;
         if (onSleepCallback != null) {
             onSleepCallback.run();

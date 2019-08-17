@@ -123,7 +123,9 @@ public abstract class SleepyService {
     public synchronized void start() {
         _shouldRestart = true;
 
-        _startThread();
+        if (_thread == null) {
+            _startThread();
+        }
     }
 
     public synchronized void wakeUp() {

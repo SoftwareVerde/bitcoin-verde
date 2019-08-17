@@ -463,6 +463,21 @@ public class TransactionOutputDatabaseManager {
         return _getTransactionOutput(transactionOutputId);
     }
 
+    public TransactionOutput getTransactionOutput(final TransactionId transactionId, final Integer outputIndex) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
+                .setParameter(transactionId)
+                .setParameter(outputIndex)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+        return _getTransactionOutput(transactionOutputId);
+    }
+
     public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId, final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();

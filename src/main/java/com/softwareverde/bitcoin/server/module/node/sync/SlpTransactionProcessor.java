@@ -43,12 +43,14 @@ public class SlpTransactionProcessor extends SleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
     @Override
-    protected void _onStart() { }
+    protected void _onStart() {
+        Logger.trace("SlpTransactionProcessor Starting.");
+    }
 
     @Override
     protected Boolean _run() {
+        Logger.trace("SlpTransactionProcessor Running.");
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
@@ -118,13 +120,17 @@ public class SlpTransactionProcessor extends SleepyService {
         }
         catch (final Exception exception) {
             Logger.warn(exception);
-            return null;
+            return false;
         }
+
+        Logger.trace("SlpTransactionProcessor Stopping.");
         return false;
     }
 
     @Override
-    protected void _onSleep() { }
+    protected void _onSleep() {
+        Logger.trace("SlpTransactionProcessor Sleeping.");
+    }
 
     public SlpTransactionProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;

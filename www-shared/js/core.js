@@ -445,7 +445,7 @@ class Ui {
 
             return false;
         });
-        $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi).css("display", "none");
+        $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi).css("display", "none");
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);
@@ -455,6 +455,15 @@ class Ui {
         $(".version .value", transactionUi).text(transaction.version);
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
+
+        if (transaction.slp != null) {
+            const slpAttribute = $(".slp .value", transactionUi);
+            slpAttribute.text(transaction.slp.tokenName);
+            slpAttribute.toggleClass("invalid", (! transaction.slp.isValid));
+        }
+        else {
+            $(".slp .value", transactionUi).remove();
+        }
 
         const blocks = (transaction.blocks || []);
         for (let i = 0; i < blocks.length; i += 1) {
@@ -467,8 +476,12 @@ class Ui {
         }
 
         const lockTime = (transaction.lockTime || { type:"", value: "", bytes: "" });
-        $(".lock-time .type .value", transactionUi).text(lockTime.type);
-        $(".lock-time .type-value .value", transactionUi).text(lockTime.date || lockTime.value);
+        if (lockTime.type == "BLOCK_HEIGHT") {
+            $(".lock-time .value", transactionUi).text("Locked until Block #" + lockTime.value);
+        }
+        else {
+            $(".lock-time .value", transactionUi).text("Locked until Block #" + lockTime.date);
+        }
         $(".lock-time .type-value .bytes", transactionUi).text(lockTime.bytes);
 
         const transactionInputs = (transaction.inputs || [ ]);

@@ -197,6 +197,11 @@ public class NodeModule {
         Logger.info("[Stopping Database Maintenance Thread]");
         _databaseMaintenanceThread.interrupt();
 
+        if (_slpTransactionProcessor != null) {
+            Logger.info("[Stopping SlpTransaction Processor]");
+            _slpTransactionProcessor.stop();
+        }
+
         Logger.info("[Stopping Addresses Processor]");
         _addressProcessor.stop();
 
@@ -486,6 +491,7 @@ public class NodeModule {
             _addressProcessor.setOnSleepCallback(new Runnable() {
                 @Override
                 public void run() {
+                    Logger.trace("AddressProcessor: Callback");
                     _slpTransactionProcessor.wakeUp();
                 }
             });
@@ -882,6 +888,11 @@ public class NodeModule {
 
         Logger.info("[Started Address Processor]");
         _addressProcessor.start();
+
+        if (_slpTransactionProcessor != null) {
+            Logger.info("[Started SlpTransaction Processor]");
+            _slpTransactionProcessor.start();
+        }
 
         if (! _bitcoinProperties.skipNetworking()) {
             Logger.info("[Connecting To Peers]");

@@ -26,15 +26,6 @@
     height: calc(7em + 0.5em);
 }
 
-.transaction > div {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-}
-.transaction > div > div {
-    flex-grow: 1;
-}
-
 .transaction .io .transaction-inputs::before,
 .transaction .io .transaction-outputs::before,
 .transaction::before,
@@ -49,7 +40,7 @@
 }
 
 .transaction::before {
-    content: 'Transaction';
+    content: none;
     color: #404040;
     transition: all 500ms ease;
 }
@@ -170,17 +161,6 @@
     margin-top: 0.25em;
 }
 
-.transaction > div > div,
-.block .block-header > div {
-    padding: 0.25em;
-    margin: 0.25em;
-    border: solid 1px rgba(0, 0, 0, 0.05);
-    background-color: rgba(0, 0, 0, 0.025);
-    float: left;
-    width: calc(50% - 0.5em);
-    box-sizing: border-box;
-}
-
 .transaction div > label,
 .block .block-header div label {
     display: inline-block;
@@ -194,7 +174,6 @@
 .block .block-header div .value {
     display: table; /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
     box-sizing: border-box;
-    padding-left: 1em;
     margin-top: 0.25em;
 }
 
@@ -214,25 +193,24 @@
     font-style: italic;
 }
 
+.transaction .hash .value {
+    display: inline-block !important;
+    margin-left: 1em;
+    vertical-align: text-bottom;
+}
+
 .transaction div div.fee .value::after,
 .transaction div div.byte-count .value::after,
 .block .block-header div.byte-count .value::after {
-    content: '(bytes)';
-    font-size: 0.75em;
+    content: '\A(bytes)';
     color: rgba(0, 0, 0, 0.4);
-    margin-left: 0.5em;
     font-style: italic;
+    font-size: 25%;
+    display: block;
 }
 
 .transaction div div.fee .value::after {
-    content: '(satoshis)';
-}
-
-.transaction div div.block-hashes {
-    min-height: 6.5em;
-}
-
-.transaction div div.lock-time div {
+    content: '\A(satoshis)';
 }
 
 .transaction div div.block-hashes div.value span {
@@ -281,11 +259,16 @@
 .transaction {
     transition: all 500ms ease;
     transition: opacity 500ms ease;
+
+    background-color: #FFFFFF;
+    border: solid 1px #AAAAAA;
+    padding-top: 0.5em;
+    padding-bottom: 2.5em;
+    position: relative;
 }
 
 .transaction.collapsed {
     padding-bottom: 0px;
-    background-color: initial;
     cursor: pointer;
     border: none;
 }
@@ -303,6 +286,57 @@
 
 .transaction.collapsed > div > div {
     width: calc(100% - 0.5em);
+}
+
+.transaction .floating-properties-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    text-align: right;
+    vertical-align: top;
+}
+
+.transaction .floating-property {
+    width: 75px;
+    height: 75px;
+    border-radius: 5em;
+    padding: 0.5em;
+    border: solid 1px #F0F0F0;
+    text-align: center;
+    margin-left: 10px;
+    float: right;
+    background-color: #FAFAFA;
+    position: relative;
+}
+.transaction .floating-property .value {
+    display: block;
+    font-size: 150%;
+}
+
+.transaction > .lock-time.floating-property {
+    display: inline-block;
+    border: solid 2px #F0F0F0;
+    padding: 0.5em;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    margin: 0.25em;
+    color: #BBBBBB;
+    border-radius: 5px;
+    width: auto;
+    height: auto;
+}
+.transaction > .lock-time > label {
+    display: none;
+}
+.transaction > .lock-time > .img {
+    color: #C0C0C0;
+    margin-right: 0.25em;
+    display: inline-block;
+}
+.transaction > .lock-time > .value {
+    display: inline-block;
+    font-size: 0.75em;
 }
 
 .transaction.collapsed .hash span.value::before {
@@ -329,12 +363,6 @@
 
 .transaction.collapsed .io {
     margin-top: 0.5em;
-}
-
-.transaction.collapsed .io {
-    padding-bottom: 1em;
-    border-bottom: solid 1px #AAA;
-    box-shadow: -1px 5px 5px 0px #000000;
 }
 
 .transaction.collapsed > div > div {
