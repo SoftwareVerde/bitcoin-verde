@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -18,6 +17,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -56,12 +56,15 @@ public class SlpTransactionProcessor extends SleepyService {
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
             final Container<BlockchainSegmentId> blockchainSegmentId = new Container<BlockchainSegmentId>();
+            final Container<Integer> transactionLookupCount = new Container<Integer>(0);
 
             final SlpTransactionValidator.TransactionAccumulator transactionAccumulator = new SlpTransactionValidator.TransactionAccumulator() {
                 @Override
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
                     try {
                         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
+                        final MilliTimer milliTimer = new MilliTimer();
+                        milliTimer.start();
                         for (final Sha256Hash transactionHash : transactionHashes) {
                             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                             if (transactionId == null) { continue; }
@@ -72,6 +75,9 @@ public class SlpTransactionProcessor extends SleepyService {
                             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                             transactions.put(transactionHash, transaction);
                         }
+                        milliTimer.stop();
+                        transactionLookupCount.value += transactionHashes.getSize();
+                        // Logger.trace("Loaded " + transactionHashes.getSize() + " in " + milliTimer.getMillisecondsElapsed() + "ms.");
                         return transactions;
                     }
                     catch (final DatabaseException exception) {
@@ -88,7 +94,12 @@ public class SlpTransactionProcessor extends SleepyService {
                         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                         if (transactionId == null) { return null; }
 
-                        return slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId.value, transactionId);
+                        final MilliTimer milliTimer = new MilliTimer();
+                        milliTimer.start();
+                        final Boolean result = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId.value, transactionId);
+                        milliTimer.stop();
+                        // Logger.trace("Loaded Cached Validity: " + transactionHash + " in " + milliTimer.getMillisecondsElapsed() + "ms. (" + result + ")");
+                        return result;
                     }
                     catch (final DatabaseException exception) {
                         Logger.warn(exception);
@@ -104,6 +115,10 @@ public class SlpTransactionProcessor extends SleepyService {
 
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
             final Map<BlockId, List<TransactionId>> pendingSlpTransactionIds = slpTransactionDatabaseManager.getPendingValidationSlpTransactions(BATCH_SIZE);
+            if (pendingSlpTransactionIds.isEmpty()) {
+                Logger.trace("No more Slp Txns.");
+                return false;
+            }
 
             for (final BlockId blockId : pendingSlpTransactionIds.keySet()) {
                 blockchainSegmentId.value = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
@@ -111,10 +126,15 @@ public class SlpTransactionProcessor extends SleepyService {
                 final List<TransactionId> transactionIds = pendingSlpTransactionIds.get(blockId);
                 for (final TransactionId transactionId : transactionIds) {
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                    final MilliTimer milliTimer = new MilliTimer();
+                    milliTimer.start();
+                    Logger.trace("Validating Slp Tx " + transaction.getHash());
+                    transactionLookupCount.value = 0;
                     final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
+                    milliTimer.stop();
 
                     slpTransactionDatabaseManager.setSlpTransactionValidationResult(blockchainSegmentId.value, transactionId, isValid);
-                    Logger.trace("Slp Tx " + transaction.getHash() + " IsValid: " + isValid);
+                    Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
                 }
             }
         }
@@ -124,7 +144,7 @@ public class SlpTransactionProcessor extends SleepyService {
         }
 
         Logger.trace("SlpTransactionProcessor Stopping.");
-        return false;
+        return true;
     }
 
     @Override
