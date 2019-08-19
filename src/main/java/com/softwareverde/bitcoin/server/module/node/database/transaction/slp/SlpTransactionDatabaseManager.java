@@ -102,7 +102,7 @@ public class SlpTransactionDatabaseManager {
                         "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
                     "INNER JOIN block_transactions " +
                         "ON (block_transactions.transaction_id = transaction_outputs.transaction_id) " +
-                    "INNER JOIN blocks" +
+                    "INNER JOIN blocks " +
                         "ON (blocks.id = block_transactions.block_id) " +
                     "LEFT OUTER JOIN validated_slp_transactions " +
                         "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
