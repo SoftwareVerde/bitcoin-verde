@@ -117,6 +117,9 @@ public class SlpTransactionDatabaseManager {
     }
 
     public void setSlpTransactionValidationResult(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId, final Boolean isValid) throws DatabaseException {
+        if (blockchainSegmentId == null) { return; }
+        if (transactionId == null) { return; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Integer isValidIntegerValue = ( (isValid != null) ? (isValid ? 1 : 0) : null );

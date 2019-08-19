@@ -77,7 +77,7 @@ public class SlpTransactionProcessor extends SleepyService {
                         }
                         milliTimer.stop();
                         transactionLookupCount.value += transactionHashes.getSize();
-                        // Logger.trace("Loaded " + transactionHashes.getSize() + " in " + milliTimer.getMillisecondsElapsed() + "ms.");
+                        Logger.trace("Loaded " + transactionHashes.getSize() + " in " + milliTimer.getMillisecondsElapsed() + "ms.");
                         return transactions;
                     }
                     catch (final DatabaseException exception) {
@@ -98,12 +98,25 @@ public class SlpTransactionProcessor extends SleepyService {
                         milliTimer.start();
                         final Boolean result = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId.value, transactionId);
                         milliTimer.stop();
-                        // Logger.trace("Loaded Cached Validity: " + transactionHash + " in " + milliTimer.getMillisecondsElapsed() + "ms. (" + result + ")");
+                        Logger.trace("Loaded Cached Validity: " + transactionHash + " in " + milliTimer.getMillisecondsElapsed() + "ms. (" + result + ")");
                         return result;
                     }
                     catch (final DatabaseException exception) {
                         Logger.warn(exception);
                         return null;
+                    }
+                }
+
+                @Override
+                public void setIsValid(final Sha256Hash transactionHash, final Boolean isValid) {
+                    try {
+                        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                        if (transactionId == null) { return; }
+
+                        slpTransactionDatabaseManager.setSlpTransactionValidationResult(blockchainSegmentId.value, transactionId, isValid);
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.warn(exception);
                     }
                 }
             };
