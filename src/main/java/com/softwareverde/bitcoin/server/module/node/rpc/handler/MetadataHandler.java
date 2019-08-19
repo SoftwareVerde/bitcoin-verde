@@ -170,6 +170,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
                 final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
                 final Boolean isValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+
+                slpJson.put("tokenId", slpTokenId);
                 slpJson.put("isValid", isValid);
             }
             else {

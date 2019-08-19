@@ -166,8 +166,6 @@
     display: inline-block;
     box-sizing: border-box;
     font-size: 0.75em;
-    font-weight: bold;
-    color: #404040;
 }
 
 .transaction > div > div .value,
@@ -308,9 +306,26 @@
     background-color: #FAFAFA;
     position: relative;
 }
+.transaction .floating-property label {
+    font-weight: normal;
+}
 .transaction .floating-property .value {
     display: block;
     font-size: 150%;
+}
+.transaction .slp.floating-property .value {
+    margin-top: 0;
+    font-size: 250%;
+}
+.transaction .slp.floating-property {
+    border-color: #0F6115;
+    background-color: #1AB325;
+    cursor: pointer;
+}
+.transaction .slp.floating-property.invalid {
+    border-color: #962727;
+    background-color: #F7931D;
+    cursor: not-allowed;
 }
 
 .transaction > .lock-time.floating-property {

@@ -413,7 +413,7 @@ class Ui {
         });
 
         transactionUi.on("click", function() {
-            const elements = $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi);
+            const elements = $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi);
             elements.each(function() {
                 const element = $(this);
                 elements.animationCompleteCount = 0;
@@ -456,10 +456,21 @@ class Ui {
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
 
-        if (transaction.slp != null) {
-            const slpAttribute = $(".slp .value", transactionUi);
-            slpAttribute.text(transaction.slp.tokenName);
-            slpAttribute.toggleClass("invalid", (! transaction.slp.isValid));
+        if (transaction.slp) {
+            const slpAttributeContainer = $(".slp", transactionUi);
+            const slpAttributeValue = $(".slp .value", transactionUi);
+            const slpAttributeLabel = $(".slp label", transactionUi);
+
+            slpAttributeValue.text(transaction.slp.tokenAbbreviation);
+
+            if (! transaction.slp.isValid) {
+                slpAttributeLabel.text("INVALID");
+
+                slpAttributeContainer.toggleClass("invalid", true);
+            }
+            else {
+                slpAttributeContainer.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
+            }
         }
         else {
             $(".slp .value", transactionUi).remove();
@@ -566,4 +577,25 @@ class DateUtil {
         return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth() + 1) + "-" + DateUtil.padLeft(date.getDate()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
     }
 }
+
+/*
+    function resizeText(textNode) {
+        var container = textNode.parent();
+        var width = 75; // container.width(), height = container.height();
+        var height = 75;
+        console.log(width);
+        var bb = textNode[0].getBBox();
+        console.log(bb);
+        var widthTransform = width / bb.width;
+        console.log(bb.width);
+        var heightTransform = height / bb.height;
+        var value = (widthTransform < heightTransform ? widthTransform : heightTransform);
+        console.log(widthTransform + " vs " + heightTransform);
+        textNode.css("font-size", value + "em");
+
+        bb = textNode[0].getBBox();
+        console.log(height + " - (" + bb.height + "/ 2)");
+        textNode.attr("y", ((height + Math.min(height, bb.height)) / 2));
+    }
+*/
 
