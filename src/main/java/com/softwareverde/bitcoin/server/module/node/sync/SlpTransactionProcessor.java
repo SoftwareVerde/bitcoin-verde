@@ -9,7 +9,9 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
+import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidationCache;
 import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
+import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -58,7 +60,7 @@ public class SlpTransactionProcessor extends SleepyService {
             final Container<BlockchainSegmentId> blockchainSegmentId = new Container<BlockchainSegmentId>();
             final Container<Integer> transactionLookupCount = new Container<Integer>(0);
 
-            final SlpTransactionValidator.TransactionAccumulator transactionAccumulator = new SlpTransactionValidator.TransactionAccumulator() {
+            final TransactionAccumulator transactionAccumulator = new TransactionAccumulator() {
                 @Override
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
                     try {
@@ -87,7 +89,7 @@ public class SlpTransactionProcessor extends SleepyService {
                 }
             };
 
-            final SlpTransactionValidator.SlpTransactionValidationCache slpTransactionValidationCache = new SlpTransactionValidator.SlpTransactionValidationCache() {
+            final SlpTransactionValidationCache slpTransactionValidationCache = new SlpTransactionValidationCache() {
                 @Override
                 public Boolean isValid(final Sha256Hash transactionHash) {
                     try {

@@ -24,21 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SlpTransactionValidator {
-    public interface TransactionAccumulator {
-        Map<Sha256Hash, Transaction> getTransactions(List<Sha256Hash> transactionHashes);
-    }
-
-    public interface SlpTransactionValidationCache {
-        /**
-         * Returns null if validity of the associated transaction has not been cached.
-         * Returns true if validity of the associated transaction has been cached and is valid.
-         * Returns false if validity of the associated transaction has been cached and is invalid.
-         */
-        Boolean isValid(Sha256Hash transactionHash);
-
-        void setIsValid(Sha256Hash transactionHash, Boolean isValid);
-    }
-
     protected final SlpTransactionValidationCache _validationCache;
     protected final TransactionAccumulator _transactionAccumulator;
 
@@ -68,13 +53,10 @@ public class SlpTransactionValidator {
             switch (slpScriptType) {
                 case GENESIS: {
                     for (final Transaction transaction : transactions) {
-                        Logger.trace("Validate Recursive: " + transaction.getHash());
-                        if (_validationCache != null) {
-                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
-                            if (isCachedAsValid != null) {
-                                if (isCachedAsValid) { continue; }
-                                else { return false; }
-                            }
+                        final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                        if (isCachedAsValid != null) {
+                            if (isCachedAsValid) { continue; }
+                            else { return false; }
                         }
 
                         final Boolean isValid = _validateSlpGenesisTransaction(transaction);
@@ -83,13 +65,10 @@ public class SlpTransactionValidator {
                 } break;
                 case MINT: {
                     for (final Transaction transaction : transactions) {
-                        Logger.trace("Validate Recursive: " + transaction.getHash());
-                        if (_validationCache != null) {
-                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
-                            if (isCachedAsValid != null) {
-                                if (isCachedAsValid) { continue; }
-                                else { return false; }
-                            }
+                        final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                        if (isCachedAsValid != null) {
+                            if (isCachedAsValid) { continue; }
+                            else { return false; }
                         }
 
                         final Boolean isValid = _validateSlpMintTransaction(transaction, null);
@@ -98,13 +77,10 @@ public class SlpTransactionValidator {
                 } break;
                 case SEND: {
                     for (final Transaction transaction : transactions) {
-                        Logger.trace("Validate Recursive: " + transaction.getHash());
-                        if (_validationCache != null) {
-                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
-                            if (isCachedAsValid != null) {
-                                if (isCachedAsValid) { continue; }
-                                else { return false; }
-                            }
+                        final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                        if (isCachedAsValid != null) {
+                            if (isCachedAsValid) { continue; }
+                            else { return false; }
                         }
 
                         final Boolean isValid = _validateSlpSendTransaction(transaction, null);
@@ -113,13 +89,10 @@ public class SlpTransactionValidator {
                 } break;
                 case COMMIT: {
                     for (final Transaction transaction : transactions) {
-                        Logger.trace("Validate Recursive: " + transaction.getHash());
-                        if (_validationCache != null) {
-                            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
-                            if (isCachedAsValid != null) {
-                                if (isCachedAsValid) { continue; }
-                                else { return false; }
-                            }
+                        final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+                        if (isCachedAsValid != null) {
+                            if (isCachedAsValid) { continue; }
+                            else { return false; }
                         }
 
                         final Boolean isValid = _validateSlpCommitTransaction(transaction);
@@ -312,28 +285,23 @@ public class SlpTransactionValidator {
         }
 
         final boolean isValid = (totalSlpAmountReceived >= totalSendAmount);
-        if (_validationCache != null) {
-            _validationCache.setIsValid(transaction.getHash(), isValid);
-        }
-
+        _validationCache.setIsValid(transaction.getHash(), isValid);
         return isValid;
     }
 
     public SlpTransactionValidator(final TransactionAccumulator transactionAccumulator) {
         _transactionAccumulator = transactionAccumulator;
-        _validationCache = null;
+        _validationCache = new HashMapSlpTransactionValidationCache();
     }
 
     public SlpTransactionValidator(final TransactionAccumulator transactionAccumulator, final SlpTransactionValidationCache validationCache) {
         _transactionAccumulator = transactionAccumulator;
-        _validationCache = validationCache;
+        _validationCache = (validationCache != null ? validationCache : new HashMapSlpTransactionValidationCache());
     }
 
     public Boolean validateTransaction(final Transaction transaction) {
-        if (_validationCache != null) {
-            final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
-            if (isCachedAsValid != null) { return isCachedAsValid; }
-        }
+        final Boolean isCachedAsValid = _validationCache.isValid(transaction.getHash());
+        if (isCachedAsValid != null) { return isCachedAsValid; }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 

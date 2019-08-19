@@ -63,7 +63,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
 
             final AtomicInteger validationCount = new AtomicInteger(0);
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new SlpTransactionValidator.TransactionAccumulator() {
+            final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new TransactionAccumulator() {
                 @Override
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
                     try {
@@ -117,13 +117,12 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
         final AddressProcessor addressProcessor = new AddressProcessor(_fullNodeDatabaseManagerFactory);
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             // Setup
-            final List<TransactionId> transactionIds = AddressProcessorTests.loadBvtTokens(databaseManager);
-
             final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
             slpValidityMap.put(Sha256Hash.fromHexString("039FC4304C7F7324E98B6FFCFB7280BE963D7D8A18173494D5E7DE11CCA34D81"), true);
 
             final TransactionInflater transactionInflater = new TransactionInflater();
 
+            // Contains all "ToriBonBon" SLP Txns from Block 00000000000000000013E713CF92C8554BB28D03514918888F97664BFA071D11...
             final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>();
             { // 039FC4304C7F7324E98B6FFCFB7280BE963D7D8A18173494D5E7DE11CCA34D81
                 final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("02000000032633CC8991977E070F5103A0AE829CE847CDD2EFDC5EC71F2BD8A36158DADD81020000006B483045022100D0B66E8A139F91E1E5C32F336E18A5CC99A10FE6805D520FEFFB387A80E64D4E02202AB542EFADA6E70923BDE611157A18F4FF74A7E4A7EEB5B621C2787F15DA11814121030E3259E023728F57251EAA5F258C6452BCB1AF3D89BB6E911857E74DF351E7BDFFFFFFFF2633CC8991977E070F5103A0AE829CE847CDD2EFDC5EC71F2BD8A36158DADD81010000006A47304402203E6AB8BC914EB9508E9345B3A34F04657B38844C887BCC2BD5E7CA6CFC3518AA022037EA8D25FBCA5B2BB611E625034C716DA4AB46AA617BD55D8D91E21A8971A1BA4121030E3259E023728F57251EAA5F258C6452BCB1AF3D89BB6E911857E74DF351E7BDFFFFFFFF2633CC8991977E070F5103A0AE829CE847CDD2EFDC5EC71F2BD8A36158DADD81030000006B483045022100B2F2AD45186BFA8D5AE179B9D3838A629B5BCA083D3299267F17EAF6FAD76FFE02203461F22027E70BD3FF167B6D732D9CD4495D4D1EBBF75808455C69D972AA41B14121039BB102119D47ACAADB4699C233CBFD60ECC9CDFD8F338ADCFD43323D5559651BFFFFFFFF040000000000000000406A04534C500001010453454E4420EEBFBB81CD65AE7B93A5FBB006707A97D36733ED24979D367E972B0636B34D1D08000000000000000A08000000000000000A22020000000000001976A9144D4280B2915943DAF34C8B11E03F6304E57EEC4988AC22020000000000001976A9144D4280B2915943DAF34C8B11E03F6304E57EEC4988AC9CC10700000000001976A9140FAC32A3EBDBD2FDA14FF4442E6B60BE35A5C39F88AC00000000"));
@@ -252,7 +251,6 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             validHashes.add(Sha256Hash.fromHexString("B8FF87F79F2276CF8776AD9CBE0ECA1649809D6B02065D762A0589419ABE4AF1"));
             validHashes.add(Sha256Hash.fromHexString("97ED4D0FD7281AF2AC4848B1DE1F78F6F8A2DF6D4D4C3E96A16087C7A2FB4612"));
             validHashes.add(Sha256Hash.fromHexString("28F42D363686880D1181B1FCE947FBE8122C7AA4F12D1AE57F6908D081A5DC01"));
-            // validHashes.add(Sha256Hash.fromHexString(""));
 
 
             // Action
@@ -270,7 +268,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             final AtomicInteger validationCount = new AtomicInteger(0);
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(
-                new SlpTransactionValidator.TransactionAccumulator() {
+                new TransactionAccumulator() {
                     @Override
                     public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
                         final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
@@ -280,7 +278,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
                         return returnedTransactions;
                     }
                 },
-                new SlpTransactionValidator.SlpTransactionValidationCache() {
+                new SlpTransactionValidationCache() {
                     @Override
                     public Boolean isValid(final Sha256Hash transactionHash) {
                         if (validHashes.contains(transactionHash)) { return true; }
@@ -314,7 +312,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             }
 
             synchronized (validationCount) {
-                while (validationCount.get() < transactionIds.getSize()) {
+                while (validationCount.get() < 1) {
                     validationCount.wait();
                 }
             }
