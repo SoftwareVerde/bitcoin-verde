@@ -89,6 +89,95 @@ public class SlpTransactionDatabaseManager {
         return slpTokenTransactionId;
     }
 
+    protected LinkedHashMap<BlockId, List<TransactionId>> _getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query(
+                "SELECT " +
+                    "blocks.id AS block_id, transaction_outputs.transaction_id " +
+                "FROM " +
+                    "locking_scripts " +
+                    "INNER JOIN transaction_outputs " +
+                        "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
+                    "INNER JOIN block_transactions " +
+                        "ON (block_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                    "INNER JOIN blocks" +
+                        "ON (blocks.id = block_transactions.block_id) " +
+                    "LEFT OUTER JOIN validated_slp_transactions " +
+                        "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                "WHERE " +
+                    "validated_slp_transactions.id IS NULL " +
+                    "AND locking_scripts.slp_transaction_id IS NOT NULL " +
+                "GROUP BY transaction_outputs.transaction_id " +
+                "ORDER BY blocks.block_height ASC " +
+                "LIMIT " + maxCount
+            )
+        );
+
+        final LinkedHashMap<BlockId, List<TransactionId>> result = new LinkedHashMap<BlockId, List<TransactionId>>();
+
+        BlockId previousBlockId = null;
+        ImmutableListBuilder<TransactionId> transactionIds = null;
+
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            if ( (blockId == null) || (transactionId == null) ) { continue; }
+
+            if ( (previousBlockId == null) || (! Util.areEqual(previousBlockId, blockId)) ) {
+                if (transactionIds != null) {
+                    result.put(previousBlockId, transactionIds.build());
+                }
+                previousBlockId = blockId;
+                transactionIds = new ImmutableListBuilder<TransactionId>();
+            }
+
+            transactionIds.add(transactionId);
+        }
+
+        if ( (previousBlockId != null) && (transactionIds != null) ) {
+            result.put(previousBlockId, transactionIds.build());
+        }
+
+        return result;
+    }
+
+    protected List<TransactionId> _getUnconfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query(
+                "SELECT " +
+                    "transaction_outputs.transaction_id " +
+                "FROM " +
+                    "locking_scripts " +
+                    "INNER JOIN transaction_outputs " +
+                        "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
+                    "INNER JOIN unconfirmed_transactions " +
+                        "ON (unconfirmed_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                    "LEFT OUTER JOIN validated_slp_transactions " +
+                        "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                "WHERE " +
+                    "validated_slp_transactions.id IS NULL " +
+                    "AND locking_scripts.slp_transaction_id IS NOT NULL " +
+                "GROUP BY transaction_outputs.transaction_id ASC " +
+                "LIMIT " + maxCount
+            )
+        );
+
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(rows.size());
+
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            if (transactionId == null) { continue; }
+
+            transactionIds.add(transactionId);
+        }
+
+        return transactionIds.build();
+    }
+
     public SlpTransactionDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
@@ -215,38 +304,14 @@ public class SlpTransactionDatabaseManager {
      * Returns a mapping of (SLP) TransactionIds that have not been validated yet, ordered by their respective block's height.
      *  Unconfirmed transactions are not returned by this function.
      */
-    public LinkedHashMap<BlockId, List<TransactionId>> getPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+    public LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
+        return _getConfirmedPendingValidationSlpTransactions(maxCount);
+    }
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT blocks.id AS block_id, transaction_outputs.transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON (transaction_outputs.id = locking_scripts.transaction_output_id) LEFT OUTER JOIN validated_slp_transactions ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) INNER JOIN block_transactions ON (block_transactions.transaction_id = transaction_outputs.transaction_id) INNER JOIN blocks ON (blocks.id = block_transactions.block_id) WHERE validated_slp_transactions.id IS NULL AND locking_scripts.slp_transaction_id IS NOT NULL GROUP BY transaction_outputs.transaction_id ORDER BY blocks.block_height ASC LIMIT " + maxCount)
-        );
-
-        final LinkedHashMap<BlockId, List<TransactionId>> result = new LinkedHashMap<BlockId, List<TransactionId>>();
-
-        BlockId previousBlockId = null;
-        ImmutableListBuilder<TransactionId> transactionIds = null;
-
-        for (final Row row : rows) {
-            final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            if ( (blockId == null) || (transactionId == null) ) { continue; }
-
-            if ( (previousBlockId == null) || (! Util.areEqual(previousBlockId, blockId)) ) {
-                if (transactionIds != null) {
-                    result.put(previousBlockId, transactionIds.build());
-                }
-                previousBlockId = blockId;
-                transactionIds = new ImmutableListBuilder<TransactionId>();
-            }
-
-            transactionIds.add(transactionId);
-        }
-
-        if ( (previousBlockId != null) && (transactionIds != null) ) {
-            result.put(previousBlockId, transactionIds.build());
-        }
-
-        return result;
+    /**
+     * Returns a list of (SLP) TransactionIds that have not been validated yet that reside in the mempool.
+     */
+    public List<TransactionId> getUnconfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
+        return _getUnconfirmedPendingValidationSlpTransactions(maxCount);
     }
 }
