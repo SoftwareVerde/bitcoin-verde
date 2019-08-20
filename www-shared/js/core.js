@@ -352,6 +352,7 @@ class Ui {
         main.empty();
         main.append(transactionUi);
         transactionUi.fadeIn(500, function() {
+            transactionUi.click();
             window.HashResizer(transactionUi);
         });
     }
