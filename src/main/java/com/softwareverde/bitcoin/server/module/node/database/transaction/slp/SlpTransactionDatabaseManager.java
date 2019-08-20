@@ -104,14 +104,12 @@ public class SlpTransactionDatabaseManager {
                         "ON (block_transactions.transaction_id = transaction_outputs.transaction_id) " +
                     "INNER JOIN blocks " +
                         "ON (blocks.id = block_transactions.block_id) " +
-                    "LEFT OUTER JOIN validated_slp_transactions " +
-                        "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
                 "WHERE " +
-                    "validated_slp_transactions.id IS NULL " +
+                    "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = transaction_outputs.transaction_id AND t.blockchain_segment_id = blocks.blockchain_segment_id) " +
                     "AND locking_scripts.slp_transaction_id IS NOT NULL " +
-                "GROUP BY transaction_outputs.transaction_id " +
+                "GROUP BY blocks.id, transaction_outputs.transaction_id " +
                 "ORDER BY blocks.block_height ASC " +
-                "LIMIT " + maxCount
+                "LIMIT "+ maxCount
             )
         );
 

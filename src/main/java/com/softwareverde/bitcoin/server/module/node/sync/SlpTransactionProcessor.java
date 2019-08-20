@@ -137,10 +137,10 @@ public class SlpTransactionProcessor extends SleepyService {
             if (pendingSlpTransactionIds.isEmpty()) { // Only validate unconfirmed SLP Transactions if the history is up to date in order to reduce the validation depth.
                 unconfirmedPendingSlpTransactionIds = slpTransactionDatabaseManager.getUnconfirmedPendingValidationSlpTransactions(BATCH_SIZE);
                 if (unconfirmedPendingSlpTransactionIds.isEmpty()) { return false; }
+                blockchainSegmentId.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             }
             else {
                 unconfirmedPendingSlpTransactionIds = new MutableList<TransactionId>(0);
-                blockchainSegmentId.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             }
 
             final MilliTimer milliTimer = new MilliTimer();
