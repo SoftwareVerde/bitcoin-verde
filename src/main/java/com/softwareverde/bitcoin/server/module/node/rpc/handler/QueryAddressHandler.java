@@ -16,7 +16,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.SortUtil;
 
 import java.util.HashMap;
@@ -40,7 +40,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             return addressDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -96,7 +96,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             return transactions.build();
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }

@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class ConscientiousUnspentTransactionOutputCache<T, S> implements UnspentTransactionOutputCache {
 
@@ -16,7 +16,7 @@ public class ConscientiousUnspentTransactionOutputCache<T, S> implements Unspent
     protected final UnspentTransactionOutputCache _cache;
 
     protected void _pruneHalf() {
-        Logger.log("NOTICE: Pruning cache by half: " + _cache.toString());
+        Logger.debug("Pruning cache by half: " + _cache.toString());
         _memoryStatus.logCurrentMemoryUsage();
 
         _cache.pruneHalf();

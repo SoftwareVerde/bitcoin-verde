@@ -30,7 +30,7 @@ public class ResponseMessage implements Jsonable {
         {
             final Json errors = json.get("error");
             if (errors != null) {
-                for (int i=0; i<errors.length(); ++i) {
+                for (int i = 0; i < errors.length(); ++i) {
                     final String error = errors.getString(i);
                     responseMessage._error.add(error);
                 }

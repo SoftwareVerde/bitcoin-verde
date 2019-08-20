@@ -14,8 +14,8 @@ import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.servlet.session.Session;
 
 public class CreateAccountApi extends StratumApiEndpoint {
@@ -77,7 +77,7 @@ public class CreateAccountApi extends StratumApiEndpoint {
                 return response;
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }

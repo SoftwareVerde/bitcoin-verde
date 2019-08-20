@@ -1,10 +1,10 @@
 package com.softwareverde.concurrent.service;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public abstract class SleepyService {
     public enum Status {
-        ACTIVE, SLEEPING
+        ACTIVE, SLEEPING, STOPPED
     }
 
     public interface StatusMonitor {
@@ -21,6 +21,14 @@ public abstract class SleepyService {
     private void _startThread() {
         _thread = new Thread(_coreRunnable);
         _thread.setName(this.getClass().getSimpleName());
+        _thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                final Class<?> clazz = SleepyService.this.getClass();
+                final String serviceName = clazz.getSimpleName();
+                Logger.error("Uncaught exception in SleepyService (" + serviceName + ").", exception);
+            }
+        });
         _thread.start();
     }
 
@@ -44,13 +52,13 @@ public abstract class SleepyService {
                             }
                         }
                         catch (final Exception exception) {
-                            Logger.log(exception);
+                            Logger.warn(exception);
                             break;
                         }
                     }
                 }
                 catch (final Exception exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                 }
                 _onSleep();
             }
@@ -72,9 +80,15 @@ public abstract class SleepyService {
         _statusMonitor = new StatusMonitor() {
             @Override
             public Status getStatus() {
-                if ( (! _shouldRestart) || _thread.isInterrupted() ) {
+                final Thread thread = _thread;
+                if ( (thread == null) || (thread.isInterrupted()) ) {
+                    return Status.STOPPED;
+                }
+
+                if (! _shouldRestart) {
                     return Status.SLEEPING;
                 }
+
                 return Status.ACTIVE;
             }
         };
@@ -88,8 +102,7 @@ public abstract class SleepyService {
                         _loop();
                     }
                     catch (final Exception exception) {
-                        Logger.log("Exception encountered in " + this.getClass().getSimpleName());
-                        Logger.log(exception);
+                        Logger.warn("Exception encountered in " + this.getClass().getSimpleName(), exception);
 
                         if (! thread.isInterrupted()) {
                             try {
@@ -110,7 +123,9 @@ public abstract class SleepyService {
     public synchronized void start() {
         _shouldRestart = true;
 
-        _startThread();
+        if (_thread == null) {
+            _startThread();
+        }
     }
 
     public synchronized void wakeUp() {

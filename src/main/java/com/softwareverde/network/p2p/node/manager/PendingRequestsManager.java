@@ -2,7 +2,7 @@ package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Iterator;
@@ -65,7 +65,10 @@ public class PendingRequestsManager<NODE> extends SleepyService {
                     public void run() {
                         try {
                             apiRequest.onFailure();
-                        } catch (final Exception exception) { Logger.log(exception); }
+                        }
+                        catch (final Exception exception) {
+                            Logger.warn(exception);
+                        }
                     }
                 });
 

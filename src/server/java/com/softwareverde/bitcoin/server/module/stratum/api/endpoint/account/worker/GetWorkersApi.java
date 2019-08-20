@@ -15,8 +15,8 @@ import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.JsonResponse;
 import com.softwareverde.http.server.servlet.response.Response;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.servlet.AuthenticatedServlet;
 
 public class GetWorkersApi extends AuthenticatedServlet {
@@ -62,7 +62,7 @@ public class GetWorkersApi extends AuthenticatedServlet {
                 return new JsonResponse(Response.Codes.OK, result);
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }

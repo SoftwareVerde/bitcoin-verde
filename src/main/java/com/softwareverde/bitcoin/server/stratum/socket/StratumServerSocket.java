@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.stratum.socket;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonSocket;
 
 import java.io.IOException;
@@ -38,7 +38,7 @@ public class StratumServerSocket {
 
                 if (! connection.isConnected()) {
                     iterator.remove();
-                    Logger.log("Purging disconnected stratum socket: " + connection.getIp() + ":" + connection.getPort());
+                    Logger.debug("Purging disconnected stratum socket: " + connection.getIp() + ":" + connection.getPort());
 
                     _onDisconnect(connection);
                 }
@@ -111,10 +111,9 @@ public class StratumServerSocket {
                 }
             });
             _serverThread.start();
-
         }
-        catch (final IOException exception) {
-            Logger.log(exception);
+        catch (final Exception exception) {
+            Logger.warn(exception);
         }
     }
 

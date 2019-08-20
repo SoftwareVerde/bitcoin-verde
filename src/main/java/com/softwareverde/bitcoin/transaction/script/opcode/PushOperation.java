@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -197,7 +197,7 @@ public class PushOperation extends SubTypedOperation {
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("Opcode is disabled: " + _opcode);
             return false;
         }
 

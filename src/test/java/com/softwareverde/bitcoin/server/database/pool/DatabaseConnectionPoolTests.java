@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.database.pool;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

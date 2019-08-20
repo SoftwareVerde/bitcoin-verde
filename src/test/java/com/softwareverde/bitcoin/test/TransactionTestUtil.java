@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -20,9 +21,8 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
@@ -45,7 +45,7 @@ public class TransactionTestUtil {
                 return BlockId.wrap(blockId);
             }
 
-            Logger.log("TEST: NOTE: Inserting genesis block.");
+            Logger.info("TEST: NOTE: Inserting genesis block.");
 
             final BlockInflater blockInflater = new BlockInflater();
             final String genesisBlockData = IoUtil.getResource("/blocks/" + HexUtil.toHexString(BlockHeader.GENESIS_BLOCK_HASH.getBytes()));
@@ -98,7 +98,7 @@ public class TransactionTestUtil {
             final TransactionId transactionId;
             final java.util.List<Row> transactionRows = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(previousOutputTransactionHash));
             if (transactionRows.isEmpty()) {
-                // Logger.log("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
+                // Logger.info("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
 
                 transactionId = TransactionId.wrap(databaseConnection.executeSql(
                     new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
@@ -130,7 +130,7 @@ public class TransactionTestUtil {
 
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?").setParameter(transactionId).setParameter(transactionInput.getPreviousOutputIndex()));
             if (transactionOutputRows.isEmpty()) {
-                // Logger.log("TEST: NOTE: Mutating transaction: " + previousOutputTransactionHash);
+                // Logger.info("TEST: NOTE: Mutating transaction: " + previousOutputTransactionHash);
 
                 final Long newTransactionOutputId = databaseConnection.executeSql(
                     new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
@@ -144,7 +144,7 @@ public class TransactionTestUtil {
                         .setParameter(1L)
                         .setParameter(newTransactionOutputId)
                         .setParameter(new byte[0])
-                        .setParameter(null)
+                        .setParameter(Query.NULL)
                 );
             }
         }

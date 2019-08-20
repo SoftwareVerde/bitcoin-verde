@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.Comparator;
@@ -124,7 +124,7 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     @Override
     public void commit(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
         if (! (unspentTransactionOutputCache instanceof JvmUnspentTransactionOutputCache)) {
-            Logger.log("NOTICE: Attempted to commit cache of different type.");
+            Logger.warn("Attempted to commit cache of different type.");
             return;
         }
 

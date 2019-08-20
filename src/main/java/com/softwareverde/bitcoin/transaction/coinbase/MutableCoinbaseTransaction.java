@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class MutableCoinbaseTransaction extends MutableTransaction implements CoinbaseTransaction {
 
@@ -18,8 +18,8 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
     }
 
     public void setCoinbaseScript(final UnlockingScript unlockingScript) {
-        if (_transactionInputs.getSize() < 1) {
-            Logger.log("Attempted to set unlocking script on invalid coinbase transaction.");
+        if (_transactionInputs.isEmpty()) {
+            Logger.warn("Attempted to set unlocking script on invalid coinbase transaction.");
             return;
         }
 
@@ -30,15 +30,15 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
 
     @Override
     public UnlockingScript getCoinbaseScript() {
-        if (_transactionInputs.getSize() < 1) { return null; }
+        if (_transactionInputs.isEmpty()) { return null; }
 
         final TransactionInput transactionInput = _transactionInputs.get(0);
         return transactionInput.getUnlockingScript();
     }
 
     public void setBlockReward(final Long satoshis) {
-        if (_transactionOutputs.getSize() < 1) {
-            Logger.log("Attempted to set block reward on invalid coinbase transaction.");
+        if (_transactionOutputs.isEmpty()) {
+            Logger.warn("Attempted to set block reward on invalid coinbase transaction.");
             return;
         }
 
@@ -50,7 +50,7 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
 
     @Override
     public Long getBlockReward() {
-        if (_transactionOutputs.getSize() < 1) { return null; }
+        if (_transactionOutputs.isEmpty()) { return null; }
 
         final TransactionOutput transactionOutput = _transactionOutputs.get(0);
         return transactionOutput.getAmount();

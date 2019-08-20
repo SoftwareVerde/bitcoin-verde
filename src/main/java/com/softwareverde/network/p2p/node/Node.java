@@ -3,7 +3,7 @@ package com.softwareverde.network.p2p.node;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
@@ -127,7 +127,7 @@ public abstract class Node {
     protected void _disconnect() {
         if (_hasBeenDisconnected.getAndSet(true)) { return; }
 
-        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
+        Logger.debug("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
         final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
@@ -151,12 +151,19 @@ public abstract class Node {
 
         if (nodeDisconnectedCallback != null) {
             // Intentionally not using the thread pool since it has been shutdown...
-            (new Thread(new Runnable() {
+            final Thread thread = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     nodeDisconnectedCallback.onNodeDisconnected();
                 }
-            })).start();
+            });
+            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.error("Uncaught exception in Thread.", exception);
+                }
+            });
+            thread.start();
         }
     }
 
@@ -264,7 +271,7 @@ public abstract class Node {
             synchronized (LOCAL_SYNCHRONIZATION_NONCES) {
                 for (final Long pastNonce : LOCAL_SYNCHRONIZATION_NONCES) {
                     if (Util.areEqual(pastNonce, remoteNonce)) {
-                        Logger.log("Detected connection to self. Disconnecting.");
+                        Logger.info("Detected connection to self. Disconnecting.");
                         _disconnect();
                         return;
                     }

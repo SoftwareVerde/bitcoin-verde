@@ -1,10 +1,14 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 import com.softwareverde.util.Util;
 
-public interface SlpGenesisScript extends Constable<ImmutableSlpGenesisScript> {
+public interface SlpGenesisScript extends SlpScript, Jsonable, Constable<ImmutableSlpGenesisScript> {
     Integer RECEIVER_TRANSACTION_OUTPUT_INDEX = 1;
 
     String getTokenAbbreviation();
@@ -41,6 +45,16 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     }
 
     @Override
+    public SlpScriptType getType() {
+        return SlpScriptType.GENESIS;
+    }
+
+    @Override
+    public Integer getMinimumTransactionOutputCount() {
+        return Math.max(2, (Util.coalesce(_generatorOutputIndex) + 1)); // Requires at least 1 Script Output and 1 Receiver Output...
+    }
+
+    @Override
     public String getTokenAbbreviation() {
         return _tokenAbbreviation;
     }
@@ -73,6 +87,21 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     @Override
     public Long getTokenCount() {
         return _tokenCount;
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json(false);
+
+        json.put("tokenAbbreviation", _tokenAbbreviation);
+        json.put("tokenName", _tokenName);
+        json.put("documentUrl", _documentUrl);
+        json.put("documentHash", _documentHash);
+        json.put("decimalCount", _decimalCount);
+        json.put("batonIndex", _generatorOutputIndex);
+        json.put("tokenCount", _tokenCount);
+
+        return json;
     }
 
     @Override

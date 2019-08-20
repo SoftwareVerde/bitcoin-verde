@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.database.pool;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.sql.Connection;
@@ -155,7 +155,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
             }
 
             if (waitDuration >= _deadlockTimeout) {
-                Logger.log("NOTICE: DatabaseConnectionPool exceeding capacity to mitigate deadlock.");
+                Logger.warn("DatabaseConnectionPool exceeding capacity to mitigate deadlock.");
                 _inUseConnectionCount.incrementAndGet();
                 return _createNewCachedConnection();
             }

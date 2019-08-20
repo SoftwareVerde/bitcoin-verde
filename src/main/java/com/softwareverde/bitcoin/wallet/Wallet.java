@@ -29,7 +29,6 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.slp.send.MutableSlpSendScript;
-import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
@@ -41,13 +40,12 @@ import com.softwareverde.bitcoin.wallet.utxo.MutableSpendableTransactionOutput;
 import com.softwareverde.bitcoin.wallet.utxo.SpendableTransactionOutput;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
@@ -365,7 +363,7 @@ public class Wallet {
         }
 
         if (selectedUtxoAmount < (minimumUtxoAmount + feesToSpendOutputs.value)) {
-            Logger.log("INFO: Insufficient funds to fund transaction.");
+            Logger.info("Insufficient funds to fund transaction.");
             feesToSpendOutputs.value = originalFeesToSpendOutputs; // Reset the feesToSpendOutputs container...
             return null;
         }
@@ -621,7 +619,7 @@ public class Wallet {
             final Boolean outputIsUnlocked = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
 
             if (! outputIsUnlocked) {
-                Logger.log("NOTICE: Error signing transaction.");
+                Logger.warn("Error signing transaction.");
                 return null;
             }
         }
@@ -692,23 +690,23 @@ public class Wallet {
             }
         }
 
-        Logger.log("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmountsWithChange.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (shouldIncludeChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
+        Logger.info("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmountsWithChange.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (shouldIncludeChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
 
         final Transaction signedTransaction = _createSignedTransaction(paymentAmountsWithChange, transactionOutputsToSpend, opReturnScript);
         if (signedTransaction == null) { return null; }
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        Logger.log(signedTransaction.getHash());
-        Logger.log(transactionDeflater.toBytes(signedTransaction));
+        Logger.debug(signedTransaction.getHash());
+        Logger.debug(transactionDeflater.toBytes(signedTransaction));
 
         final Integer transactionByteCount = transactionDeflater.getByteCount(signedTransaction);
 
         if (feesContainer.value < (transactionByteCount * _satoshisPerByteFee)) {
-            Logger.log("Failed to create a transaction with sufficient fee...");
+            Logger.info("Failed to create a transaction with sufficient fee...");
             return null;
         }
 
-        Logger.log("Transaction Bytes Count: " + transactionByteCount + " (" + (feesContainer.value / transactionByteCount.floatValue()) + " sats/byte)");
+        Logger.debug("Transaction Bytes Count: " + transactionByteCount + " (" + (feesContainer.value / transactionByteCount.floatValue()) + " sats/byte)");
 
         return signedTransaction;
     }

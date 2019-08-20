@@ -6,7 +6,8 @@ import com.softwareverde.util.Util;
 public enum SlpScriptType {
     GENESIS     ("47454E45534953"),
     SEND        ("53454E44"),
-    MINT        ("4D494E54");
+    MINT        ("4D494E54"),
+    COMMIT      ("434F4D4D4954");
 
     public static final ByteArray LOKAD_ID = ByteArray.fromHexString("534C5000");
     public static final ByteArray TOKEN_TYPE = ByteArray.fromHexString("01");

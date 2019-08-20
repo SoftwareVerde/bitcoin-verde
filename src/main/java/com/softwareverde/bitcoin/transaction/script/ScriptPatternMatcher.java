@@ -8,6 +8,9 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -265,19 +268,52 @@ public class ScriptPatternMatcher {
         return _matchesPayToScriptHashFormat(lockingScript);
     }
 
-    public ScriptType getScriptType(final LockingScript script) {
-        final Boolean isPayToPublicKeyHash = _matchesPayToPublicKeyHashFormat(script);
-        final Boolean isPayToScriptHash = ( isPayToPublicKeyHash ? false : _matchesPayToScriptHashFormat(script) );
-        final Boolean isPayToPublicKey = ( (isPayToPublicKeyHash || isPayToScriptHash) ? false : _matchesPayToPublicKeyFormat(script) );
-
+    public ScriptType getScriptType(final LockingScript lockingScript) {
+        final Boolean isPayToPublicKeyHash = _matchesPayToPublicKeyHashFormat(lockingScript);
         if (isPayToPublicKeyHash) {
             return ScriptType.PAY_TO_PUBLIC_KEY_HASH;
         }
-        else if (isPayToScriptHash) {
+
+        final Boolean isPayToScriptHash = _matchesPayToScriptHashFormat(lockingScript);
+        if (isPayToScriptHash) {
             return ScriptType.PAY_TO_SCRIPT_HASH;
         }
-        else if (isPayToPublicKey) {
+
+        final Boolean isPayToPublicKey = _matchesPayToPublicKeyFormat(lockingScript);
+        if (isPayToPublicKey) {
             return ScriptType.PAY_TO_PUBLIC_KEY;
+        }
+
+        final SlpScriptType slpScriptType = SlpScriptInflater.getScriptType(lockingScript);
+        if (slpScriptType != null) {
+            final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
+
+            switch (slpScriptType) {
+                case GENESIS: {
+                    final SlpScript slpScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
+                    if (slpScript != null) {
+                        return ScriptType.SLP_GENESIS_SCRIPT;
+                    }
+                }
+                case SEND: {
+                    final SlpScript slpScript = slpScriptInflater.sendScriptFromScript(lockingScript);
+                    if (slpScript != null) {
+                        return ScriptType.SLP_SEND_SCRIPT;
+                    }
+                }
+                case MINT: {
+                    final SlpScript slpScript = slpScriptInflater.mintScriptFromScript(lockingScript);
+                    if (slpScript != null) {
+                        return ScriptType.SLP_MINT_SCRIPT;
+                    }
+                }
+                case COMMIT: {
+                    final SlpScript slpScript = slpScriptInflater.commitScriptFromScript(lockingScript);
+                    if (slpScript != null) {
+                        return ScriptType.SLP_COMMIT_SCRIPT;
+                    }
+                }
+            }
         }
 
         return ScriptType.CUSTOM_SCRIPT;

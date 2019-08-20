@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 
 import java.sql.Connection;
 import java.util.List;
@@ -21,7 +21,12 @@ public abstract class DatabaseConnection implements com.softwareverde.database.D
         _core.executeDdl(queryString);
     }
 
+    @Deprecated
     @Override
+    public void executeDdl(final com.softwareverde.database.query.Query query) throws DatabaseException {
+        _core.executeDdl(query);
+    }
+
     public void executeDdl(final Query query) throws DatabaseException {
         _core.executeDdl(query);
     }
@@ -31,7 +36,12 @@ public abstract class DatabaseConnection implements com.softwareverde.database.D
         return _core.executeSql(queryString, parameters);
     }
 
+    @Deprecated
     @Override
+    public Long executeSql(final com.softwareverde.database.query.Query query) throws DatabaseException {
+        return _core.executeSql(query);
+    }
+
     public Long executeSql(final Query query) throws DatabaseException {
         return _core.executeSql(query);
     }
@@ -41,7 +51,12 @@ public abstract class DatabaseConnection implements com.softwareverde.database.D
         return _core.query(queryString, parameters);
     }
 
+    @Deprecated
     @Override
+    public List<Row> query(final com.softwareverde.database.query.Query query) throws DatabaseException {
+        return _core.query(query);
+    }
+
     public List<Row> query(final Query query) throws DatabaseException {
         return _core.query(query);
     }

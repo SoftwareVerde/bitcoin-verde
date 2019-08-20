@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCach
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -24,9 +26,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.timer.MilliTimer;
@@ -134,7 +134,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
 
     // TODO: Create a test that has a transaction whose transactionInputs spends a previousOutputTransactionHash of EMPTY_HASH and whose index is -1, but is not a coinbase transaction... (Probably fails...)
 
-    @Test
+    // @Test
     public void should_store_giant_block_quickly() throws Exception {
         // Setup
         final MilliTimer setupTimer = new MilliTimer();

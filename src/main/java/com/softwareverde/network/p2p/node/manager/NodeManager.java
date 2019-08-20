@@ -5,7 +5,7 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeFactory;
@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeManager<NODE extends Node> {
     public static final Long PING_AFTER_MS_IDLE = 5L * 60000L; // 5 Minutes
-    public static Boolean LOGGING_ENABLED = false;
 
     protected static ThreadPool _threadPool;
 
@@ -70,9 +69,7 @@ public class NodeManager<NODE extends Node> {
                 try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
 
-            if (LOGGING_ENABLED) {
-                Logger.log("Node Maintenance Thread exiting...");
-            }
+            Logger.debug("Node Maintenance Thread exiting...");
         }
     }
 
@@ -149,10 +146,8 @@ public class NodeManager<NODE extends Node> {
     protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
 
-        if (LOGGING_ENABLED) {
-            final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
-            Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") +  "hp");
-        }
+        final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
+        Logger.info("Dropped Node: " + node.getConnectionString() + " - " + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") +  "hp");
 
         final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
 
@@ -205,9 +200,7 @@ public class NodeManager<NODE extends Node> {
         for (final NODE node : _nodes.values()) {
             node.broadcastNodeAddresses(nodeIpAddresses);
 
-            if (LOGGING_ENABLED) {
-                Logger.log("P2P: Broadcasting " + nodeIpAddresses.getSize() + " new Nodes to existing Node (" + node + ")");
-            }
+            Logger.debug("Broadcasting " + nodeIpAddresses.getSize() + " new Nodes to existing Node (" + node + ")");
         }
     }
 
@@ -221,18 +214,14 @@ public class NodeManager<NODE extends Node> {
 
             nodeAddresses.add(nodeIpAddress);
 
-            if (LOGGING_ENABLED) {
-                Logger.log("P2P: Broadcasting Existing Node (" + nodeIpAddress + ") to New Node (" + newNode + ")");
-            }
+            Logger.debug("Broadcasting Existing Node (" + nodeIpAddress + ") to New Node (" + newNode + ")");
         }
 
         newNode.broadcastNodeAddresses(nodeAddresses);
     }
 
     protected void _onNodeDisconnected(final NODE node) {
-        if (LOGGING_ENABLED) {
-            Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
-        }
+        Logger.debug("Node Disconnected: " + node.getConnectionString());
 
         _removeNode(node);
     }
@@ -296,9 +285,7 @@ public class NodeManager<NODE extends Node> {
 
                         nodeDidConnect.value = false;
 
-                        if (LOGGING_ENABLED) {
-                            Logger.log("P2P: Node failed to connect. Purging node.");
-                        }
+                        Logger.info("Node failed to connect. Purging node: " + node.getConnectionString());
 
                         final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
 
@@ -309,9 +296,7 @@ public class NodeManager<NODE extends Node> {
 
                         node.disconnect();
 
-                        if (LOGGING_ENABLED) {
-                            Logger.log("P2P: Node purged.");
-                        }
+                        Logger.debug("Node purged.");
 
                         if (_nodes.isEmpty()) {
                             if (!_isShuttingDown) {
@@ -412,9 +397,7 @@ public class NodeManager<NODE extends Node> {
         node.setNodeHandshakeCompleteCallback(new NODE.NodeHandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
-                if (LOGGING_ENABLED) {
-                    Logger.log("P2P: HandshakeComplete: " + node.getConnectionString());
-                }
+                Logger.debug("HandshakeComplete: " + node.getConnectionString());
 
                 _pendingNodes.remove(node.getId());
                 _addHandshakedNode(node);
@@ -507,10 +490,8 @@ public class NodeManager<NODE extends Node> {
 
         final NODE selectedNode = nodes.get(0);
 
-        if (LOGGING_ENABLED) {
-            final NodeHealth nodeHealth = _nodeHealthMap.get(selectedNode.getId());
-            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
-        }
+        final NodeHealth nodeHealth = _nodeHealthMap.get(selectedNode.getId());
+        Logger.debug("Selected Node: " + (selectedNode.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
 
         return selectedNode;
     }
@@ -520,14 +501,11 @@ public class NodeManager<NODE extends Node> {
         if ( (nodes == null) || (nodes.isEmpty()) ) { return null; }
 
         for (final NODE node : nodes) {
+            if (node == null) { continue; }
             if (! nodeFilter.meetsCriteria(node)) { continue; }
 
-            if (LOGGING_ENABLED) {
-                final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
-                if (nodeHealth != null) {
-                    Logger.log("P2P: Selected Node: " + (node.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
-                }
-            }
+            final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
+            Logger.debug("Selected Node: " + (node.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
 
             return node;
         }
@@ -588,9 +566,7 @@ public class NodeManager<NODE extends Node> {
             }
         }
 
-        if (LOGGING_ENABLED) {
-            Logger.log("P2P: Idle Node Count: " + idleNodes.getSize() + " / " + _nodes.size());
-        }
+        Logger.debug("Idle Node Count: " + idleNodes.getSize() + " / " + _nodes.size());
 
         for (final NODE idleNode : idleNodes) {
             // final NodeId nodeId = idleNode.getId();
@@ -598,16 +574,12 @@ public class NodeManager<NODE extends Node> {
 
             if (! idleNode.handshakeIsComplete()) { return; }
 
-            if (LOGGING_ENABLED) {
-                Logger.log("P2P: Pinging Idle Node: " + idleNode.getConnectionString());
-            }
+            Logger.debug("Pinging Idle Node: " + idleNode.getConnectionString());
 
             idleNode.ping(new NODE.PingCallback() {
                 @Override
                 public void onResult(final Long pingInMilliseconds) {
-                    if (LOGGING_ENABLED) {
-                        Logger.log("P2P: Node Pong: " + pingInMilliseconds);
-                    }
+                    Logger.debug("Node Pong: " + pingInMilliseconds);
 
                     final NodeId nodeId = idleNode.getId();
                     final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
@@ -731,7 +703,7 @@ public class NodeManager<NODE extends Node> {
         }
 
         if (nodeHealth == null) {
-            Logger.log("Selected node no longer connected: " + selectedNode.getConnectionString());
+            Logger.debug("Selected node no longer connected: " + selectedNode.getConnectionString());
             apiRequest.onFailure();
             return;
         }

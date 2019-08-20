@@ -13,7 +13,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 
 import java.util.Map;
@@ -77,7 +77,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;
@@ -87,7 +87,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final Sha256Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
@@ -96,7 +96,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
             final TransactionOutput transactionOutput = _getTransactionOutput(databaseManager, outputTransactionHash, transactionOutputIndex, queuedTransactions);
 
             if (transactionOutput == null) {
-                Logger.log("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
+                Logger.debug("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
                 return -1L;
             }
 

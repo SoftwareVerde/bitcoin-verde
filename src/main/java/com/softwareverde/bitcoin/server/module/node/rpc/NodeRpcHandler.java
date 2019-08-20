@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -26,8 +27,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -103,9 +104,17 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         Long getBlockReward();
 
+        Boolean isSlpTransaction(Sha256Hash transactionHash);
+        Boolean isValidSlpTransaction(Sha256Hash transactionHash);
+        SlpTokenId getSlpTokenId(Sha256Hash transactionHash);
+
         BlockValidationResult validatePrototypeBlock(final Block block);
         void submitTransaction(Transaction transaction);
         void submitBlock(Block block);
+    }
+
+    public interface LogLevelSetter {
+        void setLogLevel(String packageName, String logLevel);
     }
 
     public interface MetadataHandler {
@@ -178,6 +187,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected DataHandler _dataHandler = null;
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
+    protected LogLevelSetter _logLevelSetter = null;
 
     public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
         this(statisticsContainer, threadPool, new CoreInflater());
@@ -677,6 +687,102 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: <hash>
+    protected void _queryIsSlpTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final Boolean isSlpTransaction = _dataHandler.isSlpTransaction(transactionHash);
+
+        if (isSlpTransaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP transaction status.");
+            return;
+        }
+
+        response.put("isSlpTransaction", isSlpTransaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <hash>
+    protected void _queryIsValidSlpTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final Boolean isValidSlpTransaction = _dataHandler.isValidSlpTransaction(transactionHash);
+
+        if (isValidSlpTransaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP transaction validity.");
+            return;
+        }
+
+        response.put("isValidSlpTransaction", isValidSlpTransaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <slpTokenId>
+    protected void _querySlpTokenId(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final SlpTokenId slpTokenId = _dataHandler.getSlpTokenId(transactionHash);
+
+        if (slpTokenId == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP Token Id.");
+            return;
+        }
+
+        response.put("slpTokenId", slpTokenId);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires GET:
     protected void _queryBlockchainMetadata(final Json response) {
         final QueryBlockchainHandler queryBlockchainHandler = _queryBlockchainHandler;
@@ -934,6 +1040,32 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires POST: <packageName, logLevel>
+    protected void _setLogLevel(final Json parameters, final Json response) {
+        final LogLevelSetter logLevelSetter = _logLevelSetter;
+        if (logLevelSetter == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("packageName")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: packageName");
+            return;
+        }
+
+        if (! parameters.hasKey("logLevel")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: logLevel");
+            return;
+        }
+
+        final String packageName = parameters.getString("packageName");
+        final String logLevel = parameters.getString("logLevel");
+
+        logLevelSetter.setLogLevel(packageName, logLevel);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires GET:
     protected void _listNodes(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1021,6 +1153,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         _queryBlockchainHandler = queryBlockchainHandler;
     }
 
+    public void setLogLevelSetter(final LogLevelSetter logLevelSetter) {
+        _logLevelSetter = logLevelSetter;
+    }
+
     public void onNewBlock(final BlockHeader block) {
         // Ensure the provided block is only the header by copying it...
         final BlockHeader blockHeader = new ImmutableBlockHeader(block);
@@ -1076,7 +1212,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
                         }
                     }
                 }
@@ -1170,7 +1306,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
                         }
                     }
                 }
@@ -1252,6 +1388,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _queryBlockchainMetadata(response);
                             } break;
 
+                            case "IS_SLP_TRANSACTION": {
+                                _queryIsSlpTransaction(parameters, response);
+                            } break;
+
+                            case "IS_VALID_SLP_TRANSACTION": {
+                                _queryIsValidSlpTransaction(parameters, response);
+                            } break;
+
+                            case "SLP_TOKEN_ID": {
+                                _querySlpTokenId(parameters, response);
+                            } break;
+
                             default: {
                                 response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
@@ -1291,6 +1439,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "VALIDATE_PROTOTYPE_BLOCK": {
                                 _validatePrototypeBlock(parameters, response);
+                            } break;
+
+                            case "SET_LOG_LEVEL": {
+                                _setLogLevel(parameters, response);
                             } break;
 
                             default: {

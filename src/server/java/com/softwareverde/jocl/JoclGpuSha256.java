@@ -8,7 +8,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -102,7 +102,7 @@ public class JoclGpuSha256 implements GpuSha256 {
         clGetDeviceIDs(platform, defaultDeviceType, devicesCount, devices, null);
         _context = clCreateContext(contextProperties, devicesCount, devices, null, null, null);
         _commandQueues = new cl_command_queue[devicesCount];
-        for (int i=0; i<devicesCount; ++i) {
+        for (int i = 0; i < devicesCount; ++i) {
             final cl_device_id device = devices[i];
             _commandQueues[i] = clCreateCommandQueue(_context, device, 0, null);
         }
@@ -120,7 +120,7 @@ public class JoclGpuSha256 implements GpuSha256 {
     protected void _resizeReadBuffer(final int newReadBufferByteCount) {
         { // Logging...
             final int currentSize = (_readBuffer == null ? 0 : _readBuffer.length);
-            Logger.log((newReadBufferByteCount > currentSize ? "Growing" : "Shrinking") + " GpuSha256._readBuffer from " + currentSize + " to " + newReadBufferByteCount + " bytes.");
+            Logger.debug((newReadBufferByteCount > currentSize ? "Growing" : "Shrinking") + " GpuSha256._readBuffer from " + currentSize + " to " + newReadBufferByteCount + " bytes.");
         }
 
         _readBuffer = new byte[newReadBufferByteCount];
@@ -134,7 +134,7 @@ public class JoclGpuSha256 implements GpuSha256 {
         }
 
         if (_commandQueues != null) {
-            for (int i=0; i<_commandQueues.length; ++i) {
+            for (int i = 0; i < _commandQueues.length; ++i) {
                 clReleaseCommandQueue(_commandQueues[i]);
             }
         }
@@ -176,7 +176,7 @@ public class JoclGpuSha256 implements GpuSha256 {
         {
             final ByteArray byteArray = inputs.get(0);
             if (byteArray == null) {
-                Logger.log("NOTICE: null byte array found in batch at: 0");
+                Logger.debug("NOTICE: null byte array found in batch at: 0");
                 return null;
             }
             byteCountPerInput = byteArray.getByteCount();
@@ -189,17 +189,17 @@ public class JoclGpuSha256 implements GpuSha256 {
         }
 
         final byte[] readBuffer = new byte[byteCountPerInput * inputsCount];
-        for (int i=0; i<inputsCount; ++i) {
+        for (int i = 0; i < inputsCount; ++i) {
             final byte[] bytes;
             {
                 final ByteArray byteArray = inputs.get(i);
                 if (byteArray == null) {
-                    Logger.log("NOTICE: null byte array found in batch at: " + i);
+                    Logger.debug("NOTICE: null byte array found in batch at: " + i);
                     return null;
                 }
 
                 if (byteArray.getByteCount() != byteCountPerInput) {
-                    Logger.log("NOTICE: All input hashes must be the same length at: " + i);
+                    Logger.debug("NOTICE: All input hashes must be the same length at: " + i);
                     return null;
                 }
 
@@ -234,7 +234,7 @@ public class JoclGpuSha256 implements GpuSha256 {
         }
 
         final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<Sha256Hash>(inputsCount);
-        for (int i=0; i<inputsCount; ++i) {
+        for (int i = 0; i < inputsCount; ++i) {
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
             for (int j = 0; j < integersPerHash; ++j) {
                 byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(writeBuffer[(i * integersPerHash) + j]), Endian.BIG);

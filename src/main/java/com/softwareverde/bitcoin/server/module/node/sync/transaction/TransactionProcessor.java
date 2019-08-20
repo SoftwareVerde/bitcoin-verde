@@ -25,7 +25,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
@@ -73,7 +73,7 @@ public class TransactionProcessor extends SleepyService {
                 purgeOrphanedTransactionsTimer.start();
                 pendingTransactionDatabaseManager.purgeExpiredOrphanedTransactions();
                 purgeOrphanedTransactionsTimer.stop();
-                Logger.log("Purge Orphaned Transactions: " + purgeOrphanedTransactionsTimer.getMillisecondsElapsed() + "ms");
+                Logger.info("Purge Orphaned Transactions: " + purgeOrphanedTransactionsTimer.getMillisecondsElapsed() + "ms");
                 _lastOrphanPurgeTime = _systemTime.getCurrentTimeInMilliSeconds();
             }
 
@@ -141,7 +141,7 @@ public class TransactionProcessor extends SleepyService {
                         TransactionUtil.commitTransaction(databaseConnection);
 
                         invalidTransactionCount += 1;
-                        Logger.log("Invalid MemoryPool Transaction: " + transactionHash);
+                        Logger.info("Invalid MemoryPool Transaction: " + transactionHash);
                         continue;
                     }
 
@@ -176,7 +176,7 @@ public class TransactionProcessor extends SleepyService {
                 }
                 storeTransactionsTimer.stop();
 
-                Logger.log("Committed " + (transactionsToStore.getSize() - invalidTransactionCount) + " transactions to the MemoryPool in " + storeTransactionsTimer.getMillisecondsElapsed() + "ms. (" + String.format("%.2f", (transactionsToStore.getSize() / storeTransactionsTimer.getMillisecondsElapsed().floatValue() * 1000F)) + "tps) (" + invalidTransactionCount + " invalid)");
+                Logger.info("Committed " + (transactionsToStore.getSize() - invalidTransactionCount) + " transactions to the MemoryPool in " + storeTransactionsTimer.getMillisecondsElapsed() + "ms. (" + String.format("%.2f", (transactionsToStore.getSize() / storeTransactionsTimer.getMillisecondsElapsed().floatValue() * 1000F)) + "tps) (" + invalidTransactionCount + " invalid)");
 
                 for (final NodeId nodeId : nodeUnseenTransactionHashes.keySet()) {
                     final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(nodeId);
@@ -184,13 +184,13 @@ public class TransactionProcessor extends SleepyService {
                     if (! Util.coalesce(bitcoinNode.isTransactionRelayEnabled(), false)) { continue; }
 
                     final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
-                    // Logger.log("Relaying " + newTransactionHashes.getSize() + " Transactions to: " + bitcoinNode.getUserAgent() + " " + bitcoinNode.getConnectionString());
+                    // Logger.info("Relaying " + newTransactionHashes.getSize() + " Transactions to: " + bitcoinNode.getUserAgent() + " " + bitcoinNode.getConnectionString());
                     bitcoinNode.transmitTransactionHashes(newTransactionHashes);
                 }
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return false;

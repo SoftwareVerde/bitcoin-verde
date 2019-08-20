@@ -20,7 +20,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
@@ -72,7 +72,7 @@ public class Miner {
                     final long now = System.currentTimeMillis();
                     final long elapsed = (now - startTime) + 1;
                     final double hashesPerSecond = (((double) hashCount) / elapsed * 1000D);
-                    Logger.log(String.format("%.2f h/s", hashesPerSecond));
+                    Logger.info(String.format("%.2f h/s", hashesPerSecond));
                 }
             }
         };
@@ -81,7 +81,7 @@ public class Miner {
         int threadIndex = 0;
 
         if (_gpuSha256 != null) {
-            for (int i=0; i<_gpuThreadCount; ++i) {
+            for (int i = 0; i < _gpuThreadCount; ++i) {
                 final Integer index = (threadIndex++);
                 hashCounts.add(new AtomicLong(0L));
 
@@ -110,7 +110,7 @@ public class Miner {
                         while ( (! isValidDifficulty) && (! hasBeenFound.value) ) {
 
                             final MutableList<ByteArray> blockHeaderBytesList = new MutableList<ByteArray>();
-                            for (int i=0; i<hashesPerIteration; ++i) {
+                            for (int i = 0; i < hashesPerIteration; ++i) {
                                 nonce += 1;
                                 mutableBlock.setNonce(nonce);
 
@@ -138,7 +138,7 @@ public class Miner {
 
                             final List<Sha256Hash> blockHashes = _gpuSha256.sha256(_gpuSha256.sha256(blockHeaderBytesList));
 
-                            for (int i=0; i<hashesPerIteration; ++i) {
+                            for (int i = 0; i < hashesPerIteration; ++i) {
                                 final Sha256Hash blockHash = blockHashes.get(i);
 
                                 isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
@@ -159,7 +159,7 @@ public class Miner {
             }
         }
 
-        for (int i=0; i<_cpuThreadCount; ++i) {
+        for (int i = 0; i < _cpuThreadCount; ++i) {
             final Integer index = (threadIndex++);
             hashCounts.add(new AtomicLong(0L));
 

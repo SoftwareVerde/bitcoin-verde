@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
 
@@ -30,7 +30,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
                         NativeUnspentTransactionOutputCache.init();
                     }
                     else {
-                        Logger.log("NOTICE: NativeUtxoCache not enabled.");
+                        Logger.warn("NOTICE: NativeUtxoCache not enabled.");
                     }
                 }
 
@@ -79,7 +79,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
             NativeUtil.loadLibraryFromJar("/lib/utxocache." + extension);
         }
         catch (final Exception exception) {
-            Logger.log("NOTICE: utxocache failed to load.");
+            Logger.warn("utxocache failed to load.");
             isEnabled = false;
         }
         LIBRARY_LOADED_CORRECTLY = isEnabled;
@@ -171,7 +171,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
         final Integer masterCacheId = _unwrapCacheId(unspentTransactionOutputCache);
         if (masterCacheId == null) {
-            Logger.log("NOTICE: Attempted to set master cache of different type: " + unspentTransactionOutputCache.getClass().getSimpleName());
+            Logger.warn("Attempted to set master cache of different type: " + unspentTransactionOutputCache.getClass().getSimpleName());
             return;
         }
 
@@ -226,7 +226,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
         final NativeUnspentTransactionOutputCache sourceCache = _unwrapCache(unspentTransactionOutputCache);
         if (sourceCache == null) {
-            Logger.log("NOTICE: Attempted to commit cache of different type: " + unspentTransactionOutputCache.getClass().getSimpleName());
+            Logger.warn("Attempted to commit cache of different type: " + unspentTransactionOutputCache.getClass().getSimpleName());
             return;
         }
 

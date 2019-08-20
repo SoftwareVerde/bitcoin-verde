@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -14,11 +16,9 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
@@ -42,6 +42,11 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         for (final Row nodeFeatureRow : nodeFeatureRows) {
             final String featureString = nodeFeatureRow.getString("feature");
             final NodeFeatures.Feature feature = NodeFeatures.Feature.fromString(featureString);
+            if (feature == null) {
+                Logger.debug("Unknown feature: " + featureString);
+                continue;
+            }
+
             nodeFeatures.enableFeature(feature);
         }
 
@@ -80,7 +85,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         final Ip ip = node.getIp();
         if (ip == null) {
-            Logger.log("NOTICE: Unable to store node: " + node.getConnectionString());
+            Logger.debug("Unable to store node: " + node.getConnectionString());
             return;
         }
 

@@ -62,7 +62,7 @@ import com.softwareverde.bitcoin.server.message.type.version.acknowledge.Bitcoin
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessageInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.util.HexUtil;
 
@@ -113,7 +113,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
 
         final BitcoinProtocolMessageInflater protocolMessageInflater = _commandInflaterMap.get(protocolMessageHeader.command);
         if (protocolMessageInflater == null) {
-            Logger.log("NOTICE: Unsupported message command. 0x"+ HexUtil.toHexString(ByteUtil.copyBytes(bytes, 0, BitcoinProtocolMessageHeaderInflater.HEADER_BYTE_COUNT)));
+            Logger.info("Unsupported message command. 0x"+ HexUtil.toHexString(ByteUtil.copyBytes(bytes, 0, BitcoinProtocolMessageHeaderInflater.HEADER_BYTE_COUNT)));
             return null;
         }
 

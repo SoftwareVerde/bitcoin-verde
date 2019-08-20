@@ -56,7 +56,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
             final BlockInflater blockInflater = new BlockInflater();
             final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
-            for (int i=0; i<blockCount; i++) {
+            for (int i = 0; i < blockCount; i++) {
                 final byte[] nonceBytes = new byte[4];
                 random.nextBytes(nonceBytes);
 

@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -26,4 +28,6 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     Long calculateTransactionFee(Transaction transaction) throws DatabaseException;
     void updateTransaction(Transaction transaction) throws DatabaseException;
     void deleteTransaction(TransactionId transactionId) throws DatabaseException;
+
+    SlpTokenId getSlpTokenId(Sha256Hash transactionHash) throws DatabaseException;
 }

@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.block.header.difficulty.work;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.math.BigInteger;
 
@@ -45,7 +45,7 @@ public class MutableChainWork extends MutableByteArray implements ChainWork {
         }
 
         if (overflow != 0) {
-            Logger.log("NOTICE: ChainWork overflow!");
+            Logger.warn("NOTICE: ChainWork overflow!");
             for (int i = 0; i < _bytes.length; ++i) {
                 _bytes[i] = (byte) 0xFF;
             }

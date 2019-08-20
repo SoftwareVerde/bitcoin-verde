@@ -16,7 +16,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -77,20 +77,20 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
                     final MutableList<Sha256Hash> blockFinderHashes = new MutableList<Sha256Hash>(1);
                     if (parentBlockHash != null) {
                         blockFinderHashes.add(parentBlockHash);
-                        Logger.log("Broadcasting QueryBlocks with provided BlockHash: " + parentBlockHash);
+                        Logger.debug("Broadcasting QueryBlocks with provided BlockHash: " + parentBlockHash);
                     }
                     else {
                         // Search for the previousBlockHash via the database (relies on the BlockHeaders sync)...
                         final Sha256Hash queriedParentBlockHash = _getParentBlockHash(blockHash, databaseManager);
                         if (queriedParentBlockHash != null) {
                             blockFinderHashes.add(queriedParentBlockHash);
-                            Logger.log("Broadcasting QueryBlocks with queried BlockHash: " + queriedParentBlockHash);
+                            Logger.debug("Broadcasting QueryBlocks with queried BlockHash: " + queriedParentBlockHash);
                         }
                         else {
                             // Fallback to broadcasting a blockFinder...
                             final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
                             blockFinderHashes.addAll(blockFinderHashesBuilder.createBlockFinderBlockHashes());
-                            Logger.log("Broadcasting blockfinder...");
+                            Logger.debug("Broadcasting blockfinder...");
                         }
                     }
 
@@ -101,7 +101,7 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
             _blockDownloader.wakeUp();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 

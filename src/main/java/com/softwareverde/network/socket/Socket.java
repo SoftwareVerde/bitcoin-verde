@@ -2,7 +2,7 @@ package com.softwareverde.network.socket;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 
@@ -13,8 +13,6 @@ import java.net.InetAddress;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class Socket {
-    public static Boolean LOGGING_ENABLED = false;
-
     private static final Object _nextIdMutex = new Object();
     private static Long _nextId = 0L;
 
@@ -50,7 +48,7 @@ public abstract class Socket {
     protected final Object _rawOutputStreamWriteMutex = new Object();
 
     protected String _getHost() {
-        Logger.log("INFO: Performing reverse lookup.");
+        Logger.info("INFO: Performing reverse lookup for: " + _socket.getRemoteSocketAddress());
         final InetAddress inetAddress = _socket.getInetAddress();
         return (inetAddress != null ? inetAddress.getHostName() : null);
     }
@@ -81,9 +79,7 @@ public abstract class Socket {
     }
 
     protected void _closeSocket() {
-        if (LOGGING_ENABLED) {
-            Logger.log("Closing socket. Thread Id: " + Thread.currentThread().getId() + " " + _socket.getRemoteSocketAddress());
-        }
+        Logger.debug("Closing socket. Thread Id: " + Thread.currentThread().getId() + " " + _socket.getRemoteSocketAddress());
 
         final Boolean wasClosed = _isClosed;
 
@@ -190,10 +186,7 @@ public abstract class Socket {
             }
         }
         catch (final Exception exception) {
-            if (LOGGING_ENABLED) {
-                Logger.log(exception);
-            }
-
+            Logger.debug(exception);
             _closeSocket();
         }
 

@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 
@@ -22,8 +22,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 public class DifficultyCalculator {
-    public static Boolean LOGGING_ENABLED = false;
-
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
     protected static final BigInteger TWO_RAISED_TO_256 = BigInteger.valueOf(2L).pow(256);
 
@@ -64,25 +62,19 @@ public class DifficultyCalculator {
         final Long blockTimestamp = parentBlockHeader.getTimestamp();
         final Long previousBlockTimestamp = lastAdjustedBlockHeader.getTimestamp();
 
-        if (LOGGING_ENABLED) {
-            Logger.log(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
-            Logger.log(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
-        }
+        Logger.debug(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
+        Logger.debug(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
 
         //  3. Calculate the difference between the network-time and the time of the 2015th-parent block ("secondsElapsed"). (NOTE: 2015 instead of 2016 due to protocol bug.)
         final Long secondsElapsed = (blockTimestamp - previousBlockTimestamp);
-        if (LOGGING_ENABLED) {
-            Logger.log("2016 blocks in " + secondsElapsed + " (" + (secondsElapsed / 60F / 60F / 24F) + " days)");
-        }
+        Logger.debug("2016 blocks in " + secondsElapsed + " (" + (secondsElapsed / 60F / 60F / 24F) + " days)");
 
         //  4. Calculate the desired two-weeks elapse-time ("secondsInTwoWeeks").
         final Long secondsInTwoWeeks = 2L * 7L * 24L * 60L * 60L; // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
 
         //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
         final double difficultyAdjustment = (secondsInTwoWeeks.doubleValue() / secondsElapsed.doubleValue());
-        if (LOGGING_ENABLED) {
-            Logger.log("Adjustment: " + difficultyAdjustment);
-        }
+        Logger.debug("Adjustment: " + difficultyAdjustment);
 
         //  6. Bound difficultyAdjustment between [4, 0.25].
         final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));
@@ -119,7 +111,7 @@ public class DifficultyCalculator {
         final Long secondsInTwelveHours = 43200L;
 
         if (medianBlockTime == null || medianBlockTimeForSixthBlock == null) {
-            Logger.log("Unable to calculate difficulty for block: " + (nullableBlockHeader != null ? nullableBlockHeader.getHash() : ("Height: " + forBlockHeight)));
+            Logger.warn("Unable to calculate difficulty for block: " + (nullableBlockHeader != null ? nullableBlockHeader.getHash() : ("Height: " + forBlockHeight)));
             return null;
         }
 
@@ -131,9 +123,7 @@ public class DifficultyCalculator {
                 return minimumDifficulty;
             }
 
-            if (LOGGING_ENABLED) {
-                Logger.log("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
-            }
+            Logger.info("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
             return newDifficulty;
         }
 
@@ -320,7 +310,7 @@ public class DifficultyCalculator {
             final BlockHeader previousBlockHeader = blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);
             return previousBlockHeader.getDifficulty();
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) { Logger.warn(exception); }
 
         return null;
     }
@@ -331,19 +321,19 @@ public class DifficultyCalculator {
         try {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
             if (blockId == null) {
-                Logger.log("Unable to find BlockId from Hash: "+ blockHeader.getHash());
+                Logger.warn("Unable to find BlockId from Hash: "+ blockHeader.getHash());
                 return null;
             }
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId); // blockchainSegment.getBlockHeight();  // NOTE: blockchainSegment.getBlockHeight() is not safe when replaying block-validation.
             if (blockHeight == null) {
-                Logger.log("Invalid BlockHeight for BlockId: "+ blockId);
+                Logger.warn("Invalid BlockHeight for BlockId: "+ blockId);
                 return null;
             }
 
             return _calculateRequiredDifficulty(blockHeader, blockId, blockHeight);
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) { Logger.warn(exception); }
 
         return null;
     }
@@ -376,7 +366,7 @@ public class DifficultyCalculator {
             final BlockHeader parentBlockHeader = blockHeaderDatabaseManager.getBlockHeader(parentBlockId);
             return parentBlockHeader.getDifficulty();
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) { Logger.warn(exception); }
 
         return null;
     }

@@ -30,7 +30,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
@@ -129,7 +129,7 @@ public class BlockProcessor {
             if (blockHeaderExists) {
                 final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
                 if (blockHasTransactions) {
-                    Logger.log("Skipping known block: " + blockHash);
+                    Logger.debug("Skipping known block: " + blockHash);
                     final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
                 }
@@ -143,10 +143,10 @@ public class BlockProcessor {
 
                     TransactionUtil.startTransaction(databaseConnection);
                     {
-                        Logger.log("Processing Block: " + blockHash);
+                        Logger.debug("Processing Block: " + blockHash);
                         final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
                         if (blockHasTransactions) {
-                            Logger.log("Skipping known block: " + blockHash);
+                            Logger.debug("Skipping known block: " + blockHash);
                             final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                             return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
                         }
@@ -155,7 +155,7 @@ public class BlockProcessor {
                         blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
 
                         if (blockId == null) {
-                            Logger.log("Error storing BlockHeader: " + blockHash);
+                            Logger.debug("Error storing BlockHeader: " + blockHash);
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
                         }
@@ -163,7 +163,7 @@ public class BlockProcessor {
                         final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
                         final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
                         if (! blockHeaderValidationResponse.isValid) {
-                            Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
+                            Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
                         }
@@ -184,12 +184,12 @@ public class BlockProcessor {
 
                 if (! transactionsStoredSuccessfully) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.log("Invalid block. Unable to store transactions for block: " + blockHash);
+                    Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return null;
                 }
 
                 final int transactionCount = block.getTransactions().getSize();
-                Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+                Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
                 final Boolean blockIsValid;
 
@@ -205,7 +205,7 @@ public class BlockProcessor {
                     blockValidationTimer.start();
                     final BlockValidationResult blockValidationResult = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
                     if (! blockValidationResult.isValid) {
-                        Logger.log(blockValidationResult.errorMessage);
+                        Logger.info(blockValidationResult.errorMessage);
                     }
                     blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
@@ -216,7 +216,7 @@ public class BlockProcessor {
 
                 if (! blockIsValid) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.log("Invalid block. Transactions did not validate for block: " + blockHash);
+                    Logger.debug("Invalid block. Transactions did not validate for block: " + blockHash);
                     return null;
                 }
             }
@@ -238,7 +238,7 @@ public class BlockProcessor {
                     // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
 
                     final MilliTimer timer = new MilliTimer();
-                    Logger.log("NOTICE: Starting Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
+                    Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
                     timer.start();
                     // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
                     // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
@@ -254,7 +254,7 @@ public class BlockProcessor {
                         final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
                         if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
                     }
-                    Logger.log("NOTICE: Utxo Reorg - 2/5 complete.");
+                    Logger.trace("Utxo Reorg - 2/5 complete.");
 
                     // 2.5 Skip the shared block between the two segments (not strictly necessary, but more performant)...
                     nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
@@ -267,7 +267,7 @@ public class BlockProcessor {
 
                         nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
                     }
-                    Logger.log("NOTICE: Utxo Reorg - 3/5 complete.");
+                    Logger.trace("Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
                     final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
@@ -283,7 +283,7 @@ public class BlockProcessor {
                         }
                     }
 
-                    Logger.log("NOTICE: Utxo Reorg - 4/5 complete.");
+                    Logger.trace("Utxo Reorg - 4/5 complete.");
 
                     // 5. Remove transactions in UnconfirmedTransactions that depend on the removed transactions...
                     while (! transactionsToRemove.isEmpty()) {
@@ -293,7 +293,7 @@ public class BlockProcessor {
                         transactionsToRemove.addAll(chainedInvalidTransactions);
                     }
                     timer.stop();
-                    Logger.log("NOTICE: Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
+                    Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
                 }
                 else {
                     // Remove any transactions in the memory pool that were included in this block...
@@ -368,8 +368,7 @@ public class BlockProcessor {
             return newBlockHeight;
         }
         catch (final Exception exception) {
-            Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());
-            Logger.log(exception);
+            Logger.info("ERROR VALIDATING BLOCK: " + block.getHash(), exception);
         }
 
         return null;

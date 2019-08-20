@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.message.type.MessageTypeInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
@@ -21,7 +22,7 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
 
         { // Validate Magic Number
             if (! ByteUtil.areEqual(BitcoinProtocolMessage.BINARY_PACKET_FORMAT.getMagicNumber(), MutableByteArray.wrap(magicNumber))) {
-                // Logger.log("Invalid Packet Magic Number: " + MutableByteArray.wrap(magicNumber));
+                Logger.debug("Invalid Packet Magic Number: " + MutableByteArray.wrap(magicNumber));
                 return null;
             }
         }

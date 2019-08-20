@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.transaction.output;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -23,11 +23,11 @@ public class TransactionOutputInflater {
     }
 
     public void _debugBytes(final ByteArrayReader byteArrayReader) {
-        Logger.log("Tx Output: Amount: " + MutableByteArray.wrap(byteArrayReader.readBytes(8)));
+        Logger.debug("Tx Output: Amount: " + MutableByteArray.wrap(byteArrayReader.readBytes(8)));
 
         final ByteArrayReader.VariableSizedInteger variableSizedInteger = byteArrayReader.peakVariableSizedInteger();
-        Logger.log("Tx Output: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
-        Logger.log("Tx Output: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
+        Logger.debug("Tx Output: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
+        Logger.debug("Tx Output: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
     }
 
     public MutableTransactionOutput fromBytes(final Integer index, final ByteArrayReader byteArrayReader) {

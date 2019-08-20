@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.database.pool;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,7 +76,14 @@ public class CachedDatabaseConnection extends DatabaseConnection {
         super.executeDdl(queryString);
     }
 
+    @Deprecated
     @Override
+    public void executeDdl(final com.softwareverde.database.query.Query query) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        super.executeDdl(query);
+    }
+
     public void executeDdl(final Query query) throws DatabaseException {
         _assertConnectionIsEnabled();
         _assertThreadOwner();
@@ -90,7 +97,14 @@ public class CachedDatabaseConnection extends DatabaseConnection {
         return super.executeSql(queryString, parameters);
     }
 
+    @Deprecated
     @Override
+    public Long executeSql(final com.softwareverde.database.query.Query query) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        return super.executeSql(query);
+    }
+
     public Long executeSql(final Query query) throws DatabaseException {
         _assertConnectionIsEnabled();
         _assertThreadOwner();
@@ -104,7 +118,14 @@ public class CachedDatabaseConnection extends DatabaseConnection {
         return super.query(queryString, parameters);
     }
 
+    @Deprecated
     @Override
+    public java.util.List<Row> query(final com.softwareverde.database.query.Query query) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        return super.query(query);
+    }
+
     public java.util.List<Row> query(final Query query) throws DatabaseException {
         _assertConnectionIsEnabled();
         _assertThreadOwner();

@@ -1,13 +1,16 @@
 package com.softwareverde.bitcoin.transaction.script.slp.send;
 
 import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 
-public interface SlpSendScript extends Constable<ImmutableSlpSendScript> {
+public interface SlpSendScript extends SlpScript, Constable<ImmutableSlpSendScript> {
     Integer MAX_OUTPUT_COUNT = 20;
 
     SlpTokenId getTokenId();
     Long getAmount(Integer transactionOutputIndex);
+    Long getTotalAmount();
 }
 
 abstract class SlpSendScriptCore implements SlpSendScript {
@@ -25,16 +28,47 @@ abstract class SlpSendScriptCore implements SlpSendScript {
     }
 
     @Override
+    public SlpScriptType getType() {
+        return SlpScriptType.SEND;
+    }
+
+    @Override
+    public Integer getMinimumTransactionOutputCount() {
+        int tokenOutputCount = 0;
+        for (int i = 0; i < MAX_OUTPUT_COUNT; ++i) {
+            final Long amount = _amounts[i];
+            if (amount == null) { break; }
+
+            tokenOutputCount += 1;
+        }
+
+        return (tokenOutputCount + 1); // Requires the number of outputs specified in the SpendScript and one for the Script itself.
+    }
+
+    @Override
     public SlpTokenId getTokenId() {
         return _tokenId;
     }
 
     @Override
     public Long getAmount(final Integer transactionOutputIndex) {
-        if (transactionOutputIndex >= MAX_OUTPUT_COUNT) { throw new IndexOutOfBoundsException(); }
+        if (transactionOutputIndex >= MAX_OUTPUT_COUNT) { return null; }
         if (transactionOutputIndex < 0) { throw new IndexOutOfBoundsException(); }
         if (transactionOutputIndex == 0) { return null; }
 
         return _amounts[transactionOutputIndex];
+    }
+
+    @Override
+    public Long getTotalAmount() {
+        long totalAmount = 0L;
+        for (int i = 0; i < MAX_OUTPUT_COUNT; ++i) {
+            final Long amount = _amounts[i];
+            if (amount == null) { continue; }
+
+            totalAmount += amount;
+        }
+
+        return totalAmount;
     }
 }

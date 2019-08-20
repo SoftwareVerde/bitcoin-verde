@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.stratum.rpc;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 
@@ -51,7 +51,7 @@ public class StratumJsonRpcConnection implements AutoCloseable {
             socket = new java.net.Socket(hostname, port);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);

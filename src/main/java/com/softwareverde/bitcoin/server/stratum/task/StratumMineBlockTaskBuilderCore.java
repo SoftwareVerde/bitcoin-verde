@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -182,7 +182,7 @@ public class StratumMineBlockTaskBuilderCore implements ConfigurableStratumMineB
 
             final TransactionWithFee transactionWithFee = _transactionsWithFee.get(transactionHash);
             if (transactionWithFee == null) {
-                Logger.log("Unable to remove transaction from prototype block: " + transactionHash);
+                Logger.warn("Unable to remove transaction from prototype block: " + transactionHash);
                 return;
             }
 

@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.murmur.MurmurHashUtil;
 import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.Base58Util;
@@ -74,10 +74,10 @@ public class BitcoinUtil {
     public static String reverseEndianString(final String string) {
         final int charCount = string.length();
         final char[] reverseArray = new char[charCount];
-        for (int i=0; i<charCount/2; ++i) {
-            int index = (charCount - (i*2)) - 1;
-            reverseArray[i*2] = string.charAt(index - 1);
-            reverseArray[(i*2) + 1] = string.charAt(index);
+        for (int i = 0; i < (charCount / 2); ++i) {
+            int index = (charCount - (i * 2)) - 1;
+            reverseArray[i * 2] = string.charAt(index - 1);
+            reverseArray[(i * 2) + 1] = string.charAt(index);
         }
         return new String(reverseArray);
     }
@@ -113,12 +113,12 @@ public class BitcoinUtil {
     }
 
     public static void exitFailure() {
-        Logger.shutdown();
+        Logger.flush();
         System.exit(1);
     }
 
     public static void exitSuccess() {
-        Logger.shutdown();
+        Logger.flush();
         System.exit(0);
     }
 

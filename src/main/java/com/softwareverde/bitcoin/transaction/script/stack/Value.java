@@ -162,7 +162,7 @@ public class Value extends ImmutableByteArray implements Const {
     protected Boolean _asBoolean() {
         if (_bytes.length == 0) { return false; }
 
-        for (int i=0; i<_bytes.length; ++i) {
+        for (int i = 0; i < _bytes.length; ++i) {
             if ( (i == (_bytes.length - 1)) && (_bytes[i] == (byte) 0x80) ) { continue; } // Negative zero can still be false... (Little-Endian)
             if (_bytes[i] != 0x00) { return true; }
         }

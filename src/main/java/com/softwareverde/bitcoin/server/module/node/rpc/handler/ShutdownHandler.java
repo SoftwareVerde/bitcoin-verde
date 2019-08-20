@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class ShutdownHandler implements NodeRpcHandler.ShutdownHandler {
     protected final Thread _mainThread;
@@ -27,13 +27,13 @@ public class ShutdownHandler implements NodeRpcHandler.ShutdownHandler {
     public Boolean shutdown() {
         _synchronizationStatusHandler.setState(State.SHUTTING_DOWN);
 
-        Logger.log("[Stopping Syncing Headers]");
+        Logger.info("[Stopping Syncing Headers]");
         _blockHeaderDownloader.stop();
-        Logger.log("[Stopping Block Downloads]");
+        Logger.info("[Stopping Block Downloads]");
         _blockDownloader.stop();
-        Logger.log("[Stopping Block Processing]");
+        Logger.info("[Stopping Block Processing]");
         _blockchainBuilder.stop();
-        Logger.log("[Shutting Down]");
+        Logger.info("[Shutting Down]");
         _mainThread.interrupt();
         return true;
     }

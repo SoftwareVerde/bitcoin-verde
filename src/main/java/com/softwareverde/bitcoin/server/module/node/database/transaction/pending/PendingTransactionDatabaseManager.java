@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.pendin
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransaction;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
@@ -15,11 +17,9 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -213,7 +213,7 @@ public class PendingTransactionDatabaseManager {
         final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(rows.size());
         for (final Row row : rows) {
             final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
-            Logger.log("Deleting Failed Pending Transaction: " + pendingTransactionId);
+            Logger.debug("Deleting Failed Pending Transaction: " + pendingTransactionId);
             pendingTransactionIds.add(pendingTransactionId);
         }
 
@@ -278,7 +278,7 @@ public class PendingTransactionDatabaseManager {
         final Transaction transaction = _transactionInflater.fromBytes(transactionData);
         if (transaction == null) {
             _deletePendingTransaction(pendingTransactionId);
-            Logger.log("NOTICE: Error inflating pending transaction: " + transactionHash + " " + transactionData);
+            Logger.warn("Error inflating pending transaction: " + transactionHash + " " + transactionData);
         }
 
         return transaction;

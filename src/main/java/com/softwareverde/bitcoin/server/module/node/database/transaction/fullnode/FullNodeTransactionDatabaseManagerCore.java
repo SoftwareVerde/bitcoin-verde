@@ -6,11 +6,15 @@ import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -31,12 +35,10 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -58,6 +60,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
     protected static final Long FILTER_NONCE = 0L;
     protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
+
+    protected static final Integer MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING = 4; // The minimum number (inclusive) of inputs/outputs required to trigger batching input/outputs of the individual transaction...
 
     public static void initializeBloomFilter(final String filename, final DatabaseConnection databaseConnection) throws DatabaseException {
         try {
@@ -82,7 +86,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     final Row row = rows.get(0);
                     final Sha256Hash lastTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
-                        Logger.log("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
+                        Logger.debug("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
 
                         final MutableBloomFilter loadedBloomFilter = _loadBloomFilterFromFile(filename, FILTER_ITEM_COUNT, FILTER_NONCE);
                         if (loadedBloomFilter != null) {
@@ -91,7 +95,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         }
                     }
                     else {
-                        Logger.log("Rebuilding ExistingTransactionFilter. Filter TransactionHash: " + filterLastTransactionHash + ", Database TransactionHash: " + lastTransactionHash);
+                        Logger.debug("Rebuilding ExistingTransactionFilter. Filter TransactionHash: " + filterLastTransactionHash + ", Database TransactionHash: " + lastTransactionHash);
+                        Logger.flush();
                     }
                 }
             }
@@ -99,7 +104,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
 
-            Logger.log("[Building TransactionBloomFilter]");
+            Logger.info("[Building TransactionBloomFilter]");
             final Long batchSize = 4096L;
             long lastTransactionId = 0L;
             Sha256Hash lastTransactionHash = null;
@@ -170,8 +175,21 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected void _insertTransactionInputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
 
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        if (transactionInputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
+            }
+        }
+        else {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(1);
+            transactionHashMap.put(transactionHash, transactionId);
+
+            final MutableList<Transaction> transactionList = new MutableList<Transaction>(1);
+            transactionList.add(transaction);
+
+            transactionInputDatabaseManager.insertTransactionInputs(transactionHashMap, transactionList);
         }
     }
 
@@ -179,15 +197,30 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
         final Sha256Hash transactionHash = transaction.getHash();
-        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
+
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        if (transactionOutputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
+            }
+        }
+        else {
+            final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(1);
+            transactionHashMap.put(transactionHash, transactionId);
+
+            final MutableList<Transaction> transactionList = new MutableList<Transaction>(1);
+            transactionList.add(transaction);
+
+            transactionOutputDatabaseManager.insertTransactionOutputs(transactionHashMap, transactionList);
         }
     }
 
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
      */
-    protected TransactionId _getTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+    protected TransactionId _getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
+        if (transactionHash == null) { return null; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
@@ -338,7 +371,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final Long firstTransactionId = databaseConnection.executeSql(batchedInsertQuery);
         if (firstTransactionId == null) {
-            Logger.log("NOTICE: Error storing transactions.");
+            Logger.warn("Error storing transactions.");
             return null;
         }
 
@@ -357,7 +390,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
         );
         if (! Util.areEqual(rows.size(), affectedRowCount)) {
-            Logger.log("NOTICE: Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
+            Logger.warn("Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
             return null;
         }
 
@@ -397,6 +430,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Row row = rows.get(0);
         final Long version = row.getLong("version");
         final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+        final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
 
         final List<TransactionInputId> transactionInputIds;
         final List<TransactionOutputId> transactionOutputIds;
@@ -412,12 +446,22 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
             for (final TransactionInputId transactionInputId : transactionInputIds) {
                 final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+                if (transactionInput == null) {
+                    Logger.warn("Error inflating transaction: " + expectedTransactionHash);
+                    return null;
+                }
+
                 mutableTransaction.addTransactionInput(transactionInput);
             }
 
             transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
             for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
                 final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+                if (transactionOutput == null) {
+                    Logger.warn("Error inflating transaction: " + expectedTransactionHash);
+                    return null;
+                }
+
                 mutableTransaction.addTransactionOutput(transactionOutput);
             }
 
@@ -425,9 +469,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactionHash = transaction.getHash();
 
             { // Validate inflated transaction hash...
-                final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
                 if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
-                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    Logger.warn("Error inflating transaction: " + expectedTransactionHash);
                     return null;
                 }
             }
@@ -469,7 +512,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             return cachedTransactionId;
         }
 
-        final TransactionId existingTransactionId = _getTransactionIdFromHash(transactionHash);
+        final TransactionId existingTransactionId = _getTransactionId(transactionHash);
         if (existingTransactionId != null) {
             return existingTransactionId;
         }
@@ -540,7 +583,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             final float falsePositiveRate = ( ((float) falsePositiveCount) / transactionCount );
             if ( (EXISTING_TRANSACTIONS_FILTER != null) && (falsePositiveRate > FILTER_FALSE_POSITIVE_RATE) ) {
-                Logger.log("INFO: TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
+                Logger.debug("TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
             }
         }
 
@@ -563,7 +606,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         //             newTransactionsBuilder.add(transaction);
         //         }
         //         else {
-        //             Logger.log("NOTICE: TxBloomFilter rendered false negative for: " + transactionHash + ". Recovering.");
+        //             Logger.warn("TxBloomFilter rendered false negative for: " + transactionHash + ". Recovering.");
         //         }
         //     }
         //     newTransactions = newTransactionsBuilder.build();
@@ -595,9 +638,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         for (final Sha256Hash transactionHash : transactionHashes) {
             final TransactionId transactionId = existingTransactions.get(transactionHash);
             if (transactionId == null) { // Should only happen (rarely) when another thread is attempting to insert the same Transaction at the same time as this thread...
-                final TransactionId missingTransactionId = _getTransactionIdFromHash(transactionHash);
+                final TransactionId missingTransactionId = _getTransactionId(transactionHash);
                 if (missingTransactionId == null) {
-                    Logger.log("NOTICE: Error storing Transactions. Missing Transaction: " + transactionHash);
+                    Logger.warn("Error storing Transactions. Missing Transaction: " + transactionHash);
                     return null;
                 }
 
@@ -608,18 +651,18 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        Logger.log("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("txHashMapTimer: " + txHashMapTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("txHashMapTimer: " + txHashMapTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");
 
         return allTransactionIds;
     }
 
     @Override
     public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
-        return _getTransactionIdFromHash(transactionHash);
+        return _getTransactionId(transactionHash);
     }
 
     @Override
@@ -810,7 +853,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public List<BlockId> getBlockIds(final Sha256Hash transactionHash) throws DatabaseException {
-        final TransactionId transactionId = _getTransactionIdFromHash(transactionHash);
+        final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return new MutableList<BlockId>(); }
 
         return _getBlockIds(transactionId);
@@ -861,7 +904,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         databaseManagerCache.invalidateTransactionIdCache();
         databaseManagerCache.invalidateTransactionCache();
 
-        final TransactionId transactionId = _getTransactionIdFromHash(transaction.getHash());
+        final TransactionId transactionId = _getTransactionId(transaction.getHash());
 
         _updateTransaction(transactionId, transaction);
 
@@ -967,5 +1010,14 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             new Query("DELETE FROM transactions WHERE id = ?")
                 .setParameter(transactionId)
         );
+    }
+
+    @Override
+    public SlpTokenId getSlpTokenId(final Sha256Hash transactionHash) throws DatabaseException {
+        final TransactionId transactionId = _getTransactionId(transactionHash);
+        if (transactionId == null) { return null; }
+
+        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = _databaseManager.getSlpTransactionDatabaseManager();
+        return slpTransactionDatabaseManager.getSlpTokenId(transactionId);
     }
 }

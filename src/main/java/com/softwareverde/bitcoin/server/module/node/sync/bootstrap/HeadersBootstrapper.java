@@ -12,7 +12,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.InputStream;
@@ -45,7 +45,7 @@ public class HeadersBootstrapper {
 
                 try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
                     if (inputStream == null) {
-                        Logger.log("Error opening headers bootstrap file.");
+                        Logger.warn("Unable to open headers bootstrap file.");
                         return;
                     }
 
@@ -105,8 +105,7 @@ public class HeadersBootstrapper {
             }
         }
         catch (final Exception exception) {
-            exception.printStackTrace();
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 

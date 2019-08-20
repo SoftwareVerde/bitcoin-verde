@@ -7,15 +7,18 @@ import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.database.mysql.DatabaseInitializer;
+import com.softwareverde.database.DatabaseInitializer;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 
-public class IntegrationTest {
+import java.sql.Connection;
+
+public class IntegrationTest extends UnitTest {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
     protected static final Boolean _nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
     protected static Boolean _nativeCacheWasInitialized = false;
@@ -41,9 +44,9 @@ public class IntegrationTest {
     }
 
     protected static void _resetDatabase() {
-        final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/bitcoin_init.sql", 1, new DatabaseInitializer.DatabaseUpgradeHandler() {
+        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer("queries/bitcoin_init.sql", 1, new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
             @Override
-            public Boolean onUpgrade(final int i, final int i1) { return false; }
+            public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceConnection, final Integer currentVersion, final Integer requiredVersion) { return false; }
         });
         try {
             _database.reset();
@@ -61,7 +64,7 @@ public class IntegrationTest {
                 _nativeCacheWasInitialized = true;
             }
             else {
-                Logger.log("NOTICE: NativeUtxoCache not enabled.");
+                Logger.info("NOTICE: NativeUtxoCache not enabled.");
             }
         }
         catch (final Exception exception) {

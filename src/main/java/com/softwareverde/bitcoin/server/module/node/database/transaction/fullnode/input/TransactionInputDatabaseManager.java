@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -23,10 +25,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.io.Logger;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
@@ -63,8 +63,8 @@ public class TransactionInputDatabaseManager {
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? AND previous_transaction_output_id = ?")
-            .setParameter(transactionId)
-            .setParameter(previousTransactionOutputId)
+                .setParameter(transactionId)
+                .setParameter(previousTransactionOutputId)
         );
         if (rows.isEmpty()) { return null; }
 
@@ -171,7 +171,7 @@ public class TransactionInputDatabaseManager {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
         if (! Util.areEqual(transactionIds.size(), transactions.getSize())) {
-            Logger.log("NOTICE: Error storing TransactionInputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
+            Logger.warn("Error storing TransactionInputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
             return null;
         }
         if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
@@ -204,7 +204,7 @@ public class TransactionInputDatabaseManager {
             final Transaction transaction = transactions.get(i);
             final Sha256Hash transactionHash = transaction.getHash();
             if (! transactionIds.containsKey(transactionHash)) {
-                Logger.log("NOTICE: Error storing TransactionInputs. Missing Transaction: " + transactionHash);
+                Logger.warn("Error storing TransactionInputs. Missing Transaction: " + transactionHash);
                 return null;
             }
             final TransactionId transactionId = transactionIds.get(transactionHash);
@@ -228,7 +228,7 @@ public class TransactionInputDatabaseManager {
                     findPreviousTxOutputTimer.stop();
                     totalFindPreviousTxOutputTime += findPreviousTxOutputTimer.getMillisecondsElapsed();
                     if (previousTransactionOutputId == null) {
-                        Logger.log("Unable to find TransactionOutput: " + transactionOutputIdentifier.getTransactionHash() + ":"+ transactionOutputIdentifier.getOutputIndex());
+                        Logger.warn("Unable to find TransactionOutput: " + transactionOutputIdentifier.getTransactionHash() + ":"+ transactionOutputIdentifier.getOutputIndex());
                         return null;
                     }
                 }
@@ -250,7 +250,7 @@ public class TransactionInputDatabaseManager {
         insertTxInputTimer.start();
         final Long firstTransactionInputId = databaseConnection.executeSql(batchedInsertQuery);
         if (firstTransactionInputId == null) {
-            Logger.log("NOTICE: Error storing TransactionInputs. Error running batch insert.");
+            Logger.warn("Error storing TransactionInputs. Error running batch insert.");
             return null;
         }
         insertTxInputTimer.stop();
@@ -269,13 +269,13 @@ public class TransactionInputDatabaseManager {
         transactionOutputDatabaseManager.markTransactionOutputsAsSpent(newlySpentTransactionOutputIds, newlySpentTransactionOutputIdentifiers);
         markOutputsAsSpentTimer.stop();
 
-        // Logger.log("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
-        // Logger.log("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("findPreviousTxOutputTimer: " + totalFindPreviousTxOutputTime + "ms");
-        Logger.log("txInputPrepareInsertQueryTimer: " + txInputPrepareInsertQueryTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("insertTxInputTimer: " + insertTxInputTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("insertUnlockingScriptsTimer: " + insertUnlockingScriptsTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("markOutputsAsSpentTimer: " + markOutputsAsSpentTimer.getMillisecondsElapsed() + "ms");
+        // Logger.debug("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
+        // Logger.debug("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("findPreviousTxOutputTimer: " + totalFindPreviousTxOutputTime + "ms");
+        Logger.debug("txInputPrepareInsertQueryTimer: " + txInputPrepareInsertQueryTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("insertTxInputTimer: " + insertTxInputTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("insertUnlockingScriptsTimer: " + insertUnlockingScriptsTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("markOutputsAsSpentTimer: " + markOutputsAsSpentTimer.getMillisecondsElapsed() + "ms");
 
         /*
             [TransactionInputDatabaseManager.java:262] findPreviousTransactionsTimer: 999ms

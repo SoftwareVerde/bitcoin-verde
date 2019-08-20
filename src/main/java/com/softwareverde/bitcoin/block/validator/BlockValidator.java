@@ -28,7 +28,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
@@ -256,7 +256,7 @@ public class BlockValidator {
                 block = nullableBlock;
                 { // Validate BlockId...
                     final Sha256Hash blockHash = block.getHash();
-                    Logger.log(blockHash);
+                    Logger.info(blockHash);
                     final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     if (! Util.areEqual(actualBlockId, blockId)) {
                         return BlockValidationResult.invalid("BlockId mismatch. " + blockId + " vs " + actualBlockId);
@@ -281,8 +281,8 @@ public class BlockValidator {
             blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
         }
         catch (final DatabaseException databaseException) {
-            Logger.log("Error encountered validating block:");
-            Logger.log(databaseException);
+            Logger.info("Error encountered validating block:");
+            Logger.info(databaseException);
             return BlockValidationResult.invalid("An internal error occurred.");
         }
 
@@ -305,11 +305,11 @@ public class BlockValidator {
             validateBlockTimer.stop();
             if (_shouldLogValidBlocks) {
                 final List<Transaction> transactions = block.getTransactions();
-                Logger.log("Validated " + transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+                Logger.info("Validated " + transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
             }
         }
         else {
-            Logger.log("NOTE: Trusting Block Height: " + blockHeight);
+            Logger.debug("Trusting Block Height: " + blockHeight);
         }
 
         return BlockValidationResult.valid();
@@ -390,8 +390,8 @@ public class BlockValidator {
             }
         }
         catch (final DatabaseException databaseException) {
-            Logger.log("Error encountered validating block:");
-            Logger.log(databaseException);
+            Logger.info("Error encountered validating block:");
+            Logger.info(databaseException);
             return BlockValidationResult.invalid("An internal error occurred.");
         }
 

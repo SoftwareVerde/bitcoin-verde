@@ -59,7 +59,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.Node;
@@ -89,17 +89,25 @@ public class BitcoinNode extends Node {
     public interface DownloadBlockCallback extends Callback<Block> {
         default void onFailure(Sha256Hash blockHash) { }
     }
+
     public interface DownloadMerkleBlockCallback extends Callback<MerkleBlockParameters> {
         default void onFailure(Sha256Hash blockHash) { }
     }
+
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeader>> { }
+
     public interface DownloadTransactionCallback extends Callback<Transaction> {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
+
     public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters> { }
+
     public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters> { }
+
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
+
     public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+
     public interface SpvBlockInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
@@ -277,7 +285,7 @@ public class BitcoinNode extends Node {
             _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
         }
         else {
-            Logger.log("NOTICE: Invalid SynchronizeVersionMessage type provided to BitcoinNode::_onSynchronizeVersion.");
+            Logger.warn("Invalid SynchronizeVersionMessage type provided to BitcoinNode.");
         }
 
         super._onSynchronizeVersion(synchronizeVersionMessage);
@@ -389,7 +397,7 @@ public class BitcoinNode extends Node {
             @Override
             public void onMessageReceived(final ProtocolMessage protocolMessage) {
                 if (! (protocolMessage instanceof BitcoinProtocolMessage)) {
-                    Logger.log("NOTICE: Disregarding Non-Bitcoin ProtocolMessage.");
+                    Logger.info("NOTICE: Disregarding Non-Bitcoin ProtocolMessage.");
                     return;
                 }
 
@@ -398,7 +406,7 @@ public class BitcoinNode extends Node {
                 if (LOGGING_ENABLED) {
                     final MessageType messageType = message.getCommand();
                     if (messageType != MessageType.INVENTORY) {
-                        Logger.log("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
+                        Logger.info("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
                     }
                 }
 
@@ -480,7 +488,7 @@ public class BitcoinNode extends Node {
             @Override
             public void run(final MessageType messageType, final ProtocolMessage message) {
                 final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
-                Logger.log("NOTICE: Unhandled Message Command: "+ messageType +": 0x"+ HexUtil.toHexString(bitcoinProtocolMessage.getHeaderBytes()));
+                Logger.warn("Unhandled Message Command: "+ messageType +": 0x"+ HexUtil.toHexString(bitcoinProtocolMessage.getHeaderBytes()));
             }
         });
     }
@@ -516,7 +524,7 @@ public class BitcoinNode extends Node {
 
     protected void _onErrorMessageReceived(final ErrorMessage errorMessage) {
         final ErrorMessage.RejectCode rejectCode = errorMessage.getRejectCode();
-        Logger.log("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ HexUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ HexUtil.toHexString(errorMessage.getExtraData()) + " " + this.getUserAgent() + " " + this.getConnectionString());
+        Logger.info("RECEIVED ERROR:" + rejectCode.getRejectMessageType().getValue() + " " + HexUtil.toHexString(new byte[] { rejectCode.getCode() }) + " " + errorMessage.getRejectDescription() + " " + HexUtil.toHexString(errorMessage.getExtraData()) + " " + this.getUserAgent() + " " + this.getConnectionString());
     }
 
     protected void _onRequestDataMessageReceived(final RequestDataMessage requestDataMessage) {
@@ -532,7 +540,7 @@ public class BitcoinNode extends Node {
             });
         }
         else {
-            Logger.log("NOTICE: No handler set for RequestData message.");
+            Logger.debug("No handler set for RequestData message.");
         }
     }
 
@@ -562,7 +570,7 @@ public class BitcoinNode extends Node {
                         });
                     }
                     else {
-                        Logger.log("NOTICE: No handler set for BlockInventoryMessageHandler.");
+                        Logger.debug("No handler set for BlockInventoryMessageHandler.");
                     }
                 } break;
 
@@ -577,7 +585,7 @@ public class BitcoinNode extends Node {
                         });
                     }
                     else {
-                        Logger.log("NOTICE: No handler set for TransactionInventoryMessageCallback.");
+                        Logger.debug("No handler set for TransactionInventoryMessageCallback.");
                     }
                 } break;
 
@@ -592,7 +600,7 @@ public class BitcoinNode extends Node {
                         });
                     }
                     else {
-                        Logger.log("NOTICE: No handler set for SpvBlockInventoryMessageCallback.");
+                        Logger.debug("No handler set for SpvBlockInventoryMessageCallback.");
                     }
                 }
             }
@@ -696,14 +704,14 @@ public class BitcoinNode extends Node {
             });
         }
         else {
-            Logger.log("NOTICE: No handler set for QueryBlocks message.");
+            Logger.debug("No handler set for QueryBlocks message.");
         }
     }
 
     protected void _onQueryUnconfirmedTransactionsReceived() {
         final QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback = _queryUnconfirmedTransactionsCallback;
         if (queryUnconfirmedTransactionsCallback == null) {
-            Logger.log("NOTICE: No handler set for QueryUnconfirmedTransactions (Mempool) message.");
+            Logger.debug("No handler set for QueryUnconfirmedTransactions (Mempool) message.");
             return;
         }
 
@@ -729,7 +737,7 @@ public class BitcoinNode extends Node {
             });
         }
         else {
-            Logger.log("NOTICE: No handler set for QueryBlockHeaders message.");
+            Logger.debug("No handler set for QueryBlockHeaders message.");
         }
     }
 
@@ -750,7 +758,7 @@ public class BitcoinNode extends Node {
             });
         }
         else {
-            Logger.log("NOTICE: No handler set for RequestExtraThinBlock message.");
+            Logger.debug("No handler set for RequestExtraThinBlock message.");
         }
     }
 
@@ -769,7 +777,7 @@ public class BitcoinNode extends Node {
             });
         }
         else {
-            Logger.log("NOTICE: No handler set for RequestExtraThinBlock message.");
+            Logger.debug("No handler set for RequestExtraThinBlock message.");
         }
     }
 
@@ -859,7 +867,7 @@ public class BitcoinNode extends Node {
                 } break;
 
                 default: {
-                    Logger.log("NOTICE: Unsolicited NOT_FOUND Message: " + inventoryItem.getItemType() + " : " + inventoryItem.getItemHash());
+                    Logger.info("Unsolicited NOT_FOUND Message: " + inventoryItem.getItemType() + " : " + inventoryItem.getItemHash());
                 }
             }
         }
@@ -910,7 +918,7 @@ public class BitcoinNode extends Node {
             });
         }
         else {
-            Logger.log("NOTICE: No handler set for RequestSpvBlocks message.");
+            Logger.debug("No handler set for RequestSpvBlocks message.");
         }
     }
 
@@ -1107,7 +1115,7 @@ public class BitcoinNode extends Node {
         final MutableBloomFilter bloomFilter = _bloomFilter;
         if (bloomFilter == null) {
             // NOTE: When a MerkleBlock is requested without a BloomFilter set, Bitcoin XT sends a MerkleBlock w/ BloomFilter.MATCH_ALL.
-            Logger.log("NOTICE: Attempting to Transmit MerkleBlock when no BloomFilter is available.");
+            Logger.warn("Attempting to Transmit MerkleBlock when no BloomFilter is available.");
             final BlockMessage blockMessage = _protocolMessageFactory.newBlockMessage();
             blockMessage.setBlock(block);
             _queueMessage(blockMessage);

@@ -1,25 +1,20 @@
 package com.softwareverde.database.mysql.debug;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
-import java.sql.Connection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
+public class LoggingConnectionWrapper extends DatabaseConnection {
 
-    public LoggingConnectionWrapper(final MysqlDatabaseConnection connection) {
-        super(connection.getRawConnection());
-    }
-
-    public LoggingConnectionWrapper(final Connection connection) {
+    public LoggingConnectionWrapper(final DatabaseConnection connection) {
         super(connection);
     }
 
@@ -43,7 +38,7 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
     protected static long queryCount = 0L;
 
     protected static void _printLogs() {
-        Logger.log("");
+        Logger.debug("");
         for (final String queryString : queryValues.keySet()) {
             final Double qsDuration = queryValues.get(queryString);
             final Long qsCount = queryCounts.get(queryString);
@@ -58,9 +53,9 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
                 }
             }
 
-            Logger.log(String.format("%.2f", qsDuration) + " - " + qsCount + " (" + (qsDuration / qsCount.floatValue()) + ") " + displayedQueryString);
+            Logger.debug(String.format("%.2f", qsDuration) + " - " + qsCount + " (" + (qsDuration / qsCount.floatValue()) + ") " + displayedQueryString);
         }
-        Logger.log("");
+        Logger.debug("");
     }
 
     protected void _log(final Query query, final Double duration) {
@@ -92,6 +87,11 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
         _log(query, timer.getMillisecondsElapsed());
 
         return rows;
+    }
+
+    @Override
+    public Integer getRowsAffectedCount() {
+        return ((DatabaseConnection) _core).getRowsAffectedCount();
     }
 
     @Override

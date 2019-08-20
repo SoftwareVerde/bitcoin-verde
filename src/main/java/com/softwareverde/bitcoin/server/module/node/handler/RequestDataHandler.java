@@ -18,7 +18,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -91,7 +91,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         }
 
                         if (block == null) {
-                            Logger.log("Error inflating Block: " + blockHash);
+                            Logger.warn("Error inflating Block: " + blockHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }
@@ -104,7 +104,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         }
 
                         getBlockDataTimer.stop();
-                        Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
+                        Logger.debug("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
 
                         final Sha256Hash batchContinueHash = bitcoinNode.getBatchContinueHash();
                         if (Util.areEqual(batchContinueHash, blockHash)) {
@@ -126,7 +126,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                         if (transaction == null) {
-                            Logger.log("Error inflating Transaction: " + transactionHash);
+                            Logger.warn("Error inflating Transaction: " + transactionHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }
@@ -134,11 +134,11 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         bitcoinNode.transmitTransaction(transaction);
 
                         getTransactionTimer.stop();
-                        Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
+                        Logger.info("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     default: {
-                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType());
+                        Logger.debug("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType());
                     } break;
                 }
             }
@@ -151,6 +151,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                 bitcoinNode.queueMessage(notFoundResponseMessage);
             }
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
     }
 }

@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -42,12 +42,12 @@ public class Secp256k1 {
 
     public static byte[] getPublicKeyPoint(final byte[] privateKeyBytes) {
         final ECPoint pointQ = Secp256k1.CURVE_POINT_G.multiply(new BigInteger(1, privateKeyBytes));
-        return pointQ.getEncoded();
+        return pointQ.getEncoded(false);
     }
 
     public static ByteArray getPublicKeyPoint(final ByteArray privateKey) {
         final ECPoint pointQ = Secp256k1.CURVE_POINT_G.multiply(new BigInteger(1, privateKey.getBytes()));
-        return MutableByteArray.wrap(pointQ.getEncoded());
+        return MutableByteArray.wrap(pointQ.getEncoded(false));
     }
 
     protected static Boolean _verifySignatureViaBouncyCastle(final Signature signature, final PublicKey publicKey, final byte[] message) {
@@ -66,7 +66,7 @@ public class Secp256k1 {
         catch (final Exception exception) {
             // NOTE: Bouncy Castle contains/contained a bug that would crash during certain specially-crafted malicious signatures.
             //  Instead of crashing, the signature is instead just marked as invalid.
-            Logger.log(exception);
+            Logger.debug(exception);
             return false;
         }
     }
@@ -76,7 +76,7 @@ public class Secp256k1 {
             return NativeSecp256k1.verify(message, signature.asCanonical().encode().getBytes(), publicKey.getBytes());
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
     }
@@ -143,7 +143,7 @@ public class Secp256k1 {
             return decompressedPoint.getEncoded(false);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }

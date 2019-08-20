@@ -28,8 +28,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.ByteUtil;
@@ -50,8 +50,8 @@ public class TestBlockDataStratumMiner {
         final AddressInflater addressInflater = new AddressInflater();
 
         final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
-        Logger.log("Private Key: " + coinbasePrivateKey);
-        Logger.log("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey).toBase58CheckEncoded());
+        Logger.info("Private Key: " + coinbasePrivateKey);
+        Logger.info("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey).toBase58CheckEncoded());
 
         final Address address = addressInflater.fromPrivateKey(coinbasePrivateKey);
 
@@ -192,7 +192,7 @@ class StratumMiner {
 
         final RequestMessage mineBlockRequest = _currentMineBlockTask.createRequest(abandonOldJobs);
 
-        Logger.log("Sent: "+ mineBlockRequest.toString());
+        Logger.info("Sent: "+ mineBlockRequest.toString());
         socketConnection.write(new JsonProtocolMessage(mineBlockRequest));
     }
 
@@ -203,7 +203,7 @@ class StratumMiner {
         parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
-        Logger.log("Sent: "+ mineBlockMessage.toString());
+        Logger.info("Sent: "+ mineBlockMessage.toString());
         socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
     }
 
@@ -234,7 +234,7 @@ class StratumMiner {
         final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
         responseMessage.setResult(resultJson);
 
-        Logger.log("Sent: "+ responseMessage);
+        Logger.info("Sent: "+ responseMessage);
         socketConnection.write(new JsonProtocolMessage(responseMessage));
     }
 
@@ -243,7 +243,7 @@ class StratumMiner {
             final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
             responseMessage.setResult(ResponseMessage.RESULT_TRUE);
 
-            Logger.log("Sent: "+ responseMessage.toString());
+            Logger.info("Sent: "+ responseMessage.toString());
             socketConnection.write(new JsonProtocolMessage(responseMessage));
         }
 
@@ -275,25 +275,25 @@ class StratumMiner {
 
             final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
             final Sha256Hash hash = blockHeader.getHash();
-            Logger.log(mineBlockTask.getDifficulty().getBytes());
-            Logger.log(hash);
-            Logger.log(shareDifficulty.getBytes());
+            Logger.info(mineBlockTask.getDifficulty().getBytes());
+            Logger.info(hash);
+            Logger.info(shareDifficulty.getBytes());
 
             if (! shareDifficulty.isSatisfiedBy(hash)) {
                 submissionWasAccepted = false;
-                Logger.log("NOTICE: Share Difficulty not satisfied.");
+                Logger.info("NOTICE: Share Difficulty not satisfied.");
 
                 final RequestMessage newRequestMessage = mineBlockTask.createRequest(false);
-                Logger.log("Resending Task: "+ newRequestMessage.toString());
+                Logger.info("Resending Task: "+ newRequestMessage.toString());
                 socketConnection.write(new JsonProtocolMessage(newRequestMessage));
             }
             else if (blockHeader.isValid()) {
                 final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-                Logger.log("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
+                Logger.info("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
 
                 final BlockDeflater blockDeflater = new BlockDeflater();
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.log(blockDeflater.toBytes(block));
+                Logger.info(blockDeflater.toBytes(block));
 
                 shouldExit = true;
                 BitcoinUtil.exitSuccess();
@@ -302,7 +302,7 @@ class StratumMiner {
 
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
 
-        Logger.log("Sent: "+ blockAcceptedMessage.toString());
+        Logger.info("Sent: "+ blockAcceptedMessage.toString());
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
 
         if (shouldExit) {
@@ -332,7 +332,7 @@ class StratumMiner {
         _stratumServerSocket.setSocketEventCallback(new StratumServerSocket.SocketEventCallback() {
             @Override
             public void onConnect(final JsonSocket socketConnection) {
-                Logger.log("Node connected: " + socketConnection.getIp() + ":" + socketConnection.getPort());
+                Logger.info("Node connected: " + socketConnection.getIp() + ":" + socketConnection.getPort());
 
                 socketConnection.setMessageReceivedCallback(new Runnable() {
                     @Override
@@ -343,7 +343,7 @@ class StratumMiner {
                         { // Handle Request Messages...
                             final RequestMessage requestMessage = RequestMessage.parse(message);
                             if (requestMessage != null) {
-                                Logger.log("Received: " + requestMessage);
+                                Logger.info("Received: " + requestMessage);
 
                                 if (requestMessage.isCommand(RequestMessage.ClientCommand.SUBSCRIBE)) {
                                     _handleSubscribeMessage(requestMessage, socketConnection);
@@ -355,7 +355,7 @@ class StratumMiner {
                                     _handleSubmitMessage(requestMessage, socketConnection);
                                 }
                                 else {
-                                    Logger.log("Unrecognized Message: " + requestMessage.getCommand());
+                                    Logger.info("Unrecognized Message: " + requestMessage.getCommand());
                                 }
                             }
                         }
@@ -372,7 +372,7 @@ class StratumMiner {
 
             @Override
             public void onDisconnect(final JsonSocket disconnectedSocket) {
-                Logger.log("Node disconnected: " + disconnectedSocket.getIp() + ":" + disconnectedSocket.getPort());
+                Logger.info("Node disconnected: " + disconnectedSocket.getIp() + ":" + disconnectedSocket.getPort());
             }
         });
     }
@@ -384,7 +384,7 @@ class StratumMiner {
 
         _stratumServerSocket.start();
 
-        Logger.log("[Server Online]");
+        Logger.info("[Server Online]");
 
         while (true) {
             try { Thread.sleep(60000); } catch (final Exception exception) { break; }

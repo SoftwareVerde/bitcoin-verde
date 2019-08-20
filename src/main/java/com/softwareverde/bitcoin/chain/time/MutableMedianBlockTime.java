@@ -18,7 +18,7 @@ public class MutableMedianBlockTime implements MedianBlockTime, MedianBlockTimeW
         final Integer blockCount = _previousBlocks.size();
 
         if (blockCount < _requiredBlockCount) {
-            // Logger.log("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
+            // Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
             return MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
         }
 

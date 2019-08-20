@@ -23,9 +23,11 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
@@ -34,7 +36,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -63,7 +65,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderDatabaseManager.getBlockHeight(blockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -80,7 +82,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderDatabaseManager.getBlockHeight(blockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -96,7 +98,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderDatabaseManager.getBlockTimestamp(headBlockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -113,7 +115,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderDatabaseManager.getBlockTimestamp(headBlockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -152,7 +154,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaders.build();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -171,7 +173,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderDatabaseManager.getBlockHeader(blockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -187,7 +189,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderDatabaseManager.getBlockHeader(blockId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -202,7 +204,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return blockHeaderHeight;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -236,7 +238,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return block;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -268,7 +270,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return block;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -284,7 +286,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return transactionDatabaseManager.getTransaction(transactionId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -296,7 +298,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return difficultyCalculator.calculateRequiredDifficulty();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -317,7 +319,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return unconfirmedTransactionsListBuilder.build();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -333,7 +335,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             for (final TransactionId transactionId : unconfirmedTransactionIds) {
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 if (transaction == null) {
-                    Logger.log("NOTICE: Unable to load Unconfirmed Transaction: " + transactionId);
+                    Logger.warn("Unable to load Unconfirmed Transaction: " + transactionId);
                     continue;
                 }
                 final Long transactionFee = transactionDatabaseManager.calculateTransactionFee(transaction);
@@ -345,7 +347,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return listBuilder.build();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }
@@ -364,14 +366,59 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             return BlockHeader.calculateBlockReward(blockHeight);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean isSlpTransaction(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final SlpTokenId slpTokenId = transactionDatabaseManager.getSlpTokenId(transactionHash);
+            return (slpTokenId != null);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Boolean isValidSlpTransaction(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return false; }
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            return slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public SlpTokenId getSlpTokenId(final Sha256Hash transactionHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            return transactionDatabaseManager.getSlpTokenId(transactionHash);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
             return null;
         }
     }
 
     @Override
     public BlockValidationResult validatePrototypeBlock(final Block block) {
-        Logger.log("Validating Prototype Block: " + block.getHash());
+        Logger.info("Validating Prototype Block: " + block.getHash());
 
         final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(databaseConnectionFactory);
@@ -395,7 +442,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             }
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return BlockValidationResult.invalid("An internal error occurred.");
         }
     }

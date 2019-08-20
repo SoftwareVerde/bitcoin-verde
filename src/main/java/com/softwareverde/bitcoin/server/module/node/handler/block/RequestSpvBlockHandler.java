@@ -18,7 +18,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.HashSet;
 
@@ -71,7 +71,7 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
             bitcoinNode.queueMessage(inventoryMessage);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 }

@@ -6,13 +6,17 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.address.MutableSpendableTransactionOutput;
 import com.softwareverde.bitcoin.server.module.node.database.address.SpendableTransactionOutput;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -24,11 +28,9 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -206,7 +208,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
 
         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) {
-            Logger.log("Error determining address.");
+            Logger.warn("Error determining address.");
             return null;
         }
 
@@ -256,14 +258,15 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
         for (final LockingScript lockingScript : lockingScripts) {
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-            if (scriptType == ScriptType.CUSTOM_SCRIPT) {
+
+            if (! ScriptType.isAddressScriptType(scriptType)) {
                 lockingScriptAddresses.put(new ScriptWrapper(lockingScript), null);
                 continue;
             }
 
             final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
             if (address == null) {
-                Logger.log("Error determining address.");
+                Logger.warn("Error determining address.");
                 return null;
             }
 
@@ -369,5 +372,25 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         }
 
         return amount;
+    }
+
+    public List<TransactionId> getSlpTransactionIds(final SlpTokenId slpTokenId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final TransactionId genesisTransactionId = transactionDatabaseManager.getTransactionId(slpTokenId);
+        if (genesisTransactionId == null) { return null; }
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT DISTINCT transaction_outputs.transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.slp_transaction_id = ?")
+                .setParameter(genesisTransactionId)
+        );
+        if (rows.isEmpty()) { return new MutableList<TransactionId>(0); }
+
+        final ImmutableListBuilder<TransactionId> immutableListBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            immutableListBuilder.add(transactionId);
+        }
+        return immutableListBuilder.build();
     }
 }

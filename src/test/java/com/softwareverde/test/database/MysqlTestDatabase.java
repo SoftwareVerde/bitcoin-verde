@@ -6,13 +6,13 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
-import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
-import com.softwareverde.database.mysql.properties.Credentials;
+import com.softwareverde.database.mysql.embedded.vorburger.DatabaseConfigurationBuilder;
+import com.softwareverde.database.properties.DatabaseCredentials;
 
 public class MysqlTestDatabase extends MysqlDatabase {
     protected final DB _databaseInstance;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
-    protected final Credentials _credentials;
+    protected final DatabaseCredentials _credentials;
 
     protected final String _rootUsername = "root";
     protected final String _rootPassword = "";
@@ -22,7 +22,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
         super(null, null, null, null);
         final DBConfiguration dbConfiguration;
         {
-            final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();
+            final DatabaseConfigurationBuilder configBuilder = DatabaseConfigurationBuilder.newBuilder();
             dbConfiguration = configBuilder.build();
 
             final String host = "localhost";
@@ -42,7 +42,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
             }
         }
 
-        _credentials = new Credentials(_rootUsername, _rootPassword);
+        _credentials = new DatabaseCredentials(_rootUsername, _rootPassword);
     }
 
     @Override
@@ -64,7 +64,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
         return _databaseInstance;
     }
 
-    public Credentials getCredentials() {
+    public DatabaseCredentials getCredentials() {
         return _credentials;
     }
 

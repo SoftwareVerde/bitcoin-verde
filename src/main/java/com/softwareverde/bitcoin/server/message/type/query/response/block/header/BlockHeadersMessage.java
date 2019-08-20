@@ -45,7 +45,7 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
         byteArrayBuilder.appendBytes(blockHeaderCountBytes);
 
         final BlockHeaderDeflater blockHeaderDeflater = _blockHeaderInflaters.getBlockHeaderDeflater();
-        for (int i=0; i<blockHeaderCount; ++i) {
+        for (int i = 0; i < blockHeaderCount; ++i) {
             final BlockHeader blockHeader = _blockHeaders.get(i);
             byteArrayBuilder.appendBytes(blockHeaderDeflater.toBytes(blockHeader));
 

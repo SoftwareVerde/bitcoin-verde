@@ -20,8 +20,8 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlocking
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -137,7 +137,7 @@ public class HistoricTransactionsTests {
 
     @After
     public void shutdown() {
-        Logger.shutdown();
+        Logger.flush();
     }
 
     @Test

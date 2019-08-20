@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -28,13 +28,13 @@ public class TransactionInputInflater {
     }
 
     public void _debugBytes(final ByteArrayReader byteArrayReader) {
-        Logger.log("Tx Input: Prev Tx: " + MutableByteArray.wrap(byteArrayReader.readBytes(32)));
-        Logger.log("Tx Input: Prev Out Ix: " + MutableByteArray.wrap(byteArrayReader.readBytes(4)));
+        Logger.debug("Tx Input: Prev Tx: " + MutableByteArray.wrap(byteArrayReader.readBytes(32)));
+        Logger.debug("Tx Input: Prev Out Ix: " + MutableByteArray.wrap(byteArrayReader.readBytes(4)));
 
         final ByteArrayReader.VariableSizedInteger variableSizedInteger = byteArrayReader.peakVariableSizedInteger();
-        Logger.log("Tx Input: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
-        Logger.log("Tx Input: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
-        Logger.log("Tx Input: Sequence Number: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
+        Logger.debug("Tx Input: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
+        Logger.debug("Tx Input: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
+        Logger.debug("Tx Input: Sequence Number: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
     }
 
     public MutableTransactionInput fromBytes(final ByteArrayReader byteArrayReader) {

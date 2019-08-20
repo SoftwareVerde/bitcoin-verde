@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class DatabaseTransactionOutputRepository implements TransactionOutputRepository {
     protected final FullNodeDatabaseManager _databaseManager;
@@ -26,7 +26,7 @@ public class DatabaseTransactionOutputRepository implements TransactionOutputRep
             return transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 
 import java.util.HashMap;
@@ -37,7 +37,7 @@ public class MessageRouter {
             messageHandler.run(message);
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
