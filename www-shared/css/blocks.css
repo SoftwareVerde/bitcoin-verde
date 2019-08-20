@@ -161,6 +161,18 @@
     margin-top: 0.25em;
 }
 
+.transaction .hash > label,
+.transaction .block-hashes > label {
+    font-weight: bold;
+}
+
+.transaction .hash > label.slp-transaction {
+    color: #1AB326;
+}
+.transaction .hash > label.slp-transaction.invalid {
+    color: #F7931D;
+}
+
 .transaction div > label,
 .block .block-header div label {
     display: inline-block;
@@ -275,6 +287,10 @@
     font-size: 1em;
 }
 
+.transaction.collapsed .io img.tx-arrow {
+    display: none;
+}
+
 .transaction.collapsed .io .transaction-outputs::before, 
 .transaction.collapsed .io .transaction-inputs::before,
 .transaction.collapsed::before {
@@ -317,10 +333,21 @@
     margin-top: 0;
     font-size: 250%;
 }
+.transaction .slp.floating-property.oversized label {
+    float: left;
+    width: 100%;
+}
+.transaction .slp.floating-property.oversized .value {
+    font-size: 150%;
+    transform: translateY(-47%);
+    padding-top: 100%;
+    overflow: visible;
+}
 .transaction .slp.floating-property {
     border-color: #0F6115;
     background-color: #1AB325;
     cursor: pointer;
+    overflow: hidden;
 }
 .transaction .slp.floating-property.invalid {
     border-color: #962727;
@@ -352,16 +379,6 @@
 .transaction > .lock-time > .value {
     display: inline-block;
     font-size: 0.75em;
-}
-
-.transaction.collapsed .hash span.value::before {
-    content: 'Transaction:';
-    font-size: 0.75em;
-    color: #404040 !important;
-    font-weight: bold;
-    margin-right: 0.5em;
-    font-family: sans-serif;
-    transition: all 500ms ease;
 }
 
 .transaction.collapsed > div > div {
@@ -444,6 +461,10 @@
     float: right;
 }
 
+.recent-transactions .transaction > .hash > label {
+    display: none;
+}
+
 @media only screen and (max-width: 1100px) {
     .block,
     .transaction {
@@ -464,6 +485,16 @@
 @media only screen and (max-width: 960px) {
     .block .block-header > div {
         width: calc(100% - 0.5em);
+    }
+
+    .transaction .floating-properties-container {
+        position: relative;
+        display: flex;
+    }
+    .transaction .floating-properties-container .floating-property {
+        flex-grow: 1;
+        border-radius: 5px;
+        margin-right: 10px;
     }
 }
 

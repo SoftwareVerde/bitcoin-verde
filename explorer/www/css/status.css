@@ -166,6 +166,9 @@
     text-align: center;
     padding-left: 0;
     padding-right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
 }
 
 .statistics .service-statuses > div {
@@ -173,16 +176,14 @@
     color: #FFFFFF;
     border: solid 1px #202020;
     display: inline-block;
-    width: calc(16.66% - 1em);
     margin-left: 0.5em;
     margin-right: 0.5em;
     margin-bottom: 0.5em;
-    min-width: 200px;
     padding: 1em;
-    padding-left: 0;
-    padding-right: 0;
     text-align: center;
     box-sizing: border-box;
+    flex-basis: 0;
+    flex-grow: 1;
 }
 
 .statistics .service-statuses div.service-active {

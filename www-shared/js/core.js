@@ -413,23 +413,26 @@ class Ui {
         });
 
         transactionUi.on("click", function() {
-            const elements = $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi);
+            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .slp", transactionUi);
+            const elements = $(".block-hashes", transactionUi);
             elements.each(function() {
                 const element = $(this);
                 elements.animationCompleteCount = 0;
                 if (element.css("display") == "none") {
-                    element.slideDown(function() {
+                    element.slideDown(200, function() {
                         element.css("visibility", "visible");
                         elements.animationCompleteCount += 1;
 
                         if (elements.animationCompleteCount >= elements.length) {
                             transactionUi.toggleClass("collapsed");
+                            nonAnimatedElements.each(function() { $(this).show(); });
 
                             window.HashResizer(transactionUi);
                         }
                     });
                 }
                 else {
+                    nonAnimatedElements.each(function() { $(this).hide(); });
                     element.slideUp(function() {
                         element.css("visibility", "hidden");
                         elements.animationCompleteCount += 1;
@@ -445,7 +448,7 @@ class Ui {
 
             return false;
         });
-        $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi).css("display", "none");
+        $(".version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi).css("display", "none");
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);
@@ -456,24 +459,31 @@ class Ui {
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
 
+        const slpAttributeContainer = $(".slp", transactionUi);
         if (transaction.slp) {
-            const slpAttributeContainer = $(".slp", transactionUi);
             const slpAttributeValue = $(".slp .value", transactionUi);
             const slpAttributeLabel = $(".slp label", transactionUi);
+            const transactionLabel = $(".hash > label", transactionUi);
 
+            transactionLabel.toggleClass("slp-transaction", true);
             slpAttributeValue.text(transaction.slp.tokenAbbreviation);
+
+            if ((transaction.slp.tokenAbbreviation || "").length > 3) {
+                slpAttributeContainer.toggleClass("oversized", true);
+            }
 
             if (! transaction.slp.isValid) {
                 slpAttributeLabel.text("INVALID");
 
                 slpAttributeContainer.toggleClass("invalid", true);
+                transactionLabel.toggleClass("invalid", true);
             }
             else {
                 slpAttributeContainer.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
             }
         }
         else {
-            $(".slp .value", transactionUi).remove();
+            slpAttributeContainer.remove();
         }
 
         const blocks = (transaction.blocks || []);
