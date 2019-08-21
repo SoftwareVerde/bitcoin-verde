@@ -92,10 +92,14 @@
     border: none;
     margin: 0;
     padding: 0;
+    padding-left: 1.25em;
 }
 
 .recent-blocks .block .block-header > div.hash label {
     display: none;
+}
+.recent-blocks .block .block-header div .value {
+    margin-top: 0;
 }
 
 .recent-transactions .transaction > div > div {
@@ -103,6 +107,9 @@
 }
 .recent-transactions .transaction > div > div.hash {
     display: block;
+}
+.recent-transactions .transaction .io {
+    display: none;
 }
 
 .centered-content {
