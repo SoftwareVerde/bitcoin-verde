@@ -182,6 +182,7 @@ public class AnnouncementsApi implements WebSocketServlet {
 
         final Long webSocketId = webSocket.getId();
         synchronized (MUTEX) {
+            Logger.debug("Adding WebSocket: " + webSocketId + " (count=" + (WEB_SOCKETS.size() + 1) + ")");
             WEB_SOCKETS.put(webSocketId, webSocket);
         }
 
@@ -196,6 +197,7 @@ public class AnnouncementsApi implements WebSocketServlet {
             @Override
             public void onClose(final int code, final String message) {
                 synchronized (MUTEX) {
+                    Logger.debug("WebSocket Closed: " + webSocketId + " (count=" + (WEB_SOCKETS.size() - 1) + ")");
                     WEB_SOCKETS.remove(webSocketId);
                 }
             }

@@ -44,7 +44,7 @@ public class Main {
     }
 
     public static void main(final String[] commandLineArguments) {
-        Logger.LOG = BitcoinNodeLog.getBufferedInstance();
+        Logger.LOG = BitcoinNodeLog.getInstance();
         Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
 
@@ -173,8 +173,9 @@ public class Main {
                     break;
                 }
 
-                final String configurationFilename = _arguments[1];
+                Logger.LOG = BitcoinNodeLog.getBufferedInstance(); // Use a BufferedInstance for the NodeModule for performance...
 
+                final String configurationFilename = _arguments[1];
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
