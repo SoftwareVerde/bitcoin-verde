@@ -11,7 +11,7 @@ import com.softwareverde.util.bytearray.Endian;
 
 import java.math.BigInteger;
 
-public class Secp256k1Signature implements Signature {
+public class Secp256k1Signature extends SignatureCore {
     protected static final Byte DER_MAGIC_NUMBER = 0x30;
     protected static final Byte DER_INTEGER_TYPE = 0x02;
 

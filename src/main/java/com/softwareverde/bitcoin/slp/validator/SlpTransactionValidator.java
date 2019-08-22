@@ -26,6 +26,7 @@ import java.util.Map;
 public class SlpTransactionValidator {
     protected final SlpTransactionValidationCache _validationCache;
     protected final TransactionAccumulator _transactionAccumulator;
+    protected Boolean _allowUnconfirmedTransactions = true;
 
     protected SlpScript _getSlpScript(final Transaction transaction) {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
@@ -36,14 +37,14 @@ public class SlpTransactionValidator {
         return slpScriptInflater.fromLockingScript(slpLockingScript);
     }
 
-    protected Map<Sha256Hash, Transaction> _getTransactions(final List<TransactionInput> transactionInputs) {
+    protected Map<Sha256Hash, Transaction> _getTransactions(final List<TransactionInput> transactionInputs, final Boolean allowUnconfirmedTransactions) {
         final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getSize());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             transactionHashes.add(transactionHash);
         }
 
-        return _transactionAccumulator.getTransactions(transactionHashes.build());
+        return _transactionAccumulator.getTransactions(transactionHashes.build(), allowUnconfirmedTransactions);
     }
 
     protected Boolean _validateRecursiveTransactions(final Map<SlpScriptType, ? extends List<Transaction>> recursiveTransactionsToValidate) {
@@ -146,7 +147,7 @@ public class SlpTransactionValidator {
         final SlpMintScript slpMintScript = ((nullableSlpMintScript != null) ? nullableSlpMintScript : ((SlpMintScript) _getSlpScript(transaction)));
         final SlpTokenId slpTokenId = slpMintScript.getTokenId();
 
-        final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs);
+        final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs, _allowUnconfirmedTransactions);
         if (previousTransactions == null) { return false; }
 
         final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
@@ -207,7 +208,7 @@ public class SlpTransactionValidator {
         final SlpTokenId slpTokenId = slpSendScript.getTokenId();
 
         final Long totalSendAmount = slpSendScript.getTotalAmount();
-        final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs);
+        final Map<Sha256Hash, Transaction> previousTransactions = _getTransactions(transactionInputs, _allowUnconfirmedTransactions);
         if (previousTransactions == null) { return false; }
 
         long totalSlpAmountReceived = 0L;
@@ -218,7 +219,7 @@ public class SlpTransactionValidator {
             final Transaction previousTransaction = previousTransactions.get(previousTransactionHash);
             if (previousTransaction == null) {
                 Logger.debug("Could not find previous Transaction: " + previousTransactionHash);
-                return false; // TODO: Decide: continue or return false
+                return false;
             }
 
             final SlpScript previousTransactionSlpScript = _getSlpScript(previousTransaction);
@@ -335,5 +336,9 @@ public class SlpTransactionValidator {
                 return false;
             }
         }
+    }
+
+    public void setAllowUnconfirmedTransactions(final Boolean allowUnconfirmedTransactions) {
+        _allowUnconfirmedTransactions = allowUnconfirmedTransactions;
     }
 }

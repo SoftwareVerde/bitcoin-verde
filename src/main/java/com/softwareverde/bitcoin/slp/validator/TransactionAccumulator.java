@@ -7,5 +7,5 @@ import com.softwareverde.constable.list.List;
 import java.util.Map;
 
 public interface TransactionAccumulator {
-    Map<Sha256Hash, Transaction> getTransactions(List<Sha256Hash> transactionHashes);
+    Map<Sha256Hash, Transaction> getTransactions(List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions);
 }

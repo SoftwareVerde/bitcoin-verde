@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
-public class SchnorrSignature implements Signature {
+public class SchnorrSignature extends SignatureCore {
     public static final Integer BYTE_COUNT = 64;
 
     public static SchnorrSignature fromBytes(final ByteArray byteArray) {

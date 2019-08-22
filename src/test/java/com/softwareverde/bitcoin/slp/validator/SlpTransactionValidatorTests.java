@@ -65,7 +65,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(new TransactionAccumulator() {
                 @Override
-                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
+                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                     try {
                         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
                         for (final Sha256Hash transactionHash : transactionHashes) {
@@ -270,7 +270,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(
                 new TransactionAccumulator() {
                     @Override
-                    public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
+                    public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                         final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
                         for (final Sha256Hash transactionHash : transactionHashes) {
                             returnedTransactions.put(transactionHash, transactions.get(transactionHash));

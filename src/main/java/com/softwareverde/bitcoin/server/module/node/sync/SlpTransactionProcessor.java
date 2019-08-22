@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidationCache;
 import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
@@ -45,11 +46,11 @@ public class SlpTransactionProcessor extends SleepyService {
     }
 
     public static TransactionAccumulator createTransactionAccumulator(final Container<BlockchainSegmentId> blockchainSegmentId, final FullNodeDatabaseManager databaseManager, final Container<Integer> nullableTransactionLookupCount) {
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
         return new TransactionAccumulator() {
                 @Override
-                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) {
+                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                     try {
                         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
                         final MilliTimer milliTimer = new MilliTimer();
@@ -59,7 +60,11 @@ public class SlpTransactionProcessor extends SleepyService {
                             if (transactionId == null) { continue; }
 
                             final Boolean transactionIsConnectedToBlockchainSegment = _isConnected(blockchainSegmentId.value, transactionId, databaseManager);
-                            if (! transactionIsConnectedToBlockchainSegment) { continue; }
+                            if (! transactionIsConnectedToBlockchainSegment) {
+                                if (! (allowUnconfirmedTransactions && transactionDatabaseManager.isUnconfirmedTransaction(transactionId))) {
+                                    continue;
+                                }
+                            }
 
                             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                             transactions.put(transactionHash, transaction);
