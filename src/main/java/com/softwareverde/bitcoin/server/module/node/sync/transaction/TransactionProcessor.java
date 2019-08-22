@@ -8,13 +8,10 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -26,30 +23,41 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
-    public interface NewTransactionProcessedCallback {
-        void onNewTransaction(Transaction transaction);
+    public interface Callback {
+        void onNewTransactions(List<Transaction> transactions);
     }
 
     protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected final SystemTime _systemTime;
     protected Long _lastOrphanPurgeTime;
-    protected NewTransactionProcessedCallback _newTransactionProcessedCallback;
+    protected Callback _newTransactionProcessedCallback;
+
+    protected void _deletePendingTransaction(final FullNodeDatabaseManager databaseManager, final PendingTransactionId pendingTransactionId) {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
+
+        try {
+            TransactionUtil.startTransaction(databaseConnection);
+            pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
+            TransactionUtil.commitTransaction(databaseConnection);
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
+    }
 
     @Override
     protected void _onStart() { }
@@ -60,7 +68,6 @@ public class TransactionProcessor extends SleepyService {
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -83,21 +90,25 @@ public class TransactionProcessor extends SleepyService {
                 if (pendingTransactionIds.isEmpty()) { return false; }
 
                 final HashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new HashMap<Sha256Hash, PendingTransactionId>(pendingTransactionIds.getSize());
-                final MutableList<Transaction> transactionsToStore = new MutableList<Transaction>(pendingTransactionIds.getSize());
-                for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
-                    if (thread.isInterrupted()) { return false; }
+                final List<Transaction> transactionsToStore;
+                {
+                    final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(pendingTransactionIds.getSize());
+                    for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
+                        if (thread.isInterrupted()) { return false; }
 
-                    final Transaction transaction = pendingTransactionDatabaseManager.getPendingTransaction(pendingTransactionId);
-                    if (transaction == null) { continue; }
+                        final Transaction transaction = pendingTransactionDatabaseManager.getPendingTransaction(pendingTransactionId);
+                        if (transaction == null) { continue; }
 
-                    final Boolean transactionCanBeStored = transactionDatabaseManager.previousOutputsExist(transaction);
-                    if (! transactionCanBeStored) {
-                        pendingTransactionDatabaseManager.updateTransactionDependencies(transaction);
-                        continue;
+                        final Boolean transactionCanBeStored = transactionDatabaseManager.previousOutputsExist(transaction);
+                        if (! transactionCanBeStored) {
+                            pendingTransactionDatabaseManager.updateTransactionDependencies(transaction);
+                            continue;
+                        }
+
+                        pendingTransactionIdMap.put(transaction.getHash(), pendingTransactionId);
+                        listBuilder.add(transaction);
                     }
-
-                    pendingTransactionIdMap.put(transaction.getHash(), pendingTransactionId);
-                    transactionsToStore.add(transaction);
+                    transactionsToStore = listBuilder.build();
                 }
 
                 transactionValidator.setLoggingEnabled(true);
@@ -106,17 +117,7 @@ public class TransactionProcessor extends SleepyService {
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-                final List<NodeId> connectedNodes;
-                {
-                    final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(nodes.getSize());
-                    for (final BitcoinNode bitcoinNode : nodes) {
-                        nodeIdsBuilder.add(bitcoinNode.getId());
-                    }
-                    connectedNodes = nodeIdsBuilder.build();
-                }
-
-                final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
+                final MutableList<Transaction> validTransactions = new MutableList<Transaction>(transactionsToStore.getSize());
 
                 int invalidTransactionCount = 0;
                 final MilliTimer storeTransactionsTimer = new MilliTimer();
@@ -136,9 +137,7 @@ public class TransactionProcessor extends SleepyService {
                     if (! transactionIsValid) {
                         TransactionUtil.rollbackTransaction(databaseConnection);
 
-                        TransactionUtil.startTransaction(databaseConnection);
-                        pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
-                        TransactionUtil.commitTransaction(databaseConnection);
+                        _deletePendingTransaction(databaseManager, pendingTransactionId);
 
                         invalidTransactionCount += 1;
                         Logger.info("Invalid MemoryPool Transaction: " + transactionHash);
@@ -151,41 +150,17 @@ public class TransactionProcessor extends SleepyService {
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
 
-                    final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
-                    for (final NodeId nodeId : nodesWithoutTransaction) {
-                        final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(nodeId);
-                        if (bitcoinNode == null) { continue; }
-                        if (! bitcoinNode.matchesFilter(transaction)) { continue; }
+                    _deletePendingTransaction(databaseManager, pendingTransactionId);
 
-                        if (! nodeUnseenTransactionHashes.containsKey(nodeId)) {
-                            nodeUnseenTransactionHashes.put(nodeId, new MutableList<Sha256Hash>());
-                        }
-
-                        final MutableList<Sha256Hash> transactionHashes = nodeUnseenTransactionHashes.get(nodeId);
-                        transactionHashes.add(transactionHash);
-                    }
-
-                    TransactionUtil.startTransaction(databaseConnection);
-                    pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
-                    TransactionUtil.commitTransaction(databaseConnection);
-
-                    final NewTransactionProcessedCallback newTransactionProcessedCallback = _newTransactionProcessedCallback;
-                    if (newTransactionProcessedCallback != null) {
-                        newTransactionProcessedCallback.onNewTransaction(transaction);
-                    }
+                    validTransactions.add(transaction);
                 }
                 storeTransactionsTimer.stop();
 
                 Logger.info("Committed " + (transactionsToStore.getSize() - invalidTransactionCount) + " transactions to the MemoryPool in " + storeTransactionsTimer.getMillisecondsElapsed() + "ms. (" + String.format("%.2f", (transactionsToStore.getSize() / storeTransactionsTimer.getMillisecondsElapsed().floatValue() * 1000F)) + "tps) (" + invalidTransactionCount + " invalid)");
 
-                for (final NodeId nodeId : nodeUnseenTransactionHashes.keySet()) {
-                    final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(nodeId);
-                    if (bitcoinNode == null) { continue; }
-                    if (! Util.coalesce(bitcoinNode.isTransactionRelayEnabled(), false)) { continue; }
-
-                    final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
-                    // Logger.info("Relaying " + newTransactionHashes.getSize() + " Transactions to: " + bitcoinNode.getUserAgent() + " " + bitcoinNode.getConnectionString());
-                    bitcoinNode.transmitTransactionHashes(newTransactionHashes);
+                final Callback newTransactionProcessedCallback = _newTransactionProcessedCallback;
+                if (newTransactionProcessedCallback != null) {
+                    newTransactionProcessedCallback.onNewTransactions(validTransactions);
                 }
             }
         }
@@ -203,14 +178,13 @@ public class TransactionProcessor extends SleepyService {
         _databaseManagerFactory = databaseManagerFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
-        _bitcoinNodeManager = bitcoinNodeManager;
         _transactionValidatorFactory = transactionValidatorFactory;
 
         _systemTime = new SystemTime();
         _lastOrphanPurgeTime = 0L;
     }
 
-    public void setNewTransactionProcessedCallback(final NewTransactionProcessedCallback newTransactionProcessedCallback) {
+    public void setNewTransactionProcessedCallback(final Callback newTransactionProcessedCallback) {
         _newTransactionProcessedCallback = newTransactionProcessedCallback;
     }
 }

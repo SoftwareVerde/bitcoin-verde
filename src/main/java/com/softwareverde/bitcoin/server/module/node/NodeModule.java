@@ -105,6 +105,7 @@ public class NodeModule {
     protected final BlockDownloader _blockDownloader;
     protected final TransactionDownloader _transactionDownloader;
     protected final TransactionProcessor _transactionProcessor;
+    protected final TransactionRelay _transactionRelay;
     protected final BlockchainBuilder _blockchainBuilder;
     protected final AddressProcessor _addressProcessor;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
@@ -480,6 +481,10 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
+        { // Initialize Transaction Relay...
+            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager);
+        }
+
         if (bitcoinProperties.isTrimBlocksEnabled()) {
             _slpTransactionProcessor = null;
             _addressProcessor = new DisabledAddressProcessor();
@@ -640,23 +645,19 @@ public class NodeModule {
                 }
             });
 
-            _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.NewTransactionProcessedCallback() {
+            _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
                 @Override
-                public void onNewTransaction(final Transaction transaction) {
-                    final Sha256Hash transactionHash = transaction.getHash();
-                    requestDataHandler.addTransactionHash(transactionHash);
+                public void onNewTransactions(final List<Transaction> transactions) {
 
-                    final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
-                    if (nodeRpcHandler != null) {
-                        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-                            final Long transactionFee = transactionDatabaseManager.calculateTransactionFee(transaction);
+                    _transactionRelay.relayTransactions(transactions);
 
-                            nodeRpcHandler.onNewTransaction(new TransactionWithFee(transaction, transactionFee));
-                        }
-                        catch (final DatabaseException exception) {
-                            Logger.warn(exception);
-                        }
+                    final MutableList<Transaction> transactionsToAnnounceViaRpc = new MutableList<Transaction>(transactions.getSize());
+
+                    for (final Transaction transaction : transactions) {
+                        final Sha256Hash transactionHash = transaction.getHash();
+
+                        requestDataHandler.addTransactionHash(transactionHash);
+                        transactionsToAnnounceViaRpc.add(transaction);
                     }
 
                     _addressProcessor.wakeUp();
