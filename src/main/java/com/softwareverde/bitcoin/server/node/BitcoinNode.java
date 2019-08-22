@@ -76,8 +76,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
-    public static Boolean LOGGING_ENABLED = true;
-
     public interface BlockInventoryMessageCallback {
         void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
     }
@@ -403,11 +401,9 @@ public class BitcoinNode extends Node {
 
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
-                if (LOGGING_ENABLED) {
-                    final MessageType messageType = message.getCommand();
-                    if (messageType != MessageType.INVENTORY) {
-                        Logger.info("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
-                    }
+                final MessageType messageType = message.getCommand();
+                if (messageType != MessageType.INVENTORY) {
+                    Logger.info("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
                 }
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
