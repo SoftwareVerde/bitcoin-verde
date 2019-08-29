@@ -575,8 +575,6 @@ public class SpvModule {
                 properties.memoryPoolEnquirer = null;
                 properties.synchronizationStatusHandler = synchronizationStatusHandler;
                 properties.threadPool = _mainThreadPool;
-                properties.threadPoolFactory = threadPoolFactory;
-                properties.localNodeFeatures = localNodeFeatures;
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);

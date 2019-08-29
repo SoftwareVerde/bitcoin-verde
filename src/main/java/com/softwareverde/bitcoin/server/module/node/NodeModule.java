@@ -440,8 +440,6 @@ public class NodeModule {
                 properties.memoryPoolEnquirer = memoryPoolEnquirer;
                 properties.synchronizationStatusHandler = synchronizationStatusHandler;
                 properties.threadPool = _mainThreadPool;
-                properties.threadPoolFactory = nodeThreadPoolFactory;
-                properties.localNodeFeatures = localNodeFeatures;
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
