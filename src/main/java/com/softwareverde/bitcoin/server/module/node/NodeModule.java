@@ -484,7 +484,7 @@ public class NodeModule {
 
         if (bitcoinProperties.isTrimBlocksEnabled()) {
             _slpTransactionProcessor = null;
-            _addressProcessor = new DisabledAddressProcessor();
+            _addressProcessor = new AddressProcessor(databaseManagerFactory);
         }
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
