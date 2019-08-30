@@ -257,4 +257,4 @@ CREATE TABLE node_transactions_inventory (
     FOREIGN KEY node_transactions_tx_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (2, UNIX_TIMESTAMP());
