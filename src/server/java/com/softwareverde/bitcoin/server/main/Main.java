@@ -21,6 +21,7 @@ import com.softwareverde.jocl.JoclGpuSha256;
 import com.softwareverde.logging.BitcoinNodeLog;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.logging.log.SystemLog;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
@@ -130,6 +131,16 @@ public class Main {
         _printError("\tModule: ADDRESS");
         _printError("\tArguments:");
         _printError("\tDescription: Generates a private key and its associated public key and Base58Check Bitcoin address.");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: SIGNATURE");
+        _printError("\tArguments: <Key File> <Message>");
+        _printError("\tDescription: Signs the provided message with the private key within the provided file.  The signed pre-image hash is a double sha256 hash of the message.");
+        _printError("\tArgument Description: <Key File>");
+        _printError("\t\tThe path and filename of the file containing the private key to sign in either ASCII-Hex format or Seed Phrase format.");
+        _printError("\tArgument Description: <Message>");
+        _printError("\t\tThe message to be signed.");
         _printError("\t----------------");
         _printError("");
 
@@ -379,6 +390,24 @@ public class Main {
 
             case "ADDRESS": {
                 AddressModule.execute();
+                Logger.flush();
+            } break;
+
+            case "SIGNATURE": {
+                Logger.LOG = SystemLog.getInstance();
+                Logger.setLogLevel("com.softwareverde.util", LogLevel.OFF);
+                Logger.DEFAULT_LOG_LEVEL = LogLevel.WARN;
+
+                if (_arguments.length != 3) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String keyFileName = _arguments[1];
+                final String message = _arguments[2];
+
+                SignatureModule.execute(keyFileName, message);
                 Logger.flush();
             } break;
 

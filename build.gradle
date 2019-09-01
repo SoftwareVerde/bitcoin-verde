@@ -54,8 +54,18 @@ dependencies {
     // Server
     serverImplementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.1.0'
     serverImplementation(group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v2.0.1') {
-        exclude group: 'org.apache.logging.log4j',  module: 'log4j-to-slf4j'
-        exclude group: 'ch.qos.logback',            module: 'logback-classic'
+        exclude group: 'org.apache.logging.log4j',  module: '*'
+        exclude group: 'ch.qos.logback',            module: '*'
+        exclude group: 'org.springframework.boot',  module: '*'
+        exclude group: 'javax.annotations',         module: '*'
+        exclude group: 'javax.enterprise',          module: '*'
+        exclude group: 'javax.inject',              module: '*'
+        exclude group: 'org.apache.maven',          module: '*'
+        exclude group: 'org.hamcrest',              module: '*'
+        exclude group: 'org.slf4j',                 module: '*'
+        // exclude group: 'org.springframework',       module: '*'
+        // exclude group: 'commons-io',                module: '*'
+        // exclude group: 'org.apache.commons',        module: '*'
     }
 
     serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'

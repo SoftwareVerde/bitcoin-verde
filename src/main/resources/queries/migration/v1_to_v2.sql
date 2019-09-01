@@ -19,5 +19,3 @@ CREATE TABLE validated_slp_transactions (
 INSERT INTO metadata (version, timestamp) VALUES (2, UNIX_TIMESTAMP());
 
 INSERT INTO address_processor_queue (locking_script_id) SELECT id FROM locking_scripts;
-
--- SELECT blocks.id, transaction_outputs.transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON (transaction_outputs.id = locking_scripts.transaction_output_id) LEFT OUTER JOIN validated_slp_transactions ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) INNER JOIN block_transactions ON (block_transactions.transaction_id = transaction_outputs.transaction_id) INNER JOIN blocks ON (blocks.id = block_transactions.block_id) WHERE validated_slp_transactions.id IS NULL AND locking_scripts.slp_transaction_id IS NOT NULL GROUP BY transaction_outputs.transaction_id ORDER BY blocks.block_height ASC;

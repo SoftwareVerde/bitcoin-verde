@@ -164,9 +164,9 @@ public class SeedPhraseGenerator {
         }
     }
 
-    public ByteArray fromSeedPhrase(final String expectedSeedPhrase) {
+    public ByteArray fromSeedPhrase(final String seedPhrase) {
         try {
-            return _fromSeedPhrase(expectedSeedPhrase);
+            return _fromSeedPhrase(seedPhrase);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
