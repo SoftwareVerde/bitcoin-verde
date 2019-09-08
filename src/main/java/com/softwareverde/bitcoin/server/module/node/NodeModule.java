@@ -480,10 +480,6 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
-        { // Initialize Transaction Relay...
-            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager);
-        }
-
         if (bitcoinProperties.isTrimBlocksEnabled()) {
             _slpTransactionProcessor = null;
             _addressProcessor = new DisabledAddressProcessor();
@@ -649,16 +645,6 @@ public class NodeModule {
                 public void onNewTransactions(final List<Transaction> transactions) {
 
                     _transactionRelay.relayTransactions(transactions);
-
-                    final MutableList<Transaction> transactionsToAnnounceViaRpc = new MutableList<Transaction>(transactions.getSize());
-
-                    for (final Transaction transaction : transactions) {
-                        final Sha256Hash transactionHash = transaction.getHash();
-
-                        requestDataHandler.addTransactionHash(transactionHash);
-                        transactionsToAnnounceViaRpc.add(transaction);
-                    }
-
                     _addressProcessor.wakeUp();
                 }
             });
@@ -756,6 +742,10 @@ public class NodeModule {
         else {
             _nodeRpcHandler = null;
             _jsonRpcSocketServer = null;
+        }
+
+        { // Initialize Transaction Relay...
+            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, requestDataHandler, _nodeRpcHandler);
         }
 
         _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/transaction-bloom-filter");

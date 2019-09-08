@@ -12,7 +12,7 @@ import com.softwareverde.util.Container;
 
 import java.util.WeakHashMap;
 
-public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallback {
+public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallback, TransactionWhitelist {
     public static final int BAN_THRESHOLD = -128;
     public static final float MAX_FALSE_POSITIVE_RATE = 0.15F;
 
@@ -83,6 +83,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
      * TransactionHashes added via this method will not penalize nodes for requesting them.
      *  NOTE: Transactions added via this method will no longer be safe after the filter has become full.
      */
+    @Override
     public void addTransactionHash(final Sha256Hash transactionHash) {
         synchronized (MUTEX) {
             _checkFalsePositives();

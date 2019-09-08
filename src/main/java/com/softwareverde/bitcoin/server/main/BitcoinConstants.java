@@ -20,6 +20,8 @@ public class BitcoinConstants {
     protected static Boolean FAIL_ON_BAD_SIGNATURE;
     protected static Boolean REQUIRE_BITCOIN_CASH_FORK_ID;
 
+    protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
+
     static {
         final String defaultBlockHash = "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F";
         final String defaultNetMagicNumber = "E8F3E1E3";
@@ -40,6 +42,8 @@ public class BitcoinConstants {
         SCHNORR_IS_ENABLED = true;
         FAIL_ON_BAD_SIGNATURE = true;
         REQUIRE_BITCOIN_CASH_FORK_ID = true;
+
+        BITCOIN_SIGNATURE_MESSAGE_MAGIC = "Bitcoin Signed Message:\n";
     }
 
     public static String getGenesisBlockHash() {
@@ -152,6 +156,10 @@ public class BitcoinConstants {
     // Aka the "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID" flags.
     public static Boolean requireBitcoinCashForkId() {
         return REQUIRE_BITCOIN_CASH_FORK_ID;
+    }
+
+    public static String getBitcoinSignatureMessageMagic() {
+        return BITCOIN_SIGNATURE_MESSAGE_MAGIC;
     }
 
     protected BitcoinConstants() { }

@@ -6,12 +6,15 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidationCache;
 import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
 import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.constable.list.List;
@@ -28,16 +31,35 @@ import java.util.HashMap;
 public class TransactionRelay {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _bitcoinNodeManager;
+    protected final NodeRpcHandler _nodeRpcHandler;
+    protected final TransactionWhitelist _transactionWhitelist;
 
     public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = databaseManagerFactory;
         _bitcoinNodeManager = bitcoinNodeManager;
+        _transactionWhitelist = null;
+        _nodeRpcHandler = null;
+    }
+
+    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist) {
+        _databaseManagerFactory = databaseManagerFactory;
+        _bitcoinNodeManager = bitcoinNodeManager;
+        _transactionWhitelist = transactionWhitelist;
+        _nodeRpcHandler = null;
+    }
+
+    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist, final NodeRpcHandler nodeRpcHandler) {
+        _databaseManagerFactory = databaseManagerFactory;
+        _bitcoinNodeManager = bitcoinNodeManager;
+        _transactionWhitelist = transactionWhitelist;
+        _nodeRpcHandler = nodeRpcHandler;
     }
 
     public void relayTransactions(final List<Transaction> transactions) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final Container<BlockchainSegmentId> blockchainSegmentId = new Container<BlockchainSegmentId>();
             blockchainSegmentId.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -56,19 +78,32 @@ public class TransactionRelay {
                 connectedNodes = nodeIdsBuilder.build();
             }
 
+            final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<TransactionWithFee>((_nodeRpcHandler != null) ? transactions.getSize() : 0);
             final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
             for (final Transaction transaction : transactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
+
+                if (_transactionWhitelist != null) {
+                    _transactionWhitelist.addTransactionHash(transactionHash);
+                }
 
                 final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
                 final TransactionOutput transactionOutput = transactionOutputs.get(0);
                 final Boolean isSlpTransaction = SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
                 if (isSlpTransaction) {
+                    // NOTE: Parent SlpTransactions may not have been cached within the the SlpTransactionValidator if it is still processing the initial catch-up batch.
+                    //  This isn't ideal and may slow down transaction relaying until the SlpTransactionValidator has finished its first run-through...
+                    //  TODO: Consider delaying SLP-Relaying by providing a TransactionRelay reference into the SlpTransactionProcessor and invoke ::relaySlpTransactions...
                     final Boolean isValidSlpTransaction = slpTransactionValidator.validateTransaction(transaction);
                     if (! isValidSlpTransaction) {
                         Logger.info("Not relaying invalid SLP Transaction: " + transactionHash);
                         continue;
                     }
+                }
+
+                if (_nodeRpcHandler != null) {
+                    final Long transactionFee = transactionDatabaseManager.calculateTransactionFee(transaction);
+                    transactionsToAnnounceViaRpc.add(new TransactionWithFee(transaction, transactionFee));
                 }
 
                 final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
@@ -94,6 +129,12 @@ public class TransactionRelay {
 
                 final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
                 bitcoinNode.transmitTransactionHashes(newTransactionHashes);
+            }
+
+            if (_nodeRpcHandler != null) {
+                for (final TransactionWithFee transactionWithFee : transactionsToAnnounceViaRpc) {
+                    _nodeRpcHandler.onNewTransaction(transactionWithFee);
+                }
             }
         }
         catch (final DatabaseException exception) {
