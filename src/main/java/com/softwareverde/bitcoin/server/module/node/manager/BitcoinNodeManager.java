@@ -77,8 +77,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         public MemoryPoolEnquirer memoryPoolEnquirer;
         public SynchronizationStatus synchronizationStatusHandler;
         public ThreadPool threadPool;
-        public ThreadPoolFactory threadPoolFactory;
-        public LocalNodeFeatures localNodeFeatures;
     }
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
@@ -86,8 +84,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
-    protected final ThreadPoolFactory _threadPoolFactory;
-    protected final LocalNodeFeatures _localNodeFeatures;
     protected final AtomicBoolean _hasHadActiveConnectionSinceLastDisconnect = new AtomicBoolean(false);
 
     protected Boolean _transactionRelayIsEnabled = true;
@@ -119,7 +115,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                         final String host = ip.toString();
                         final Integer port = bitcoinNodeIpAddress.getPort();
-                        final BitcoinNode bitcoinNode = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
+                        final BitcoinNode bitcoinNode = _nodeFactory.newNode(host, port);
 
                         BitcoinNodeManager.this.addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
@@ -299,8 +295,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _banFilter = properties.banFilter;
         _memoryPoolEnquirer = properties.memoryPoolEnquirer;
         _synchronizationStatusHandler = properties.synchronizationStatusHandler;
-        _threadPoolFactory = properties.threadPoolFactory;
-        _localNodeFeatures = properties.localNodeFeatures;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
