@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     // TODO: Inserting a transaction requires a write lock...
@@ -56,6 +57,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     // The EXISTING_TRANSACTIONS_FILTER is used to greatly improve the performance of TransactionDatabaseManager::storeTransactions by reducing the number of queried hashes to determine if a transaction is new...
     protected static final Integer EXISTING_TRANSACTIONS_FILTER_VERSION = 2;
     protected static MutableBloomFilter EXISTING_TRANSACTIONS_FILTER = null;
+    protected static TransactionId EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID = null;
     protected static Sha256Hash EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
     protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
     protected static final Long FILTER_NONCE = 0L;
@@ -339,7 +341,13 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         if (EXISTING_TRANSACTIONS_FILTER != null) {
             EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
-            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
+
+            synchronized (EXISTING_TRANSACTIONS_FILTER) {
+                if ( (EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID == null) || (transactionIdLong < EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID.longValue()) ) {
+                    EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID = transactionId;
+                    EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
+                }
+            }
         }
 
         return transactionId;
@@ -405,7 +413,13 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             if (EXISTING_TRANSACTIONS_FILTER != null) {
                 EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
-                EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
+
+                synchronized (EXISTING_TRANSACTIONS_FILTER) {
+                    if ( (EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID == null) || (transactionId.longValue() < EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID.longValue()) ) {
+                        EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID = transactionId;
+                        EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
+                    }
+                }
             }
         }
 
