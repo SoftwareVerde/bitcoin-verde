@@ -18,7 +18,7 @@ import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 public class SearchApi extends ExplorerApiEndpoint {
-    private static class SearchResult extends ApiResult {
+    protected static class SearchResult extends ApiResult {
         public enum ObjectType {
             BLOCK, BLOCK_HEADER, TRANSACTION, ADDRESS
         }
@@ -36,6 +36,12 @@ public class SearchApi extends ExplorerApiEndpoint {
             json.put("object", _object);
             return json;
         }
+    }
+
+    protected static Json makeRawObjectJson(final String hexData) {
+        final Json object = new Json(false);
+        object.put("data", hexData);
+        return object;
     }
 
     public SearchApi(final ExplorerProperties explorerProperties, final ThreadPool threadPool) {
@@ -106,12 +112,19 @@ public class SearchApi extends ExplorerApiEndpoint {
                         }
 
                         if (queryBlockResponseJson.getBoolean("wasSuccess")) {
-                            final Json blockJson = queryBlockResponseJson.get("block");
+                            if (Util.coalesce(rawFormat)) {
+                                final String blockHex = queryBlockResponseJson.getString("block");
 
-                            final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
+                                object = SearchApi.makeRawObjectJson(blockHex);
+                                objectType = SearchResult.ObjectType.BLOCK;
+                            }
+                            else {
+                                final Json blockJson = queryBlockResponseJson.get("block");
+                                final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
 
-                            object = blockJson;
-                            objectType = (isFullBlock ? SearchResult.ObjectType.BLOCK : SearchResult.ObjectType.BLOCK_HEADER);
+                                object = blockJson;
+                                objectType = (isFullBlock ? SearchResult.ObjectType.BLOCK : SearchResult.ObjectType.BLOCK_HEADER);
+                            }
                         }
                     }
 
@@ -124,9 +137,18 @@ public class SearchApi extends ExplorerApiEndpoint {
                         }
 
                         if (queryTransactionResponseJson.getBoolean("wasSuccess")) {
-                            final Json transactionJson = queryTransactionResponseJson.get("transaction");
-                            object = transactionJson;
-                            objectType = SearchResult.ObjectType.TRANSACTION;
+                            if (Util.coalesce(rawFormat)) {
+                                final String transactionHex = queryTransactionResponseJson.getString("transaction");
+
+                                object = SearchApi.makeRawObjectJson(transactionHex);
+                                objectType = SearchResult.ObjectType.TRANSACTION;
+                            }
+                            else {
+                                final Json transactionJson = queryTransactionResponseJson.get("transaction");
+
+                                object = transactionJson;
+                                objectType = SearchResult.ObjectType.TRANSACTION;
+                            }
                         }
                     }
                 }
