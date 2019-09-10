@@ -88,6 +88,51 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return registerHookRpcJson;
     }
 
+    protected Json _getBlock(final Sha256Hash blockHash, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getBlock(final Long blockHeight, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("blockHeight", blockHeight);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getTransaction(final Sha256Hash transactionHash, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
         this(
             hostname,
@@ -240,39 +285,27 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlock(final Sha256Hash blockHash) {
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("hash", blockHash);
+        return _getBlock(blockHash, null);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlock(final Sha256Hash blockHash, final Boolean hexFormat) {
+        return _getBlock(blockHash, hexFormat);
     }
 
     public Json getBlock(final Long blockHeight) {
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("blockHeight", blockHeight);
+        return _getBlock(blockHeight, null);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlock(final Long blockHeight, final Boolean hexFormat) {
+        return _getBlock(blockHeight, hexFormat);
     }
 
     public Json getTransaction(final Sha256Hash transactionHash) {
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("hash", transactionHash);
+        return _getTransaction(transactionHash, null);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "TRANSACTION");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getTransaction(final Sha256Hash transactionHash, final Boolean hexFormat) {
+        return _getTransaction(transactionHash, hexFormat);
     }
 
     public Json getStatus() {

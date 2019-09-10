@@ -48,12 +48,14 @@ public class SearchApi extends ExplorerApiEndpoint {
         final PostParameters postParameters = request.getPostParameters();
 
         {   // SEARCH
-            // Requires GET:    query
+            // Requires GET:    query, [rawFormat=0]
             // Requires POST:
             final String queryParam = getParameters.get("query").trim();
             if (queryParam.isEmpty()) {
                 return new JsonResponse(Response.Codes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: query")));
             }
+
+            final Boolean rawFormat = (getParameters.containsKey("rawFormat") ? Util.parseBool(getParameters.get("rawFormat")) : null);
 
             try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection()) {
                 if (nodeJsonRpcConnection == null) {
@@ -88,7 +90,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                         final Json queryBlockResponseJson;
                         if (queryParam.length() == hashCharacterLength) {
                             final Sha256Hash blockHash = Sha256Hash.fromHexString(queryParam);
-                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHash);
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHash, rawFormat);
                         }
                         else {
                             final Boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9,. ])", queryParam).isEmpty());
@@ -96,7 +98,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                                 return new JsonResponse(Response.Codes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
                             }
                             final Long blockHeight = Util.parseLong(queryParam);
-                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHeight);
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHeight, rawFormat);
                         }
 
                         if (queryBlockResponseJson == null) {
@@ -115,7 +117,7 @@ public class SearchApi extends ExplorerApiEndpoint {
 
                     if ( (objectType == null) && (queryParam.length() == hashCharacterLength) ) {
                         final Sha256Hash blockHash = Sha256Hash.fromHexString(queryParam);
-                        final Json queryTransactionResponseJson = nodeJsonRpcConnection.getTransaction(blockHash);
+                        final Json queryTransactionResponseJson = nodeJsonRpcConnection.getTransaction(blockHash, rawFormat);
 
                         if (queryTransactionResponseJson == null) {
                             return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
