@@ -184,7 +184,8 @@ public class Main {
                     break;
                 }
 
-                Logger.LOG = BitcoinNodeLog.getBufferedInstance(); // Use a BufferedInstance for the NodeModule for performance...
+                // Logger.LOG = BitcoinNodeLog.getBufferedInstance(); // Use a BufferedInstance for the NodeModule for performance...
+                Logger.LOG = BitcoinNodeLog.getInstance(); // Use a BufferedInstance for the NodeModule for performance...
 
                 final String configurationFilename = _arguments[1];
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);

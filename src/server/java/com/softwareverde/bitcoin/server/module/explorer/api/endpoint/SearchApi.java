@@ -77,7 +77,16 @@ public class SearchApi extends ExplorerApiEndpoint {
                     final int hashCharacterLength = 64;
 
                     final AddressInflater addressInflater = new AddressInflater();
-                    final Address address = addressInflater.fromBase58Check(queryParam);
+                    final Address address;
+                    {
+                        final Address base58Address = addressInflater.fromBase58Check(queryParam);
+                        if (base58Address != null) {
+                            address = base58Address;
+                        }
+                        else {
+                            address = addressInflater.fromBase32Check(queryParam);
+                        }
+                    }
 
                     if (address != null) {
                         final Json responseJson = nodeJsonRpcConnection.getAddressTransactions(address);

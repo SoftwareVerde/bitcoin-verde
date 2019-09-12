@@ -262,6 +262,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             }
 
             final Block block = blockDatabaseManager.getBlock(blockId);
+            if (block == null) { return null; }
 
             if (_blockCache != null) {
                 _blockCache.cacheBlock(block, blockHeight);

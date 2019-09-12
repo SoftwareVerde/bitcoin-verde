@@ -35,8 +35,9 @@ public class Configuration {
         final String schema = (_properties.getProperty(propertyPrefix + "database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
         final Integer port = Util.parseInt(_properties.getProperty(propertyPrefix + "database.port", "8336"));
         final String dataDirectory = _properties.getProperty(propertyPrefix + "database.dataDirectory", "data");
-        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
         final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty(propertyPrefix + "database.useEmbeddedDatabase", "1"));
+        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(32 * ByteUtil.Unit.GIGABYTES)));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
@@ -46,8 +47,9 @@ public class Configuration {
         databaseProperties.setSchema(schema);
         databaseProperties.setPort(port);
         databaseProperties.setDataDirectory(dataDirectory);
-        databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         databaseProperties._useEmbeddedDatabase = useEmbeddedDatabase;
+        databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
+        databaseProperties._logFileByteCount = logFileByteCount;
         return databaseProperties;
     }
 

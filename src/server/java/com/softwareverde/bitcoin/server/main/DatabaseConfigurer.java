@@ -33,7 +33,8 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
             commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
 
-            commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
+            final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
+            commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount);
 
             commandLineArguments.setQueryCacheByteCount(0L);
 

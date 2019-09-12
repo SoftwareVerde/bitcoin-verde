@@ -160,7 +160,6 @@ CREATE TABLE script_types (
     UNIQUE KEY script_types_uq (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 INSERT INTO script_types (id, type) VALUES (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'), (3, 'PAY_TO_PUBLIC_KEY'), (4, 'PAY_TO_PUBLIC_KEY_HASH'), (5, 'PAY_TO_SCRIPT_HASH');
-INSERT INTO script_types (id, type) VALUES (6, 'SLP_GENESIS_SCRIPT'), (7, 'SLP_SEND_SCRIPT'), (8, 'SLP_MINT_SCRIPT'), (9, 'SLP_COMMIT_SCRIPT');
 
 CREATE TABLE locking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -168,24 +167,11 @@ CREATE TABLE locking_scripts (
     script_type_id INT UNSIGNED NOT NULL,
     script BLOB NOT NULL,
     address_id INT UNSIGNED,
-    slp_transaction_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
     FOREIGN KEY locking_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
     FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE CASCADE,
-    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id),
-    FOREIGN KEY locking_scripts_slp_tx_id_fk (slp_transaction_id) REFERENCES transactions (id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
-
-CREATE TABLE validated_slp_transactions (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_id INT UNSIGNED NOT NULL,
-    blockchain_segment_id INT UNSIGNED NOT NULL,
-    is_valid TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY valid_slp_transactions_uq (transaction_id, blockchain_segment_id),
-    FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
-    FOREIGN KEY valid_slp_transactions_blockchain_segment_id_fk (blockchain_segment_id) REFERENCES blockchain_segments (id)
+    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unlocking_scripts (
