@@ -4,7 +4,7 @@ Description=BitcoinVerdeExplorer
 [Service]
 Type=simple
 User=bitcoin-verde
-WorkingDirectory=/opt/bitcoin-verde/
+WorkingDirectory=/opt/bitcoin-verde/out/
 ExecStart=/opt/bitcoin-verde/out/run-explorer.sh
 Restart=always
 
