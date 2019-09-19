@@ -48,6 +48,7 @@ public class Main {
         Logger.setLog(BitcoinNodeLog.getInstance());
         Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
+        Logger.setLogLevel("com.softwareverde.async.lock", LogLevel.WARN);
 
         final Main application = new Main(commandLineArguments);
         application.run();

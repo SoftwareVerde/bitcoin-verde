@@ -8,6 +8,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 public class MutableBloomFilter implements BloomFilter {
     protected static final Double LN_2 = Math.log(2);
     protected static final Double LN_2_SQUARED = (Math.pow(LN_2, 2));
+    protected static final Integer MAX_LOCK_SEGMENT_COUNT = 256;
 
     protected static Integer _calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
@@ -53,6 +54,8 @@ public class MutableBloomFilter implements BloomFilter {
     }
 
     protected final IndexLock _indexLock;
+    protected final int _indexLockSegmentCount;
+
     protected final MutableByteArray _bytes;
     protected final Long _nonce;
     protected final Integer _hashFunctionCount;
@@ -65,12 +68,21 @@ public class MutableBloomFilter implements BloomFilter {
         return ((int) byteIndex);
     }
 
+    protected Integer _calculateLockSegmentCount(final Integer byteCount) {
+        if (byteCount < MAX_LOCK_SEGMENT_COUNT) {
+            return byteCount;
+        }
+
+        return MAX_LOCK_SEGMENT_COUNT;
+    }
+
     /**
      * NOTICE: The provided byteArray is not copied and used directly as the member variable...
      */
     protected MutableBloomFilter(final MutableByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
         _bytes = byteArray;
-        _indexLock = new IndexLock(byteArray.getByteCount());
+        _indexLockSegmentCount = _calculateLockSegmentCount(byteArray.getByteCount());
+        _indexLock = new IndexLock(_indexLockSegmentCount);
         _hashFunctionCount = hashFunctionCount;
         _nonce = _makeUnsignedInt(nonce);
     }
@@ -78,7 +90,8 @@ public class MutableBloomFilter implements BloomFilter {
     protected MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
-        _indexLock = new IndexLock(byteCount);
+        _indexLockSegmentCount = _calculateLockSegmentCount(byteCount);
+        _indexLock = new IndexLock(_indexLockSegmentCount);
         _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
         _nonce = _makeUnsignedInt(nonce);
     }
@@ -86,7 +99,8 @@ public class MutableBloomFilter implements BloomFilter {
     protected MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
-        _indexLock = new IndexLock(byteCount);
+        _indexLockSegmentCount = _calculateLockSegmentCount(byteCount);
+        _indexLock = new IndexLock(_indexLockSegmentCount);
         _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
 
         // NOTE: Making large nonces may cause the murmurHash initialization vector to overflow in a way inconsistent with the other clients...
@@ -111,12 +125,13 @@ public class MutableBloomFilter implements BloomFilter {
             final Long index = (hash % bitCount);
 
             final int byteIndex = _getByteIndex(index);
+            final int lockIndex = (byteIndex % _indexLockSegmentCount);
             try {
-                _indexLock.lock(byteIndex);
+                _indexLock.lock(lockIndex);
                 _bytes.setBit(index, true);
             }
             finally {
-                _indexLock.unlock(byteIndex);
+                _indexLock.unlock(lockIndex);
             }
         }
     }
@@ -136,13 +151,16 @@ public class MutableBloomFilter implements BloomFilter {
     }
 
     public void clear() {
-        for (int i = 0; i < _bytes.getByteCount(); ++i) {
+        final int byteCount = _bytes.getByteCount();
+        for (int i = 0; i < byteCount; ++i) {
+            final int lockIndex = (i % _indexLockSegmentCount);
+
             try {
-                _indexLock.lock(i);
+                _indexLock.lock(lockIndex);
                 _bytes.set(i, (byte) 0x00);
             }
             finally {
-                _indexLock.unlock(i);
+                _indexLock.unlock(lockIndex);
             }
         }
     }
