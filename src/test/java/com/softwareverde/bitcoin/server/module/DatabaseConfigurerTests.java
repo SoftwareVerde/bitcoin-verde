@@ -21,6 +21,11 @@ public class DatabaseConfigurerTests {
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
             }
+
+            @Override
+            public Long getLogFileByteCount() {
+                return systemByteCount;
+            }
         };
 
         final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
@@ -52,6 +57,11 @@ public class DatabaseConfigurerTests {
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
             }
+
+            @Override
+            public Long getLogFileByteCount() {
+                return systemByteCount;
+            }
         };
 
         final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
@@ -81,6 +91,11 @@ public class DatabaseConfigurerTests {
         final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
+                return systemByteCount;
+            }
+
+            @Override
+            public Long getLogFileByteCount() {
                 return systemByteCount;
             }
         };

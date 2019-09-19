@@ -710,13 +710,8 @@ public class NodeModule {
                         final LogLevel logLevel = LogLevel.fromString(logLevelString);
                         if (logLevel == null) { return; }
 
-                        final Log log = Logger.LOG;
-                        if (log != null) {
-                            // Intentionally bypass logging level settings...
-                            log.write(NodeModule.class, LogLevel.WARN, "Updating Log Level: " + packageName + "=" + logLevel, null);
-                        }
-
                         Logger.setLogLevel(packageName, logLevel);
+                        Logger.debug("Updated Log Level: " + packageName + "=" + logLevel);
                     }
                 };
 

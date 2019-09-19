@@ -45,7 +45,7 @@ public class Main {
     }
 
     public static void main(final String[] commandLineArguments) {
-        Logger.LOG = BitcoinNodeLog.getInstance();
+        Logger.setLog(BitcoinNodeLog.getInstance());
         Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
 
@@ -185,7 +185,7 @@ public class Main {
                 }
 
                 // Logger.LOG = BitcoinNodeLog.getBufferedInstance(); // Use a BufferedInstance for the NodeModule for performance...
-                Logger.LOG = BitcoinNodeLog.getInstance(); // Use a BufferedInstance for the NodeModule for performance...
+                Logger.setLog(BitcoinNodeLog.getInstance()); // Use a BufferedInstance for the NodeModule for performance...
 
                 final String configurationFilename = _arguments[1];
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
@@ -395,7 +395,7 @@ public class Main {
             } break;
 
             case "SIGNATURE": {
-                Logger.LOG = SystemLog.getInstance();
+                Logger.setLog(SystemLog.getInstance());
                 Logger.setLogLevel("com.softwareverde.util", LogLevel.OFF);
                 Logger.DEFAULT_LOG_LEVEL = LogLevel.WARN;
 

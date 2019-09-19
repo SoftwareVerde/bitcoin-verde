@@ -43,31 +43,33 @@ public class BitcoinVerdeDatabase extends Database {
         });
     }
 
-    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties, final Runnable onShutdownCallback) {
-        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
-            @Override
-            public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
-                if ( (currentVersion == 1) && (requiredVersion >= 2) ) {
-                    try {
-                        final String upgradeScript = IoUtil.getResource("/queries/migration/v1_to_v2.sql");
-                        if (Util.coalesce(upgradeScript).isEmpty()) { return false; }
+    public static final DatabaseInitializer.DatabaseUpgradeHandler<Connection> DATABASE_UPGRADE_HANDLER = new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
+        @Override
+        public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
+            if ( (currentVersion == 1) && (requiredVersion >= 2) ) {
+                try {
+                    final String upgradeScript = IoUtil.getResource("/queries/migration/v1_to_v2.sql");
+                    if (Util.coalesce(upgradeScript).isEmpty()) { return false; }
 
-                        TransactionUtil.startTransaction(maintenanceDatabaseConnection);
-                        final SqlScriptRunner scriptRunner = new SqlScriptRunner(maintenanceDatabaseConnection.getRawConnection(), false, true);
-                        scriptRunner.runScript(new StringReader(upgradeScript));
-                        TransactionUtil.commitTransaction(maintenanceDatabaseConnection);
+                    TransactionUtil.startTransaction(maintenanceDatabaseConnection);
+                    final SqlScriptRunner scriptRunner = new SqlScriptRunner(maintenanceDatabaseConnection.getRawConnection(), false, true);
+                    scriptRunner.runScript(new StringReader(upgradeScript));
+                    TransactionUtil.commitTransaction(maintenanceDatabaseConnection);
 
-                        return true;
-                    }
-                    catch (final Exception exception) {
-                        Logger.error("Unable to upgrade database.", exception);
-                        return false;
-                    }
+                    return true;
                 }
+                catch (final Exception exception) {
+                    Logger.error("Unable to upgrade database.", exception);
+                    return false;
+                }
+            }
 
-                return false;
-            };
-        });
+            return false;
+        }
+    };
+
+    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties, final Runnable onShutdownCallback) {
+        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
 
         try {
             if (databaseProperties.useEmbeddedDatabase()) {

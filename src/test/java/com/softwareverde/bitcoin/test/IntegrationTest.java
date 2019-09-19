@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.test;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
@@ -44,10 +46,7 @@ public class IntegrationTest extends UnitTest {
     }
 
     protected static void _resetDatabase() {
-        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer("queries/bitcoin_init.sql", 1, new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
-            @Override
-            public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceConnection, final Integer currentVersion, final Integer requiredVersion) { return false; }
-        });
+        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer("queries/bitcoin_init.sql", 2, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
         try {
             _database.reset();
 

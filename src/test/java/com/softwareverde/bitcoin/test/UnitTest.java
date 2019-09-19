@@ -6,7 +6,7 @@ import com.softwareverde.logging.Logger;
 
 public class UnitTest {
     static {
-        Logger.LOG = LineNumberAnnotatedLog.getInstance();
+        Logger.setLog(LineNumberAnnotatedLog.getInstance());
         Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
     }
 }
