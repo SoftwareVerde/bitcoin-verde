@@ -93,7 +93,6 @@ public class NodeModule {
 
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
-    protected DatabaseConnectionPool _databaseConnectionPool;
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final BinarySocketServer _socketServer;
@@ -241,8 +240,13 @@ public class NodeModule {
         }
 
         Logger.info("[Shutting Down Database]");
-        _databaseConnectionPool.close();
-        _environment.getMasterDatabaseManagerCache().close();
+        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        databaseConnectionPool.close();
+
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        if (masterDatabaseManagerCache != null) {
+            masterDatabaseManagerCache.close();
+        }
 
         try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }
 
@@ -288,11 +292,8 @@ public class NodeModule {
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
-        final Database database = _environment.getDatabase();
-        final DatabaseConnectionFactory rawDatabaseConnectionFactory = database.newConnectionFactory();
-        // _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(512, (maxPeerCount * 8)), 5000L);
-        _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(32, (maxPeerCount * 2)));
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionPool, readOnlyDatabaseManagerCache);
+        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, readOnlyDatabaseManagerCache);
 
         _banFilter = new BanFilter(databaseManagerFactory);
 
@@ -692,7 +693,7 @@ public class NodeModule {
                 final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, blockCache);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
-                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool);
+                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
                 for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
@@ -764,7 +765,7 @@ public class NodeModule {
         }
 
         { // Initialize the DatabaseMaintenance Thread...
-            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(_databaseConnectionPool);
+            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(databaseConnectionPool);
             _databaseMaintenanceThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -811,7 +812,8 @@ public class NodeModule {
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionPool);
+            final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool);
             final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
             headersBootstrapper.run();
         }
@@ -891,9 +893,10 @@ public class NodeModule {
             Logger.debug("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
             Logger.debug("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
 
-            Logger.debug("Alive Connections Count: " + _databaseConnectionPool.getAliveConnectionCount());
-            Logger.debug("Buffered Connections Count: " + _databaseConnectionPool.getCurrentPoolSize());
-            Logger.debug("In-Use Connections Count: " + _databaseConnectionPool.getInUseConnectionCount());
+            final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+            Logger.debug("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
+            Logger.debug("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
+            Logger.debug("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
 
             Logger.flush();
 

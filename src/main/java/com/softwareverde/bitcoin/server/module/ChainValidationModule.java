@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -173,7 +174,10 @@ public class ChainValidationModule {
             BitcoinUtil.exitFailure();
         }
 
-        _environment.getMasterDatabaseManagerCache().close();
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        if (masterDatabaseManagerCache != null) {
+            masterDatabaseManagerCache.close();
+        }
 
         System.exit(0);
     }

@@ -588,7 +588,7 @@ public class SpvModule {
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
 
-        final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
+        final LocalDatabaseManagerCache localDatabaseCache = (_masterDatabaseManagerCache != null ? new LocalDatabaseManagerCache(_masterDatabaseManagerCache) : null);
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, localDatabaseCache);
