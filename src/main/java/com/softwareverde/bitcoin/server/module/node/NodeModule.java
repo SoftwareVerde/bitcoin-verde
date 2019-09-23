@@ -72,7 +72,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.logging.Log;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -690,7 +689,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
                 final BlockValidator blockValidator = blockValidatorFactory.newBlockValidator(databaseManagerFactory, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
-                final DataHandler dataHandler = new DataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, blockCache);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, blockCache);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool);
@@ -721,7 +720,7 @@ public class NodeModule {
                 rpcSocketServerHandler.setQueryAddressHandler(queryAddressHandler);
                 rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
                 rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
-                rpcSocketServerHandler.setDataHandler(dataHandler);
+                rpcSocketServerHandler.setDataHandler(rpcDataHandler);
                 rpcSocketServerHandler.setMetadataHandler(metadataHandler);
                 rpcSocketServerHandler.setQueryBlockchainHandler(queryBlockchainHandler);
                 rpcSocketServerHandler.setLogLevelSetter(logLevelSetter);

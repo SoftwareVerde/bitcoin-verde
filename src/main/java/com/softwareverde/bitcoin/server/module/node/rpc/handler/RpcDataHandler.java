@@ -38,14 +38,14 @@ import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnec
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 
-public class DataHandler implements NodeRpcHandler.DataHandler {
+public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockValidator _blockValidator;
     protected final BlockDownloader _blockDownloader;
     protected final BlockCache _blockCache;
 
-    public DataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final BlockCache blockCache) {
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final BlockCache blockCache) {
         _databaseManagerFactory = databaseManagerFactory;
 
         _transactionDownloader = transactionDownloader;

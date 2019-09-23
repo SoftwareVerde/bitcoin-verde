@@ -8,12 +8,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
+import com.softwareverde.bitcoin.callback.Callback;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
-import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
@@ -30,7 +30,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -654,6 +653,17 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
 
         _requestMerkleBlock(blockHash, callback);
+    }
+
+    public void broadcastTransactionHash(final Sha256Hash transactionHash) {
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(1);
+        transactionHashes.add(transactionHash);
+
+        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+            if (! bitcoinNode.isTransactionRelayEnabled()) { continue; }
+
+            bitcoinNode.transmitTransactionHashes(transactionHashes);
+        }
     }
 
     public void transmitBlockHash(final BitcoinNode bitcoinNode, final Block block) {
