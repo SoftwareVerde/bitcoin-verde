@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.database.DatabaseException;
@@ -47,7 +46,7 @@ public class SpvDatabaseManagerFactory implements DatabaseManagerFactory {
     }
 
     @Override
-    public DatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionPool databaseConnectionPool, final DatabaseManagerCache databaseManagerCache) {
-        return new SpvDatabaseManagerFactory(databaseConnectionPool, databaseManagerCache);
+    public DatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+        return new SpvDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
     }
 }

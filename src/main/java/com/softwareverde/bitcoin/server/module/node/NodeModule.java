@@ -241,7 +241,12 @@ public class NodeModule {
 
         Logger.info("[Shutting Down Database]");
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-        databaseConnectionPool.close();
+        try {
+            databaseConnectionPool.close();
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+        }
 
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         if (masterDatabaseManagerCache != null) {

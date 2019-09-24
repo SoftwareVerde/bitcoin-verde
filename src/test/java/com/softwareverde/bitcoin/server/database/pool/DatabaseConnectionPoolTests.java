@@ -29,7 +29,7 @@ public class DatabaseConnectionPoolTests extends IntegrationTest {
         final Integer baselineConnectionCount = _getCurrentConnectionCount(databaseConnection);
 
         final Integer maxConnectionCount = 10;
-        final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(_database.getDatabaseConnectionFactory(), maxConnectionCount);
+        final DatabaseConnectionPool databaseConnectionPool = _database.getDatabaseConnectionPool();
 
         final DatabaseConnection[] pooledConnections = new DatabaseConnection[maxConnectionCount];
 
@@ -70,6 +70,6 @@ public class DatabaseConnectionPoolTests extends IntegrationTest {
         // Assert
         final Integer newConnectionCount = _getCurrentConnectionCount(databaseConnection);
         Assert.assertEquals(baselineConnectionCount, newConnectionCount);
-        Assert.assertEquals(0, databaseConnectionPool._aliveConnectionCount.intValue());
+        Assert.assertEquals(0, databaseConnectionPool.getAliveConnectionCount().intValue());
     }
 }

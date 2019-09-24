@@ -20,14 +20,16 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.pool.ReadUncommittedDatabaseConnectionPoolWrapper;
 import com.softwareverde.bitcoin.server.database.query.Query;
-import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
+import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -955,16 +957,22 @@ public class BlockValidatorTests extends IntegrationTest {
             final DatabaseConnection databaseConnection = _database.newConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final ReadUncommittedDatabaseConnectionFactory coreDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-            final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory(coreDatabaseConnectionFactory) {
+
+            final DatabaseConnectionFactory coreDatabaseConnectionFactory = _database.getDatabaseConnectionFactory();
+            final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory() {
                 @Override
                 public DatabaseConnection newConnection() throws DatabaseException {
-                    // Logger.info(" ***** NEW CONNECTION *****");
-                    return new DatabaseConnectionWrapper(new MonitoredDatabaseConnection(coreDatabaseConnectionFactory.newConnection().getRawConnection()));
+                    return new MysqlDatabaseConnectionWrapper(new MonitoredDatabaseConnection(coreDatabaseConnectionFactory.newConnection().getRawConnection()));
+                }
+
+                @Override
+                public void close() throws DatabaseException {
+                    coreDatabaseConnectionFactory.close();
                 }
             };
-            final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
+            // final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
+            final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
 
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
             final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
@@ -1009,10 +1017,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 blockValidator.setMaxThreadCount(threadCount);
                 blockValidator.validateBlock(lastBlockId, lastBlock);
 
-                Logger.info("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
-                Logger.info("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
-                Logger.info("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
-                Assert.assertEquals(Integer.valueOf(0), databaseConnectionPool.getInUseConnectionCount());
+                Assert.assertEquals(0, MonitoredDatabaseConnection.databaseConnectionCount.get());
             }
 
             // Action
@@ -1022,7 +1027,7 @@ public class BlockValidatorTests extends IntegrationTest {
             // Assert
             Assert.assertTrue(blockIsValid);
 
-            databaseConnectionPool.close();
+            readUncommittedDatabaseConnectionFactory.close();
             Assert.assertEquals(0, MonitoredDatabaseConnection.databaseConnectionCount.get());
         }
     }

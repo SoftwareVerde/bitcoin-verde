@@ -1,5 +1,7 @@
 package com.softwareverde.test.database;
 
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -8,15 +10,29 @@ import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DatabaseConfigurationBuilder;
 import com.softwareverde.database.properties.DatabaseCredentials;
+import com.softwareverde.database.properties.DatabaseProperties;
+import com.softwareverde.database.properties.MutableDatabaseProperties;
 
 public class MysqlTestDatabase extends MysqlDatabase {
     protected final DB _databaseInstance;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseCredentials _credentials;
 
+    protected final String _host;
+    protected final Integer _port;
     protected final String _rootUsername = "root";
     protected final String _rootPassword = "";
     protected final String _databaseSchema = "bitcoin_test";
+
+    protected DatabaseProperties _getDatabaseProperties() {
+        final MutableDatabaseProperties databaseProperties = new MutableDatabaseProperties();
+        databaseProperties.setHostname(_host);
+        databaseProperties.setPort(_port);
+        databaseProperties.setSchema(_schema);
+        databaseProperties.setPassword(_password);
+        databaseProperties.setUsername(_username);
+        return databaseProperties;
+    }
 
     public MysqlTestDatabase() {
         super(null, null, null, null);
@@ -25,10 +41,10 @@ public class MysqlTestDatabase extends MysqlDatabase {
             final DatabaseConfigurationBuilder configBuilder = DatabaseConfigurationBuilder.newBuilder();
             dbConfiguration = configBuilder.build();
 
-            final String host = "localhost";
-            final Integer port = configBuilder.getPort();
+            _host = "localhost";
+            _port = configBuilder.getPort();
 
-            _databaseConnectionFactory = new MysqlDatabaseConnectionFactory(host, port, _databaseSchema, _rootUsername, _rootPassword);
+            _databaseConnectionFactory = new MysqlDatabaseConnectionFactory(_host, _port, _databaseSchema, _rootUsername, _rootPassword);
         }
 
         {
@@ -70,5 +86,13 @@ public class MysqlTestDatabase extends MysqlDatabase {
 
     public MysqlDatabaseConnectionFactory getDatabaseConnectionFactory() {
         return _databaseConnectionFactory;
+    }
+
+    public DatabaseConnectionPool getDatabaseConnectionPool() {
+        return new HikariDatabaseConnectionPool(_getDatabaseProperties());
+    }
+
+    public DatabaseProperties getDatabaseProperties() {
+        return _getDatabaseProperties();
     }
 }
