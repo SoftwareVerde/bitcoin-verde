@@ -13,6 +13,10 @@ import java.sql.Connection;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Special thanks to Xavier Kràl for his contributions to developing this code. (2019-09-23)
+ */
+
 public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
     protected static class HikariConnectionWrapper extends DatabaseConnectionCore {
         public HikariConnectionWrapper(final MysqlDatabaseConnection core) {
@@ -73,30 +77,18 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         }
     }
 
-    /**
-     * Returns the number of connections that have not yet been returned to the pool.
-     */
     @Override
     public Integer getInUseConnectionCount() {
         final HikariPoolMXBean hikariPoolMXBean = _dataSource.getHikariPoolMXBean();
         return hikariPoolMXBean.getActiveConnections();
     }
 
-    /**
-     * Returns the number of connections that have been created but have not yet been closed.
-     *  This number does not necessarily account for pooled connections that have died.
-     */
     @Override
     public Integer getAliveConnectionCount() {
         final HikariPoolMXBean hikariPoolMXBean = _dataSource.getHikariPoolMXBean();
         return hikariPoolMXBean.getIdleConnections();
     }
 
-    /**
-     * Returns the number of connections currently waiting and available within the pool.
-     *  This number does not account for pooled connections that have died.
-     *  This number should be equal to ::getAliveConnectionsCount + ::getInUseConnectionsCount
-     */
     @Override
     public Integer getCurrentPoolSize() {
         final HikariPoolMXBean hikariPoolMXBean = _dataSource.getHikariPoolMXBean();
