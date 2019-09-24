@@ -639,13 +639,14 @@ public class NodeManager<NODE extends Node> {
         }
 
         final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
-        final boolean isAlreadyConnectedToNode = _markAddressForConnecting(nodeIpAddress);
-        if (isAlreadyConnectedToNode) {
+        final boolean isAlreadyConnectedToAddress = _markAddressForConnecting(nodeIpAddress);
+        if (isAlreadyConnectedToAddress) {
             final NodeId nodeId = node.getId();
-            final boolean isConnectedToIdenticalInstance = ( (_nodes.containsKey(nodeId)) || (_pendingNodes.containsKey(nodeId)) );
-            if (! isConnectedToIdenticalInstance) {
-                node.disconnect();
-            }
+            final boolean isDuplicateCallToAddNode = ( (_nodes.containsKey(nodeId)) || (_pendingNodes.containsKey(nodeId)) );
+            if (isDuplicateCallToAddNode) { return; }
+
+            // `node` is actually a new connection to a node that we're already connected to
+            node.disconnect();
             return;
         }
 
