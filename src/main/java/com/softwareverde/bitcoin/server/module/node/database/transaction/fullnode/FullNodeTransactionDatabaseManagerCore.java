@@ -49,7 +49,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     // TODO: Inserting a transaction requires a write lock...
@@ -343,7 +342,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
 
             synchronized (EXISTING_TRANSACTIONS_FILTER) {
-                if ( (EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID == null) || (transactionIdLong < EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID.longValue()) ) {
+                if ( (EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID == null) || (transactionIdLong > EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID.longValue()) ) {
                     EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID = transactionId;
                     EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
                 }
@@ -415,7 +414,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
 
                 synchronized (EXISTING_TRANSACTIONS_FILTER) {
-                    if ( (EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID == null) || (transactionId.longValue() < EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID.longValue()) ) {
+                    if ( (EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID == null) || (transactionId.longValue() > EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID.longValue()) ) {
                         EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_ID = transactionId;
                         EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
                     }
