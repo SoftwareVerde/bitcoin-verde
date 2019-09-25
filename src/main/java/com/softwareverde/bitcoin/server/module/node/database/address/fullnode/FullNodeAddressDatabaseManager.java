@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -17,6 +18,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -341,9 +343,25 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final List<TransactionId> transactionIdsIn = _getTransactionIdsSendingTo(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
         final List<TransactionId> transactionIdsOut = _getTransactionIdsSpendingFrom(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
 
-        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactionIdsIn.getSize() + transactionIdsOut.getSize());
-        transactionIds.addAll(transactionIdsIn);
-        transactionIds.addAll(transactionIdsOut);
+        final int totalTransactionCount = (transactionIdsIn.getSize() + transactionIdsOut.getSize());
+
+        final HashSet<TransactionId> existingTransactions = new HashSet<TransactionId>(totalTransactionCount);
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(totalTransactionCount);
+
+        for (final TransactionId transactionId : transactionIdsIn) {
+            final boolean isUnique = existingTransactions.add(transactionId);
+            if (isUnique) {
+                transactionIds.add(transactionId);
+            }
+        }
+
+        for (final TransactionId transactionId : transactionIdsOut) {
+            final boolean isUnique = existingTransactions.add(transactionId);
+            if (isUnique) {
+                transactionIds.add(transactionId);
+            }
+        }
+
         return transactionIds.build();
     }
 
