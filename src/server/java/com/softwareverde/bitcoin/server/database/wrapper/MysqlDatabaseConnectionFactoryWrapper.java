@@ -5,15 +5,17 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 
-public class DatabaseConnectionFactoryWrapper extends DatabaseConnectionFactory {
+public class MysqlDatabaseConnectionFactoryWrapper implements DatabaseConnectionFactory {
 
-    public DatabaseConnectionFactoryWrapper(final MysqlDatabaseConnectionFactory core) {
-        super(core);
+    protected final MysqlDatabaseConnectionFactory _core;
+
+    public MysqlDatabaseConnectionFactoryWrapper(final MysqlDatabaseConnectionFactory core) {
+        _core = core;
     }
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
-        return new DatabaseConnectionWrapper(((MysqlDatabaseConnectionFactory) _core).newConnection());
+        return new MysqlDatabaseConnectionWrapper(_core.newConnection());
     }
 
     @Override

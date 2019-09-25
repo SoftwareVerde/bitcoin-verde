@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
+import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionFactoryWrapper;
+import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.DatabaseInitializer;
@@ -20,7 +20,7 @@ import com.softwareverde.util.Util;
 import java.io.StringReader;
 import java.sql.Connection;
 
-public class BitcoinVerdeDatabase extends Database {
+public class BitcoinVerdeDatabase implements Database {
     public static class InitFile {
         public final String sqlInitFile;
         public final Integer databaseVersion;
@@ -125,13 +125,15 @@ public class BitcoinVerdeDatabase extends Database {
         return null;
     }
 
+    protected final MysqlDatabase _core;
+
     protected BitcoinVerdeDatabase(final MysqlDatabase core) {
-        super(core);
+        _core = core;
     }
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
-        return new DatabaseConnectionWrapper(((MysqlDatabase) _core).newConnection());
+        return new MysqlDatabaseConnectionWrapper(_core.newConnection());
     }
 
     @Override
@@ -139,6 +141,6 @@ public class BitcoinVerdeDatabase extends Database {
 
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
-        return new DatabaseConnectionFactoryWrapper(((MysqlDatabase) _core).newConnectionFactory());
+        return new MysqlDatabaseConnectionFactoryWrapper(_core.newConnectionFactory());
     }
 }

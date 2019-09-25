@@ -55,7 +55,7 @@ public class StratumModule {
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
-        _stratumServer = new StratumServer(_stratumProperties, _stratumThreadPool, databaseConnectionFactory);
+        _stratumServer = new StratumServer(_stratumProperties, _stratumThreadPool);
         _stratumServer.setWorkerShareCallback(new StratumServer.WorkerShareCallback() {
             @Override
             public void onNewWorkerShare(final String workerUsername, final Integer shareDifficulty) {

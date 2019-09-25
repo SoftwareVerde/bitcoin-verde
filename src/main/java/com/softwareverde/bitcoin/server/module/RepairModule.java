@@ -171,7 +171,9 @@ public class RepairModule {
                 Logger.error("Error repairing BlockchainSegments.", exception);
             }
 
-            _environment.getMasterDatabaseManagerCache().close();
+            if (masterDatabaseManagerCache != null) {
+                masterDatabaseManagerCache.close();
+            }
             System.exit(0);
         }
 
@@ -210,7 +212,10 @@ public class RepairModule {
             catch (final InterruptedException exception) { break; }
         }
 
-        _environment.getMasterDatabaseManagerCache().close();
+        if (masterDatabaseManagerCache != null) {
+            masterDatabaseManagerCache.close();
+        }
+
         System.exit(0);
     }
 }

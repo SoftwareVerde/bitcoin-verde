@@ -39,7 +39,7 @@ public class StratumModuleTests {
     @Test
     public void should_mine_valid_prototype_block() {
         // Setup
-        final StratumServerPartialMock stratumServer = new StratumServerPartialMock(null);
+        final StratumServerPartialMock stratumServer = new StratumServerPartialMock();
         stratumServer.setValidatePrototypeBlockBeforeMining(false);
 
         stratumServer.queueFakeJsonResponse(Json.parse("{\"blockHeaders\":[\"00000020491C708BADFD38F0B38A6EDD6FDD949C9A4D109C037EAB010000000000000000093CC8AEF901A2BF304DC6949439AAC6942F75BE376E14E7C38EEA8F0D2B696360C6555C3C9B051848B94556\"],\"errorMessage\":null,\"wasSuccess\":1}"));
@@ -160,8 +160,8 @@ class StratumServerPartialMock extends StratumServer {
 
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<Json>();
 
-    public StratumServerPartialMock(final DatabaseConnectionFactory databaseConnectionFactory) {
-        super(configuration.getStratumProperties(), new MainThreadPool(1, 1L), databaseConnectionFactory);
+    public StratumServerPartialMock() {
+        super(configuration.getStratumProperties(), new MainThreadPool(1, 1L));
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());
     }

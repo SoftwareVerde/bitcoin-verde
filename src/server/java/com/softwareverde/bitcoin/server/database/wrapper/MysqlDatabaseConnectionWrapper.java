@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.database.wrapper;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionCore;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
-public class DatabaseConnectionWrapper extends DatabaseConnection {
-    public DatabaseConnectionWrapper(final MysqlDatabaseConnection core) {
+public class MysqlDatabaseConnectionWrapper extends DatabaseConnectionCore {
+    public MysqlDatabaseConnectionWrapper(final MysqlDatabaseConnection core) {
         super(core);
     }
 

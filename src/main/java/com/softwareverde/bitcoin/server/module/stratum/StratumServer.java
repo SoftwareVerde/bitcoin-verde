@@ -13,8 +13,6 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
@@ -59,7 +57,6 @@ public class StratumServer {
     protected final StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool;
-    protected final DatabaseConnectionPool _databaseConnectionPool;
     protected final StratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
 
     protected final PrivateKey _privateKey;
@@ -464,20 +461,18 @@ public class StratumServer {
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
-    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool) {
         this(
             stratumProperties,
             mainThreadPool,
-            new CoreInflater(),
-            databaseConnectionFactory
+            new CoreInflater()
         );
     }
 
-    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater) {
         this(
             stratumProperties,
             mainThreadPool,
-            databaseConnectionFactory,
             masterInflater,
             new StratumMineBlockTaskBuilderFactory() {
                 @Override
@@ -488,12 +483,11 @@ public class StratumServer {
         );
     }
 
-    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory, final MasterInflater masterInflater, final StratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater, final StratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
         _stratumMineBlockTaskBuilderFactory = stratumMineBlockTaskBuilderFactory;
         _masterInflater = masterInflater;
         _stratumProperties = stratumProperties;
         _threadPool = mainThreadPool;
-        _databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 128);
 
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 
