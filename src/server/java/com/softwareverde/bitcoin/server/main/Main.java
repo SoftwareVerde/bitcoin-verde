@@ -49,6 +49,7 @@ public class Main {
     public static void main(final String[] commandLineArguments) {
         Logger.setLog(BitcoinNodeLog.getInstance());
         Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
+        Logger.setLogLevel("com.softwareverde.util", LogLevel.ERROR);
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
         Logger.setLogLevel("com.softwareverde.async.lock", LogLevel.WARN);
 
@@ -404,7 +405,6 @@ public class Main {
 
             case "SIGNATURE": {
                 Logger.setLog(SystemLog.getInstance());
-                Logger.setLogLevel("com.softwareverde.util", LogLevel.OFF);
                 Logger.DEFAULT_LOG_LEVEL = LogLevel.WARN;
 
                 if (_arguments.length != 3) {

@@ -87,6 +87,7 @@ import java.io.File;
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
     protected final Boolean _shouldWarmUpCache = true;
@@ -106,6 +107,7 @@ public class NodeModule {
     protected final BlockchainBuilder _blockchainBuilder;
     protected final AddressProcessor _addressProcessor;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
+    protected final RequestDataHandler _requestDataHandler;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -119,8 +121,7 @@ public class NodeModule {
     protected final MilliTimer _uptimeTimer = new MilliTimer();
     protected final Thread _databaseMaintenanceThread;
 
-    protected Boolean _isShuttingDown = false;
-    protected final Object _shutdownPin = new Object();
+    protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
     protected void _warmUpCache() {
         Logger.info("[Warming Cache]");
@@ -182,15 +183,16 @@ public class NodeModule {
     }
 
     protected void _shutdown() {
-        synchronized (_shutdownPin) {
-            final Boolean wasAlreadyShuttingDown = _isShuttingDown;
-            _isShuttingDown = true;
-            if (wasAlreadyShuttingDown) {
+        synchronized (_isShuttingDown) {
+            if (! _isShuttingDown.compareAndSet(false, true)) {
                 Logger.info("[Awaiting Shutdown Completion]");
-                try { _shutdownPin.wait(30000); } catch (final Exception exception) { }
+                try { _isShuttingDown.wait(30000); } catch (final Exception exception) { }
                 return;
             }
         }
+
+        Logger.info("[Stopping Request Handler]");
+        _requestDataHandler.shutdown();
 
         Logger.info("[Stopping Database Maintenance Thread]");
         _databaseMaintenanceThread.interrupt();
@@ -257,8 +259,8 @@ public class NodeModule {
 
         Logger.flush();
 
-        synchronized (_shutdownPin) {
-            _shutdownPin.notifyAll();
+        synchronized (_isShuttingDown) {
+            _isShuttingDown.notifyAll();
         }
     }
 
@@ -279,7 +281,8 @@ public class NodeModule {
             public void run() {
                 try {
                     _shutdown();
-                } catch (final Throwable ignored) { }
+                }
+                catch (final Throwable ignored) { }
             }
         });
 
@@ -378,7 +381,8 @@ public class NodeModule {
             }
         }
 
-        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(new RequestDataHandler(databaseManagerFactory, blockCache));
+        _requestDataHandler = new RequestDataHandler(databaseManagerFactory, blockCache);
+        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(_requestDataHandler);
         { // Initialize the monitor with transactions from the memory pool...
             Logger.info("[Loading RequestDataHandlerMonitor]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -909,6 +913,8 @@ public class NodeModule {
 
             Logger.flush();
         }
+
+        _shutdown();
 
         System.exit(0);
     }

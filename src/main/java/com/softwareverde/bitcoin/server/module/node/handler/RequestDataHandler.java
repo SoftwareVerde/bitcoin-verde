@@ -23,6 +23,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
@@ -30,6 +31,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
         public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) { }
     };
 
+    protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BlockCache _blockCache;
 
@@ -40,6 +42,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
     @Override
     public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) {
+        if (_isShuttingDown.get()) { return; }
+
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -154,5 +158,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
         catch (final DatabaseException exception) {
             Logger.warn(exception);
         }
+    }
+
+    public void shutdown() {
+        _isShuttingDown.set(true);
     }
 }
