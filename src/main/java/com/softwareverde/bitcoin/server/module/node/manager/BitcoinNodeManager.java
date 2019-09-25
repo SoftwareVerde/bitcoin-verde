@@ -251,11 +251,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             final Boolean isBanned = nodeDatabaseManager.isBanned(nodeIpAddress.getIp());
             if ( (_isShuttingDown) || (isBanned) ) {
-                final NodeId nodeId = bitcoinNode.getId();
-                _nodes.remove(nodeId);
-                _pendingNodes.remove(nodeId);
-                _connectedNodeAddresses.remove(nodeIpAddress);
-                bitcoinNode.disconnect();
+                _removeNode(bitcoinNode);
                 return;
             }
 
