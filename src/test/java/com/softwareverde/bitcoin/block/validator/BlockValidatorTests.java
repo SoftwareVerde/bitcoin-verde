@@ -26,8 +26,6 @@ import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCach
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.database.pool.ReadUncommittedDatabaseConnectionPoolWrapper;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;

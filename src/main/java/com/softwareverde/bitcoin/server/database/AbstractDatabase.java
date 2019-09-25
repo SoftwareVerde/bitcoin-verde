@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.database.DatabaseException;
 
-import java.io.Closeable;
 import java.sql.Connection;
 
 public abstract class AbstractDatabase extends AbstractDatabaseConnectionFactory implements com.softwareverde.database.Database<Connection>, AutoCloseable {

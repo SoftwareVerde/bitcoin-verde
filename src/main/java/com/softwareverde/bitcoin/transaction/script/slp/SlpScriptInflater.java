@@ -22,7 +22,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class SlpScriptInflater {
