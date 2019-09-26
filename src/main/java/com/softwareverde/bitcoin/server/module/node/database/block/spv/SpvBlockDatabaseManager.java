@@ -156,6 +156,15 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
         );
     }
 
+    public void deletePartialMerkleTree(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM block_merkle_trees WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+    }
+
     public void addTransactionToBlock(final BlockId blockId, final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
