@@ -7,7 +7,7 @@ public enum InventoryItemType {
     MERKLE_BLOCK(0x03),
     COMPACT_BLOCK(0x04),
     EXTRA_THIN_BLOCK(0x05),
-    SPV_BLOCK(0x06);
+    SPV_BLOCK(0x06); // Custom Bitcoin Verde Type...
 
     public static InventoryItemType fromValue(final int value) {
         for (final InventoryItemType inventoryItemType : InventoryItemType.values()) {

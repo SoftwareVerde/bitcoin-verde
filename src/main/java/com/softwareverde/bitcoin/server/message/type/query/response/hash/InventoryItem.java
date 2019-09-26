@@ -7,8 +7,8 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class InventoryItem {
-    private final InventoryItemType _inventoryItemType;
-    private final Sha256Hash _objectHash;
+    protected final InventoryItemType _inventoryItemType;
+    protected final Sha256Hash _objectHash;
 
     public InventoryItem(final InventoryItemType inventoryItemType, final Sha256Hash objectHash) {
         _inventoryItemType = inventoryItemType;

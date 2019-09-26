@@ -263,6 +263,7 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
+    protected final Set<TransactionInventoryMessageCallback> _downloadAddressBlocksRequests = new HashSet<TransactionInventoryMessageCallback>();
 
     protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
@@ -276,6 +277,14 @@ public class BitcoinNode extends Node {
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
 
     protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted = null; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
+
+    protected void _requestAddressBlocks(final List<Address> addresses) {
+        final QueryAddressBlocksMessage queryAddressBlocksMessage = _protocolMessageFactory.newQueryAddressBlocksMessage();
+        for (final Address address : addresses) {
+            queryAddressBlocksMessage.addAddress(address);
+        }
+        _queueMessage(queryAddressBlocksMessage);
+    }
 
     @Override
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
@@ -586,11 +595,21 @@ public class BitcoinNode extends Node {
                 } break;
 
                 case SPV_BLOCK: {
+                    final Set<TransactionInventoryMessageCallback> _addressBlocksCallbacks;
+                    synchronized (_downloadAddressBlocksRequests) {
+                        _addressBlocksCallbacks = new HashSet<TransactionInventoryMessageCallback>(_downloadAddressBlocksRequests);
+                        _downloadAddressBlocksRequests.clear();
+                    }
+
                     final SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback = _spvBlockInventoryMessageCallback;
                     if (spvBlockInventoryMessageCallback != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
+                                for (final TransactionInventoryMessageCallback transactionInventoryMessageCallback : _addressBlocksCallbacks) {
+                                    transactionInventoryMessageCallback.onResult(objectHashes);
+                                }
+
                                 spvBlockInventoryMessageCallback.onResult(objectHashes);
                             }
                         });
@@ -1287,11 +1306,17 @@ public class BitcoinNode extends Node {
     }
 
     public void getAddressBlocks(final List<Address> addresses) {
-        final QueryAddressBlocksMessage queryAddressBlocksMessage = _protocolMessageFactory.newQueryAddressBlocksMessage();
-        for (final Address address : addresses) {
-            queryAddressBlocksMessage.addAddress(address);
+        _requestAddressBlocks(addresses);
+    }
+
+    public void getAddressBlocks(final List<Address> addresses, final TransactionInventoryMessageCallback addressBlocksCallback) {
+        if (addressBlocksCallback != null) {
+            synchronized (_downloadAddressBlocksRequests) {
+                _downloadAddressBlocksRequests.add(addressBlocksCallback);
+            }
         }
-        _queueMessage(queryAddressBlocksMessage);
+
+        _requestAddressBlocks(addresses);
     }
 
     @Override
