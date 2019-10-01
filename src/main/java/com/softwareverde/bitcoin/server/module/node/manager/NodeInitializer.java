@@ -26,6 +26,7 @@ public class NodeInitializer {
         public BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback;
         public BitcoinNode.SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback;
         public BitcoinBinaryPacketFormat binaryPacketFormat;
+        public BitcoinNode.OnNewBloomFilterCallback onNewBloomFilterCallback;
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
@@ -41,6 +42,7 @@ public class NodeInitializer {
     protected final BitcoinNode.QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback;
     protected final BitcoinNode.SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback;
     protected final BitcoinBinaryPacketFormat _binaryPacketFormat;
+    protected final BitcoinNode.OnNewBloomFilterCallback _onNewBloomFilterCallback;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
@@ -61,6 +63,7 @@ public class NodeInitializer {
         }
 
         bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
+        bitcoinNode.setOnNewBloomFilterCallback(_onNewBloomFilterCallback);
     }
 
     public NodeInitializer(final Properties properties) {
@@ -77,6 +80,7 @@ public class NodeInitializer {
         _queryUnconfirmedTransactionsCallback = properties.queryUnconfirmedTransactionsCallback;
         _spvBlockInventoryMessageCallback = properties.spvBlockInventoryMessageCallback;
         _binaryPacketFormat = properties.binaryPacketFormat;
+        _onNewBloomFilterCallback = properties.onNewBloomFilterCallback;
     }
 
     public BitcoinNode initializeNode(final String host, final Integer port) {

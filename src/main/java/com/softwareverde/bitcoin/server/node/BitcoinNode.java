@@ -150,6 +150,10 @@ public class BitcoinNode extends Node {
         void run(Sha256Hash blockHash, List<ByteArray> transactionShortHashes, BitcoinNode bitcoinNode);
     }
 
+    public interface OnNewBloomFilterCallback {
+        void run(BitcoinNode bitcoinNode);
+    }
+
     public static class ThinBlockParameters {
         public final BlockHeader blockHeader;
         public final List<Sha256Hash> transactionHashes;
@@ -271,6 +275,7 @@ public class BitcoinNode extends Node {
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
 
+    protected OnNewBloomFilterCallback _onNewBloomFilterCallback = null;
     protected Boolean _transactionRelayIsEnabled = true;
 
     protected MutableBloomFilter _bloomFilter = null;
@@ -907,6 +912,11 @@ public class BitcoinNode extends Node {
     protected void _onSetTransactionBloomFilterMessageReceived(final SetTransactionBloomFilterMessage setTransactionBloomFilterMessage) {
         _bloomFilter = MutableBloomFilter.copyOf(setTransactionBloomFilterMessage.getBloomFilter());
         _transactionRelayIsEnabled = true;
+
+        final OnNewBloomFilterCallback onNewBloomFilterCallback = _onNewBloomFilterCallback;
+        if (onNewBloomFilterCallback != null) {
+            onNewBloomFilterCallback.run(this);
+        }
     }
 
     protected void _onUpdateTransactionBloomFilterMessageReceived(final UpdateTransactionBloomFilterMessage updateTransactionBloomFilterMessage) {
@@ -1110,6 +1120,14 @@ public class BitcoinNode extends Node {
         final SetTransactionBloomFilterMessage bloomFilterMessage = _protocolMessageFactory.newSetTransactionBloomFilterMessage();
         bloomFilterMessage.setBloomFilter(bloomFilter);
         _queueMessage(bloomFilterMessage);
+    }
+
+    /**
+     * Sets a callback for when the remote node defines a new BloomFilter.
+     *  NOTE: This is the remote BloomFilter, not the local filter defined by ::setBloomFilter.
+     */
+    public void setOnNewBloomFilterCallback(final OnNewBloomFilterCallback onNewBloomFilterCallback) {
+        _onNewBloomFilterCallback = onNewBloomFilterCallback;
     }
 
     public void transmitBlockHeaders(final List<BlockHeader> blockHeaders) {

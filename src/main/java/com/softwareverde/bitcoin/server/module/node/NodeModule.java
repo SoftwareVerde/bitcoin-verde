@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
+import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -433,6 +434,26 @@ public class NodeModule {
             };
 
             nodeInitializerProperties.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
+            nodeInitializerProperties.onNewBloomFilterCallback = new BitcoinNode.OnNewBloomFilterCallback() {
+                @Override
+                public void run(final BitcoinNode bitcoinNode) {
+                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                        final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+                        for (final TransactionId transactionId : transactionIds) {
+                            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, false);
+                            final boolean matchesFilter = bitcoinNode.matchesFilter(transaction);
+                            if (matchesFilter) {
+                                bitcoinNode.transmitTransaction(transaction);
+                            }
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.debug(exception);
+                    }
+                }
+            };
 
             _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
