@@ -267,7 +267,7 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
-    protected final Set<TransactionInventoryMessageCallback> _downloadAddressBlocksRequests = new HashSet<TransactionInventoryMessageCallback>();
+    protected final Set<BlockInventoryMessageCallback> _downloadAddressBlocksRequests = new HashSet<BlockInventoryMessageCallback>();
 
     protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
@@ -600,9 +600,9 @@ public class BitcoinNode extends Node {
                 } break;
 
                 case SPV_BLOCK: {
-                    final Set<TransactionInventoryMessageCallback> _addressBlocksCallbacks;
+                    final Set<BlockInventoryMessageCallback> _addressBlocksCallbacks;
                     synchronized (_downloadAddressBlocksRequests) {
-                        _addressBlocksCallbacks = new HashSet<TransactionInventoryMessageCallback>(_downloadAddressBlocksRequests);
+                        _addressBlocksCallbacks = new HashSet<BlockInventoryMessageCallback>(_downloadAddressBlocksRequests);
                         _downloadAddressBlocksRequests.clear();
                     }
 
@@ -611,8 +611,8 @@ public class BitcoinNode extends Node {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                for (final TransactionInventoryMessageCallback transactionInventoryMessageCallback : _addressBlocksCallbacks) {
-                                    transactionInventoryMessageCallback.onResult(objectHashes);
+                                for (final BlockInventoryMessageCallback blockInventoryMessageCallback : _addressBlocksCallbacks) {
+                                    blockInventoryMessageCallback.onResult(BitcoinNode.this, objectHashes);
                                 }
 
                                 spvBlockInventoryMessageCallback.onResult(objectHashes);
@@ -1327,7 +1327,7 @@ public class BitcoinNode extends Node {
         _requestAddressBlocks(addresses);
     }
 
-    public void getAddressBlocks(final List<Address> addresses, final TransactionInventoryMessageCallback addressBlocksCallback) {
+    public void getAddressBlocks(final List<Address> addresses, final BlockInventoryMessageCallback addressBlocksCallback) {
         if (addressBlocksCallback != null) {
             synchronized (_downloadAddressBlocksRequests) {
                 _downloadAddressBlocksRequests.add(addressBlocksCallback);
