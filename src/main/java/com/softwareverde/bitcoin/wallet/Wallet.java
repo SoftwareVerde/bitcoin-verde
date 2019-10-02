@@ -106,6 +106,21 @@ public class Wallet {
         return lastAmount;
     }
 
+    protected void _debugWalletState() {
+        Logger.debug("Wallet Transaction Hashes:");
+        for (final Sha256Hash transactionHash : _transactions.keySet()) {
+            Logger.debug(transactionHash);
+        }
+        Logger.debug("Wallet Available Outputs:");
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : _transactionOutputs.keySet()) {
+            Logger.debug(transactionOutputIdentifier);
+        }
+        Logger.debug("Wallet Public Keys:");
+        for (final PublicKey publicKey : _privateKeys.keySet()) {
+            Logger.debug(publicKey);
+        }
+    }
+
     protected SlpTokenId _getSlpTokenId(final TransactionOutputIdentifier transactionOutputIdentifier) {
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
 
@@ -364,6 +379,9 @@ public class Wallet {
 
         if (selectedUtxoAmount < (minimumUtxoAmount + feesToSpendOutputs.value)) {
             Logger.info("Insufficient funds to fund transaction.");
+            if (Logger.isDebugEnabled()) {
+                _debugWalletState();
+            }
             feesToSpendOutputs.value = originalFeesToSpendOutputs; // Reset the feesToSpendOutputs container...
             return null;
         }
