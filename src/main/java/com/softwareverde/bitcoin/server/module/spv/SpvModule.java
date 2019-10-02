@@ -92,6 +92,7 @@ public class SpvModule {
     protected final SpvRequestDataHandler _spvRequestDataHandler = new SpvRequestDataHandler();
     protected BitcoinNodeManager _bitcoinNodeManager;
     protected BlockHeaderDownloader _blockHeaderDownloader;
+    protected Boolean _shouldOnlyConnectToSeedNodes = false;
 
     protected final SystemTime _systemTime = new SystemTime();
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
@@ -559,6 +560,7 @@ public class SpvModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
             _bitcoinNodeManager.enableTransactionRelay(false);
+            _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
 
             for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
                 final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
@@ -708,6 +710,10 @@ public class SpvModule {
     }
 
     public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
-        _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(shouldOnlyConnectToSeedNodes);
+        _shouldOnlyConnectToSeedNodes = shouldOnlyConnectToSeedNodes;
+
+        if (_bitcoinNodeManager != null) {
+            _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(shouldOnlyConnectToSeedNodes);
+        }
     }
 }
