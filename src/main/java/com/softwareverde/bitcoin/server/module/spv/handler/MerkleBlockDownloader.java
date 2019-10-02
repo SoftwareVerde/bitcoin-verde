@@ -241,6 +241,8 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     }
 
     protected void _requestMerkleBlock(final Sha256Hash blockHash) {
+        Logger.debug("Downloading Merkle Block: " + blockHash);
+
         final WatchedRequest watchedRequest = new WatchedRequest(blockHash, _onMerkleBlockDownloaded);
         _requestBabysitter.watch(watchedRequest, 15L);
         _merkleBlockDownloader.requestMerkleBlock(blockHash, watchedRequest);
@@ -265,6 +267,9 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
                 if (! blockDatabaseManager.hasTransactions(blockHash)) {
                     _requestMerkleBlock(blockHash);
                     return;
+                }
+                else {
+                    Logger.debug("Skipping MerkleBlock. Block already downloaded: " + blockHash);
                 }
             }
         }
@@ -312,6 +317,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     @Override
     public void onResult(final List<Sha256Hash> blockHashes) {
         for (final Sha256Hash blockHash : blockHashes) {
+            Logger.debug("Queuing Merkle Block for download: " + blockHash);
             _queuedBlockHashes.add(blockHash);
         }
 

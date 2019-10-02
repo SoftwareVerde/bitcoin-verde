@@ -600,9 +600,15 @@ public class BitcoinNode extends Node {
                 } break;
 
                 case SPV_BLOCK: {
-                    final Set<BlockInventoryMessageCallback> _addressBlocksCallbacks;
+                    if (Logger.isDebugEnabled()) {
+                        for (final Sha256Hash objectHash : objectHashes) {
+                            Logger.debug("Received AddressBlock: " + objectHash + " from " + _connection);
+                        }
+                    }
+
+                    final Set<BlockInventoryMessageCallback> addressBlocksCallbacks;
                     synchronized (_downloadAddressBlocksRequests) {
-                        _addressBlocksCallbacks = new HashSet<BlockInventoryMessageCallback>(_downloadAddressBlocksRequests);
+                        addressBlocksCallbacks = new HashSet<BlockInventoryMessageCallback>(_downloadAddressBlocksRequests);
                         _downloadAddressBlocksRequests.clear();
                     }
 
@@ -611,7 +617,7 @@ public class BitcoinNode extends Node {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                for (final BlockInventoryMessageCallback blockInventoryMessageCallback : _addressBlocksCallbacks) {
+                                for (final BlockInventoryMessageCallback blockInventoryMessageCallback : addressBlocksCallbacks) {
                                     blockInventoryMessageCallback.onResult(BitcoinNode.this, objectHashes);
                                 }
 
