@@ -54,13 +54,10 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
-
-import java.net.InetAddress;
 
 public class SpvModule {
     public interface MerkleBlockSyncUpdateCallback {
@@ -143,32 +140,15 @@ public class SpvModule {
 
     protected void _connectToSeedNodes() {
         for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
-            try {
-                final String host = seedNodeProperties.getAddress();
-                final String ipAddressString;
-                try {
-                    final InetAddress ipAddress = InetAddress.getByName(host);
-                    ipAddressString = ipAddress.getHostAddress();
-                }
-                catch (final Exception exception) {
-                    Logger.debug("Unable to determine host: " + host);
-                    continue;
-                }
+            final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
+            if (nodeIpAddress == null) { continue; }
 
-                final Integer port = seedNodeProperties.getPort();
-                final Ip ip = Ip.fromString(ipAddressString);
+            final boolean isAlreadyConnectedToNode = _bitcoinNodeManager.isConnectedToNode(nodeIpAddress);
+            if (isAlreadyConnectedToNode) { continue; }
 
-                final NodeIpAddress nodeIpAddress = new NodeIpAddress(ip, port);
+            final BitcoinNode node = _nodeInitializer.initializeNode(nodeIpAddress);
+            _bitcoinNodeManager.addNode(node);
 
-                final boolean isAlreadyConnectedToNode = _bitcoinNodeManager.isConnectedToNode(nodeIpAddress);
-                if (isAlreadyConnectedToNode) { continue; }
-
-                final BitcoinNode node = _nodeInitializer.initializeNode(ipAddressString, port);
-                _bitcoinNodeManager.addNode(node);
-            }
-            catch (final Exception exception) {
-                Logger.warn(exception);
-            }
         }
     }
 
@@ -273,7 +253,7 @@ public class SpvModule {
     public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Wallet wallet) {
         _seedNodes = seedNodes;
         _wallet = wallet;
-        final Integer maxPeerCount = 5; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
+        final Integer maxPeerCount = seedNodes.length; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.min(maxPeerCount * 8, 256), 5000L);
 
         _mainThreadPool.setShutdownCallback(new Runnable() {
@@ -579,6 +559,13 @@ public class SpvModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
             _bitcoinNodeManager.enableTransactionRelay(false);
+
+            for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
+                final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
+                if (nodeIpAddress == null) { continue; }
+
+                _bitcoinNodeManager.defineSeedNode(nodeIpAddress);
+            }
         }
 
         { // Initialize BlockHeaderDownloader...
@@ -718,5 +705,9 @@ public class SpvModule {
         _minimumMerkleBlockHeight = minimumMerkleBlockHeight;
         _merkleBlockDownloader.setMinimumMerkleBlockHeight(minimumMerkleBlockHeight);
         _merkleBlockDownloader.resetQueue();
+    }
+
+    public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
+        _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(shouldOnlyConnectToSeedNodes);
     }
 }

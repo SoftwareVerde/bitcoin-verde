@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
@@ -99,29 +100,37 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 try { Thread.sleep(nextWait); }
                 catch (final Exception exception) { break; }
 
-                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-
-                    final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
-                    requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                    requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                    final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
-
-                    for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
-                        final Ip ip = bitcoinNodeIpAddress.getIp();
-                        if (ip == null) { continue; }
-
-                        final String host = ip.toString();
-                        final Integer port = bitcoinNodeIpAddress.getPort();
-                        final BitcoinNode bitcoinNode = _nodeFactory.newNode(host, port);
-
-                        BitcoinNodeManager.this.addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
-
-                        Logger.info("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
-                    }
+                final List<NodeIpAddress> nodeIpAddresses;
+                if (_shouldOnlyConnectToSeedNodes) {
+                    nodeIpAddresses = new MutableList<NodeIpAddress>(_seedNodes);
                 }
-                catch (final DatabaseException databaseException) {
-                    Logger.warn(databaseException);
+                else {
+                    List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(0);
+                    try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                        final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
+                        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+                        requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                        requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                        bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
+                    }
+                    catch (final DatabaseException databaseException) {
+                        Logger.warn(databaseException);
+                    }
+                    nodeIpAddresses = ConstUtil.downcastList(bitcoinNodeIpAddresses);
+                }
+
+                for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
+                    final Ip ip = nodeIpAddress.getIp();
+                    if (ip == null) { continue; }
+
+                    final String host = ip.toString();
+                    final Integer port = nodeIpAddress.getPort();
+                    final BitcoinNode bitcoinNode = _nodeFactory.newNode(host, port);
+
+                    BitcoinNodeManager.this.addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
+
+                    Logger.info("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
                 }
 
                 nextWait = Math.min((2L * nextWait), maxWait);
