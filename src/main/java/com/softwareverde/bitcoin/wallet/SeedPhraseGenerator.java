@@ -78,7 +78,7 @@ public class SeedPhraseGenerator {
 
         int runningBitIndex = 0;
         for (final String seedWord : seedWords) {
-            final int index = _seedWords.indexOf(seedWord);
+            final int index = _seedWords.indexOf(seedWord.toLowerCase());
             if (index < 0) {
                 throw new IllegalArgumentException("Invalid seed word: " + seedWord);
             }
