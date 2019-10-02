@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
+import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class NodeInitializer {
@@ -26,6 +28,7 @@ public class NodeInitializer {
         public BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback;
         public BitcoinNode.SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback;
         public BitcoinBinaryPacketFormat binaryPacketFormat;
+        public BitcoinNode.OnNewBloomFilterCallback onNewBloomFilterCallback;
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
@@ -41,6 +44,7 @@ public class NodeInitializer {
     protected final BitcoinNode.QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback;
     protected final BitcoinNode.SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback;
     protected final BitcoinBinaryPacketFormat _binaryPacketFormat;
+    protected final BitcoinNode.OnNewBloomFilterCallback _onNewBloomFilterCallback;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
@@ -61,6 +65,7 @@ public class NodeInitializer {
         }
 
         bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
+        bitcoinNode.setOnNewBloomFilterCallback(_onNewBloomFilterCallback);
     }
 
     public NodeInitializer(final Properties properties) {
@@ -77,6 +82,17 @@ public class NodeInitializer {
         _queryUnconfirmedTransactionsCallback = properties.queryUnconfirmedTransactionsCallback;
         _spvBlockInventoryMessageCallback = properties.spvBlockInventoryMessageCallback;
         _binaryPacketFormat = properties.binaryPacketFormat;
+        _onNewBloomFilterCallback = properties.onNewBloomFilterCallback;
+    }
+
+    public BitcoinNode initializeNode(final NodeIpAddress nodeIpAddress) {
+        final Ip ip = nodeIpAddress.getIp();
+        final Integer port = nodeIpAddress.getPort();
+        final String host = ip.toString();
+
+        final BitcoinNode bitcoinNode = new BitcoinNode(host, port, _binaryPacketFormat, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
+        _initializeNode(bitcoinNode);
+        return bitcoinNode;
     }
 
     public BitcoinNode initializeNode(final String host, final Integer port) {

@@ -84,6 +84,7 @@ public class NodeManager<NODE extends Node> {
     // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.
     protected final ConcurrentHashSet<NodeIpAddress> _connectedNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
 
+    protected final ConcurrentHashSet<NodeIpAddress> _seedNodes = new ConcurrentHashSet<NodeIpAddress>();
     protected final ConcurrentHashMap<NodeId, MutableNodeHealth> _nodeHealthMap;
     protected final ConcurrentLinkedQueue<NodeApiMessage<NODE>> _queuedTransmissions = new ConcurrentLinkedQueue<NodeApiMessage<NODE>>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
@@ -91,6 +92,7 @@ public class NodeManager<NODE extends Node> {
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime;
+    protected Boolean _shouldOnlyConnectToSeedNodes = false;
     protected Boolean _isShuttingDown = false;
 
     protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The current batch of new addresses advertised by peers that have not yet been seen.
@@ -347,6 +349,8 @@ public class NodeManager<NODE extends Node> {
                         _broadcastNewNodesToExistingNodes(newNodeAddresses);
                     }
                 }
+
+                if (_shouldOnlyConnectToSeedNodes) { return; }
 
                 // Connect to the node if the node if the NodeManager is still looking for peers...
                 for (final NodeIpAddress nodeIpAddress : unseenNodeAddresses) {
@@ -632,6 +636,10 @@ public class NodeManager<NODE extends Node> {
         _threadPool = threadPool;
     }
 
+    public void defineSeedNode(final NodeIpAddress nodeIpAddress) {
+        _seedNodes.add(nodeIpAddress);
+    }
+
     public void addNode(final NODE node) {
         if (_isShuttingDown) {
             node.disconnect();
@@ -797,6 +805,10 @@ public class NodeManager<NODE extends Node> {
     public Integer getActiveNodeCount() {
         final List<NODE> nodes = _getActiveNodes();
         return nodes.getSize();
+    }
+
+    public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
+        _shouldOnlyConnectToSeedNodes = shouldOnlyConnectToSeedNodes;
     }
 
     public void shutdown() {
