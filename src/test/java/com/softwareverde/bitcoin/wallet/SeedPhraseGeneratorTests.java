@@ -1,4 +1,4 @@
-package com.softwareverde.com.softwareverde.bitcoin.wallet;
+package com.softwareverde.bitcoin.wallet;
 
 import com.softwareverde.bitcoin.wallet.SeedPhraseGenerator;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -48,7 +48,7 @@ public class SeedPhraseGeneratorTests {
 
         final String phrase = _seedPhraseGenerator.toSeedPhrase(seedKeyBytes);
 
-        Assert.assertEquals(expectedSeedPhrase, phrase);
+        Assert.assertEquals(expectedSeedPhrase.toLowerCase(), phrase);
     }
 
     @Test
@@ -264,6 +264,14 @@ public class SeedPhraseGeneratorTests {
         _validateSeedPhrase(
             "f585c11aec520db57dd353c69554b21a89b20fb0650966fa0a9d6f74fd989d8f",
             "void come effort suffer camp survey warrior heavy shoot primary clutch crush open amazing screen patrol group space point ten exist slush involve unfold"
+        );
+    }
+
+    @Test
+    public void should_create_seed_for_long_random_key12_case_insensitive() {
+        _validateSeedPhrase(
+                "f585c11aec520db57dd353c69554b21a89b20fb0650966fa0a9d6f74fd989d8f",
+                "Void come effort suffer camp survey warrior Heavy shoOt primary clutch crush opEn amazing screen patrol group space point ten exist slush involve unfold"
         );
     }
 
