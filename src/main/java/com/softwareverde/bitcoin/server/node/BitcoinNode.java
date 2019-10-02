@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
+import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.callback.Callback;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -1126,6 +1127,14 @@ public class BitcoinNode extends Node {
         final SetTransactionBloomFilterMessage bloomFilterMessage = _protocolMessageFactory.newSetTransactionBloomFilterMessage();
         bloomFilterMessage.setBloomFilter(bloomFilter);
         _queueMessage(bloomFilterMessage);
+
+        if (Logger.isDebugEnabled()) {
+            Logger.debug("Setting Bloom Filter for Peer: " + _connection);
+            if (Logger.isTraceEnabled()) {
+                final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
+                Logger.debug(bloomFilterDeflater.toBytes(bloomFilter));
+            }
+        }
     }
 
     /**
