@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -24,9 +25,11 @@ import java.util.HashSet;
 
 public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallback {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final SpvUnconfirmedTransactionsHandler _spvUnconfirmedTransactionsHandler;
 
-    public RequestSpvBlockHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public RequestSpvBlockHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler) {
         _databaseManagerFactory = databaseManagerFactory;
+        _spvUnconfirmedTransactionsHandler = spvUnconfirmedTransactionsHandler;
     }
 
     @Override
@@ -72,6 +75,10 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
+        }
+
+        if (_spvUnconfirmedTransactionsHandler != null) {
+            _spvUnconfirmedTransactionsHandler.broadcastUnconfirmedTransactions(bitcoinNode);
         }
     }
 }

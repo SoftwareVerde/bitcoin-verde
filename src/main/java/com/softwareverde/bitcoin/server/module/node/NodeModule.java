@@ -40,10 +40,7 @@ import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullN
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.*;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlockHandler;
@@ -400,6 +397,8 @@ public class NodeModule {
         }
 
         { // Initialize NodeInitializer...
+            final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler = new SpvUnconfirmedTransactionsHandler(databaseManagerFactory);
+
             final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
 
             final Runnable newInventoryCallback = new Runnable() {
@@ -417,7 +416,7 @@ public class NodeModule {
             nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseManagerFactory);
             nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerProperties.requestDataCallback = requestDataHandler;
-            nodeInitializerProperties.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory);
+            nodeInitializerProperties.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
@@ -438,26 +437,7 @@ public class NodeModule {
             nodeInitializerProperties.onNewBloomFilterCallback = new BitcoinNode.OnNewBloomFilterCallback() {
                 @Override
                 public void run(final BitcoinNode bitcoinNode) {
-                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-                        final MutableList<Sha256Hash> matchedTransactionHashes = new MutableList<Sha256Hash>();
-
-                        final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
-                        for (final TransactionId transactionId : transactionIds) {
-                            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, false);
-                            final boolean matchesFilter = bitcoinNode.matchesFilter(transaction);
-                            if (matchesFilter) {
-                                matchedTransactionHashes.add(transaction.getHash());
-                            }
-                        }
-
-                        if (! matchedTransactionHashes.isEmpty()) {
-                            bitcoinNode.transmitTransactionHashes(matchedTransactionHashes);
-                        }
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.debug(exception);
-                    }
+                    spvUnconfirmedTransactionsHandler.broadcastUnconfirmedTransactions(bitcoinNode);
                 }
             };
 
