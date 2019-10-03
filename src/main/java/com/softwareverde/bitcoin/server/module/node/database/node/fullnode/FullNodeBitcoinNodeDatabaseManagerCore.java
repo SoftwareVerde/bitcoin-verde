@@ -477,6 +477,10 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         else {
             // Prevent the node from immediately being re-banned...
             databaseConnection.executeSql(
+                new Query("DELETE node_features FROM node_features INNER JOIN nodes ON nodes.id = node_features.node_id INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
+                    .setParameter(ip)
+            );
+            databaseConnection.executeSql(
                 new Query("DELETE nodes FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
                     .setParameter(ip)
             );
