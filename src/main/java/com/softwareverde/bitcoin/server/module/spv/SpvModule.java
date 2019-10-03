@@ -443,9 +443,14 @@ public class SpvModule {
                     @Override
                     public void onResult(final Transaction transaction) {
                         final Sha256Hash transactionHash = transaction.getHash();
+                        Logger.debug("Received Transaction: " + transactionHash);
+
                         final BloomFilter walletBloomFilter = _wallet.getBloomFilter();
                         final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter);
-                        if (! transactionBloomFilterMatcher.shouldInclude(transaction)) { return; } // False positive...
+                        if (! transactionBloomFilterMatcher.shouldInclude(transaction)) {
+                            Logger.debug("Skipping Transaction that does not match filter: " + transactionHash);
+                            return;
+                        }
 
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                             final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
@@ -459,7 +464,6 @@ public class SpvModule {
                             Logger.warn(exception);
                         }
 
-                        Logger.debug("Received Transaction: " + transactionHash);
                         _wallet.addUnconfirmedTransaction(transaction);
 
                         final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
