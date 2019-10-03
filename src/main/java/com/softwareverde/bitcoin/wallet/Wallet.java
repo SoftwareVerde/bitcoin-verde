@@ -73,6 +73,7 @@ public class Wallet {
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
     protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
     protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
+    protected final HashSet<Sha256Hash> _confirmedTransactions = new HashSet<Sha256Hash>();
 
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
     protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
@@ -236,10 +237,31 @@ public class Wallet {
         _publicKeys.put(decompressedAddress, decompressedPublicKey);
     }
 
-    protected void _addTransaction(final Transaction transaction) {
+    protected Boolean _hasSpentInputs(final Transaction transaction) {
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            final boolean inputWasSpent = _spentTransactionOutputs.containsKey(transactionOutputIdentifier);
+            if (inputWasSpent) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected void _addTransaction(final Transaction transaction, final Boolean isConfirmedTransaction) {
         final Transaction constTransaction = transaction.asConst();
         final Sha256Hash transactionHash = constTransaction.getHash();
+
+        if ( (! isConfirmedTransaction) && _hasSpentInputs(transaction) ) {
+            Logger.debug("Wallet is not adding already spent unconfirmed transaction: " + transactionHash);
+            return;
+        }
+
         _transactions.put(transactionHash, constTransaction);
+        if (isConfirmedTransaction) {
+            _confirmedTransactions.add(transactionHash);
+        }
 
         // Mark outputs as spent, if any...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
@@ -276,14 +298,18 @@ public class Wallet {
     }
 
     protected void _reloadTransactions() {
+        final MutableList<Transaction> transactions = new MutableList<Transaction>(_transactions.values());
+        final HashSet<Sha256Hash> confirmedTransactions = new HashSet<Sha256Hash>(_confirmedTransactions);
+
         _spentTransactionOutputs.clear();
         _transactionOutputs.clear();
-
-        final MutableList<Transaction> transactions = new MutableList<Transaction>(_transactions.values());
         _transactions.clear();
+        _confirmedTransactions.clear();
 
         for (final Transaction transaction : transactions) {
-            _addTransaction(transaction);
+            final Sha256Hash transactionHash = transaction.getHash();
+            final boolean isConfirmedTransaction = confirmedTransactions.contains(transactionHash);
+            _addTransaction(transaction, isConfirmedTransaction);
         }
     }
 
@@ -789,7 +815,11 @@ public class Wallet {
     }
 
     public synchronized void addTransaction(final Transaction transaction) {
-        _addTransaction(transaction);
+        _addTransaction(transaction, true);
+    }
+
+    public synchronized void addUnconfirmedTransaction(final Transaction transaction) {
+        _addTransaction(transaction, false);
     }
 
     public synchronized void markTransactionOutputSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {

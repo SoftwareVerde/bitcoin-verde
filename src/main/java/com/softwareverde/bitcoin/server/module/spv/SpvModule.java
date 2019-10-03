@@ -59,6 +59,8 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.HashSet;
+
 public class SpvModule {
     public interface MerkleBlockSyncUpdateCallback {
         void onMerkleBlockHeightUpdated(Long currentBlockHeight, Boolean isSynchronizing);
@@ -226,7 +228,9 @@ public class SpvModule {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, _readOnlyDatabaseManagerCache);
             final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            final HashSet<TransactionId> confirmedTransactionIds = new HashSet<TransactionId>();
 
             int loadedTransactionCount = 0;
             final List<BlockId> blockIds = blockDatabaseManager.getBlockIdsWithTransactions();
@@ -239,12 +243,28 @@ public class SpvModule {
                         continue;
                     }
 
+                    confirmedTransactionIds.add(transactionId);
                     _wallet.addTransaction(transaction);
                     loadedTransactionCount += 1;
                 }
             }
 
-            Logger.debug("Loaded " + loadedTransactionCount + " transactions.");
+            loadedTransactionCount = 0;
+            final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds();
+            for (final TransactionId transactionId : transactionIds) {
+                final boolean isUniqueTransactionId = confirmedTransactionIds.add(transactionId);
+                if (! isUniqueTransactionId) { continue; }
+
+                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                if (transaction == null) {
+                    Logger.warn("Unable to inflate Transaction: " + transactionId);
+                    continue;
+                }
+
+                _wallet.addUnconfirmedTransaction(transaction);
+            }
+
+            Logger.debug("Loaded " + loadedTransactionCount + " confirmed transactions.");
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -422,6 +442,7 @@ public class SpvModule {
                 protected final BitcoinNodeManager.DownloadTransactionCallback _downloadTransactionsCallback = new BitcoinNodeManager.DownloadTransactionCallback() {
                     @Override
                     public void onResult(final Transaction transaction) {
+                        final Sha256Hash transactionHash = transaction.getHash();
                         final BloomFilter walletBloomFilter = _wallet.getBloomFilter();
                         final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter);
                         if (! transactionBloomFilterMatcher.shouldInclude(transaction)) { return; } // False positive...
@@ -438,7 +459,8 @@ public class SpvModule {
                             Logger.warn(exception);
                         }
 
-                        _wallet.addTransaction(transaction);
+                        Logger.debug("Received Transaction: " + transactionHash);
+                        _wallet.addUnconfirmedTransaction(transaction);
 
                         final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
                         if (newTransactionCallback != null) {

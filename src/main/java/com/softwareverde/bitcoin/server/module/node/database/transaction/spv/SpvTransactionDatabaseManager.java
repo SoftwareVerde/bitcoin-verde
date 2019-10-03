@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
@@ -172,6 +173,27 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         }
         finally {
             WRITE_LOCK.unlock();
+        }
+    }
+
+    public List<TransactionId> getTransactionIds() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        READ_LOCK.lock();
+        try {
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM transactions")
+            );
+
+            final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(rows.size());
+            for (final Row row : rows) {
+                final Long transactionIdLong = row.getLong("id");
+                transactionIds.add(TransactionId.wrap(transactionIdLong));
+            }
+            return transactionIds.build();
+        }
+        finally {
+            READ_LOCK.unlock();
         }
     }
 
