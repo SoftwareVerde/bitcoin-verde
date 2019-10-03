@@ -232,39 +232,44 @@ public class SpvModule {
 
             final HashSet<TransactionId> confirmedTransactionIds = new HashSet<TransactionId>();
 
-            int loadedTransactionCount = 0;
-            final List<BlockId> blockIds = blockDatabaseManager.getBlockIdsWithTransactions();
-            for (final BlockId blockId : blockIds) {
-                final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
+            { // Load confirmed Transactions from database...
+                int loadedConfirmedTransactionCount = 0;
+                final List<BlockId> blockIds = blockDatabaseManager.getBlockIdsWithTransactions();
+                for (final BlockId blockId : blockIds) {
+                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
+                    for (final TransactionId transactionId : transactionIds) {
+                        final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                        if (transaction == null) {
+                            Logger.warn("Unable to inflate Transaction: " + transactionId);
+                            continue;
+                        }
+
+                        confirmedTransactionIds.add(transactionId);
+                        _wallet.addTransaction(transaction);
+                        loadedConfirmedTransactionCount += 1;
+                    }
+                }
+                Logger.debug("Loaded " + loadedConfirmedTransactionCount + " confirmed transactions.");
+            }
+
+            { // Load remaining Transactions as unconfirmed Transactions from database...
+                int loadedUnconfirmedTransactionCount = 0;
+                final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds();
                 for (final TransactionId transactionId : transactionIds) {
+                    final boolean isUniqueTransactionId = confirmedTransactionIds.add(transactionId);
+                    if (! isUniqueTransactionId) { continue; }
+
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                     if (transaction == null) {
                         Logger.warn("Unable to inflate Transaction: " + transactionId);
                         continue;
                     }
 
-                    confirmedTransactionIds.add(transactionId);
-                    _wallet.addTransaction(transaction);
-                    loadedTransactionCount += 1;
+                    _wallet.addUnconfirmedTransaction(transaction);
+                    loadedUnconfirmedTransactionCount += 1;
                 }
+                Logger.debug("Loaded " + loadedUnconfirmedTransactionCount + " unconfirmed transactions.");
             }
-
-            loadedTransactionCount = 0;
-            final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds();
-            for (final TransactionId transactionId : transactionIds) {
-                final boolean isUniqueTransactionId = confirmedTransactionIds.add(transactionId);
-                if (! isUniqueTransactionId) { continue; }
-
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                if (transaction == null) {
-                    Logger.warn("Unable to inflate Transaction: " + transactionId);
-                    continue;
-                }
-
-                _wallet.addUnconfirmedTransaction(transaction);
-            }
-
-            Logger.debug("Loaded " + loadedTransactionCount + " confirmed transactions.");
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
