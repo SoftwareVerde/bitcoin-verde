@@ -302,7 +302,7 @@ public class NodeModule {
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, readOnlyDatabaseManagerCache);
 
-        _banFilter = new BanFilterCore(databaseManagerFactory);
+        _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
 
         { // Ensure the data/cache directory exists...
             final String dataCacheDirectory = bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME;
@@ -446,8 +446,6 @@ public class NodeModule {
         }
 
         { // Initialize NodeManager...
-            final boolean banFilterIsEnabled = bitcoinProperties.isBanFilterEnabled();
-
             final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
             {
                 properties.databaseManagerFactory = databaseManagerFactory;
@@ -459,7 +457,6 @@ public class NodeModule {
                 properties.memoryPoolEnquirer = memoryPoolEnquirer;
                 properties.synchronizationStatusHandler = synchronizationStatusHandler;
                 properties.threadPool = _mainThreadPool;
-                properties.banFilter = (banFilterIsEnabled ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
