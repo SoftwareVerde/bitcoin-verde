@@ -707,6 +707,13 @@ public class SpvModule {
         _connectToSeedNodes();
     }
 
+    public void storeTransaction(final Transaction transaction) throws DatabaseException {
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            transactionDatabaseManager.storeTransaction(transaction);
+        }
+    }
+
     public void broadcastTransaction(final Transaction transaction) {
         // TODO: Simply broadcast the transaction unannounced instead of advertising the inventory...
 
