@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
-import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -48,6 +47,9 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Orphaned
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.*;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.DisabledBanFilter;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
@@ -82,7 +84,6 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.io.File;
-import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -301,7 +302,7 @@ public class NodeModule {
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, readOnlyDatabaseManagerCache);
 
-        _banFilter = new BanFilter(databaseManagerFactory);
+        _banFilter = new BanFilterCore(databaseManagerFactory);
 
         { // Ensure the data/cache directory exists...
             final String dataCacheDirectory = bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME;
@@ -445,6 +446,8 @@ public class NodeModule {
         }
 
         { // Initialize NodeManager...
+            final boolean banFilterIsEnabled = bitcoinProperties.isBanFilterEnabled();
+
             final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
             {
                 properties.databaseManagerFactory = databaseManagerFactory;
@@ -456,6 +459,7 @@ public class NodeModule {
                 properties.memoryPoolEnquirer = memoryPoolEnquirer;
                 properties.synchronizationStatusHandler = synchronizationStatusHandler;
                 properties.threadPool = _mainThreadPool;
+                properties.banFilter = (banFilterIsEnabled ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
@@ -672,18 +676,13 @@ public class NodeModule {
 
                 final Boolean isBanned = _banFilter.isIpBanned(ip);
                 if (isBanned) {
-                    binarySocket.close();
-                    return;
-                }
-
-                final Boolean shouldBan = _banFilter.shouldBanIp(ip);
-                if (shouldBan) {
-                    _banFilter.banIp(ip);
+                    Logger.trace("Ignoring Banned Connection: " + binarySocket.toString());
                     binarySocket.close();
                     return;
                 }
 
                 Logger.debug("New Connection: " + binarySocket.toString());
+                _banFilter.onNodeConnected(ip);
                 final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
                 _bitcoinNodeManager.addNode(node);
             }
@@ -838,13 +837,35 @@ public class NodeModule {
             Logger.info("[Starting Node Manager]");
             _bitcoinNodeManager.startNodeMaintenanceThread();
 
+            final SeedNodeProperties[] whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
+            for (final SeedNodeProperties seedNodeProperties : whitelistedNodes) {
+                final String host = seedNodeProperties.getAddress();
+                try {
+                    final Ip ip = Ip.fromStringOrHost(host);
+                    if (ip == null) {
+                        Logger.warn("Unable to determine seed node host: " + host);
+                        continue;
+                    }
+
+                    _bitcoinNodeManager.addIpToWhitelist(ip);
+                }
+                catch (final Exception exception) {
+                    Logger.debug("Unable to determine host: " + host);
+                }
+            }
+
             final SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
             for (final SeedNodeProperties seedNodeProperties : seedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
                 try {
-                    final InetAddress ipAddress = InetAddress.getByName(host);
-                    final String ipAddressString = ipAddress.getHostAddress();
+                    final Ip ip = Ip.fromStringOrHost(host);
+                    if (ip == null) {
+                        Logger.warn("Unable to determine seed node host: " + host);
+                        continue;
+                    }
+
+                    final String ipAddressString = ip.toString();
 
                     final BitcoinNode node = _nodeInitializer.initializeNode(ipAddressString, port);
                     _bitcoinNodeManager.addNode(node);

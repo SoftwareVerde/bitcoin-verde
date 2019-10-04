@@ -53,13 +53,9 @@ public class Configuration {
         return databaseProperties;
     }
 
-    protected void _loadBitcoinProperties() {
-        _bitcoinProperties = new BitcoinProperties();
-        _bitcoinProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BitcoinProperties.PORT.toString()));
-        _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinProperties.RPC_PORT.toString()));
-
-        final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]"));
-        _bitcoinProperties._seedNodeProperties = new SeedNodeProperties[seedNodesJson.length()];
+    protected SeedNodeProperties[] _parseSeedNodeProperties(final String propertyName, final String defaultValue) {
+        final Json seedNodesJson = Json.parse(_properties.getProperty(propertyName, defaultValue));
+        final SeedNodeProperties[] seedNodePropertiesArray = new SeedNodeProperties[seedNodesJson.length()];
         for (int i = 0; i < seedNodesJson.length(); ++i) {
             final String propertiesString = seedNodesJson.getString(i);
 
@@ -74,9 +70,25 @@ public class Configuration {
                 seedNodeProperties = new SeedNodeProperties(address, port);
             }
 
-            _bitcoinProperties._seedNodeProperties[i] = seedNodeProperties;
+            seedNodePropertiesArray[i] = seedNodeProperties;
+        }
+        return seedNodePropertiesArray;
+    }
+
+    protected void _loadBitcoinProperties() {
+        _bitcoinProperties = new BitcoinProperties();
+        _bitcoinProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BitcoinProperties.PORT.toString()));
+        _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinProperties.RPC_PORT.toString()));
+
+        { // Parse Seed Nodes...
+            _bitcoinProperties._seedNodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]");
         }
 
+        { // Parse Whitelisted Nodes...
+            _bitcoinProperties._whitelistedNodes = _parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]");
+        }
+
+        _bitcoinProperties._banFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBanFilter", "1"));
         _bitcoinProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _bitcoinProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _bitcoinProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));

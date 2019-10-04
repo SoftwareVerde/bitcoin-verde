@@ -25,12 +25,12 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
-import com.softwareverde.bitcoin.server.module.node.manager.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
@@ -298,7 +298,7 @@ public class SpvModule {
         _readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(_masterDatabaseManagerCache);
         _databaseConnectionFactory = database.newConnectionFactory();
         _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _readOnlyDatabaseManagerCache);
-        _banFilter = new BanFilter(_databaseManagerFactory);
+        _banFilter = new BanFilterCore(_databaseManagerFactory);
     }
 
     public Boolean isInitialized() {

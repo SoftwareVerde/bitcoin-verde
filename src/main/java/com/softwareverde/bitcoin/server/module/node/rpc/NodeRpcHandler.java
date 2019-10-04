@@ -58,6 +58,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         List<BitcoinNode> getNodes();
         void banNode(Ip ip);
         void unbanNode(Ip ip);
+        void addIpToWhitelist(Ip ip);
+        void removeIpFromWhitelist(Ip ip);
     }
 
     public interface QueryAddressHandler {
@@ -128,26 +130,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         public Container<Float> averageTransactionsPerSecond;
     }
 
-    protected static abstract class LazyProtocolMessage {
-        private ProtocolMessage _cachedProtocolMessage;
-
-        protected abstract ProtocolMessage _createProtocolMessage();
-
-        public ProtocolMessage getProtocolMessage() {
-            if (_cachedProtocolMessage == null) {
-                _cachedProtocolMessage = _createProtocolMessage();
-            }
-
-            return _cachedProtocolMessage;
-        }
-    }
-
-    protected final MasterInflater _masterInflater;
-    protected final ThreadPool _threadPool;
-    protected final Container<Float> _averageBlocksPerSecond;
-    protected final Container<Float> _averageBlockHeadersPerSecond;
-    protected final Container<Float> _averageTransactionsPerSecond;
-
     public enum HookEvent {
         NEW_BLOCK,
         NEW_TRANSACTION;
@@ -164,6 +146,20 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
+    protected static abstract class LazyProtocolMessage {
+        private ProtocolMessage _cachedProtocolMessage;
+
+        protected abstract ProtocolMessage _createProtocolMessage();
+
+        public ProtocolMessage getProtocolMessage() {
+            if (_cachedProtocolMessage == null) {
+                _cachedProtocolMessage = _createProtocolMessage();
+            }
+
+            return _cachedProtocolMessage;
+        }
+    }
+
     protected static class HookListener {
         public final JsonSocket socket;
         public final Boolean rawFormat;
@@ -175,6 +171,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             this.includeTransactionFees = includeTransactionFees;
         }
     }
+
+    protected final MasterInflater _masterInflater;
+    protected final ThreadPool _threadPool;
+    protected final Container<Float> _averageBlocksPerSecond;
+    protected final Container<Float> _averageBlockHeadersPerSecond;
+    protected final Container<Float> _averageTransactionsPerSecond;
 
     protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<HookEvent, MutableList<HookListener>>();
 
@@ -839,7 +841,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             response.put(ERROR_MESSAGE_KEY, "Invalid port: " + port);
         }
 
-        final Ip ip = Ip.fromString(host);
+        final Ip ip = Ip.fromStringOrHost(host);
         if (ip == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
             return;
@@ -864,7 +866,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String host = parameters.getString("host");
 
-        final Ip ip = Ip.fromString(host);
+        final Ip ip = Ip.fromStringOrHost(host);
         if (ip == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
             return;
@@ -889,7 +891,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String host = parameters.getString("host");
 
-        final Ip ip = Ip.fromString(host);
+        final Ip ip = Ip.fromStringOrHost(host);
         if (ip == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
             return;
@@ -1063,6 +1065,56 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         logLevelSetter.setLogLevel(packageName, logLevel);
 
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <host>
+    protected void _addIpToWhitelist(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("host")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: host");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+
+        final Ip ip = Ip.fromStringOrHost(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.addIpToWhitelist(ip);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <host>
+    protected void _removeIpFromWhitelist(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("host")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: host");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+
+        final Ip ip = Ip.fromStringOrHost(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.removeIpFromWhitelist(ip);
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -1422,6 +1474,14 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "UNBAN_NODE": {
                                 _unbanNode(parameters, response);
+                            } break;
+
+                            case "WHITELIST_NODE": {
+                                _addIpToWhitelist(parameters, response);
+                            } break;
+
+                            case "REMOVE_WHITELIST_NODE": {
+                                _removeIpFromWhitelist(parameters, response);
                             } break;
 
                             case "ADD_HOOK": {

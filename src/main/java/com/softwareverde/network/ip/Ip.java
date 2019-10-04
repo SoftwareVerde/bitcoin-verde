@@ -53,6 +53,20 @@ public interface Ip extends Const {
         return null;
     }
 
+    static Ip fromStringOrHost(final String ipOrHostName) {
+        final Ip ipFromString = Ip.fromString(ipOrHostName);
+        if (ipFromString != null) {
+            return ipFromString;
+        }
+
+        final Ip ipFromHost = Ip.fromHostName(ipOrHostName);
+        if (ipFromHost != null) {
+            return ipFromHost;
+        }
+
+        return null;
+    }
+
     ByteArray getBytes();
 
     @Override

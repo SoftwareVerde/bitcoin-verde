@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabase
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
@@ -46,10 +47,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
-
-    public static class BanCriteria {
-        public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 3;
-    }
 
     public interface FailableCallback {
         default void onFailure() { }
@@ -211,17 +208,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
-    protected void _onNodeDisconnected(final BitcoinNode node) {
-        super._onNodeDisconnected(node);
+    protected void _onNodeDisconnected(final BitcoinNode bitcoinNode) {
+        super._onNodeDisconnected(bitcoinNode);
 
-        final Boolean handshakeIsComplete = node.handshakeIsComplete();
-        if (! handshakeIsComplete) {
-            final Ip ip = node.getIp();
-
-            if (_banFilter.shouldBanIp(ip)) {
-                _banFilter.banIp(ip);
-            }
-        }
+        final Ip ip = bitcoinNode.getIp();
+        _banFilter.onNodeDisconnected(ip);
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
@@ -273,17 +264,19 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
-    protected void _onNodeHandshakeComplete(final BitcoinNode node) {
+    protected void _onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-            nodeDatabaseManager.updateLastHandshake(node);
-            nodeDatabaseManager.updateNodeFeatures(node);
-            nodeDatabaseManager.updateUserAgent(node);
+            nodeDatabaseManager.updateLastHandshake(bitcoinNode); // WARNING: If removing Last Handshake update, ensure BanFilter no longer requires the handshake timestamp...
+            nodeDatabaseManager.updateNodeFeatures(bitcoinNode);
+            nodeDatabaseManager.updateUserAgent(bitcoinNode);
         }
         catch (final DatabaseException databaseException) {
             Logger.warn(databaseException);
         }
+
+        _banFilter.onNodeHandshakeComplete(bitcoinNode);
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
@@ -753,16 +746,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void banNode(final Ip ip) {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-
-            // Ban any nodes from that ip...
-            nodeDatabaseManager.setIsBanned(ip, true);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.debug(databaseException);
-            // Still continue to disconnect from any nodes at that ip, even upon an error...
-        }
+        _banFilter.banIp(ip);
 
         // Disconnect all currently-connected nodes at that ip...
         final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
@@ -791,7 +775,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void unbanNode(final Ip ip) {
-        _banFilter.unbanNode(ip);
+        _banFilter.unbanIp(ip);
+    }
+
+    public void addIpToWhitelist(final Ip ip) {
+        _banFilter.addIpToWhitelist(ip);
+    }
+
+    public void removeIpFromWhitelist(final Ip ip) {
+        _banFilter.removeIpFromWhitelist(ip);
     }
 
     public void setOnNodeListChanged(final Runnable callback) {

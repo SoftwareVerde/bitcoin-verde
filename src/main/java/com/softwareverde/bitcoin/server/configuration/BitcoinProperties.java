@@ -10,6 +10,8 @@ public class BitcoinProperties {
     protected Integer _bitcoinPort;
     protected Integer _bitcoinRpcPort;
     protected SeedNodeProperties[] _seedNodeProperties;
+    protected SeedNodeProperties[] _whitelistedNodes;
+    protected Boolean _banFilterIsEnabled;
     protected Integer _maxPeerCount;
     protected Integer _maxThreadCount;
     protected Long _trustedBlockHeight;
@@ -25,6 +27,8 @@ public class BitcoinProperties {
     public Integer getBitcoinPort() { return _bitcoinPort; }
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
     public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
+    public SeedNodeProperties[] getWhitelistedNodes() { return Util.copyArray(_seedNodeProperties); }
+    public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
