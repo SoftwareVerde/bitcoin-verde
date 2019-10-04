@@ -27,7 +27,7 @@ public class BitcoinProperties {
     public Integer getBitcoinPort() { return _bitcoinPort; }
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
     public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
-    public SeedNodeProperties[] getWhitelistedNodes() { return Util.copyArray(_seedNodeProperties); }
+    public SeedNodeProperties[] getWhitelistedNodes() { return Util.copyArray(_whitelistedNodes); }
     public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }
