@@ -61,7 +61,6 @@ public enum Opcode {
     SHIFT_LEFT                          (0x98, false, true),
     SHIFT_RIGHT                         (0x99, false, true),
 
-
     // COMPARISON
     INTEGER_AND                         (0x9A),
     INTEGER_OR                          (0x9B),
