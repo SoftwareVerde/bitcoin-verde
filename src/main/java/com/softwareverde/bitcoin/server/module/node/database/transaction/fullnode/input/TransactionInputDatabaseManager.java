@@ -194,7 +194,21 @@ public class TransactionInputDatabaseManager {
         final MutableList<TransactionOutputIdentifier> newlySpentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionCount * 2);
 
         findPreviousTxOutputTimer.start();
-        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
+        final List<TransactionOutputIdentifier> transactionOutputIdentifiers;
+        {
+            final MutableList<TransactionOutputIdentifier> mutableList = new MutableList<TransactionOutputIdentifier>();
+            for (final Transaction transaction : transactions) {
+                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                for (final TransactionInput transactionInput : transactionInputs) {
+                    final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                    final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, previousTransactionOutputIndex);
+                    mutableList.add(transactionOutputIdentifier);
+                }
+            }
+            transactionOutputIdentifiers = mutableList;
+        }
+        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactionOutputIdentifiers);
         if (previousTransactionOutputsMap == null) { return null; }
         findPreviousTxOutputTimer.stop();
 
