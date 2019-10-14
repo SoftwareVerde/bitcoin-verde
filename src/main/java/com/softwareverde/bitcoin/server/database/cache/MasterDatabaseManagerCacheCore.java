@@ -43,17 +43,17 @@ public class MasterDatabaseManagerCacheCore implements MasterDatabaseManagerCach
     }
 
     public MasterDatabaseManagerCacheCore(final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory) {
-        final MemoryStatus memoryStatus = new JvmMemoryStatus();
+        // final MemoryStatus memoryStatus = new JvmMemoryStatus();
 
-        _transactionIdCache                 = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<ImmutableSha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
-        _transactionCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, ConstTransaction>(                   "TransactionCache",             128000), memoryStatus);
-        _transactionOutputIdCache           = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId",          128000), memoryStatus);
-        _blockIdBlockchainSegmentIdCache    = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, BlockchainSegmentId>(                          "BlockId-BlockchainSegmentId",  2048), memoryStatus);
-        _blockHeightCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, Long>(                                         "BlockHeightCache",             2048), memoryStatus);
-        _addressIdCache                     = MemoryConscientiousCache.wrap(0.95F, new DisabledCache<String, AddressId>(), memoryStatus);
+        _transactionIdCache                 = new DisabledCache<>(); // MemoryConscientiousCache.wrap(0.95F, new HashMapCache<ImmutableSha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
+        _transactionCache                   = new DisabledCache<>(); // MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, ConstTransaction>(                   "TransactionCache",             128000), memoryStatus);
+        _transactionOutputIdCache           = new DisabledCache<>(); // MemoryConscientiousCache.wrap(0.95F, new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId",          128000), memoryStatus);
+        _blockIdBlockchainSegmentIdCache    = new DisabledCache<>(); // MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, BlockchainSegmentId>(                          "BlockId-BlockchainSegmentId",  2048), memoryStatus);
+        _blockHeightCache                   = new DisabledCache<>(); // MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, Long>(                                         "BlockHeightCache",             2048), memoryStatus);
+        _addressIdCache                     = new DisabledCache<>(); // MemoryConscientiousCache.wrap(0.95F, new DisabledCache<String, AddressId>(), memoryStatus);
 
-        _unspentTransactionOutputCacheFactory = Util.coalesce(unspentTransactionOutputCacheFactory, DisabledUnspentTransactionOutputCache.FACTORY);
-        _unspentTransactionOutputCache = _unspentTransactionOutputCacheFactory.newUnspentTransactionOutputCache();
+        _unspentTransactionOutputCacheFactory = DisabledUnspentTransactionOutputCache.FACTORY; // Util.coalesce(unspentTransactionOutputCacheFactory, DisabledUnspentTransactionOutputCache.FACTORY);
+        _unspentTransactionOutputCache = DisabledUnspentTransactionOutputCache.FACTORY.newUnspentTransactionOutputCache(); // _unspentTransactionOutputCacheFactory.newUnspentTransactionOutputCache();
         _maxCachedUtxoCount = _unspentTransactionOutputCache.getMaxUtxoCount();
     }
 
