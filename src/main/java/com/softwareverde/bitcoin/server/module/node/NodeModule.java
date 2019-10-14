@@ -201,8 +201,10 @@ public class NodeModule {
             _slpTransactionProcessor.stop();
         }
 
-        Logger.info("[Stopping Addresses Processor]");
-        _addressProcessor.stop();
+        if (_addressProcessor != null) {
+            Logger.info("[Stopping Addresses Processor]");
+            _addressProcessor.stop();
+        }
 
         Logger.info("[Stopping Transaction Processor]");
         _transactionProcessor.stop();
@@ -495,21 +497,22 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
+        _addressProcessor = null; // new AddressProcessor(databaseManagerFactory);
         if (bitcoinProperties.isTrimBlocksEnabled()) {
             _slpTransactionProcessor = null;
-            _addressProcessor = new AddressProcessor(databaseManagerFactory);
         }
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
-            _addressProcessor = new AddressProcessor(databaseManagerFactory);
-            _addressProcessor.setOnSleepCallback(new Runnable() {
-                @Override
-                public void run() {
-                    Logger.trace("AddressProcessor: Callback");
-                    _slpTransactionProcessor.wakeUp();
-                }
-            });
+            if (_addressProcessor != null) {
+                _addressProcessor.setOnSleepCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        Logger.trace("AddressProcessor: Callback");
+                        _slpTransactionProcessor.wakeUp();
+                    }
+                });
+            }
         }
 
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
@@ -525,7 +528,9 @@ public class NodeModule {
                         blockCache.cacheBlock(block, blockHeight);
                     }
 
-                    _addressProcessor.wakeUp();
+                    if (_addressProcessor != null) {
+                        _addressProcessor.wakeUp();
+                    }
 
                     if (bitcoinProperties.isTrimBlocksEnabled()) {
                         final Integer keepBlockCount = 144; // NOTE: Keeping the last days of blocks protects any non-malicious chain re-organization from failing...
@@ -660,7 +665,9 @@ public class NodeModule {
                 public void onNewTransactions(final List<Transaction> transactions) {
 
                     _transactionRelay.relayTransactions(transactions);
-                    _addressProcessor.wakeUp();
+                    if (_addressProcessor != null) {
+                        _addressProcessor.wakeUp();
+                    }
                 }
             });
         }
@@ -904,8 +911,10 @@ public class NodeModule {
         Logger.info("[Starting Transaction Processor]");
         _transactionProcessor.start();
 
-        Logger.info("[Started Address Processor]");
-        _addressProcessor.start();
+        if (_addressProcessor != null) {
+            Logger.info("[Starting Address Processor]");
+            _addressProcessor.start();
+        }
 
         if (_slpTransactionProcessor != null) {
             Logger.info("[Started SlpTransaction Processor]");
