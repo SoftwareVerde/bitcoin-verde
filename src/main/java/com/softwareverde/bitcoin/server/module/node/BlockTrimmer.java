@@ -29,7 +29,6 @@ public class BlockTrimmer {
 
         final MilliTimer milliTimer = new MilliTimer();
         milliTimer.start();
-        // long trimmedOutputsCount = 0;
 
         final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>();
 
@@ -42,9 +41,6 @@ public class BlockTrimmer {
                 final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.getPreviousTransactionOutputId(transactionInputId);
                 if (transactionOutputId == null) { continue; }
 
-                // Logger.trace("Trimming Transaction Output Id: " + transactionOutputId);
-                // transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
-                // trimmedOutputsCount += 1;
                 transactionOutputIds.add(transactionOutputId);
             }
         }

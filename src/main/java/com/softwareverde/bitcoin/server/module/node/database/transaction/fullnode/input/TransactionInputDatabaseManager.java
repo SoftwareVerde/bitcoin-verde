@@ -193,10 +193,10 @@ public class TransactionInputDatabaseManager {
         final MutableList<TransactionOutputId> newlySpentTransactionOutputIds = new MutableList<TransactionOutputId>(transactionCount * 2);
         final MutableList<TransactionOutputIdentifier> newlySpentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionCount * 2);
 
-//        findPreviousTxOutputTimer.start();
-//        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
-//        if (previousTransactionOutputsMap == null) { return null; }
-//        findPreviousTxOutputTimer.stop();
+        findPreviousTxOutputTimer.start();
+        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
+        if (previousTransactionOutputsMap == null) { return null; }
+        findPreviousTxOutputTimer.stop();
 
         txInputPrepareInsertQueryTimer.start();
         int transactionInputIdCount = 0;
@@ -215,25 +215,15 @@ public class TransactionInputDatabaseManager {
                 unlockingScripts.add(unlockingScript);
 
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final Boolean isCoinbase = Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash());
-
-                // final TransactionOutputId previousTransactionOutputId = previousTransactionOutputsMap.get(transactionOutputIdentifier);
-                final TransactionOutputId previousTransactionOutputId;
-                if (isCoinbase) {
-                    previousTransactionOutputId = null;
-                }
-                else {
-                    findPreviousTxOutputTimer.start();
-                    previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
-                    findPreviousTxOutputTimer.stop();
-                    totalFindPreviousTxOutputTime += findPreviousTxOutputTimer.getMillisecondsElapsed();
-                    if (previousTransactionOutputId == null) {
-                        Logger.warn("Unable to find TransactionOutput: " + transactionOutputIdentifier.getTransactionHash() + ":"+ transactionOutputIdentifier.getOutputIndex());
-                        return null;
-                    }
-                }
+                final TransactionOutputId previousTransactionOutputId = previousTransactionOutputsMap.get(transactionOutputIdentifier);
 
                 if (previousTransactionOutputId != null) { // Should only true for the coinbase input...
+                    final Boolean isCoinbase = Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash());
+                    if (! isCoinbase) {
+                        Logger.warn("Unable to find output: " + transactionOutputIdentifier);
+                        return null;
+                    }
+
                     newlySpentTransactionOutputIds.add(previousTransactionOutputId);
                     newlySpentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                 }

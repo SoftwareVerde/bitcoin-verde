@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -25,6 +26,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -37,6 +39,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -457,6 +460,40 @@ public class TransactionOutputDatabaseManager {
         if (transactionId == null) { return null; }
 
         return _getTransactionOutputId(transactionId, transactionOutputIndex);
+    }
+
+    public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<Transaction> transactions) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final HashSet<Sha256Hash> previousTransactionHashes = new HashSet<Sha256Hash>();
+        for (final Transaction transaction : transactions) {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
+                previousTransactionHashes.add(transactionHash);
+            }
+        }
+
+        final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>();
+        {
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT transactions.id, transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE transactions.hash IN (" + DatabaseUtil.createInClause(previousTransactionHashes) + ")")
+            );
+            if (rows.size() != previousTransactionHashes.size()) { return null; }
+
+            for (final Row row : rows) {
+                final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+                final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, transactionOutputIndex);
+                transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
+            }
+        }
+
+        return transactionOutputIds;
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
