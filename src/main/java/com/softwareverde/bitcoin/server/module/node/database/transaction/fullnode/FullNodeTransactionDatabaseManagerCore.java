@@ -238,6 +238,91 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return TransactionId.wrap(row.getLong("id"));
     }
 
+    protected void _updateTransaction(final Transaction transaction, final Boolean skipMissingOutputs) throws DatabaseException {
+        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+
+        databaseManagerCache.invalidateTransactionIdCache();
+        databaseManagerCache.invalidateTransactionCache();
+
+        final TransactionId transactionId = _getTransactionId(transaction.getHash());
+
+        _updateTransaction(transactionId, transaction);
+
+        { // Process TransactionOutputs....
+            final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+
+            final HashMap<Integer, TransactionOutput> transactionOutputMap = new HashMap<Integer, TransactionOutput>();
+            {
+                for (final TransactionOutput transactionOutput : transactionOutputs) {
+                    transactionOutputMap.put(transactionOutput.getIndex(), transactionOutput);
+                }
+            }
+
+            final Set<Integer> processedTransactionOutputIndexes = new TreeSet<Integer>();
+            for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+                final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+
+                final Integer transactionOutputIndex = transactionOutput.getIndex();
+                final boolean transactionOutputExistsInUpdatedTransaction = transactionOutputMap.containsKey(transactionOutputIndex);
+                if (transactionOutputExistsInUpdatedTransaction) {
+                    transactionOutputDatabaseManager.updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
+                    processedTransactionOutputIndexes.add(transactionOutputIndex);
+                }
+                else {
+                    transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
+                }
+            }
+
+            final Sha256Hash transactionHash = transaction.getHash();
+            for (final TransactionOutput transactionOutput : transactionOutputs) {
+                final Integer transactionOutputIndex = transactionOutput.getIndex();
+                final boolean transactionOutputHasBeenProcessed = processedTransactionOutputIndexes.contains(transactionOutputIndex);
+                if (! transactionOutputHasBeenProcessed) {
+                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
+                }
+            }
+        }
+
+        { // Process TransactionInputs....
+            final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+
+            final HashMap<TransactionOutputIdentifier, TransactionInput> transactionInputMap = new HashMap<TransactionOutputIdentifier, TransactionInput>();
+            {
+                for (final TransactionInput transactionInput : transactionInputs) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                    transactionInputMap.put(transactionOutputIdentifier, transactionInput);
+                }
+            }
+
+            final Set<TransactionOutputIdentifier> processedTransactionInputIndexes = new TreeSet<TransactionOutputIdentifier>();
+            for (final TransactionInputId transactionInputId : transactionInputIds) {
+                final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final boolean transactionInputExistsInUpdatedTransaction = transactionInputMap.containsKey(transactionOutputIdentifier);
+                if (transactionInputExistsInUpdatedTransaction) {
+                    transactionInputDatabaseManager.updateTransactionInput(transactionInputId, transactionId, transactionInput);
+                    processedTransactionInputIndexes.add(transactionOutputIdentifier);
+                }
+                else {
+                    transactionInputDatabaseManager.deleteTransactionInput(transactionInputId);
+                }
+            }
+
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final boolean transactionInputHasBeenProcessed = processedTransactionInputIndexes.contains(transactionOutputIdentifier);
+                if (! transactionInputHasBeenProcessed) {
+                    transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput, skipMissingOutputs);
+                }
+            }
+        }
+    }
+
     protected void _updateTransaction(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
@@ -910,88 +995,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public void updateTransaction(final Transaction transaction) throws DatabaseException {
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+        _updateTransaction(transaction, false);
+    }
 
-        databaseManagerCache.invalidateTransactionIdCache();
-        databaseManagerCache.invalidateTransactionCache();
-
-        final TransactionId transactionId = _getTransactionId(transaction.getHash());
-
-        _updateTransaction(transactionId, transaction);
-
-        { // Process TransactionOutputs....
-            final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-
-            final HashMap<Integer, TransactionOutput> transactionOutputMap = new HashMap<Integer, TransactionOutput>();
-            {
-                for (final TransactionOutput transactionOutput : transactionOutputs) {
-                    transactionOutputMap.put(transactionOutput.getIndex(), transactionOutput);
-                }
-            }
-
-            final Set<Integer> processedTransactionOutputIndexes = new TreeSet<Integer>();
-            for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
-                final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
-
-                final Integer transactionOutputIndex = transactionOutput.getIndex();
-                final boolean transactionOutputExistsInUpdatedTransaction = transactionOutputMap.containsKey(transactionOutputIndex);
-                if (transactionOutputExistsInUpdatedTransaction) {
-                    transactionOutputDatabaseManager.updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
-                    processedTransactionOutputIndexes.add(transactionOutputIndex);
-                }
-                else {
-                    transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
-                }
-            }
-
-            final Sha256Hash transactionHash = transaction.getHash();
-            for (final TransactionOutput transactionOutput : transactionOutputs) {
-                final Integer transactionOutputIndex = transactionOutput.getIndex();
-                final boolean transactionOutputHasBeenProcessed = processedTransactionOutputIndexes.contains(transactionOutputIndex);
-                if (! transactionOutputHasBeenProcessed) {
-                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
-                }
-            }
-        }
-
-        { // Process TransactionInputs....
-            final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
-            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-
-            final HashMap<TransactionOutputIdentifier, TransactionInput> transactionInputMap = new HashMap<TransactionOutputIdentifier, TransactionInput>();
-            {
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                    transactionInputMap.put(transactionOutputIdentifier, transactionInput);
-                }
-            }
-
-            final Set<TransactionOutputIdentifier> processedTransactionInputIndexes = new TreeSet<TransactionOutputIdentifier>();
-            for (final TransactionInputId transactionInputId : transactionInputIds) {
-                final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
-
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final boolean transactionInputExistsInUpdatedTransaction = transactionInputMap.containsKey(transactionOutputIdentifier);
-                if (transactionInputExistsInUpdatedTransaction) {
-                    transactionInputDatabaseManager.updateTransactionInput(transactionInputId, transactionId, transactionInput);
-                    processedTransactionInputIndexes.add(transactionOutputIdentifier);
-                }
-                else {
-                    transactionInputDatabaseManager.deleteTransactionInput(transactionInputId);
-                }
-            }
-
-            for (final TransactionInput transactionInput : transactionInputs) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final boolean transactionInputHasBeenProcessed = processedTransactionInputIndexes.contains(transactionOutputIdentifier);
-                if (! transactionInputHasBeenProcessed) {
-                    transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
-                }
-            }
-        }
+    @Override
+    public void updateTransaction(final Transaction transaction, final Boolean skipMissingOutputs) throws DatabaseException {
+        _updateTransaction(transaction, skipMissingOutputs);
     }
 
     @Override

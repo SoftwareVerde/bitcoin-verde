@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -43,6 +44,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
@@ -111,11 +113,16 @@ public class RepairModule {
             nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
             nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
 
+            nodeInitializerProperties.requestSpvBlocksCallback = null;
+            nodeInitializerProperties.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
             _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
     }
 
     public void run() {
+        Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
+
         final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
@@ -139,7 +146,11 @@ public class RepairModule {
             }
         }
 
+        final Boolean trimModeIsEnabled = _bitcoinProperties.isTrimBlocksEnabled();
+
         final BitcoinNode bitcoinNode = bitcoinNodes.get(0);
+        bitcoinNode.connect();
+        bitcoinNode.handshake();
 
         if ( (_blockHashes.getSize() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
             try (final DatabaseConnection databaseConnection = database.newConnection()) {
@@ -178,10 +189,13 @@ public class RepairModule {
         }
 
         for (final Sha256Hash blockHash : _blockHashes) {
-            final Object synchronizer = new Object();
+            final Object pin = new Object();
+            Logger.info("Requesting Block " + blockHash + " from " + bitcoinNode);
             bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
+                    Logger.info("Received Block " + blockHash + " from " + bitcoinNode);
+
                     try (final DatabaseConnection databaseConnection = database.newConnection()) {
                         final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -194,22 +208,29 @@ public class RepairModule {
                         }
 
                         TransactionUtil.startTransaction(databaseConnection);
-                        blockDatabaseManager.repairBlock(block);
+                        blockDatabaseManager.repairBlock(block, trimModeIsEnabled);
                         TransactionUtil.commitTransaction(databaseConnection);
 
                         Logger.info("Repaired block: " + blockHash);
-
                     }
                     catch (final DatabaseException exception) {
                         Logger.error("Error repairing block: " + blockHash, exception);
                     }
 
-                    synchronizer.notifyAll();
+                    synchronized (pin) {
+                        pin.notifyAll();
+                    }
                 }
             });
 
-            try { synchronizer.wait(); }
-            catch (final InterruptedException exception) { break; }
+            try {
+                synchronized (pin) {
+                    pin.wait();
+                }
+            }
+            catch (final InterruptedException exception) {
+                break;
+            }
         }
 
         if (masterDatabaseManagerCache != null) {

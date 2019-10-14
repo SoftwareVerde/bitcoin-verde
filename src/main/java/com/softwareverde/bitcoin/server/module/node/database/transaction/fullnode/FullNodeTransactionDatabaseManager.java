@@ -27,6 +27,7 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     Integer getUnconfirmedTransactionCount() throws DatabaseException;
     Long calculateTransactionFee(Transaction transaction) throws DatabaseException;
     void updateTransaction(Transaction transaction) throws DatabaseException;
+    void updateTransaction(Transaction transaction, final Boolean skipMissingOutputs) throws DatabaseException;
     void deleteTransaction(TransactionId transactionId) throws DatabaseException;
 
     SlpTokenId getSlpTokenId(Sha256Hash transactionHash) throws DatabaseException;

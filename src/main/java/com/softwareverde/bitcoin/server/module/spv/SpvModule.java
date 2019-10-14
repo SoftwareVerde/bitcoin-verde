@@ -152,7 +152,6 @@ public class SpvModule {
 
             final BitcoinNode node = _nodeInitializer.initializeNode(nodeIpAddress);
             _bitcoinNodeManager.addNode(node);
-
         }
     }
 

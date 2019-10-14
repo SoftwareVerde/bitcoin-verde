@@ -72,9 +72,8 @@ public class TransactionInputDatabaseManager {
         return TransactionInputId.wrap(row.getLong("id"));
     }
 
-    protected TransactionInputId _insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+    protected TransactionInputId _insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput, final Boolean skipMissingOutputs) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
         final TransactionOutputId previousTransactionOutputId;
@@ -85,7 +84,7 @@ public class TransactionInputDatabaseManager {
             }
             else {
                 previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
-                if (previousTransactionOutputId == null) {
+                if ( (previousTransactionOutputId == null) && (! skipMissingOutputs)) {
                     throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
                 }
             }
@@ -163,7 +162,11 @@ public class TransactionInputDatabaseManager {
     }
 
     public TransactionInputId insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        return _insertTransactionInput(transactionId, transactionInput);
+        return _insertTransactionInput(transactionId, transactionInput, false);
+    }
+
+    public TransactionInputId insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput, final Boolean skipMissingOutputs) throws DatabaseException {
+        return _insertTransactionInput(transactionId, transactionInput, skipMissingOutputs);
     }
 
     public List<TransactionInputId> insertTransactionInputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {

@@ -304,7 +304,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return _getTransactionCount(blockId);
     }
 
-    public void repairBlock(final Block block) throws DatabaseException {
+    public void repairBlock(final Block block, final Boolean isTrimModeEnabled) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
@@ -334,7 +334,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
                 if (transactionExistsInUpdatedBlock) {
                     final Transaction transaction = existingTransactionHashes.get(transactionHash);
                     Logger.info("Updating Transaction: " + transactionHash + " Id: " + transactionId);
-                    transactionDatabaseManager.updateTransaction(transaction);
+                    transactionDatabaseManager.updateTransaction(transaction, isTrimModeEnabled);
                     updatedTransactions.add(transactionHash);
                 }
                 else {
