@@ -26,14 +26,15 @@ public class BlockTrimmer {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = databaseManager.getTransactionInputDatabaseManager();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
+        final MilliTimer milliTimer = new MilliTimer();
+        milliTimer.start();
+        long trimmedOutputsCount = 0;
+
         final List<TransactionId> blockTransactionIds = blockDatabaseManager.getTransactionIds(blockId);
         for (final TransactionId transactionId : blockTransactionIds) {
             final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
             if (transactionInputIds == null) { continue; }
 
-            final MilliTimer milliTimer = new MilliTimer();
-            milliTimer.start();
-            long trimmedOutputsCount = 0;
             for (final TransactionInputId transactionInputId : transactionInputIds) {
                 final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.getPreviousTransactionOutputId(transactionInputId);
                 if (transactionOutputId == null) { continue; }
@@ -43,9 +44,9 @@ public class BlockTrimmer {
                 trimmedOutputsCount += 1;
             }
             milliTimer.stop();
-
-            Logger.debug("Trimmed " + trimmedOutputsCount + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
         }
+
+        Logger.debug("Trimmed " + trimmedOutputsCount + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
     }
 
     public BlockTrimmer(final FullNodeDatabaseManagerFactory databaseConnectionFactory) {
