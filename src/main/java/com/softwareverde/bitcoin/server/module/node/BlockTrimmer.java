@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.timer.MilliTimer;
 
 public class BlockTrimmer {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -30,13 +31,20 @@ public class BlockTrimmer {
             final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
             if (transactionInputIds == null) { continue; }
 
+            final MilliTimer milliTimer = new MilliTimer();
+            milliTimer.start();
+            long trimmedOutputsCount = 0;
             for (final TransactionInputId transactionInputId : transactionInputIds) {
                 final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.getPreviousTransactionOutputId(transactionInputId);
                 if (transactionOutputId == null) { continue; }
 
-                Logger.debug("Trimming Transaction Output Id: " + transactionOutputId);
+                Logger.trace("Trimming Transaction Output Id: " + transactionOutputId);
                 transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
+                trimmedOutputsCount += 1;
             }
+            milliTimer.stop();
+
+            Logger.debug("Trimmed " + trimmedOutputsCount + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 
