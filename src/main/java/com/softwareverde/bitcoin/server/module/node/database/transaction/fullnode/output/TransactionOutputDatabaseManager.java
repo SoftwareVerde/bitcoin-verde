@@ -571,6 +571,17 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
+    public void deleteTransactionOutputs(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
+
+        databaseManagerCache.invalidateTransactionOutputIdCache();
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM transaction_outputs WHERE id IN (" + DatabaseUtil.createInClause(transactionOutputIds) + ")")
+        );
+    }
+
     public TransactionId getTransactionId(final LockingScriptId lockingScriptId) throws DatabaseException {
         return _getTransactionId(lockingScriptId);
     }

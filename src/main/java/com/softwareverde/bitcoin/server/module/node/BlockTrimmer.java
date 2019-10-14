@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.MilliTimer;
@@ -28,7 +29,9 @@ public class BlockTrimmer {
 
         final MilliTimer milliTimer = new MilliTimer();
         milliTimer.start();
-        long trimmedOutputsCount = 0;
+        // long trimmedOutputsCount = 0;
+
+        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>();
 
         final List<TransactionId> blockTransactionIds = blockDatabaseManager.getTransactionIds(blockId);
         for (final TransactionId transactionId : blockTransactionIds) {
@@ -39,14 +42,18 @@ public class BlockTrimmer {
                 final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.getPreviousTransactionOutputId(transactionInputId);
                 if (transactionOutputId == null) { continue; }
 
-                Logger.trace("Trimming Transaction Output Id: " + transactionOutputId);
-                transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
-                trimmedOutputsCount += 1;
+                // Logger.trace("Trimming Transaction Output Id: " + transactionOutputId);
+                // transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
+                // trimmedOutputsCount += 1;
+                transactionOutputIds.add(transactionOutputId);
             }
-            milliTimer.stop();
         }
 
-        Logger.debug("Trimmed " + trimmedOutputsCount + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
+        transactionOutputDatabaseManager.deleteTransactionOutputs(transactionOutputIds);
+
+        milliTimer.stop();
+
+        Logger.debug("Trimmed " + transactionOutputIds.getSize() + " outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
     }
 
     public BlockTrimmer(final FullNodeDatabaseManagerFactory databaseConnectionFactory) {
