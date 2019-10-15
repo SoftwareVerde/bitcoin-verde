@@ -185,7 +185,6 @@ public class TransactionInputDatabaseManager {
         final MilliTimer insertTxInputTimer = new MilliTimer();
         final MilliTimer insertUnlockingScriptsTimer = new MilliTimer();
         final MilliTimer markOutputsAsSpentTimer = new MilliTimer();
-        double totalFindPreviousTxOutputTime = 0D;
 
         final int transactionCount = transactions.getSize();
 
@@ -279,8 +278,7 @@ public class TransactionInputDatabaseManager {
         markOutputsAsSpentTimer.stop();
 
         // Logger.debug("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
-        // Logger.debug("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
-        Logger.debug("findPreviousTxOutputTimer: " + totalFindPreviousTxOutputTime + "ms");
+        Logger.debug("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("txInputPrepareInsertQueryTimer: " + txInputPrepareInsertQueryTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("insertTxInputTimer: " + insertTxInputTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("insertUnlockingScriptsTimer: " + insertUnlockingScriptsTimer.getMillisecondsElapsed() + "ms");
