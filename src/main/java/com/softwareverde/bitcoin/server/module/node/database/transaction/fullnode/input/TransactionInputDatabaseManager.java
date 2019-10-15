@@ -234,13 +234,15 @@ public class TransactionInputDatabaseManager {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
                 final TransactionOutputId previousTransactionOutputId = previousTransactionOutputsMap.get(transactionOutputIdentifier);
 
-                if (previousTransactionOutputId != null) { // Should only true for the coinbase input...
+                if (previousTransactionOutputId == null) {
+                    // Should only be null for a coinbase input...
                     final Boolean isCoinbase = Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash());
                     if (! isCoinbase) {
                         Logger.warn("Unable to find output: " + transactionOutputIdentifier);
                         return null;
                     }
-
+                }
+                else {
                     newlySpentTransactionOutputIds.add(previousTransactionOutputId);
                     newlySpentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                 }
