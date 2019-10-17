@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.BatchedUpdateQuery;
@@ -484,10 +485,19 @@ public class TransactionOutputDatabaseManager {
 
                     final java.util.List<Row> rows;
                     try {
-                        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-                        rows = databaseConnection.query(
-                            new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(batchedTransactionOutputIdentifiers) + ")")
-                        );
+                        final Query query = new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(batchedTransactionOutputIdentifiers) + ")");
+
+                        final DatabaseConnectionFactory connectionFactory = _databaseManager.getDatabaseConnectionFactory();
+                        if (connectionFactory != null) {
+                            try (final DatabaseConnection databaseConnection = connectionFactory.newConnection()) {
+                                rows = databaseConnection.query(query);
+                            }
+                        }
+                        else {
+                            Logger.debug("DatabaseConnectionFactory not set, falling back to synchronous database connection.");
+                            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                            rows = databaseConnection.query(query);
+                        }
                     }
                     catch (final Exception exception) {
                         exceptionContainer.value = ( (exception instanceof DatabaseException) ? ((DatabaseException) exception) : (new DatabaseException(exception)) );

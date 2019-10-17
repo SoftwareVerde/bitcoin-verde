@@ -113,6 +113,7 @@ public class BlockProcessor {
             final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
             final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager(localDatabaseManagerCache)
         ) {
+            databaseManager.setDatabaseConnectionFactory(_databaseManagerFactory.getDatabaseConnectionFactory());
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final Sha256Hash blockHash = block.getHash();
             _processedBlockCount += 1;

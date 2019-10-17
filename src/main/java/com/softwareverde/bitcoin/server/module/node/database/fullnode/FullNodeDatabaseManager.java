@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -24,6 +25,8 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
+    protected DatabaseConnectionFactory _databaseConnectionFactory = null;
+
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
@@ -44,6 +47,14 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = Util.coalesce(databaseManagerCache, new DisabledDatabaseManagerCache());
+    }
+
+    public void setDatabaseConnectionFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
+        _databaseConnectionFactory = databaseConnectionFactory;
+    }
+
+    public DatabaseConnectionFactory getDatabaseConnectionFactory() {
+        return _databaseConnectionFactory;
     }
 
     @Override
