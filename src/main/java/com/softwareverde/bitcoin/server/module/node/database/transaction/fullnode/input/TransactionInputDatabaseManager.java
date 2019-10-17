@@ -29,7 +29,6 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
-import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.Map;
 
@@ -180,7 +179,7 @@ public class TransactionInputDatabaseManager {
         if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
 
         // final MilliTimer findPreviousTransactionsTimer = new MilliTimer();
-        final NanoTimer findPreviousTxOutputTimer = new NanoTimer();
+        final MilliTimer findPreviousTxOutputTimer = new MilliTimer();
         final MilliTimer txInputPrepareInsertQueryTimer = new MilliTimer();
         final MilliTimer insertTxInputTimer = new MilliTimer();
         final MilliTimer insertUnlockingScriptsTimer = new MilliTimer();

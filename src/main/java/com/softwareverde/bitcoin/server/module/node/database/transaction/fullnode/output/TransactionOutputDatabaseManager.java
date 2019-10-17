@@ -34,10 +34,12 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TransactionOutputDatabaseManager {
@@ -460,22 +462,62 @@ public class TransactionOutputDatabaseManager {
     }
 
     public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final int batchSize = 512;
+        final int batchCount = (int) Math.ceil(transactionOutputIdentifiers.getSize() / (double) batchSize);
+        final ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutputId>();
 
-        final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>();
-        {
-            final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(transactionOutputIdentifiers) + ")")
-            );
+        final Thread[] threads = new Thread[batchCount];
+        final Container<DatabaseException> exceptionContainer = new Container<DatabaseException>();
+        for (int i = 0; i < batchCount; ++i) {
+            final int batchId = i;
+            final Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final MutableList<TransactionOutputIdentifier> batchedTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(batchSize);
+                    for (int j = 0; j < batchSize; ++j) {
+                        final int index = ((batchId * batchSize) + j);
+                        if (index >= transactionOutputIdentifiers.getSize()) { break; }
+                        final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(index);
+                        batchedTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                    }
+                    if (batchedTransactionOutputIdentifiers.isEmpty()) { return; }
 
-            for (final Row row : rows) {
-                final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-                final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
-                final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
+                    final java.util.List<Row> rows;
+                    try {
+                        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                        rows = databaseConnection.query(
+                            new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(batchedTransactionOutputIdentifiers) + ")")
+                        );
+                    }
+                    catch (final Exception exception) {
+                        exceptionContainer.value = ( (exception instanceof DatabaseException) ? ((DatabaseException) exception) : (new DatabaseException(exception)) );
+                        return;
+                    }
 
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, transactionOutputIndex);
-                transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
+                    for (final Row row : rows) {
+                        final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+                        final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
+
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, transactionOutputIndex);
+                        transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
+                    }
+                }
+            });
+            threads[i] = thread;
+            thread.start();
+        }
+
+        try {
+            for (int i = 0; i < batchCount; ++i) {
+                threads[i].join();
             }
+            if (exceptionContainer.value != null) {
+                throw exceptionContainer.value;
+            }
+        }
+        catch (final InterruptedException exception) {
+            throw new DatabaseException(exception);
         }
 
         return transactionOutputIds;
