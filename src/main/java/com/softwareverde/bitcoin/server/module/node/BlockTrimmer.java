@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -45,7 +46,13 @@ public class BlockTrimmer {
             }
         }
 
-        transactionOutputDatabaseManager.deleteTransactionOutputs(transactionOutputIds);
+        final BatchRunner<TransactionOutputId> batchRunner = new BatchRunner<TransactionOutputId>(512);
+        batchRunner.run(transactionOutputIds, new BatchRunner.Batch<TransactionOutputId>() {
+            @Override
+            public void run(final List<TransactionOutputId> batchItems) throws Exception {
+                transactionOutputDatabaseManager.deleteTransactionOutputs(batchItems);
+            }
+        });
 
         milliTimer.stop();
 
@@ -58,6 +65,8 @@ public class BlockTrimmer {
 
     public void trimBlock(final Long blockHeight) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            databaseManager.setDatabaseConnectionFactory(_databaseManagerFactory.getDatabaseConnectionFactory());
+
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
@@ -70,6 +79,8 @@ public class BlockTrimmer {
 
     public void trimBlock(final Sha256Hash blockHash) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            databaseManager.setDatabaseConnectionFactory(_databaseManagerFactory.getDatabaseConnectionFactory());
+
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
@@ -79,12 +90,16 @@ public class BlockTrimmer {
 
     public void trimBlock(final BlockId blockId) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            databaseManager.setDatabaseConnectionFactory(_databaseManagerFactory.getDatabaseConnectionFactory());
+
             _trimBlock(blockId, databaseManager);
         }
     }
 
     public void trimBlock(final Sha256Hash childBlockHash, final Integer parentCount) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            databaseManager.setDatabaseConnectionFactory(_databaseManagerFactory.getDatabaseConnectionFactory());
+
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId childBlockId = blockHeaderDatabaseManager.getBlockHeaderId(childBlockHash);

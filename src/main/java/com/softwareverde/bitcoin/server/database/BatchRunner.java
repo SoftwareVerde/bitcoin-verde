@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 
 public class BatchRunner<T> {
@@ -45,6 +46,13 @@ public class BatchRunner<T> {
                 }
             });
             threads[i] = thread;
+            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.debug(exception);
+                }
+            });
+            thread.setName("BatchRunner");
             thread.start();
         }
 
@@ -62,6 +70,9 @@ public class BatchRunner<T> {
             }
         }
         catch (final InterruptedException exception) {
+            for (int i = 0; i < batchCount; ++i) {
+                threads[i].interrupt();
+            }
             throw new DatabaseException(exception);
         }
     }
