@@ -36,9 +36,10 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
         _dataSource.setConnectionTestQuery("SELECT 1");
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
-        _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(5));
+        _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(15));
         _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
         _dataSource.setAutoCommit(true);
+        _dataSource.setMaximumPoolSize(32);
 
         final String hostname = databaseProperties.getHostname();
         final Integer port = databaseProperties.getPort();
