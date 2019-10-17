@@ -190,7 +190,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final MutableList<Transaction> transactionList = new MutableList<Transaction>(1);
             transactionList.add(transaction);
 
-            transactionInputDatabaseManager.insertTransactionInputs(transactionHashMap, transactionList);
+            transactionInputDatabaseManager.insertTransactionInputs(transactionHashMap, transactionList, null);
         }
     }
 
@@ -594,6 +594,33 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return transaction;
     }
 
+    protected Map<TransactionOutputIdentifier, TransactionOutputId> _buildOutputIdsMap(final List<TransactionOutputId> transactionOutputIds, final List<Transaction> transactions) {
+        final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIdMap = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(transactionOutputIds.getSize());
+
+        int transactionOutputIdIndex = 0;
+        for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            final int transactionOutputCount = transactionOutputs.getSize();
+
+            if ((transactionOutputIdIndex + transactionOutputCount) > transactionOutputIds.getSize()) {
+                Logger.debug("InsertTransactionOutputs Id count mismatch. Expected at least " + (transactionOutputIdIndex + transactionOutputCount) + " ids, but only have " + transactionOutputIds.getSize() + " available.");
+                return null;
+            }
+
+            for (int i = 0; i < transactionOutputCount; ++i) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, i);
+                final TransactionOutputId transactionOutputId = transactionOutputIds.get(transactionOutputIdIndex);
+
+                transactionOutputIdMap.put(transactionOutputIdentifier, transactionOutputId);
+
+                transactionOutputIdIndex += 1;
+            }
+        }
+
+        return transactionOutputIdMap;
+    }
+
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
@@ -721,9 +748,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (transactionOutputIds == null) { return null; }
         insertTransactionOutputsTimer.stop();
 
+        final Map<TransactionOutputIdentifier, TransactionOutputId> newOutputsFromThisBlock = _buildOutputIdsMap(transactionOutputIds, unseenTransactions);
+        if (newOutputsFromThisBlock == null) { return null; }
+
         insertTransactionInputsTimer.start();
         // final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, newTransactions);
-        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, unseenTransactions);
+        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, unseenTransactions, newOutputsFromThisBlock);
         if (transactionInputIds == null) { return  null; }
         insertTransactionInputsTimer.stop();
 

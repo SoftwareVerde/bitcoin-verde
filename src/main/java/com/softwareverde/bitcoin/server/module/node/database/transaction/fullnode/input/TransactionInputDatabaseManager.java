@@ -168,7 +168,7 @@ public class TransactionInputDatabaseManager {
         return _insertTransactionInput(transactionId, transactionInput, skipMissingOutputs);
     }
 
-    public List<TransactionInputId> insertTransactionInputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+    public List<TransactionInputId> insertTransactionInputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions, final Map<TransactionOutputIdentifier, TransactionOutputId> newOutputsFromThisBlock) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
@@ -204,13 +204,21 @@ public class TransactionInputDatabaseManager {
                     final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                     final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, previousTransactionOutputIndex);
-                    mutableList.add(transactionOutputIdentifier);
+
+                    if ( (newOutputsFromThisBlock != null) && (! newOutputsFromThisBlock.containsKey(transactionOutputIdentifier)) ) {
+                        mutableList.add(transactionOutputIdentifier);
+                    }
                 }
             }
             transactionOutputIdentifiers = mutableList;
         }
         final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactionOutputIdentifiers);
         if (previousTransactionOutputsMap == null) { return null; }
+
+        if (newOutputsFromThisBlock != null) {
+            previousTransactionOutputsMap.putAll(newOutputsFromThisBlock);
+        }
+
         findPreviousTxOutputTimer.stop();
 
         txInputPrepareInsertQueryTimer.start();
