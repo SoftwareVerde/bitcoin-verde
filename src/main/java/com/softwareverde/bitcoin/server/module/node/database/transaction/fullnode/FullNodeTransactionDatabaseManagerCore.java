@@ -4,7 +4,9 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -49,6 +51,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     // TODO: Inserting a transaction requires a write lock...
@@ -667,8 +671,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final MilliTimer insertTransactionInputsTimer = new MilliTimer();
 
         final List<Sha256Hash> transactionHashes;
-        final HashMap<Sha256Hash, Transaction> unseenTransactionMap = new HashMap<Sha256Hash, Transaction>(transactionCount);
-        final HashMap<Sha256Hash, TransactionId> existingTransactions = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        final ConcurrentHashMap<Sha256Hash, Transaction> unseenTransactionMap = new ConcurrentHashMap<Sha256Hash, Transaction>(transactionCount);
+        final ConcurrentHashMap<Sha256Hash, TransactionId> existingTransactions = new ConcurrentHashMap<Sha256Hash, TransactionId>(transactionCount);
         {
             txHashMapTimer.start();
             final MutableList<Sha256Hash> possiblySeenTransactionHashes = new MutableList<Sha256Hash>();
@@ -688,25 +692,43 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactionHashes = transactionHashesBuilder.build();
 
             final int positivesCount = possiblySeenTransactionHashes.getSize();
-            final int falsePositiveCount;
-            { // Of the "possibly seen" transactions, prove they've actually been seen...
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(possiblySeenTransactionHashes) + ")")
-                );
-                for (final Row row : rows) {
-                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final AtomicInteger falsePositiveCount = new AtomicInteger(0);
+            final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(512);
+            batchRunner.run(possiblySeenTransactionHashes, new BatchRunner.Batch<Sha256Hash>() {
+                @Override
+                public void run(final List<Sha256Hash> batchItems) throws DatabaseException {
+                    // Of the "possibly seen" transactions, prove they've actually been seen...
+                    final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(batchItems) + ")");
 
-                    // The existence of the transaction is confirmed, so definitively mark the transaction as seen...
-                    existingTransactions.put(transactionHash, transactionId);
-                    unseenTransactionMap.remove(transactionHash);
+                    final java.util.List<Row> rows;
+                    final DatabaseConnectionFactory connectionFactory = _databaseManager.getDatabaseConnectionFactory();
+                    if (connectionFactory != null) {
+                        try (final DatabaseConnection databaseConnection = connectionFactory.newConnection()) {
+                            rows = databaseConnection.query(query);
+                        }
+                    }
+                    else {
+                        Logger.debug("DatabaseConnectionFactory not set, falling back to synchronous database connection.");
+                        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                        rows = databaseConnection.query(query);
+                    }
+
+                    for (final Row row : rows) {
+                        final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+                        // The existence of the transaction is confirmed, so definitively mark the transaction as seen...
+                        existingTransactions.put(transactionHash, transactionId);
+                        unseenTransactionMap.remove(transactionHash);
+                    }
+
+                    falsePositiveCount.addAndGet(positivesCount - rows.size());
                 }
+            });
 
-                falsePositiveCount = (positivesCount - rows.size());
-            }
             txHashMapTimer.stop();
 
-            final float falsePositiveRate = ( ((float) falsePositiveCount) / transactionCount );
+            final float falsePositiveRate = ( ((float) falsePositiveCount.get()) / transactionCount );
             if ( (EXISTING_TRANSACTIONS_FILTER != null) && (falsePositiveRate > FILTER_FALSE_POSITIVE_RATE) ) {
                 Logger.debug("TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
             }

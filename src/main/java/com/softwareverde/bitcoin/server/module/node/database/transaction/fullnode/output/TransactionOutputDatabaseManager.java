@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -463,72 +464,37 @@ public class TransactionOutputDatabaseManager {
     }
 
     public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final int batchSize = 512;
-        final int batchCount = (int) Math.ceil(transactionOutputIdentifiers.getSize() / (double) batchSize);
         final ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutputId>();
 
-        final Thread[] threads = new Thread[batchCount];
-        final Container<DatabaseException> exceptionContainer = new Container<DatabaseException>();
-        for (int i = 0; i < batchCount; ++i) {
-            final int batchId = i;
-            final Thread thread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final MutableList<TransactionOutputIdentifier> batchedTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(batchSize);
-                    for (int j = 0; j < batchSize; ++j) {
-                        final int index = ((batchId * batchSize) + j);
-                        if (index >= transactionOutputIdentifiers.getSize()) { break; }
-                        final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(index);
-                        batchedTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                    }
-                    if (batchedTransactionOutputIdentifiers.isEmpty()) { return; }
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(512);
+        batchRunner.run(transactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            @Override
+            public void run(final List<TransactionOutputIdentifier> batchItems) throws DatabaseException {
+                final java.util.List<Row> rows;
+                final Query query = new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(batchItems) + ")");
 
-                    final java.util.List<Row> rows;
-                    try {
-                        final Query query = new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(batchedTransactionOutputIdentifiers) + ")");
-
-                        final DatabaseConnectionFactory connectionFactory = _databaseManager.getDatabaseConnectionFactory();
-                        if (connectionFactory != null) {
-                            try (final DatabaseConnection databaseConnection = connectionFactory.newConnection()) {
-                                rows = databaseConnection.query(query);
-                            }
-                        }
-                        else {
-                            Logger.debug("DatabaseConnectionFactory not set, falling back to synchronous database connection.");
-                            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-                            rows = databaseConnection.query(query);
-                        }
-                    }
-                    catch (final Exception exception) {
-                        exceptionContainer.value = ( (exception instanceof DatabaseException) ? ((DatabaseException) exception) : (new DatabaseException(exception)) );
-                        return;
-                    }
-
-                    for (final Row row : rows) {
-                        final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-                        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
-                        final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
-
-                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, transactionOutputIndex);
-                        transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
+                final DatabaseConnectionFactory connectionFactory = _databaseManager.getDatabaseConnectionFactory();
+                if (connectionFactory != null) {
+                    try (final DatabaseConnection databaseConnection = connectionFactory.newConnection()) {
+                        rows = databaseConnection.query(query);
                     }
                 }
-            });
-            threads[i] = thread;
-            thread.start();
-        }
+                else {
+                    Logger.debug("DatabaseConnectionFactory not set, falling back to synchronous database connection.");
+                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                    rows = databaseConnection.query(query);
+                }
 
-        try {
-            for (int i = 0; i < batchCount; ++i) {
-                threads[i].join();
+                for (final Row row : rows) {
+                    final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                    final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+                    final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
+
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, transactionOutputIndex);
+                    transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
+                }
             }
-            if (exceptionContainer.value != null) {
-                throw exceptionContainer.value;
-            }
-        }
-        catch (final InterruptedException exception) {
-            throw new DatabaseException(exception);
-        }
+        });
 
         return transactionOutputIds;
     }
