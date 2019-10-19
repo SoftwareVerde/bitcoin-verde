@@ -399,7 +399,9 @@ public class Main {
             } break;
 
             case "ADDRESS": {
-                AddressModule.execute();
+                final String desiredAddressPrefix = (_arguments.length > 1 ? _arguments[1] : "");
+                final Boolean ignoreCase = (_arguments.length > 2 ? Util.parseBool(_arguments[2]) : false);
+                AddressModule.execute(desiredAddressPrefix, ignoreCase);
                 Logger.flush();
             } break;
 
