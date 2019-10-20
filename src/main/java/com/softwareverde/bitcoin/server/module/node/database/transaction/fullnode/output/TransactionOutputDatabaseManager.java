@@ -36,7 +36,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -66,7 +65,7 @@ public class TransactionOutputDatabaseManager {
         if (cachedTransactionOutputId != null) { return cachedTransactionOutputId; }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
+            new Query("SELECT transaction_id, `index` FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
                 .setParameter(transactionId)
                 .setParameter(transactionOutputIndex)
         );

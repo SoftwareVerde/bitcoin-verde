@@ -106,7 +106,7 @@ CREATE TABLE block_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     block_id INT UNSIGNED NOT NULL,
     transaction_id INT UNSIGNED NOT NULL,
-    sort_order INT UNSIGNED NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_transactions_uq (block_id, transaction_id),
     FOREIGN KEY block_transactions_fk (block_id) REFERENCES blocks (id),
@@ -123,39 +123,50 @@ CREATE TABLE unconfirmed_transactions (
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_outputs (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+    PRIMARY KEY (transaction_id, `index`),
+    UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`)
+)
+PARTITION BY RANGE (transaction_id) (
+    PARTITION partition00 VALUES LESS THAN (100000000),
+    PARTITION partition01 VALUES LESS THAN (200000000),
+    PARTITION partition02 VALUES LESS THAN (300000000),
+    PARTITION partition03 VALUES LESS THAN (400000000),
+    PARTITION partition04 VALUES LESS THAN (500000000),
+    PARTITION partition05 VALUES LESS THAN (600000000),
+    PARTITION partition06 VALUES LESS THAN (700000000),
+    PARTITION partition07 VALUES LESS THAN (800000000),
+    PARTITION partition08 VALUES LESS THAN (900000000),
+    PARTITION partition09 VALUES LESS THAN MAXVALUE,
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unspent_transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_output_id INT UNSIGNED NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
+    transaction_output_index INT UNSIGNED NOT NULL,
     transaction_hash CHAR(64) NOT NULL,
-    `index` INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY unspent_transaction_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE CASCADE,
-    INDEX transaction_outputs_spent_tx_id_ix (transaction_hash, `index`) USING BTREE
+    FOREIGN KEY unspent_transaction_output_transaction_id_fk (transaction_id) REFERENCES transactions (id),
+    INDEX transaction_outputs_spent_tx_id_ix (transaction_hash, transaction_output_index) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
-    previous_transaction_output_id INT UNSIGNED,
-    sequence_number INT UNSIGNED NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
+    previous_transaction_id INT UNSIGNED,
+    previous_transaction_output_index INT UNSIGNED,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_inputs_tx_id_prev_tx_id_uq (transaction_id, previous_transaction_output_id),
-    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
-    FOREIGN KEY transaction_inputs_tx_out_fk (previous_transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE SET NULL
+    UNIQUE KEY transaction_inputs_tx_id_prev_tx_id_uq (transaction_id, previous_transaction_id, previous_transaction_output_index),
+    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
+    FOREIGN KEY transaction_inputs_tx_prevout_fk (previous_transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE script_types (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    type varchar(255) NOT NULL,
+    type VARCHAR(255) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY script_types_uq (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
@@ -163,14 +174,15 @@ INSERT INTO script_types (id, type) VALUES (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'),
 
 CREATE TABLE locking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_output_id INT UNSIGNED NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
+    transaction_output_index INT UNSIGNED NOT NULL,
     script_type_id INT UNSIGNED NOT NULL,
     script BLOB NOT NULL,
     address_id INT UNSIGNED,
     PRIMARY KEY (id),
-    UNIQUE KEY locking_scripts_uq (transaction_output_id),
+    UNIQUE KEY locking_scripts_txoutput_uq (transaction_id, transaction_output_index),
     FOREIGN KEY locking_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
-    FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE CASCADE,
+    FOREIGN KEY locking_scripts_output_id_fk (transaction_id) REFERENCES transactions (id),
     FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
@@ -208,7 +220,7 @@ CREATE TABLE nodes (
     last_seen_timestamp BIGINT UNSIGNED NOT NULL,
     connection_count INT UNSIGNED NOT NULL DEFAULT 1,
     last_handshake_timestamp BIGINT UNSIGNED,
-    user_agent varchar(255) NULL,
+    user_agent VARCHAR(255) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY nodes_uq (host_id, port),
     FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id)
