@@ -158,7 +158,9 @@ CREATE TABLE transaction_inputs (
     `index` INT UNSIGNED NOT NULL,
     previous_transaction_id INT UNSIGNED,
     previous_transaction_output_index INT UNSIGNED,
+    sequence_number INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY transaction_inputs_tx_index_uq (transaction_id, `index`),
     UNIQUE KEY transaction_inputs_tx_id_prev_tx_id_uq (transaction_id, previous_transaction_id, previous_transaction_output_index),
     FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
     FOREIGN KEY transaction_inputs_tx_prevout_fk (previous_transaction_id) REFERENCES transactions (id)

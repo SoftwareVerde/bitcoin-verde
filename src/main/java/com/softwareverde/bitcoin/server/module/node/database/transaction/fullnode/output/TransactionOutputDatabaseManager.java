@@ -2,9 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.BatchedUpdateQuery;
@@ -31,6 +29,7 @@ import com.softwareverde.bitcoin.util.DatabaseUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -39,8 +38,8 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TransactionOutputDatabaseManager {
@@ -69,11 +68,9 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionId)
                 .setParameter(transactionOutputIndex)
         );
-
         if (rows.isEmpty()) { return null; }
 
-        final Row row = rows.get(0);
-        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIndex);
 
         databaseManagerCache.cacheTransactionOutputId(transactionId, transactionOutputIndex, transactionOutputId);
 
@@ -102,7 +99,7 @@ public class TransactionOutputDatabaseManager {
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_output_id FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+            new Query("SELECT id, transaction_id, transaction_output_index FROM unspent_transaction_outputs WHERE transaction_hash = ? AND transaction_output_index = ?")
                 .setParameter(transactionHash)
                 .setParameter(transactionOutputIndex)
         );
@@ -110,7 +107,8 @@ public class TransactionOutputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+        final Long transactionId = row.getLong("transaction_id");
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId, transactionOutputIndex);
 
         if (cachedTransactionId != null) {
             databaseManagerCache.cacheTransactionOutputId(cachedTransactionId, transactionOutputIndex, transactionOutputId);
@@ -121,7 +119,7 @@ public class TransactionOutputDatabaseManager {
     }
 
 
-    protected void _insertUnspentTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final Sha256Hash nullableTransactionHash, final Integer transactionOutputIndex) throws DatabaseException {
+    protected void _insertUnspentTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final Sha256Hash nullableTransactionHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
@@ -135,28 +133,28 @@ public class TransactionOutputDatabaseManager {
         }
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO unspent_transaction_outputs (transaction_output_id, transaction_hash, `index`) VALUES (?, ?, ?)")
-                .setParameter(transactionOutputId)
+            new Query("INSERT INTO unspent_transaction_outputs (transaction_id, transaction_output_index, transaction_hash) VALUES (?, ?, ?)")
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
                 .setParameter(transactionHash)
-                .setParameter(transactionOutputIndex)
         );
 
-        databaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
+        databaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputId.getOutputIndex(), transactionOutputId);
     }
 
     protected void _insertUnspentTransactionOutputs(final List<TransactionOutputId> transactionOutputIds, final List<UnspentTransactionOutputs> unspentTransactionOutputsList) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_output_id, transaction_hash, `index`) VALUES (?, ?, ?)");
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_id, transaction_output_index, transaction_hash) VALUES (?, ?, ?)");
         int transactionOutputIdIndex = 0;
         for (final UnspentTransactionOutputs unspentTransactionOutputs : unspentTransactionOutputsList) {
             for (final Integer unspentTransactionOutputIndex : unspentTransactionOutputs.unspentTransactionOutputIndices) {
                 final TransactionOutputId transactionOutputId = transactionOutputIds.get(transactionOutputIdIndex);
 
-                batchedInsertQuery.setParameter(transactionOutputId);
+                batchedInsertQuery.setParameter(transactionOutputId.getTransactionId());
+                batchedInsertQuery.setParameter(transactionOutputId.getOutputIndex());
                 batchedInsertQuery.setParameter(unspentTransactionOutputs.transactionHash);
-                batchedInsertQuery.setParameter(unspentTransactionOutputIndex);
 
                 databaseManagerCache.cacheUnspentTransactionOutputId(unspentTransactionOutputs.transactionHash, unspentTransactionOutputIndex, transactionOutputId);
 
@@ -175,17 +173,16 @@ public class TransactionOutputDatabaseManager {
 
         final Integer transactionOutputIndex = transactionOutput.getIndex();
 
-        final Long transactionOutputIdLong = databaseConnection.executeSql(
+        databaseConnection.executeSql(
             new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(transactionOutputIndex)
                 .setParameter(transactionOutput.getAmount())
         );
 
-        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputIdLong);
-        if (transactionOutputId == null) { return null; }
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIndex);
 
-        _insertUnspentTransactionOutput(transactionOutputId, transactionId, nullableTransactionHash, transactionOutputIndex);
+        _insertUnspentTransactionOutput(transactionOutputId, transactionId, nullableTransactionHash);
 
         _insertLockingScript(transactionOutputId, lockingScript);
 
@@ -213,9 +210,10 @@ public class TransactionOutputDatabaseManager {
 
         final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         final Long lockingScriptId = databaseConnection.executeSql(
-            new Query("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?)")
+            new Query("INSERT INTO locking_scripts (script_type_id, transaction_id, transaction_output_index, script, address_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?)")
                 .setParameter(scriptTypeId)
-                .setParameter(transactionOutputId)
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
                 .setParameter(lockingScriptByteArray.getBytes())
                 .setParameter(Query.NULL) // addressId
                 .setParameter(Query.NULL) // slpTransactionId
@@ -230,7 +228,7 @@ public class TransactionOutputDatabaseManager {
     protected TransactionId _getTransactionId(final LockingScriptId lockingScriptId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transaction_outputs.transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON locking_scripts.transaction_output_id = transaction_outputs.id WHERE locking_scripts.id = ?")
+            new Query("SELECT transaction_id FROM locking_scripts WHERE locking_scripts.id = ?")
                 .setParameter(lockingScriptId)
         );
         if (rows.isEmpty()) { return null; }
@@ -239,7 +237,7 @@ public class TransactionOutputDatabaseManager {
         return TransactionId.wrap(row.getLong("transaction_id"));
     }
 
-    protected void _updateLockingScript(final TransactionId transactionId, final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
+    protected void _updateLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final AddressDatabaseManager addressDatabaseManager = _databaseManager.getAddressDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = _databaseManager.getSlpTransactionDatabaseManager();
@@ -264,19 +262,20 @@ public class TransactionOutputDatabaseManager {
             } break;
 
             default: {
-                slpTokenTransactionId = slpTransactionDatabaseManager.calculateSlpTokenGenesisTransactionId(transactionId, lockingScript);
+                slpTokenTransactionId = slpTransactionDatabaseManager.calculateSlpTokenGenesisTransactionId(transactionOutputId.getTransactionId(), lockingScript);
                 addressId = null;
             }
         }
 
         final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         databaseConnection.executeSql(
-            new Query("UPDATE locking_scripts SET script_type_id = ?, script = ?, address_id = ?, slp_transaction_id = ? WHERE transaction_output_id = ?")
+            new Query("UPDATE locking_scripts SET script_type_id = ?, script = ?, address_id = ?, slp_transaction_id = ? WHERE transaction_id = ? AND transaction_output_index = ?")
                 .setParameter(scriptTypeId)
                 .setParameter(lockingScriptByteArray.getBytes())
                 .setParameter(addressId)
                 .setParameter(slpTokenTransactionId)
-                .setParameter(transactionOutputId)
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
         );
     }
 
@@ -287,7 +286,7 @@ public class TransactionOutputDatabaseManager {
             throw new DatabaseException("Attempted to insert LockingScripts without matching TransactionOutputIds.");
         }
 
-        final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?)");
+        final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (script_type_id, transaction_id, transaction_output_index, script, address_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?)");
 
         // final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, databaseManagerCache);
         // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
@@ -305,7 +304,8 @@ public class TransactionOutputDatabaseManager {
 
             final ByteArray lockingScriptByteArray = lockingScript.getBytes();
             batchInsertQuery.setParameter(scriptTypeId);
-            batchInsertQuery.setParameter(transactionOutputId);
+            batchInsertQuery.setParameter(transactionOutputId.getTransactionId());
+            batchInsertQuery.setParameter(transactionOutputId.getOutputIndex());
             batchInsertQuery.setParameter(lockingScriptByteArray.getBytes());
             batchInsertQuery.setParameter(Query.NULL); // addressId
             batchInsertQuery.setParameter(Query.NULL); // slpTransactionId
@@ -331,8 +331,9 @@ public class TransactionOutputDatabaseManager {
         final Row transactionOutputRow;
         {
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT * FROM transaction_outputs WHERE id = ?")
-                    .setParameter(transactionOutputId)
+                new Query("SELECT * FROM transaction_outputs WHERE transaction_id = ? AND transaction_output_index = ?")
+                    .setParameter(transactionOutputId.getTransactionId())
+                    .setParameter(transactionOutputId.getOutputIndex())
             );
             if (rows.isEmpty()) { return null; }
 
@@ -342,8 +343,9 @@ public class TransactionOutputDatabaseManager {
         final LockingScript lockingScript;
         {
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id, script FROM locking_scripts WHERE transaction_output_id = ?")
-                    .setParameter(transactionOutputId)
+                new Query("SELECT id, script FROM locking_scripts WHERE transaction_id = ? AND transaction_output_index = ?")
+                    .setParameter(transactionOutputId.getTransactionId())
+                    .setParameter(transactionOutputId.getOutputIndex())
             );
             if (rows.isEmpty()) { return null; }
 
@@ -394,6 +396,8 @@ public class TransactionOutputDatabaseManager {
         final MutableList<UnspentTransactionOutputs> unspentTransactionOutputs = new MutableList<UnspentTransactionOutputs>(transactionCount * 2);
         final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>(transactionCount * 2);
 
+        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>();
+
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
             final Sha256Hash transactionHash = transaction.getHash();
@@ -418,24 +422,15 @@ public class TransactionOutputDatabaseManager {
                 batchInsertQuery.setParameter(transactionId);
                 batchInsertQuery.setParameter(transactionOutputIndex);
                 batchInsertQuery.setParameter(transactionOutputAmount);
+
+                final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIndex);
+                transactionOutputIds.add(transactionOutputId);
             }
 
             unspentTransactionOutputs.add(new UnspentTransactionOutputs(transactionHash, unspentTransactionOutputIndicesListBuilder.build()));
         }
 
-        final Long firstTransactionOutputId = databaseConnection.executeSql(batchInsertQuery);
-        if (firstTransactionOutputId == null) {
-            Logger.warn("Error storing TransactionOutputs. Error running batch insert.");
-            return null;
-        }
-
-        final Integer transactionOutputCount = lockingScripts.getSize();
-
-        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(transactionOutputCount);
-        for (int i = 0; i < transactionOutputCount; ++i) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(firstTransactionOutputId + i);
-            transactionOutputIds.add(transactionOutputId);
-        }
+        databaseConnection.executeSql(batchInsertQuery);
 
         // TODO: Do not cache provably unspendable outputs...
         _insertUnspentTransactionOutputs(transactionOutputIds, unspentTransactionOutputs);
@@ -463,37 +458,30 @@ public class TransactionOutputDatabaseManager {
     }
 
     public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new ConcurrentHashMap<TransactionOutputIdentifier, TransactionOutputId>();
+        final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>();
 
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(512);
-        batchRunner.run(transactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
-            @Override
-            public void run(final List<TransactionOutputIdentifier> batchItems) throws DatabaseException {
-                final java.util.List<Row> rows;
-                final Query query = new Query("SELECT transactions.hash, transaction_outputs.id AS transaction_output_id, transaction_outputs.`index` AS transaction_output_index FROM transactions INNER JOIN transaction_outputs ON (transactions.id = transaction_outputs.transaction_id) WHERE (transactions.hash, transaction_outputs.`index`) IN (" + DatabaseUtil.createInTupleClause(batchItems) + ")");
-
-                final DatabaseConnectionFactory connectionFactory = _databaseManager.getDatabaseConnectionFactory();
-                if (connectionFactory != null) {
-                    try (final DatabaseConnection databaseConnection = connectionFactory.newConnection()) {
-                        rows = databaseConnection.query(query);
-                    }
-                }
-                else {
-                    Logger.debug("DatabaseConnectionFactory not set, falling back to synchronous database connection.");
-                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-                    rows = databaseConnection.query(query);
-                }
-
-                for (final Row row : rows) {
-                    final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-                    final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
-                    final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
-
-                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, transactionOutputIndex);
-                    transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
-                }
+        final List<Sha256Hash> transactionHashes;
+        {
+            final HashSet<Sha256Hash> transactionHashesSet = new HashSet<Sha256Hash>(transactionOutputIdentifiers.getSize());
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
+                transactionHashesSet.add(transactionOutputIdentifier.getTransactionHash());
             }
-        });
+            transactionHashes = new ImmutableList<Sha256Hash>(transactionHashesSet);
+        }
+
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final Map<Sha256Hash, TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(transactionHashes);
+
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
+            final TransactionId transactionId = transactionIds.get(transactionOutputIdentifier.getTransactionHash());
+            if (transactionId == null) {
+                Logger.debug("Could not find TransactionOutput: " + transactionOutputIdentifier);
+                return null;
+            }
+
+            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIdentifier.getOutputIndex());
+            transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
+        }
 
         return transactionOutputIds;
     }
@@ -503,17 +491,7 @@ public class TransactionOutputDatabaseManager {
     }
 
     public TransactionOutput getTransactionOutput(final TransactionId transactionId, final Integer outputIndex) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
-                .setParameter(transactionId)
-                .setParameter(outputIndex)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), outputIndex);
         return _getTransactionOutput(transactionOutputId);
     }
 
@@ -524,8 +502,9 @@ public class TransactionOutputDatabaseManager {
         if (transactionOutputId == null) { return; }
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id = ?")
-                .setParameter(transactionOutputId)
+            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_id = ? AND transaction_output_index = ?")
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
         );
 
         databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputIdentifier);
@@ -537,9 +516,10 @@ public class TransactionOutputDatabaseManager {
 
         if (transactionOutputIds.isEmpty()) { return; }
 
-        final Query batchedUpdateQuery = new BatchedUpdateQuery("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id IN (?)");
+        final Query batchedUpdateQuery = new BatchedUpdateQuery("DELETE FROM unspent_transaction_outputs WHERE (transaction_id, transaction_output_index) IN (?, ?)");
         for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
-            batchedUpdateQuery.setParameter(transactionOutputId);
+            batchedUpdateQuery.setParameter(transactionOutputId.getTransactionId());
+            batchedUpdateQuery.setParameter(transactionOutputId.getOutputIndex());
         }
 
         databaseConnection.executeSql(batchedUpdateQuery);
@@ -549,23 +529,23 @@ public class TransactionOutputDatabaseManager {
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY `index` ASC")
+            new Query("SELECT transaction_id, `index` FROM transaction_outputs WHERE transaction_id = ? ORDER BY `index` ASC")
                 .setParameter(transactionId)
         );
 
         final ImmutableListBuilder<TransactionOutputId> transactionOutputIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+            final Integer outputIndex = row.getInteger("index");
+            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), outputIndex);
             transactionOutputIds.add(transactionOutputId);
         }
 
         return transactionOutputIds.build();
     }
 
-    public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+    public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionOutput transactionOutput) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
@@ -574,14 +554,13 @@ public class TransactionOutputDatabaseManager {
         final LockingScript lockingScript = transactionOutput.getLockingScript();
 
         databaseConnection.executeSql(
-            new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ? WHERE id = ?")
-                .setParameter(transactionId)
-                .setParameter(transactionOutput.getIndex())
+            new Query("UPDATE transaction_outputs SET amount = ? WHERE transaction_id = ? AND `index` = ?")
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutputId)
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
         );
 
-        _updateLockingScript(transactionId, transactionOutputId, lockingScript);
+        _updateLockingScript(transactionOutputId, lockingScript);
     }
 
     public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
@@ -594,19 +573,22 @@ public class TransactionOutputDatabaseManager {
 
         databaseManagerCache.invalidateTransactionOutputIdCache();
 
-        // final Boolean transactionOutputWasSpent = _wasTransactionOutputSpentInAnyChain(transactionOutputId);
-        // if (transactionOutputWasSpent) {
-        //     throw new DatabaseException("Cannot delete spent TransactionOutput: " + transactionOutputId);
-        // }
-        //
-        // databaseConnection.executeSql(
-        //     new Query("DELETE FROM locking_scripts WHERE transaction_output_id = ?")
-        //         .setParameter(transactionOutputId)
-        // );
+        databaseConnection.executeSql(
+            new Query("DELETE FROM locking_scripts WHERE transaction_id = ? AND transaction_output_index = ?")
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
+        );
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM transaction_outputs WHERE id = ?")
-                .setParameter(transactionOutputId)
+            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_id = ? AND transaction_output_index = ?")
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
+        );
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
         );
     }
 
@@ -617,7 +599,7 @@ public class TransactionOutputDatabaseManager {
         databaseManagerCache.invalidateTransactionOutputIdCache();
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM transaction_outputs WHERE id IN (" + DatabaseUtil.createInClause(transactionOutputIds) + ")")
+            new Query("DELETE FROM transaction_outputs WHERE (transaction_id, `index`) IN (" + DatabaseUtil.createInClause(transactionOutputIds, DatabaseUtil.Extractors.TransactionOutputId) + ")")
         );
     }
 
@@ -717,27 +699,19 @@ public class TransactionOutputDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_output_id FROM locking_scripts WHERE id = ?")
+            new Query("SELECT id, transaction_id, transaction_output_index FROM locking_scripts WHERE id = ?")
                 .setParameter(lockingScriptId)
         );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Long transactionOutputId = row.getLong("transaction_output_id");
-        return TransactionOutputId.wrap(transactionOutputId);
+        final Long transactionId = row.getLong("transaction_id");
+        final Integer transactionOutputIndex = row.getInteger("transaction_output_index");
+        return TransactionOutputId.wrap(transactionId, transactionOutputIndex);
     }
 
     public TransactionId getTransactionId(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_id FROM transaction_outputs WHERE id = ?")
-                .setParameter(transactionOutputId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final Long transactionId = row.getLong("transaction_id");
-        return TransactionId.wrap(transactionId);
+        if (transactionOutputId == null) { return null; }
+        return transactionOutputId.getTransactionId();
     }
 }

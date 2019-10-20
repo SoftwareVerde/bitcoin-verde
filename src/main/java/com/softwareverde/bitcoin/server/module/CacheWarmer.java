@@ -50,14 +50,16 @@ public class CacheWarmer {
 
                     Long batchFirstRowId = null;
                     final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE id < ? ORDER BY id DESC LIMIT " + batchSize)
+                        new Query("SELECT id, transaction_id, transaction_output_index, transaction_hash FROM unspent_transaction_outputs WHERE id < ? ORDER BY id DESC LIMIT " + batchSize)
                             .setParameter(lastRowId)
                     );
                     if (rows.isEmpty()) { break; }
 
                     for (final Row row : rows) {
                         final Long rowId = row.getLong("id");
-                        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+                        final Long transactionId = row.getLong("transaction_id");
+                        final Integer outputIndex = row.getInteger("transaction_output_index");
+                        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId, outputIndex);
                         final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
                         final Integer transactionOutputIndex = row.getInteger("index");
 

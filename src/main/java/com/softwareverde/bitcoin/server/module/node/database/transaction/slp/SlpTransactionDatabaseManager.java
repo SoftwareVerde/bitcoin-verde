@@ -95,19 +95,17 @@ public class SlpTransactionDatabaseManager {
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
                 "SELECT " +
-                    "blocks.id AS block_id, transaction_outputs.transaction_id " +
+                    "blocks.id AS block_id, locking_scripts.transaction_id " +
                 "FROM " +
                     "locking_scripts " +
-                    "INNER JOIN transaction_outputs " +
-                        "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
                     "INNER JOIN block_transactions " +
-                        "ON (block_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                        "ON (block_transactions.transaction_id = locking_scripts.transaction_id) " +
                     "INNER JOIN blocks " +
                         "ON (blocks.id = block_transactions.block_id) " +
                 "WHERE " +
-                    "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = transaction_outputs.transaction_id AND t.blockchain_segment_id = blocks.blockchain_segment_id) " +
+                    "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = locking_scripts.transaction_id AND t.blockchain_segment_id = blocks.blockchain_segment_id) " +
                     "AND locking_scripts.slp_transaction_id IS NOT NULL " +
-                "GROUP BY blocks.id, transaction_outputs.transaction_id " +
+                "GROUP BY blocks.id, locking_scripts.transaction_id " +
                 "ORDER BY blocks.block_height ASC " +
                 "LIMIT "+ maxCount
             )
@@ -147,19 +145,17 @@ public class SlpTransactionDatabaseManager {
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
                 "SELECT " +
-                    "transaction_outputs.transaction_id " +
+                    "locking_scripts.transaction_id " +
                 "FROM " +
                     "locking_scripts " +
-                    "INNER JOIN transaction_outputs " +
-                        "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
                     "INNER JOIN unconfirmed_transactions " +
-                        "ON (unconfirmed_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                        "ON (unconfirmed_transactions.transaction_id = locking_scripts.transaction_id) " +
                     "LEFT OUTER JOIN validated_slp_transactions " +
-                        "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                        "ON (validated_slp_transactions.transaction_id = locking_scripts.transaction_id) " +
                 "WHERE " +
                     "validated_slp_transactions.id IS NULL " +
                     "AND locking_scripts.slp_transaction_id IS NOT NULL " +
-                "GROUP BY transaction_outputs.transaction_id ASC " +
+                "GROUP BY locking_scripts.transaction_id ASC " +
                 "LIMIT " + maxCount
             )
         );
@@ -267,7 +263,7 @@ public class SlpTransactionDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT locking_scripts.slp_transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON locking_scripts.transaction_output_id = transaction_outputs.id WHERE transaction_outputs.transaction_id = ? AND transaction_outputs.`index` = 0")
+            new Query("SELECT slp_transaction_id FROM locking_scripts WHERE transaction_id = ? AND transaction_output_index = 0")
                 .setParameter(transactionId)
         );
         if (rows.isEmpty()) { return null; }

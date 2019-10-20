@@ -68,7 +68,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
 
         final java.util.List<Row> rows = databaseConnection.query(
             // Include Transactions that send to the Address...
-            new Query("SELECT transaction_outputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ? GROUP BY transaction_outputs.transaction_id")
+            new Query("SELECT transaction_id FROM locking_scripts WHERE locking_scripts.address_id = ? GROUP BY transaction_id")
                 .setParameter(addressId)
         );
 
@@ -97,7 +97,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
 
         final java.util.List<Row> rows = databaseConnection.query(
             // Include Transactions that spend from the Address...
-            new Query("SELECT transaction_inputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id INNER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id WHERE locking_scripts.address_id = ? GROUP BY transaction_inputs.transaction_id")
+            new Query("SELECT transaction_inputs.transaction_id FROM locking_scripts INNER JOIN transaction_inputs ON (transaction_inputs.previous_transaction_id = locking_scripts.transaction_id AND transaction_inputs.previous_transaction_output_index = locking_scripts.transaction_output_index) WHERE locking_scripts.address_id = ? GROUP BY transaction_inputs.transaction_id")
                 .setParameter(addressId)
         );
 
@@ -126,7 +126,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transactions.id AS transaction_id, transaction_outputs.id AS transaction_output_id, transaction_outputs.amount FROM transactions INNER JOIN transaction_outputs ON transactions.id = transaction_outputs.transaction_id INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ?")
+            new Query("SELECT transaction_outputs.* FROM transaction_outputs INNER JOIN locking_scripts ON (transaction_outputs.transaction_id = locking_scripts.transaction_id AND transaction_outputs.`index` = locking_scripts.transaction_output_index) WHERE locking_scripts.address_id = ?")
                 .setParameter(addressId)
         );
         if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
@@ -135,7 +135,8 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
 
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+            final Integer transactionOutputIndex = row.getInteger("index");
+            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIndex);
             final Long amount = row.getLong("amount");
 
             final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
@@ -158,9 +159,11 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
             }
 
             {
+                final TransactionOutputId spendableTransactionOutputId = spendableTransactionOutput.getTransactionOutputId();
                 final java.util.List<Row> rowsSpendingTransactionOutput = databaseConnection.query(
-                    new Query("SELECT transactions.id AS transaction_id, transaction_inputs.id AS transaction_input_id FROM transaction_inputs INNER JOIN transactions ON transactions.id = transaction_inputs.transaction_id WHERE previous_transaction_output_id = ?")
-                        .setParameter(spendableTransactionOutput.getTransactionOutputId())
+                    new Query("SELECT transactions.id AS transaction_id, transaction_inputs.id AS transaction_input_id FROM transaction_inputs INNER JOIN transactions ON transactions.id = transaction_inputs.transaction_id WHERE (transaction_inputs.previous_transaction_id = ? AND transaction_inputs.previous_transaction_output_index = ?)")
+                        .setParameter(spendableTransactionOutputId.getTransactionId())
+                        .setParameter(spendableTransactionOutputId.getOutputIndex())
                 );
 
                 for (final Row rowSpendingTransactionOutput : rowsSpendingTransactionOutput) {
@@ -312,8 +315,9 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_output_id, address_id FROM locking_scripts WHERE transaction_output_id = ?")
-                .setParameter(transactionOutputId)
+            new Query("SELECT id, address_id FROM locking_scripts WHERE (transaction_id = ? AND transaction_output_index = ?)")
+                .setParameter(transactionOutputId.getTransactionId())
+                .setParameter(transactionOutputId.getOutputIndex())
         );
 
         if (rows.isEmpty()) { return null; }
@@ -397,7 +401,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         if (genesisTransactionId == null) { return null; }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT DISTINCT transaction_outputs.transaction_id FROM locking_scripts INNER JOIN transaction_outputs ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.slp_transaction_id = ?")
+            new Query("SELECT id, transaction_id FROM locking_scripts WHERE locking_scripts.slp_transaction_id = ?")
                 .setParameter(genesisTransactionId)
         );
         if (rows.isEmpty()) { return new MutableList<TransactionId>(0); }

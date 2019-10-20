@@ -272,7 +272,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 final Integer transactionOutputIndex = transactionOutput.getIndex();
                 final boolean transactionOutputExistsInUpdatedTransaction = transactionOutputMap.containsKey(transactionOutputIndex);
                 if (transactionOutputExistsInUpdatedTransaction) {
-                    transactionOutputDatabaseManager.updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
+                    transactionOutputDatabaseManager.updateTransactionOutput(transactionOutputId, transactionOutput);
                     processedTransactionOutputIndexes.add(transactionOutputIndex);
                 }
                 else {
@@ -842,6 +842,27 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
+    public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash FROM transactions WHERE hash IN(" + com.softwareverde.bitcoin.util.DatabaseUtil.createInClause(transactionHashes) + ")")
+        );
+
+        final int transactionCount = transactionHashes.getSize();
+        if (rows.size() != transactionCount) { return null; }
+
+        final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+            transactionHashesMap.put(transactionHash, transactionId);
+        }
+        return transactionHashesMap;
+    }
+
+    @Override
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
         return _inflateTransaction(transactionId, false);
     }
@@ -925,8 +946,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     "INNER JOIN unconfirmed_transactions " +
                         "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
                 "WHERE " +
-                    "transaction_inputs.previous_transaction_output_id IN (" +
-                        "SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")" +
+                    "(transaction_inputs.previous_transaction_id, transaction_inputs.previous_transaction_output_index) IN (" +
+                        "SELECT previous_transaction_id, previous_transaction_output_index FROM transaction_inputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")" +
                     ")" +
                 "GROUP BY unconfirmed_transactions.transaction_id"
             )
@@ -950,13 +971,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 "SELECT " +
                     "unconfirmed_transactions.transaction_id " +
                 "FROM " +
-                    "transaction_outputs " +
-                    "INNER JOIN transaction_inputs " +
-                        "ON transaction_outputs.id = transaction_inputs.previous_transaction_output_id " +
+                    "transaction_inputs " +
                     "INNER JOIN unconfirmed_transactions " +
                         "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
                 "WHERE " +
-                        "transaction_outputs.transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") " +
+                        "transaction_inputs.previous_transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
             )
         );

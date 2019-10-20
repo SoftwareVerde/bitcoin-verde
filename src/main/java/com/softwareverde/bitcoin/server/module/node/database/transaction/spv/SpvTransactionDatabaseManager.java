@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.util.DatabaseUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -242,6 +243,35 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         finally {
             READ_LOCK.unlock();
         }
+    }
+
+    @Override
+    public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows;
+
+        READ_LOCK.lock();
+        try {
+            rows = databaseConnection.query(
+                new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(transactionHashes) + ")")
+            );
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+
+        final int transactionCount = transactionHashes.getSize();
+        if (rows.size() != transactionCount) { return null; }
+
+        final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+            transactionHashesMap.put(transactionHash, transactionId);
+        }
+        return transactionHashesMap;
     }
 
     @Override

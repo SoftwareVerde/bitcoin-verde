@@ -1,11 +1,12 @@
 package com.softwareverde.bitcoin.transaction.output;
 
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.identifier.Identifier;
 
 public class TransactionOutputId extends Identifier {
     public static TransactionOutputId wrap(final Long transactionId, final Integer outputIndex) {
-        if (transactionId == null) { return null; }
+        if (transactionId == null) { return new TransactionOutputId(0L, -1); }
         return new TransactionOutputId(transactionId, outputIndex);
     }
 
@@ -16,8 +17,18 @@ public class TransactionOutputId extends Identifier {
         _outputIndex = outputIndex;
     }
 
+    public TransactionId getTransactionId() {
+        if (_value == 0L) { return null; }
+        return TransactionId.wrap(_value);
+    }
+
+    public Integer getOutputIndex() {
+        return _outputIndex;
+    }
+
     @Override
     public int hashCode() {
+        if (_value == null) { return _outputIndex.hashCode(); }
         return (_value.hashCode() + _outputIndex.hashCode());
     }
 
@@ -42,10 +53,10 @@ public class TransactionOutputId extends Identifier {
         if (superCompare != 0) { return superCompare; }
 
         if (! (value instanceof TransactionOutputId)) {
-            return 1;
+            return superCompare;
         }
 
         final TransactionOutputId transactionOutputId = (TransactionOutputId) value;
-        return _outputIndex.compareTo(((TransactionOutputId) value)._outputIndex);
+        return _outputIndex.compareTo(transactionOutputId._outputIndex);
     }
 }
