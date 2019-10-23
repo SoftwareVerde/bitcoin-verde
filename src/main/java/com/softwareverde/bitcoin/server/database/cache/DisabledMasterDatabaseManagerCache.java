@@ -4,9 +4,6 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -18,7 +15,6 @@ public class DisabledMasterDatabaseManagerCache implements MasterDatabaseManager
     protected final Cache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new DisabledCache<>();
     protected final Cache<String, AddressId> _addressIdCache = new DisabledCache<>();
     protected final Cache<BlockId, Long> _blockHeightCache = new DisabledCache<>();
-    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache();
 
 
     @Override
@@ -52,23 +48,10 @@ public class DisabledMasterDatabaseManagerCache implements MasterDatabaseManager
     }
 
     @Override
-    public UnspentTransactionOutputCache getUnspentTransactionOutputCache() {
-        return _unspentTransactionOutputCache;
-    }
-
-    @Override
     public void commitLocalDatabaseManagerCache(final LocalDatabaseManagerCache localDatabaseManagerCache) { }
 
     @Override
     public void commit() { }
-
-    @Override
-    public UtxoCount getMaxCachedUtxoCount() { return UtxoCount.wrap(0L); }
-
-    @Override
-    public UnspentTransactionOutputCache newUnspentTransactionOutputCache() {
-        return new DisabledUnspentTransactionOutputCache();
-    }
 
     @Override
     public void close() { }

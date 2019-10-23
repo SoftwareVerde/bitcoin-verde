@@ -138,7 +138,7 @@ public class ChainValidationModule {
                         blockIsCached = true;
                     }
                     else {
-                        block = blockDatabaseManager.getBlock(blockId, true);
+                        block = blockDatabaseManager.getBlock(blockId);
                         blockIsCached = false;
                     }
                 }

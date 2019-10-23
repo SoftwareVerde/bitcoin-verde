@@ -182,8 +182,10 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         if (transactionInputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+            int inputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
+                transactionInputDatabaseManager.insertTransactionInput(transactionId, inputIndex, transactionInput);
+                inputIndex += 1;
             }
         }
         else {
@@ -294,11 +296,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
-            final HashMap<TransactionOutputIdentifier, TransactionInput> transactionInputMap = new HashMap<TransactionOutputIdentifier, TransactionInput>();
+            final int inputCount = transactionInputs.getSize();
+            final HashMap<TransactionOutputIdentifier, Integer> inputIndexes = new HashMap<TransactionOutputIdentifier, Integer>(inputCount);
+            final HashMap<TransactionOutputIdentifier, TransactionInput> transactionInputMap = new HashMap<TransactionOutputIdentifier, TransactionInput>(inputCount);
             {
+                int inputIndex = 0;
                 for (final TransactionInput transactionInput : transactionInputs) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
                     transactionInputMap.put(transactionOutputIdentifier, transactionInput);
+                    inputIndexes.put(transactionOutputIdentifier, inputIndex);
+                    inputIndex += 1;
                 }
             }
 
@@ -309,7 +316,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
                 final boolean transactionInputExistsInUpdatedTransaction = transactionInputMap.containsKey(transactionOutputIdentifier);
                 if (transactionInputExistsInUpdatedTransaction) {
-                    transactionInputDatabaseManager.updateTransactionInput(transactionInputId, transactionId, transactionInput);
+                    final Integer inputIndex = inputIndexes.get(transactionOutputIdentifier);
+                    transactionInputDatabaseManager.updateTransactionInput(transactionInputId, transactionId, inputIndex, transactionInput);
                     processedTransactionInputIndexes.add(transactionOutputIdentifier);
                 }
                 else {
@@ -321,7 +329,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
                 final boolean transactionInputHasBeenProcessed = processedTransactionInputIndexes.contains(transactionOutputIdentifier);
                 if (! transactionInputHasBeenProcessed) {
-                    transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput, skipMissingOutputs);
+                    final Integer inputIndex = inputIndexes.get(transactionOutputIdentifier);
+                    transactionInputDatabaseManager.insertTransactionInput(transactionId, inputIndex, transactionInput, skipMissingOutputs);
                 }
             }
         }
@@ -514,7 +523,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return transactionHashMap;
     }
 
-    protected Transaction _inflateTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+    protected Transaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
@@ -575,20 +584,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     Logger.warn("Error inflating transaction: " + expectedTransactionHash);
                     return null;
                 }
-            }
-        }
-
-        if (shouldUpdateUnspentOutputCache) {
-            for (int i = 0; i < transactionOutputIds.getSize(); ++i) {
-                final Integer transactionOutputIndex = i;
-                final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
-
-                databaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
-            }
-
-            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputIdentifier);
             }
         }
 
@@ -864,12 +859,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
-        return _inflateTransaction(transactionId, false);
-    }
-
-    @Override
-    public Transaction getTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
-        return _inflateTransaction(transactionId, shouldUpdateUnspentOutputCache);
+        return _inflateTransaction(transactionId);
     }
 
     @Override

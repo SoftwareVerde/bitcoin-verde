@@ -9,7 +9,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
-    Transaction getTransaction(TransactionId transactionId, Boolean shouldUpdateUnspentOutputCache) throws DatabaseException;
+    Transaction getTransaction(TransactionId transactionId) throws DatabaseException;
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
     void addToUnconfirmedTransactions(List<TransactionId> transactionIds) throws DatabaseException;

@@ -84,12 +84,6 @@ public class TransactionOutputDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        { // Attempt to find the UTXO from the in-memory cache...
-            final TransactionOutputId cachedUnspentTransactionOutputId = databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
-            if (cachedUnspentTransactionOutputId != null) { cacheHit.incrementAndGet(); return cachedUnspentTransactionOutputId; }
-            // Logger.debug("Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
-        }
-
         final TransactionId cachedTransactionId = databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
         if (cachedTransactionId != null) {
             final TransactionOutputId cachedTransactionOutputId = databaseManagerCache.getCachedTransactionOutputId(cachedTransactionId, transactionOutputIndex);
@@ -138,8 +132,6 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionOutputId.getOutputIndex())
                 .setParameter(transactionHash)
         );
-
-        databaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputId.getOutputIndex(), transactionOutputId);
     }
 
     protected void _insertUnspentTransactionOutputs(final List<TransactionOutputId> transactionOutputIds, final List<UnspentTransactionOutputs> unspentTransactionOutputsList) throws DatabaseException {
@@ -155,8 +147,6 @@ public class TransactionOutputDatabaseManager {
                 batchedInsertQuery.setParameter(transactionOutputId.getTransactionId());
                 batchedInsertQuery.setParameter(transactionOutputId.getOutputIndex());
                 batchedInsertQuery.setParameter(unspentTransactionOutputs.transactionHash);
-
-                databaseManagerCache.cacheUnspentTransactionOutputId(unspentTransactionOutputs.transactionHash, unspentTransactionOutputIndex, transactionOutputId);
 
                 transactionOutputIdIndex += 1;
             }
@@ -506,8 +496,6 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionOutputId.getTransactionId())
                 .setParameter(transactionOutputId.getOutputIndex())
         );
-
-        databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputIdentifier);
     }
 
     public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds, final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
@@ -523,8 +511,6 @@ public class TransactionOutputDatabaseManager {
         }
 
         databaseConnection.executeSql(batchedUpdateQuery);
-
-        databaseManagerCache.invalidateUnspentTransactionOutputIds(transactionOutputIdentifiers);
     }
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {

@@ -26,7 +26,7 @@ public class SpvUnconfirmedTransactionsHandler {
 
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
             for (final TransactionId transactionId : transactionIds) {
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, false);
+                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 final boolean matchesFilter = bitcoinNode.matchesFilter(transaction);
                 if (matchesFilter) {
                     matchedTransactionHashes.add(transaction.getHash());

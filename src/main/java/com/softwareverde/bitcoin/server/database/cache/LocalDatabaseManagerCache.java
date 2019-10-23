@@ -4,37 +4,22 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.util.Util;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
-    public LocalDatabaseManagerCache() {
-        _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache();
-    }
-
-    public LocalDatabaseManagerCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
-        _unspentTransactionOutputCache = Util.coalesce(unspentTransactionOutputCache, new DisabledUnspentTransactionOutputCache());
-    }
+    public LocalDatabaseManagerCache() { }
 
     public LocalDatabaseManagerCache(final MasterDatabaseManagerCache masterCache) {
-        _unspentTransactionOutputCache = masterCache.newUnspentTransactionOutputCache();
-
         _transactionIdCache.setMasterCache(masterCache.getTransactionIdCache());
         _transactionCache.setMasterCache(masterCache.getTransactionCache());
         _transactionOutputIdCache.setMasterCache(masterCache.getTransactionOutputIdCache());
         _blockIdBlockchainSegmentIdCache.setMasterCache(masterCache.getBlockIdBlockchainSegmentIdCache());
         _addressIdCache.setMasterCache(masterCache.getAddressIdCache());
         _blockHeightCache.setMasterCache(masterCache.getBlockHeightCache());
-        _unspentTransactionOutputCache.setMasterCache(masterCache.getUnspentTransactionOutputCache());
     }
 
     @Override
@@ -197,37 +182,9 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // -----------------------------------------------------------------------------------------------------------------
 
-    // UNSPENT TRANSACTION OUTPUT CACHE --------------------------------------------------------------------------------
-
-    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
-
-    @Override
-    public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
-        _unspentTransactionOutputCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
-    }
-
-    @Override
-    public TransactionOutputId getCachedUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
-        return _unspentTransactionOutputCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
-    }
-
-    @Override
-    public void invalidateUnspentTransactionOutputId(final TransactionOutputIdentifier transactionOutputId) {
-        _unspentTransactionOutputCache.invalidateUnspentTransactionOutputId(transactionOutputId);
-    }
-
-    @Override
-    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIds) {
-        _unspentTransactionOutputCache.invalidateUnspentTransactionOutputIds(transactionOutputIds);
-    }
-
-    public UnspentTransactionOutputCache getUnspentTransactionOutputCache() { return _unspentTransactionOutputCache; }
-
-    // -----------------------------------------------------------------------------------------------------------------
-
     @Override
     public void close() {
-        _unspentTransactionOutputCache.close();
+        // Nothing.
     }
 
 }

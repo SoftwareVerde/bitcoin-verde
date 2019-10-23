@@ -8,8 +8,6 @@ import com.softwareverde.bitcoin.server.configuration.*;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.*;
@@ -39,11 +37,6 @@ public class Main {
         }
 
         return new Configuration(configurationFile);
-    }
-
-    protected static UnspentTransactionOutputCacheFactory _getUtxoCacheFactory(final Long maxUtxoCacheByteCount) {
-        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(maxUtxoCacheByteCount);
-        return NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
     }
 
     public static void main(final String[] commandLineArguments) {
@@ -215,9 +208,8 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
 
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
 
@@ -281,9 +273,8 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
                 final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
 
@@ -318,9 +309,8 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
 
                 final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);

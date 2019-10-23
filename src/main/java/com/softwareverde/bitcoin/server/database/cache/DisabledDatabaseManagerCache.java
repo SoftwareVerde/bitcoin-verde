@@ -4,13 +4,10 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.constable.list.List;
 
 public class DisabledDatabaseManagerCache implements DatabaseManagerCache {
     @Override
@@ -45,18 +42,6 @@ public class DisabledDatabaseManagerCache implements DatabaseManagerCache {
 
     @Override
     public void invalidateTransactionOutputIdCache() { }
-
-    @Override
-    public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) { }
-
-    @Override
-    public TransactionOutputId getCachedUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex) { return null; }
-
-    @Override
-    public void invalidateUnspentTransactionOutputId(final TransactionOutputIdentifier transactionOutputId) { }
-
-    @Override
-    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIds) { }
 
     @Override
     public void cacheBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) { }

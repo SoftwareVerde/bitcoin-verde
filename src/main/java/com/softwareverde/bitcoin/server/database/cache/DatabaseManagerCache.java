@@ -31,12 +31,6 @@ public interface DatabaseManagerCache extends AutoCloseable {
     TransactionOutputId getCachedTransactionOutputId(TransactionId transactionId, Integer transactionOutputIndex);
     void invalidateTransactionOutputIdCache();
 
-    // UNSPENT TRANSACTION OUTPUT ID CACHE -----------------------------------------------------------------------------
-    void cacheUnspentTransactionOutputId(Sha256Hash transactionHash, Integer transactionOutputIndex, TransactionOutputId transactionOutputId);
-    TransactionOutputId getCachedUnspentTransactionOutputId(Sha256Hash transactionHash, Integer transactionOutputIndex);
-    void invalidateUnspentTransactionOutputId(TransactionOutputIdentifier transactionOutputId);
-    void invalidateUnspentTransactionOutputIds(List<TransactionOutputIdentifier> transactionOutputIds);
-
     // BLOCK BLOCK CHAIN SEGMENT ID CACHE ------------------------------------------------------------------------------
     void cacheBlockchainSegmentId(BlockId blockId, BlockchainSegmentId blockchainSegmentId);
     BlockchainSegmentId getCachedBlockchainSegmentId(BlockId blockId);

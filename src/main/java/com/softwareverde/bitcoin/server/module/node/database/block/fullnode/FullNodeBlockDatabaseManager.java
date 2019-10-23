@@ -112,14 +112,14 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return listBuilder.build();
     }
 
-    protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+    protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
         final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
         for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, shouldUpdateUnspentOutputCache);
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             if (transaction == null) { return null; }
 
             listBuilder.add(transaction);
@@ -151,7 +151,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return Sha256Hash.fromHexString(row.getString("hash"));
     }
 
-    protected MutableBlock _getBlock(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+    protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
@@ -162,7 +162,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             return null;
         }
 
-        final List<Transaction> transactions = _getBlockTransactions(blockId, shouldUpdateUnspentOutputCache);
+        final List<Transaction> transactions = _getBlockTransactions(blockId);
         if (transactions == null) {
             Logger.warn("Unable to inflate block: " + blockHeader.getHash());
             return null;
@@ -183,11 +183,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
-        return _getBlock(blockId, false);
-    }
-
-    public MutableBlock getBlock(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
-        return _getBlock(blockId, shouldUpdateUnspentOutputCache);
+        return _getBlock(blockId);
     }
 
     /**

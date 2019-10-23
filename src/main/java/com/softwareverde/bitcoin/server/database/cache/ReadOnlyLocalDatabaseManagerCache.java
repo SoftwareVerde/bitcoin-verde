@@ -58,20 +58,6 @@ public class ReadOnlyLocalDatabaseManagerCache implements DatabaseManagerCache {
     public void invalidateTransactionOutputIdCache() { }
 
     @Override
-    public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) { }
-
-    @Override
-    public TransactionOutputId getCachedUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
-        return _masterDatabaseManagerCache.getUnspentTransactionOutputCache().getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
-    }
-
-    @Override
-    public void invalidateUnspentTransactionOutputId(final TransactionOutputIdentifier transactionOutputId) { }
-
-    @Override
-    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIds) { }
-
-    @Override
     public void cacheBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) { }
 
     @Override
