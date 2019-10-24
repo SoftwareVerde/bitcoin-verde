@@ -600,7 +600,7 @@ public class BitcoinNode extends Node {
                     }
                 } break;
 
-                case SPV_BLOCK: {
+                case MERKLE_BLOCK: {
                     if (Logger.isDebugEnabled()) {
                         for (final Sha256Hash objectHash : objectHashes) {
                             Logger.debug("Received AddressBlock: " + objectHash + " from " + _connection);

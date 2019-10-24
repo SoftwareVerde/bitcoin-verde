@@ -48,6 +48,7 @@ public class MessageType {
 
     // BitcoinVerde Messages
     public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks");
+    public static final MessageType QUERY_SLP_STATUS = new MessageType("getslpstatus");
 
     protected final ByteArray _bytes;
     protected final String _value;
