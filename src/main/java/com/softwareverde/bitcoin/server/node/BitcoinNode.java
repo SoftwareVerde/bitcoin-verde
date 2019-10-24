@@ -40,8 +40,10 @@ import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFou
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
+import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.request.block.RequestExtraThinBlockMessage;
@@ -141,6 +143,11 @@ public class BitcoinNode extends Node {
 
     public interface RequestSpvBlocksCallback {
         void run(List<Address> addresses, BitcoinNode bitcoinNode);
+    }
+
+    public interface RequestSlpTransactionsCallback {
+        void run(List<Sha256Hash> transactionHashes, BitcoinNode bitcoinNode);
+        Boolean getSlpStatus(Sha256Hash transactionHash);
     }
 
     public interface RequestExtraThinBlockCallback {
@@ -252,6 +259,7 @@ public class BitcoinNode extends Node {
     protected RequestPeersHandler _requestPeersHandler = null;
     protected QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback = null;
     protected RequestSpvBlocksCallback _requestSpvBlocksCallback = null;
+    protected RequestSlpTransactionsCallback _requestSlpTransactionsCallback = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
@@ -275,6 +283,7 @@ public class BitcoinNode extends Node {
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
+    protected Boolean _slpTransactionsIsEnabled = false;
 
     protected OnNewBloomFilterCallback _onNewBloomFilterCallback = null;
     protected Boolean _transactionRelayIsEnabled = true;
@@ -323,6 +332,7 @@ public class BitcoinNode extends Node {
             _queryBlockHeadersCallback = null;
             _requestDataMessageCallback = null;
             _requestSpvBlocksCallback = null;
+            _requestSlpTransactionsCallback = null;
             _blockInventoryMessageHandler = null;
             _requestExtraThinBlockCallback = null;
             _requestExtraThinTransactionCallback = null;
@@ -494,6 +504,11 @@ public class BitcoinNode extends Node {
         _messageRouter.addRoute(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER,(final ProtocolMessage message) -> { _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message); });
         _messageRouter.addRoute(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, (final ProtocolMessage message) -> { _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message); });
         _messageRouter.addRoute(MessageType.QUERY_ADDRESS_BLOCKS,           (final ProtocolMessage message) -> { _onQueryAddressBlocks((QueryAddressBlocksMessage) message); });
+        _messageRouter.addRoute(MessageType.ENABLE_SLP_TRANSACTIONS,        (final ProtocolMessage message) -> {
+            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = (EnableSlpTransactionsMessage) message;
+            _slpTransactionsIsEnabled = enableSlpTransactionsMessage.isEnabled();
+        });
+        _messageRouter.addRoute(MessageType.QUERY_SLP_STATUS,               (final ProtocolMessage message) -> { _onQuerySlpStatus((QuerySlpStatusMessage) message); });
 
         _messageRouter.setUnknownRouteHandler(new MessageRouter.UnknownRouteHandler() {
             @Override
@@ -954,6 +969,24 @@ public class BitcoinNode extends Node {
         }
     }
 
+    private void _onQuerySlpStatus(final QuerySlpStatusMessage querySlpStatusMessage) {
+        if (_slpTransactionsIsEnabled) {
+            final RequestSlpTransactionsCallback requestDataCallback = _requestSlpTransactionsCallback;
+            if (requestDataCallback != null) {
+                final List<Sha256Hash> transactionHashes = querySlpStatusMessage.getHashes().asConst();
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        requestDataCallback.run(transactionHashes, BitcoinNode.this);
+                    }
+                });
+            }
+            else {
+                Logger.debug("No handler set for RequestSlpTransactions message.");
+            }
+        }
+    }
+
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = _protocolMessageFactory.newQueryBlocksMessage();
         queryBlocksMessage.addBlockHash(blockHash);
@@ -1089,9 +1122,26 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
+        final RequestSlpTransactionsCallback requestSlpTransactionsCallback = _requestSlpTransactionsCallback;
+
         final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
-            final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+            final InventoryItem inventoryItem;
+            if (! _slpTransactionsIsEnabled || requestSlpTransactionsCallback == null) {
+                inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+            }
+            else {
+                final Boolean isValid = requestSlpTransactionsCallback.getSlpStatus(transactionHash);
+                if (isValid == null) {
+                    inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+                }
+                else if (isValid) {
+                    inventoryItem = new InventoryItem(InventoryItemType.VALID_SLP_TRANSACTION, transactionHash);
+                }
+                else {
+                    inventoryItem = new InventoryItem(InventoryItemType.INVALID_SLP_TRANSACTION, transactionHash);
+                }
+            }
             inventoryMessage.addInventoryItem(inventoryItem);
         }
 
@@ -1224,6 +1274,10 @@ public class BitcoinNode extends Node {
 
     public void setRequestSpvBlocksCallback(final RequestSpvBlocksCallback requestSpvBlocksCallback) {
         _requestSpvBlocksCallback = requestSpvBlocksCallback;
+    }
+
+    public void setRequestSlpTransactionsCallback(final RequestSlpTransactionsCallback requestSlpTransactionsCallback) {
+        _requestSlpTransactionsCallback = requestSlpTransactionsCallback;
     }
 
     public void setBlockInventoryMessageHandler(final BlockInventoryMessageCallback blockInventoryMessageHandler) {

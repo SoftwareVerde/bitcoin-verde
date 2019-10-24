@@ -45,6 +45,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHan
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlockHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.*;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
@@ -365,6 +366,7 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
+                nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
                 return nodeFeatures;
             }
         };
@@ -418,6 +420,7 @@ public class NodeModule {
             nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerProperties.requestDataCallback = requestDataHandler;
             nodeInitializerProperties.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
+            nodeInitializerProperties.requestSlpTransactionsCallback = new RequestSlpTransactionsHandler(databaseManagerFactory);
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {

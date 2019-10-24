@@ -45,10 +45,12 @@ import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFou
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.thin.request.block.RequestExtraThinBlockMessage;
@@ -103,7 +105,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.SET_TRANSACTION_BLOOM_FILTER, new SetTransactionBloomFilterMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER, new UpdateTransactionBloomFilterMessageInflater());
         _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
+        // BitcoinVerde Messages
         _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater(_masterInflater));
+        _commandInflaterMap.put(MessageType.ENABLE_SLP_TRANSACTIONS, new EnableSlpTransactionsMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_SLP_STATUS, new QuerySlpStatusMessageInflater());
     }
 
     @Override

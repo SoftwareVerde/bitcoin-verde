@@ -39,6 +39,7 @@ public class MessageTypeInflater {
         messageTypes.add(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER);
         // BitcoinVerde Messages
         messageTypes.add(MessageType.QUERY_ADDRESS_BLOCKS);
+        messageTypes.add(MessageType.ENABLE_SLP_TRANSACTIONS);
         messageTypes.add(MessageType.QUERY_SLP_STATUS);
 
         MESSAGE_TYPES = messageTypes.build();
