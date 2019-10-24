@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Special thanks to Xavier Kràl for his contributions to developing this code. (2019-09-23)
+ * Special thanks to Xavier Kr&agrave;l for his contributions to developing this code. (2019-09-23)
  */
 
 public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
