@@ -11,6 +11,8 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputIdentifier implements Const, Comparable<TransactionOutputIdentifier> {
+    public static final TransactionOutputIdentifier COINBASE = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
+
     public static TransactionOutputIdentifier fromTransactionInput(final TransactionInput transactionInput) {
         return new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
     }

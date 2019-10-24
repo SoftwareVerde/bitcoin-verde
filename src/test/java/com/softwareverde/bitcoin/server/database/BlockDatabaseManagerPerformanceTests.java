@@ -80,7 +80,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         {
             int sortOrder = 0;
             final BlockId genesisBlockId = BlockId.wrap(1L);
-            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
+            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, `index`) VALUES (?, ?, ?)");
             for (final Sha256Hash transactionHash : transactionHashes.keySet()) {
                 final TransactionId transactionId = transactionHashes.get(transactionHash);
 

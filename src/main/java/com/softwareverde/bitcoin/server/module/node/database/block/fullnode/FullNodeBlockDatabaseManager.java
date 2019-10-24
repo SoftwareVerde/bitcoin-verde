@@ -37,7 +37,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
             final Integer currentTransactionCount = _getTransactionCount(blockId);
             databaseConnection.executeSql(
-                new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
+                new Query("INSERT INTO block_transactions (block_id, transaction_id, `index`) VALUES (?, ?, ?)")
                     .setParameter(blockId)
                     .setParameter(transactionId)
                     .setParameter(currentTransactionCount)
@@ -50,7 +50,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
-            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
+            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, `index`) VALUES (?, ?, ?)");
             int sortOrder = 0;
             for (final TransactionId transactionId : transactionIds) {
                 batchedInsertQuery.setParameter(blockId);
@@ -100,7 +100,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_id FROM block_transactions WHERE block_id = ? ORDER BY sort_order ASC")
+            new Query("SELECT id, transaction_id FROM block_transactions WHERE block_id = ? ORDER BY `index` ASC")
                 .setParameter(blockId)
         );
 

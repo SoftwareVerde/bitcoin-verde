@@ -101,8 +101,7 @@ public class TransactionInputDatabaseManager {
         final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputIdLong);
 
         if (previousTransactionOutputId != null) {
-            final TransactionOutputIdentifier previousOutputTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId, previousOutputTransactionOutputIdentifier);
+            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
         }
 
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -190,12 +189,11 @@ public class TransactionInputDatabaseManager {
 
         final int transactionCount = transactions.getSize();
 
-        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_inputs (transaction_id, `index`, previous_transaction_id, previous_transaction_output_index) VALUES (?, ?, ?, ?)");
+        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_inputs (transaction_id, `index`, previous_transaction_id, previous_transaction_output_index, sequence_number) VALUES (?, ?, ?, ?, ?)");
 
         final MutableList<UnlockingScript> unlockingScripts = new MutableList<UnlockingScript>(transactionCount * 2);
 
         final MutableList<TransactionOutputId> newlySpentTransactionOutputIds = new MutableList<TransactionOutputId>(transactionCount * 2);
-        final MutableList<TransactionOutputIdentifier> newlySpentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionCount * 2);
 
         findPreviousTxOutputTimer.start();
         final List<TransactionOutputIdentifier> transactionOutputIdentifiers;
@@ -204,18 +202,16 @@ public class TransactionInputDatabaseManager {
             for (final Transaction transaction : transactions) {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
-                    final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                    final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
-                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousTransactionHash, previousTransactionOutputIndex);
-
-                    if ( (newOutputsFromThisBlock != null) && (! newOutputsFromThisBlock.containsKey(transactionOutputIdentifier)) ) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                    final boolean isCoinbase = Util.areEqual(transactionOutputIdentifier, TransactionOutputIdentifier.COINBASE);
+                    if ( (newOutputsFromThisBlock != null) && (! newOutputsFromThisBlock.containsKey(transactionOutputIdentifier)) && (! isCoinbase) ) {
                         mutableList.add(transactionOutputIdentifier);
                     }
                 }
             }
             transactionOutputIdentifiers = mutableList;
         }
-        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactionOutputIdentifiers);
+        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getTransactionOutputIds(transactionOutputIdentifiers);
         if (previousTransactionOutputsMap == null) { return null; }
 
         if (newOutputsFromThisBlock != null) {
@@ -236,16 +232,17 @@ public class TransactionInputDatabaseManager {
             final TransactionId transactionId = transactionIds.get(transactionHash);
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
+            int inputIndex = 0;
             for (final TransactionInput transactionInput : transactionInputs) {
                 final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
                 unlockingScripts.add(unlockingScript);
 
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                 final TransactionOutputId previousTransactionOutputId = previousTransactionOutputsMap.get(transactionOutputIdentifier);
 
                 if (previousTransactionOutputId == null) {
                     // Should only be null for a coinbase input...
-                    final Boolean isCoinbase = Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash());
+                    final Boolean isCoinbase = Util.areEqual(TransactionOutputIdentifier.COINBASE, transactionOutputIdentifier);
                     if (! isCoinbase) {
                         Logger.warn("Unable to find output: " + transactionOutputIdentifier);
                         return null;
@@ -253,14 +250,15 @@ public class TransactionInputDatabaseManager {
                 }
                 else {
                     newlySpentTransactionOutputIds.add(previousTransactionOutputId);
-                    newlySpentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                 }
 
                 batchedInsertQuery.setParameter(transactionId);
-                batchedInsertQuery.setParameter(transactionInput.getSequenceNumber());
+                batchedInsertQuery.setParameter(inputIndex);
                 batchedInsertQuery.setParameter(previousTransactionOutputId != null ? previousTransactionOutputId.getTransactionId() : null);
                 batchedInsertQuery.setParameter(previousTransactionOutputId != null ? previousTransactionOutputId.getOutputIndex() : null);
+                batchedInsertQuery.setParameter(transactionInput.getSequenceNumber());
 
+                inputIndex += 1;
                 transactionInputIdCount += 1;
             }
         }
@@ -285,7 +283,7 @@ public class TransactionInputDatabaseManager {
         insertUnlockingScriptsTimer.stop();
 
         markOutputsAsSpentTimer.start();
-        transactionOutputDatabaseManager.markTransactionOutputsAsSpent(newlySpentTransactionOutputIds, newlySpentTransactionOutputIdentifiers);
+        transactionOutputDatabaseManager.markTransactionOutputsAsSpent(newlySpentTransactionOutputIds);
         markOutputsAsSpentTimer.stop();
 
         // Logger.debug("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
@@ -451,8 +449,7 @@ public class TransactionInputDatabaseManager {
         //  While keeping this TransactionOutput marked as spent may lead to an unspent TransactionOutput being marked as spent it is fairly safe
         //  since this method is a performance improvement more so than a true representation of state.
         if (previousTransactionOutputId != null) {
-            final TransactionOutputIdentifier previousOutputTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId, previousOutputTransactionOutputIdentifier);
+            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
         }
 
         _updateUnlockingScript(transactionInputId, unlockingScript);

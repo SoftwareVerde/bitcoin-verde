@@ -35,6 +35,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -358,6 +359,22 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIsSpent;
     }
 
+    protected Map<TransactionId, Integer> _getTransactionOutputCounts(final Iterable<TransactionId> transactionIds) throws  DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transaction_id, COUNT(*) AS output_count FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") GROUP BY transaction_id")
+        );
+
+        final HashMap<TransactionId, Integer> transactionOutputCounts = new HashMap<TransactionId, Integer>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            final Integer outputCount = row.getInteger("output_count");
+            transactionOutputCounts.put(transactionId, outputCount);
+        }
+
+        return transactionOutputCounts;
+    }
+
     public TransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
@@ -447,12 +464,18 @@ public class TransactionOutputDatabaseManager {
         return _getTransactionOutputId(transactionId, transactionOutputIndex);
     }
 
-    public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>();
+    /**
+     * Returns the TransactionOutputIds that for the provided list of TransactionOutputIdentifiers.
+     *  If TransactionOutputId could not be found, then null is returned for the whole map.
+     *  The set of TransactionOutputIdentifiers should not include Coinbase identifiers.
+     */
+    public Map<TransactionOutputIdentifier, TransactionOutputId> getTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+        final int identifierCount = transactionOutputIdentifiers.getSize();
+        final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(identifierCount);
 
         final List<Sha256Hash> transactionHashes;
         {
-            final HashSet<Sha256Hash> transactionHashesSet = new HashSet<Sha256Hash>(transactionOutputIdentifiers.getSize());
+            final HashSet<Sha256Hash> transactionHashesSet = new HashSet<Sha256Hash>(identifierCount);
             for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 transactionHashesSet.add(transactionOutputIdentifier.getTransactionHash());
             }
@@ -473,6 +496,20 @@ public class TransactionOutputDatabaseManager {
             transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
         }
 
+        final Map<TransactionId, Integer> transactionOutputCounts = _getTransactionOutputCounts(transactionIds.values());
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
+            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            final TransactionId transactionId = transactionIds.get(transactionHash);
+            final Integer transactionOutputCount = transactionOutputCounts.get(transactionId);
+
+            final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+            if ( (outputIndex >= transactionOutputCount) || (outputIndex < 0) ) {
+                Logger.debug("Could not find TransactionOutput: " + transactionOutputIdentifier);
+                return null;
+            }
+        }
+        // TODO: Ensure the output count for each transaction is greater than the outputIdentifier's index...
+
         return transactionOutputIds;
     }
 
@@ -485,9 +522,8 @@ public class TransactionOutputDatabaseManager {
         return _getTransactionOutput(transactionOutputId);
     }
 
-    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId, final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         if (transactionOutputId == null) { return; }
 
@@ -498,19 +534,21 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds, final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         if (transactionOutputIds.isEmpty()) { return; }
 
-        final Query batchedUpdateQuery = new BatchedUpdateQuery("DELETE FROM unspent_transaction_outputs WHERE (transaction_id, transaction_output_index) IN (?, ?)");
-        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
-            batchedUpdateQuery.setParameter(transactionOutputId.getTransactionId());
-            batchedUpdateQuery.setParameter(transactionOutputId.getOutputIndex());
-        }
+        final String inClause = DatabaseUtil.createInClause(transactionOutputIds, new DatabaseUtil.ValueExtractor<TransactionOutputId>() {
+            @Override
+            public Tuple<Object, Object> extractValues(final TransactionOutputId transactionOutputId) {
+                return new Tuple<Object, Object>(transactionOutputId.getTransactionId(), transactionOutputId.getOutputIndex());
+            }
+        });
 
-        databaseConnection.executeSql(batchedUpdateQuery);
+        databaseConnection.executeSql(
+            new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_id, transaction_output_index) IN (" + inClause + ")")
+        );
     }
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {

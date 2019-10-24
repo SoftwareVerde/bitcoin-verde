@@ -841,11 +841,14 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM transactions WHERE hash IN(" + com.softwareverde.bitcoin.util.DatabaseUtil.createInClause(transactionHashes) + ")")
+            new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(transactionHashes) + ")")
         );
 
         final int transactionCount = transactionHashes.getSize();
-        if (rows.size() != transactionCount) { return null; }
+        if (rows.size() != transactionCount) {
+            Logger.debug("Transaction count mismatch. Received " + rows.size() + ", expected " + transactionCount + ".");
+            return null;
+        }
 
         final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
         for (final Row row : rows) {

@@ -128,7 +128,7 @@ CREATE TABLE transaction_outputs (
     amount BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (transaction_id, `index`),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`)
-)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4
 PARTITION BY RANGE (transaction_id) (
     PARTITION partition00 VALUES LESS THAN (100000000),
     PARTITION partition01 VALUES LESS THAN (200000000),
@@ -139,8 +139,8 @@ PARTITION BY RANGE (transaction_id) (
     PARTITION partition06 VALUES LESS THAN (700000000),
     PARTITION partition07 VALUES LESS THAN (800000000),
     PARTITION partition08 VALUES LESS THAN (900000000),
-    PARTITION partition09 VALUES LESS THAN MAXVALUE,
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+    PARTITION partition09 VALUES LESS THAN MAXVALUE
+);
 
 CREATE TABLE unspent_transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
