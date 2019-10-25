@@ -38,6 +38,7 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -386,6 +387,11 @@ public class TransactionOutputDatabaseManager {
         final int identifierCount = transactionOutputIdentifiers.getSize();
         final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(identifierCount);
 
+        final MilliTimer setupTimer = new MilliTimer();
+        final MilliTimer outputIdLookupTimer = new MilliTimer();
+        final MilliTimer outputCountTimer = new MilliTimer();
+
+        setupTimer.start();
         final List<Sha256Hash> transactionHashes;
         {
             final HashSet<Sha256Hash> transactionHashesSet = new HashSet<Sha256Hash>(identifierCount);
@@ -394,7 +400,9 @@ public class TransactionOutputDatabaseManager {
             }
             transactionHashes = new ImmutableList<Sha256Hash>(transactionHashesSet);
         }
+        setupTimer.stop();
 
+        outputIdLookupTimer.start();
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final Map<Sha256Hash, TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(transactionHashes);
 
@@ -408,7 +416,9 @@ public class TransactionOutputDatabaseManager {
             final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIdentifier.getOutputIndex());
             transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
         }
+        outputIdLookupTimer.stop();
 
+        outputCountTimer.start();
         final Map<TransactionId, Integer> transactionOutputCounts = _getTransactionOutputCounts(transactionIds.values());
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -421,7 +431,11 @@ public class TransactionOutputDatabaseManager {
                 return null;
             }
         }
-        // TODO: Ensure the output count for each transaction is greater than the outputIdentifier's index...
+        outputCountTimer.stop();
+
+        Logger.debug("SetupTimer: " + setupTimer.getMillisecondsElapsed() + "ms.");
+        Logger.debug("OutputIdLookupTimer: " + outputIdLookupTimer.getMillisecondsElapsed() + "ms.");
+        Logger.debug("OutputCountTimer: " + outputCountTimer.getMillisecondsElapsed() + "ms.");
 
         return transactionOutputIds;
     }
