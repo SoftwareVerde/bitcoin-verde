@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -539,16 +540,23 @@ public class TransactionOutputDatabaseManager {
 
         if (transactionOutputIds.isEmpty()) { return; }
 
-        final String inClause = DatabaseUtil.createInClause(transactionOutputIds, new DatabaseUtil.ValueExtractor<TransactionOutputId>() {
+        final BatchRunner<TransactionOutputId> batchRunner = new BatchRunner<TransactionOutputId>(1024);
+        batchRunner.run(transactionOutputIds, new BatchRunner.Batch<TransactionOutputId>() {
             @Override
-            public Tuple<Object, Object> extractValues(final TransactionOutputId transactionOutputId) {
-                return new Tuple<Object, Object>(transactionOutputId.getTransactionId(), transactionOutputId.getOutputIndex());
+            public void run(final List<TransactionOutputId> batchItems) throws Exception {
+
+                final String inClause = DatabaseUtil.createInClause(batchItems, new DatabaseUtil.ValueExtractor<TransactionOutputId>() {
+                    @Override
+                    public Tuple<Object, Object> extractValues(final TransactionOutputId transactionOutputId) {
+                        return new Tuple<Object, Object>(transactionOutputId.getTransactionId(), transactionOutputId.getOutputIndex());
+                    }
+                });
+
+                databaseConnection.executeSql(
+                    new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_id, transaction_output_index) IN (" + inClause + ")")
+                );
             }
         });
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_id, transaction_output_index) IN (" + inClause + ")")
-        );
     }
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
