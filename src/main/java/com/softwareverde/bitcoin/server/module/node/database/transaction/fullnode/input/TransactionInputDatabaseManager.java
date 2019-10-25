@@ -100,10 +100,6 @@ public class TransactionInputDatabaseManager {
         );
         final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputIdLong);
 
-        if (previousTransactionOutputId != null) {
-            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
-        }
-
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
         _insertUnlockingScript(transactionInputId, unlockingScript);
 
@@ -185,7 +181,6 @@ public class TransactionInputDatabaseManager {
         final MilliTimer txInputPrepareInsertQueryTimer = new MilliTimer();
         final MilliTimer insertTxInputTimer = new MilliTimer();
         final MilliTimer insertUnlockingScriptsTimer = new MilliTimer();
-        final MilliTimer markOutputsAsSpentTimer = new MilliTimer();
 
         final int transactionCount = transactions.getSize();
 
@@ -282,16 +277,11 @@ public class TransactionInputDatabaseManager {
         _insertUnlockingScripts(transactionInputIds, unlockingScripts);
         insertUnlockingScriptsTimer.stop();
 
-        markOutputsAsSpentTimer.start();
-        transactionOutputDatabaseManager.markTransactionOutputsAsSpent(newlySpentTransactionOutputIds);
-        markOutputsAsSpentTimer.stop();
-
         // Logger.debug("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("txInputPrepareInsertQueryTimer: " + txInputPrepareInsertQueryTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("insertTxInputTimer: " + insertTxInputTimer.getMillisecondsElapsed() + "ms");
         Logger.debug("insertUnlockingScriptsTimer: " + insertUnlockingScriptsTimer.getMillisecondsElapsed() + "ms");
-        Logger.debug("markOutputsAsSpentTimer: " + markOutputsAsSpentTimer.getMillisecondsElapsed() + "ms");
 
         /*
             [TransactionInputDatabaseManager.java:262] findPreviousTransactionsTimer: 999ms
@@ -444,13 +434,6 @@ public class TransactionInputDatabaseManager {
                 .setParameter(transactionInput.getSequenceNumber())
                 .setParameter(transactionInputId)
         );
-
-        // NOTE: The original PreviousTransactionOutputId should not be unmarked because it is possible it is still being spent by another transaction.
-        //  While keeping this TransactionOutput marked as spent may lead to an unspent TransactionOutput being marked as spent it is fairly safe
-        //  since this method is a performance improvement more so than a true representation of state.
-        if (previousTransactionOutputId != null) {
-            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
-        }
 
         _updateUnlockingScript(transactionInputId, unlockingScript);
     }

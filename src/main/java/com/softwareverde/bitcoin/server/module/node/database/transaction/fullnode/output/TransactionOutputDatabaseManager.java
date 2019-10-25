@@ -79,84 +79,6 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputId;
     }
 
-    public static final AtomicInteger cacheMiss = new AtomicInteger(0);
-    public static final AtomicInteger cacheHit = new AtomicInteger(0);
-
-    protected TransactionOutputId _findUnspentTransactionOutput(final Sha256Hash transactionHash, final Integer transactionOutputIndex) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-
-        final TransactionId cachedTransactionId = databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
-        if (cachedTransactionId != null) {
-            final TransactionOutputId cachedTransactionOutputId = databaseManagerCache.getCachedTransactionOutputId(cachedTransactionId, transactionOutputIndex);
-            if (cachedTransactionOutputId != null) {
-                return cachedTransactionOutputId;
-            }
-        }
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_id, transaction_output_index FROM unspent_transaction_outputs WHERE transaction_hash = ? AND transaction_output_index = ?")
-                .setParameter(transactionHash)
-                .setParameter(transactionOutputIndex)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final Long transactionId = row.getLong("transaction_id");
-        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId, transactionOutputIndex);
-
-        if (cachedTransactionId != null) {
-            databaseManagerCache.cacheTransactionOutputId(cachedTransactionId, transactionOutputIndex, transactionOutputId);
-        }
-
-        cacheMiss.incrementAndGet();
-        return transactionOutputId;
-    }
-
-
-    protected void _insertUnspentTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final Sha256Hash nullableTransactionHash) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-        final Sha256Hash transactionHash;
-        if (nullableTransactionHash == null) {
-            transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-        }
-        else {
-            transactionHash = nullableTransactionHash;
-        }
-
-        databaseConnection.executeSql(
-            new Query("INSERT INTO unspent_transaction_outputs (transaction_id, transaction_output_index, transaction_hash) VALUES (?, ?, ?)")
-                .setParameter(transactionOutputId.getTransactionId())
-                .setParameter(transactionOutputId.getOutputIndex())
-                .setParameter(transactionHash)
-        );
-    }
-
-    protected void _insertUnspentTransactionOutputs(final List<TransactionOutputId> transactionOutputIds, final List<UnspentTransactionOutputs> unspentTransactionOutputsList) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_id, transaction_output_index, transaction_hash) VALUES (?, ?, ?)");
-        int transactionOutputIdIndex = 0;
-        for (final UnspentTransactionOutputs unspentTransactionOutputs : unspentTransactionOutputsList) {
-            for (final Integer unspentTransactionOutputIndex : unspentTransactionOutputs.unspentTransactionOutputIndices) {
-                final TransactionOutputId transactionOutputId = transactionOutputIds.get(transactionOutputIdIndex);
-
-                batchedInsertQuery.setParameter(transactionOutputId.getTransactionId());
-                batchedInsertQuery.setParameter(transactionOutputId.getOutputIndex());
-                batchedInsertQuery.setParameter(unspentTransactionOutputs.transactionHash);
-
-                transactionOutputIdIndex += 1;
-            }
-        }
-
-        databaseConnection.executeSql(batchedInsertQuery);
-    }
-
     protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final Sha256Hash nullableTransactionHash, final TransactionOutput transactionOutput) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
@@ -173,8 +95,6 @@ public class TransactionOutputDatabaseManager {
         );
 
         final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIndex);
-
-        _insertUnspentTransactionOutput(transactionOutputId, transactionId, nullableTransactionHash);
 
         _insertLockingScript(transactionOutputId, lockingScript);
 
@@ -440,9 +360,6 @@ public class TransactionOutputDatabaseManager {
 
         databaseConnection.executeSql(batchInsertQuery);
 
-        // TODO: Do not cache provably unspendable outputs...
-        _insertUnspentTransactionOutputs(transactionOutputIds, unspentTransactionOutputs);
-
         _insertLockingScripts(transactionOutputIds, lockingScripts);
 
         return transactionOutputIds;
@@ -453,11 +370,6 @@ public class TransactionOutputDatabaseManager {
 
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-
-        final TransactionOutputId unspentTransactionOutputId = _findUnspentTransactionOutput(transactionHash, transactionOutputIndex);
-        if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
-
-        // Logger.debug("Unspent Index Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
@@ -523,42 +435,6 @@ public class TransactionOutputDatabaseManager {
         return _getTransactionOutput(transactionOutputId);
     }
 
-    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (transactionOutputId == null) { return; }
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_id = ? AND transaction_output_index = ?")
-                .setParameter(transactionOutputId.getTransactionId())
-                .setParameter(transactionOutputId.getOutputIndex())
-        );
-    }
-
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (transactionOutputIds.isEmpty()) { return; }
-
-        final BatchRunner<TransactionOutputId> batchRunner = new BatchRunner<TransactionOutputId>(1024);
-        batchRunner.run(transactionOutputIds, new BatchRunner.Batch<TransactionOutputId>() {
-            @Override
-            public void run(final List<TransactionOutputId> batchItems) throws Exception {
-
-                final String inClause = DatabaseUtil.createInClause(batchItems, new DatabaseUtil.ValueExtractor<TransactionOutputId>() {
-                    @Override
-                    public Tuple<Object, Object> extractValues(final TransactionOutputId transactionOutputId) {
-                        return new Tuple<Object, Object>(transactionOutputId.getTransactionId(), transactionOutputId.getOutputIndex());
-                    }
-                });
-
-                databaseConnection.executeSql(
-                    new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_id, transaction_output_index) IN (" + inClause + ")")
-                );
-            }
-        });
-    }
-
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -607,12 +483,6 @@ public class TransactionOutputDatabaseManager {
 
         databaseConnection.executeSql(
             new Query("DELETE FROM locking_scripts WHERE transaction_id = ? AND transaction_output_index = ?")
-                .setParameter(transactionOutputId.getTransactionId())
-                .setParameter(transactionOutputId.getOutputIndex())
-        );
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_id = ? AND transaction_output_index = ?")
                 .setParameter(transactionOutputId.getTransactionId())
                 .setParameter(transactionOutputId.getOutputIndex())
         );
