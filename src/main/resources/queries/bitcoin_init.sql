@@ -142,16 +142,6 @@ PARTITION BY RANGE (transaction_id) (
     PARTITION partition09 VALUES LESS THAN MAXVALUE
 );
 
-CREATE TABLE unspent_transaction_outputs (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_id INT UNSIGNED NOT NULL,
-    transaction_output_index INT UNSIGNED NOT NULL,
-    transaction_hash CHAR(64) NOT NULL,
-    PRIMARY KEY (id),
-    FOREIGN KEY unspent_transaction_output_transaction_id_fk (transaction_id) REFERENCES transactions (id),
-    INDEX transaction_outputs_spent_tx_id_ix (transaction_hash, transaction_output_index) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
-
 CREATE TABLE transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
