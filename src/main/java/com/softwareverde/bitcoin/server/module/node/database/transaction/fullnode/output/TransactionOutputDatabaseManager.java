@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -280,16 +281,24 @@ public class TransactionOutputDatabaseManager {
     }
 
     protected Map<TransactionId, Integer> _getTransactionOutputCounts(final List<TransactionId> transactionIds) throws  DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManager.getDatabaseConnectionFactory();
 
         final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
         final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(256);
         batchRunner.run(transactionIds, new BatchRunner.Batch<TransactionId>() {
             @Override
             public void run(final List<TransactionId> batchItems) throws Exception {
-                rows.addAll(databaseConnection.query(
-                    new Query("SELECT transaction_id, COUNT(*) AS output_count FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(batchItems) + ") GROUP BY transaction_id")
-                ));
+                final Query query = new Query("SELECT transaction_id, COUNT(*) AS output_count FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(batchItems) + ") GROUP BY transaction_id");
+
+                if (databaseConnectionFactory != null) {
+                    try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        rows.addAll(databaseConnection.query(query));
+                    }
+                }
+                else {
+                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                    rows.addAll(databaseConnection.query(query));
+                }
             }
         });
 

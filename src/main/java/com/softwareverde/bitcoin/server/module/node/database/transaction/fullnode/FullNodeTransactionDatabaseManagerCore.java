@@ -839,16 +839,23 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManager.getDatabaseConnectionFactory();
 
         final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
         final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(256);
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
             public void run(final List<Sha256Hash> batchItems) throws Exception {
-                rows.addAll(databaseConnection.query(
-                    new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(batchItems) + ")")
-                ));
+                final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(batchItems) + ")");
+                if (databaseConnectionFactory != null) {
+                    try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        rows.addAll(databaseConnection.query(query));
+                    }
+                }
+                else {
+                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                    rows.addAll(databaseConnection.query(query));
+                }
             }
         });
 
