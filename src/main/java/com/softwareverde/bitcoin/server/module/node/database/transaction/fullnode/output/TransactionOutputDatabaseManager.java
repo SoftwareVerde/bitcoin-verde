@@ -280,15 +280,15 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIsSpent;
     }
 
-    protected Map<TransactionId, Integer> _getTransactionOutputCounts(final List<TransactionId> transactionIds) throws  DatabaseException {
+    protected Map<Sha256Hash, TransactionOutputCount> _getTransactionOutputCounts(final List<Sha256Hash> transactionHashes) throws DatabaseException {
         final DatabaseConnectionFactory databaseConnectionFactory = _databaseManager.getDatabaseConnectionFactory();
 
         final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
-        final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(256);
-        batchRunner.run(transactionIds, new BatchRunner.Batch<TransactionId>() {
+        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(256);
+        batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
-            public void run(final List<TransactionId> batchItems) throws Exception {
-                final Query query = new Query("SELECT transaction_id, COUNT(*) AS output_count FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(batchItems) + ") GROUP BY transaction_id");
+            public void run(final List<Sha256Hash> batchItems) throws Exception {
+                final Query query = new Query("SELECT transactions.id, transactions.hash, COUNT(*) AS output_count FROM transactions INNER JOIN transaction_outputs ON transactions.id = transaction_outputs.transaction_id WHERE transactions.hash IN (" + DatabaseUtil.createInClause(batchItems) + ") GROUP BY transactions.id");
 
                 if (databaseConnectionFactory != null) {
                     try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
@@ -302,11 +302,12 @@ public class TransactionOutputDatabaseManager {
             }
         });
 
-        final HashMap<TransactionId, Integer> transactionOutputCounts = new HashMap<TransactionId, Integer>(rows.size());
+        final HashMap<Sha256Hash, TransactionOutputCount> transactionOutputCounts = new HashMap<Sha256Hash, TransactionOutputCount>(rows.size());
         for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
             final Integer outputCount = row.getInteger("output_count");
-            transactionOutputCounts.put(transactionId, outputCount);
+            transactionOutputCounts.put(transactionHash, new TransactionOutputCount(transactionId, outputCount));
         }
 
         return transactionOutputCounts;
@@ -393,6 +394,16 @@ public class TransactionOutputDatabaseManager {
         return _getTransactionOutputId(transactionId, transactionOutputIndex);
     }
 
+    protected static class TransactionOutputCount {
+        public final TransactionId transactionId;
+        public final Integer outputCount;
+
+        public TransactionOutputCount(final TransactionId transactionId, final Integer outputCount) {
+            this.transactionId = transactionId;
+            this.outputCount = outputCount;
+        }
+    }
+
     /**
      * Returns the TransactionOutputIds that for the provided list of TransactionOutputIdentifiers.
      *  If TransactionOutputId could not be found, then null is returned for the whole map.
@@ -403,7 +414,6 @@ public class TransactionOutputDatabaseManager {
         final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(identifierCount);
 
         final MilliTimer setupTimer = new MilliTimer();
-        final MilliTimer outputIdLookupTimer = new MilliTimer();
         final MilliTimer outputCountTimer = new MilliTimer();
 
         setupTimer.start();
@@ -417,39 +427,23 @@ public class TransactionOutputDatabaseManager {
         }
         setupTimer.stop();
 
-        outputIdLookupTimer.start();
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        final Map<Sha256Hash, TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(transactionHashes);
-
-        for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-            final TransactionId transactionId = transactionIds.get(transactionOutputIdentifier.getTransactionHash());
-            if (transactionId == null) {
-                Logger.debug("Could not find TransactionOutput: " + transactionOutputIdentifier);
-                return null;
-            }
-
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionId.longValue(), transactionOutputIdentifier.getOutputIndex());
-            transactionOutputIds.put(transactionOutputIdentifier, transactionOutputId);
-        }
-        outputIdLookupTimer.stop();
-
         outputCountTimer.start();
-        final Map<TransactionId, Integer> transactionOutputCounts = _getTransactionOutputCounts(new ImmutableList<TransactionId>(transactionIds.values()));
+        final Map<Sha256Hash, TransactionOutputCount> transactionOutputCounts = _getTransactionOutputCounts(transactionHashes);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-            final TransactionId transactionId = transactionIds.get(transactionHash);
-            final Integer transactionOutputCount = transactionOutputCounts.get(transactionId);
-
             final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-            if ( (outputIndex >= transactionOutputCount) || (outputIndex < 0) ) {
+
+            final TransactionOutputCount transactionOutputCount = transactionOutputCounts.get(transactionHash);
+            if ( (transactionOutputCount == null) || (outputIndex >= transactionOutputCount.outputCount) || (outputIndex < 0) ) {
                 Logger.debug("Could not find TransactionOutput: " + transactionOutputIdentifier);
                 return null;
             }
+
+            transactionOutputIds.put(transactionOutputIdentifier, TransactionOutputId.wrap(transactionOutputCount.transactionId, outputIndex));
         }
         outputCountTimer.stop();
 
         Logger.debug("SetupTimer: " + setupTimer.getMillisecondsElapsed() + "ms.");
-        Logger.debug("OutputIdLookupTimer: " + outputIdLookupTimer.getMillisecondsElapsed() + "ms.");
         Logger.debug("OutputCountTimer: " + outputCountTimer.getMillisecondsElapsed() + "ms.");
 
         return transactionOutputIds;

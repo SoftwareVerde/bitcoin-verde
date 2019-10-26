@@ -10,6 +10,11 @@ public class TransactionOutputId extends Identifier {
         return new TransactionOutputId(transactionId, outputIndex);
     }
 
+    public static TransactionOutputId wrap(final TransactionId transactionId, final Integer outputIndex) {
+        if (transactionId == null) { return new TransactionOutputId(0L, -1); }
+        return new TransactionOutputId(transactionId.longValue(), outputIndex);
+    }
+
     protected final Integer _outputIndex;
 
     protected TransactionOutputId(final Long transactionId, final Integer outputIndex) {
