@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
-import com.softwareverde.bitcoin.server.database.query.BatchedUpdateQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -36,14 +35,13 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class TransactionOutputDatabaseManager {
 
@@ -281,11 +279,19 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIsSpent;
     }
 
-    protected Map<TransactionId, Integer> _getTransactionOutputCounts(final Iterable<TransactionId> transactionIds) throws  DatabaseException {
+    protected Map<TransactionId, Integer> _getTransactionOutputCounts(final List<TransactionId> transactionIds) throws  DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transaction_id, COUNT(*) AS output_count FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") GROUP BY transaction_id")
-        );
+
+        final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
+        final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(256);
+        batchRunner.run(transactionIds, new BatchRunner.Batch<TransactionId>() {
+            @Override
+            public void run(final List<TransactionId> batchItems) throws Exception {
+                rows.addAll(databaseConnection.query(
+                    new Query("SELECT transaction_id, COUNT(*) AS output_count FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(batchItems) + ") GROUP BY transaction_id")
+                ));
+            }
+        });
 
         final HashMap<TransactionId, Integer> transactionOutputCounts = new HashMap<TransactionId, Integer>(rows.size());
         for (final Row row : rows) {
@@ -419,7 +425,7 @@ public class TransactionOutputDatabaseManager {
         outputIdLookupTimer.stop();
 
         outputCountTimer.start();
-        final Map<TransactionId, Integer> transactionOutputCounts = _getTransactionOutputCounts(transactionIds.values());
+        final Map<TransactionId, Integer> transactionOutputCounts = _getTransactionOutputCounts(new ImmutableList<TransactionId>(transactionIds.values()));
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
             final TransactionId transactionId = transactionIds.get(transactionHash);
