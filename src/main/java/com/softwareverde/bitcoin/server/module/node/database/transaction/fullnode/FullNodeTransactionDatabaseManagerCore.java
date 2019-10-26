@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
@@ -840,9 +841,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(transactionHashes) + ")")
-        );
+        final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
+        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(256);
+        batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
+            @Override
+            public void run(final List<Sha256Hash> batchItems) throws Exception {
+                rows.addAll(databaseConnection.query(
+                    new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(batchItems) + ")")
+                ));
+            }
+        });
 
         final int transactionCount = transactionHashes.getSize();
         if (rows.size() != transactionCount) {
