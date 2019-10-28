@@ -283,9 +283,6 @@ public class TransactionOutputDatabaseManager {
     protected Map<Sha256Hash, TransactionOutputCount> _getTransactionOutputCounts(final List<Sha256Hash> transactionHashes) throws DatabaseException {
         final DatabaseConnectionFactory databaseConnectionFactory = _databaseManager.getDatabaseConnectionFactory();
 
-// UPDATE transactions SET output_count = (SELECT COUNT(*) FROM transaction_outputs WHERE transaction_outputs.transaction_id = transactions.id);
-// UPDATE transactions INNER JOIN transaction_outputs ON transaction_outputs.transaction_id = transactions.id SET transactions.output_count = COUNT(*) GROUP BY transactions.id;
-
         final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
         final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(256);
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {

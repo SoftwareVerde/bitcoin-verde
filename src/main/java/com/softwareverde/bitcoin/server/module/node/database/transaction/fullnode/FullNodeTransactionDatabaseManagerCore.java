@@ -468,14 +468,17 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Integer transactionCount = transactions.getSize();
 
         final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactionCount);
-        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
+        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, version, lock_time, output_count) VALUES (?, ?, ?, ?)");
         for (final Transaction transaction : transactions) {
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            final Integer transactionOutputCount = transactionOutputs.getSize();
             final Sha256Hash transactionHash = transaction.getHash();
             final LockTime lockTime = transaction.getLockTime();
 
             batchedInsertQuery.setParameter(transactionHash);
             batchedInsertQuery.setParameter(transaction.getVersion());
             batchedInsertQuery.setParameter(lockTime.getValue());
+            batchedInsertQuery.setParameter(transactionOutputCount);
 
             transactionHashes.add(transactionHash);
         }
