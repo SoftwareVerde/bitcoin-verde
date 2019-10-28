@@ -283,12 +283,15 @@ public class TransactionOutputDatabaseManager {
     protected Map<Sha256Hash, TransactionOutputCount> _getTransactionOutputCounts(final List<Sha256Hash> transactionHashes) throws DatabaseException {
         final DatabaseConnectionFactory databaseConnectionFactory = _databaseManager.getDatabaseConnectionFactory();
 
+// UPDATE transactions SET output_count = (SELECT COUNT(*) FROM transaction_outputs WHERE transaction_outputs.transaction_id = transactions.id);
+// UPDATE transactions INNER JOIN transaction_outputs ON transaction_outputs.transaction_id = transactions.id SET transactions.output_count = COUNT(*) GROUP BY transactions.id;
+
         final ConcurrentLinkedDeque<Row> rows = new ConcurrentLinkedDeque<Row>();
         final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(256);
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
             public void run(final List<Sha256Hash> batchItems) throws Exception {
-                final Query query = new Query("SELECT transactions.id, transactions.hash, COUNT(*) AS output_count FROM transactions INNER JOIN transaction_outputs ON transactions.id = transaction_outputs.transaction_id WHERE transactions.hash IN (" + DatabaseUtil.createInClause(batchItems) + ") GROUP BY transactions.id");
+                final Query query = new Query("SELECT id, hash, output_count FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(batchItems) + ")");
 
                 if (databaseConnectionFactory != null) {
                     try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {

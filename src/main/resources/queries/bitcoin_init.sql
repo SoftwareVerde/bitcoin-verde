@@ -98,6 +98,7 @@ CREATE TABLE transactions (
     hash CHAR(64) NOT NULL,
     version INT UNSIGNED NOT NULL,
     lock_time BIGINT UNSIGNED NOT NULL,
+    output_count INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_hash_uq (hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;

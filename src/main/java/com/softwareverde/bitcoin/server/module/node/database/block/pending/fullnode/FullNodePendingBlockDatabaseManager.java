@@ -328,7 +328,6 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
             _insertPendingBlockData(pendingBlockId, _blockDeflater.toBytes(block));
             return pendingBlockId;
-
         }
         finally {
             WRITE_LOCK.unlock();

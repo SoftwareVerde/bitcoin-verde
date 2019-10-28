@@ -340,18 +340,20 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected void _updateTransaction(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
         databaseManagerCache.invalidateTransactionIdCache();
         databaseManagerCache.invalidateTransactionCache();
 
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final Integer outputCount = transactionOutputs.getSize();
+
         final LockTime lockTime = transaction.getLockTime();
         databaseConnection.executeSql(
-            new Query("UPDATE transactions SET hash = ?, version = ?, lock_time = ? WHERE id = ?")
+            new Query("UPDATE transactions SET hash = ?, version = ?, lock_time = ?, output_count = ? WHERE id = ?")
                 .setParameter(transaction.getHash())
                 .setParameter(transaction.getVersion())
                 .setParameter(lockTime.getValue())
+                .setParameter(outputCount)
                 .setParameter(transactionId)
         );
     }
@@ -422,14 +424,17 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final Sha256Hash transactionHash = transaction.getHash();
+        final Integer outputCount = transactionOutputs.getSize();
 
         final LockTime lockTime = transaction.getLockTime();
         final Long transactionIdLong = databaseConnection.executeSql(
-            new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
+            new Query("INSERT INTO transactions (hash, version, lock_time, output_count) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionHash)
                 .setParameter(transaction.getVersion())
                 .setParameter(lockTime.getValue())
+                .setParameter(outputCount)
         );
 
         final TransactionId transactionId = TransactionId.wrap(transactionIdLong);
