@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.slp.SlpUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -74,6 +75,9 @@ public class Wallet {
     protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
     protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
     protected final HashSet<Sha256Hash> _confirmedTransactions = new HashSet<Sha256Hash>();
+    protected final HashSet<Sha256Hash> _notYetValidatedSlpTransactions = new HashSet<>();
+    protected final HashSet<Sha256Hash> _invalidSlpTransactions = new HashSet<>();
+    protected final HashSet<Sha256Hash> _validSlpTransactions = new HashSet<>();
 
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
     protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
@@ -295,6 +299,17 @@ public class Wallet {
                 _transactionOutputs.put(transactionOutputIdentifier, spendableTransactionOutput);
             }
         }
+
+        if (Transaction.isSlpTransaction(transaction)) {
+            // check for validity and stop tracking its validity explicitly if it is valid
+            if (! _validSlpTransactions.remove(transactionHash)) {
+                // not known to be valid
+                if (! _invalidSlpTransactions.contains(transactionHash)) {
+                    // not known to be invalid either
+                    _notYetValidatedSlpTransactions.add(transactionHash);
+                }
+            }
+        }
     }
 
     protected void _reloadTransactions() {
@@ -306,9 +321,19 @@ public class Wallet {
         _transactions.clear();
         _confirmedTransactions.clear();
 
+        // intentionally not clearing SLP sets, since their state should remain valid across the reload
+
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             final boolean isConfirmedTransaction = confirmedTransactions.contains(transactionHash);
+
+            // add any previously processed, valid SLP transactions (back) to the valid SLP transactions set
+            if (Transaction.isSlpTransaction(transaction)) {
+                if (! _notYetValidatedSlpTransactions.contains(transactionHash) && ! _invalidSlpTransactions.contains(transactionHash)) {
+                    _validSlpTransactions.add(transactionHash);
+                }
+            }
+
             _addTransaction(transaction, isConfirmedTransaction);
         }
     }
@@ -1036,7 +1061,7 @@ public class Wallet {
         return amount;
     }
 
-    public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId) {
+    public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId, boolean shouldIncludeNotYetValidatedTransactions) {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
@@ -1044,19 +1069,65 @@ public class Wallet {
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
 
-                final Transaction transaction = _transactions.get(transactionHash);
-                if (transaction == null) { return null; }
+                // skip invalid SLP transactions
+                if (! _invalidSlpTransactions.contains(transactionHash)) {
+                    // also skip not yet validated transactions if not including them
+                    if (! _notYetValidatedSlpTransactions.contains(transactionHash) || shouldIncludeNotYetValidatedTransactions) {
+                        final Transaction transaction = _transactions.get(transactionHash);
+                        if (transaction == null) { return null; }
 
-                final boolean outputContainsTokens = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
-                if (! outputContainsTokens) { continue; }
+                        final boolean outputContainsTokens = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
+                        if (! outputContainsTokens) { continue; }
 
-                final SlpTokenId transactionTokenId = SlpUtil.getTokenId(transaction);
-                if (! Util.areEqual(tokenId, transactionTokenId)) { continue; }
+                        final SlpTokenId transactionTokenId = SlpUtil.getTokenId(transaction);
+                        if (! Util.areEqual(tokenId, transactionTokenId)) { continue; }
 
-                amount += SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
+                        amount += SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
+                    }
+                }
             }
         }
         return amount;
+    }
+
+    public synchronized Long getInvalidSlpTokenBalance(final SlpTokenId tokenId) {
+        long amount = 0L;
+        for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+            if (! spendableTransactionOutput.isSpent()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+
+                // only include invalid transactions
+                if (_invalidSlpTransactions.contains(transactionHash)) {
+                    final Transaction transaction = _transactions.get(transactionHash);
+                    if (transaction == null) { return null; }
+
+                    final boolean outputContainsTokens = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
+                    if (! outputContainsTokens) { continue; }
+
+                    final SlpTokenId transactionTokenId = SlpUtil.getTokenId(transaction);
+                    if (! Util.areEqual(tokenId, transactionTokenId)) { continue; }
+
+                    amount += SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
+                }
+            }
+        }
+        return amount;
+    }
+
+    public synchronized void markSlpTransactionAsValid(final Sha256Hash transactionHash) {
+        if (_transactions.containsKey(transactionHash)) {
+            _notYetValidatedSlpTransactions.remove(transactionHash);
+        }
+        else {
+            _validSlpTransactions.add(transactionHash);
+        }
+    }
+
+    public synchronized  void markSlpTransactionAsInvalid(final Sha256Hash transactionHash) {
+        _notYetValidatedSlpTransactions.remove(transactionHash);
+        _invalidSlpTransactions.add(transactionHash);
     }
 
     public synchronized Long getSlpTokenAmount(final SlpTokenId slpTokenId, final TransactionOutputIdentifier transactionOutputIdentifier) {
