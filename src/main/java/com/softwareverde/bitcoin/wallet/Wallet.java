@@ -1119,15 +1119,20 @@ public class Wallet {
     public synchronized void markSlpTransactionAsValid(final Sha256Hash transactionHash) {
         if (_transactions.containsKey(transactionHash)) {
             _notYetValidatedSlpTransactions.remove(transactionHash);
+            _validSlpTransactions.remove(transactionHash);
         }
         else {
             _validSlpTransactions.add(transactionHash);
         }
+        // cannot be invalid now
+        _invalidSlpTransactions.remove(transactionHash);
     }
 
     public synchronized  void markSlpTransactionAsInvalid(final Sha256Hash transactionHash) {
         _notYetValidatedSlpTransactions.remove(transactionHash);
         _invalidSlpTransactions.add(transactionHash);
+        // cannot be valid now
+        _validSlpTransactions.remove(transactionHash);
     }
 
     public synchronized Long getSlpTokenAmount(final SlpTokenId slpTokenId, final TransactionOutputIdentifier transactionOutputIdentifier) {
