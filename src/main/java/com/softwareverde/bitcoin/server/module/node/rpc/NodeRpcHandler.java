@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
+import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
@@ -110,7 +111,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Boolean isValidSlpTransaction(Sha256Hash transactionHash);
         SlpTokenId getSlpTokenId(Sha256Hash transactionHash);
 
-        BlockValidationResult validatePrototypeBlock(final Block block);
+        BlockValidationResult validatePrototypeBlock(Block block);
+        ValidationResult validateTransaction(Transaction transaction, Boolean enableSlpValidation);
+
         void submitTransaction(Transaction transaction);
         void submitBlock(Block block);
     }
@@ -1009,7 +1012,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires POST: <block>
+    // Requires POST: <blockData>
     protected void _validatePrototypeBlock(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -1032,12 +1035,48 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockBytes);
         if (block == null) {
-            response.put(ERROR_MESSAGE_KEY, "Invalid Block");
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block.");
             return;
         }
 
         final BlockValidationResult blockValidationResult = dataHandler.validatePrototypeBlock(block);
         response.put("blockValidation", blockValidationResult);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <transactionData>, [enableSlpValidation=1]
+    protected void _validateTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("transactionData")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: transactionData");
+            return;
+        }
+
+        final String transactionHexString = parameters.getString("transactionData");
+        final ByteArray transactionBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(transactionHexString));
+        if (transactionBytes == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Transaction bytes.");
+            return;
+        }
+
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
+        if (transaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Transaction.");
+            return;
+        }
+
+        final String enableSlpValidationKey = "enableSlpValidation";
+        final Boolean enableSlpValidation = (parameters.hasKey(enableSlpValidationKey) ? parameters.getBoolean(enableSlpValidationKey) : true);
+
+        final ValidationResult blockValidationResult = dataHandler.validateTransaction(transaction, enableSlpValidation);
+        response.put("transactionValidation", blockValidationResult);
 
         response.put(WAS_SUCCESS_KEY, 1);
     }
@@ -1499,6 +1538,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "VALIDATE_PROTOTYPE_BLOCK": {
                                 _validatePrototypeBlock(parameters, response);
+                            } break;
+
+                            case "VALIDATE_TRANSACTION": {
+                                _validateTransaction(parameters, response);
                             } break;
 
                             case "SET_LOG_LEVEL": {
