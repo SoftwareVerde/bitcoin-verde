@@ -148,7 +148,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {

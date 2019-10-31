@@ -174,8 +174,8 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
-        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(row.getString("previous_block_hash"));
+        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
+        final Sha256Hash previousBlockHash = Sha256Hash.copyOf(row.getBytes("previous_block_hash"));
         final ByteArray blockData;
         {
             if (includeDataIfAvailable) {
@@ -351,7 +351,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             Long tupleStartingBlockHeight = null; // The blockHeight of blockHashStartEnd.first...
             for (final Row row : rows) {
                 final Long blockHeight = row.getLong("block_height");
-                final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+                final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
                 boolean addTupleToDownloadPlan = false;
                 boolean createNewTuple = false;
@@ -491,7 +491,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            return Sha256Hash.fromHexString(row.getString("hash"));
+            return Sha256Hash.copyOf(row.getBytes("hash"));
 
         }
         finally {

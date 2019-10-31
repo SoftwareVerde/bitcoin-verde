@@ -82,7 +82,7 @@ public class Query extends com.softwareverde.database.query.Query {
     }
 
     public Query setParameter(final Hash value) {
-        super.setParameter(value != null ? value.toString() : null);
+        super.setParameter(value != null ? value.getBytes() : null);
         return this;
     }
 
@@ -103,12 +103,12 @@ public class Query extends com.softwareverde.database.query.Query {
 
     public Query setParameter(final Difficulty value) {
         final ByteArray byteArray = (value != null ? value.encode() : null);
-        super.setParameter(byteArray != null ? byteArray.toString() : null);
+        super.setParameter(byteArray != null ? byteArray.getBytes() : null);
         return this;
     }
 
     public Query setParameter(final Work value) {
-        super.setParameter(value != null ? value.toString() : null);
+        super.setParameter(value != null ? value.getBytes() : null);
         return this;
     }
 }

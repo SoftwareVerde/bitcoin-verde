@@ -173,6 +173,8 @@ public class BlockDownloader extends SleepyService {
             }
 
             try {
+                // TODO: This query shows up in the mysql processlist quite often, with zero-duration.
+                //  This is likely due to Transactional locking.  Perhaps this could be optimized/displaced/removed.
                 TransactionUtil.startTransaction(databaseConnection);
                 pendingBlockDatabaseManager.cleanupPendingBlocks();
                 TransactionUtil.commitTransaction(databaseConnection);

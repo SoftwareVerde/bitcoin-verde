@@ -90,7 +90,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 );
                 if (! rows.isEmpty()) {
                     final Row row = rows.get(0);
-                    final Sha256Hash lastTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                    final Sha256Hash lastTransactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
                         Logger.debug("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
 
@@ -123,7 +123,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
                 for (final Row row : rows) {
                     final long transactionId = row.getLong("id");
-                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
                     mutableBloomFilter.addItem(transactionHash);
                     if (transactionId > lastTransactionId) {
                         lastTransactionId = transactionId;
@@ -511,7 +511,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(affectedRowCount);
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
             transactionHashMap.put(transactionHash, transactionId);
 
             databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
@@ -550,7 +550,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Row row = rows.get(0);
         final Long version = row.getLong("version");
         final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
-        final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash expectedTransactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
         final List<TransactionInputId> transactionInputIds;
         final List<TransactionOutputId> transactionOutputIds;
@@ -719,7 +719,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
                     for (final Row row : rows) {
                         final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
                         // The existence of the transaction is confirmed, so definitively mark the transaction as seen...
                         existingTransactions.put(transactionHash, transactionId);
@@ -838,7 +838,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
         databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
 
@@ -876,7 +876,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
             transactionHashesMap.put(transactionHash, transactionId);
         }

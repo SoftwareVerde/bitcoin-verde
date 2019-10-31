@@ -6,7 +6,7 @@ import com.softwareverde.util.HexUtil;
 import java.math.BigInteger;
 
 public interface ChainWork extends Work {
-    static MutableChainWork fromByteArray(final ByteArray byteArray) {
+    static MutableChainWork copyOf(final ByteArray byteArray) {
         if (byteArray.getByteCount() != 32) { return null; }
         return new MutableChainWork(byteArray);
     }

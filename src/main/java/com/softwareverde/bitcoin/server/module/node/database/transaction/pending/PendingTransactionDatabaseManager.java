@@ -160,7 +160,7 @@ public class PendingTransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     protected void _incrementFailedDownloadCount(final PendingTransactionId pendingTransactionId) throws DatabaseException {
@@ -272,7 +272,7 @@ public class PendingTransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
         final ByteArray transactionData = MutableByteArray.wrap(row.getBytes("data"));
 
         final Transaction transaction = _transactionInflater.fromBytes(transactionData);
@@ -294,7 +294,7 @@ public class PendingTransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
         final ByteArray transactionData;
         {
             if (includeDataIfAvailable) {

@@ -305,7 +305,7 @@ public class TransactionOutputDatabaseManager {
         final HashMap<Sha256Hash, TransactionOutputCount> transactionOutputCounts = new HashMap<Sha256Hash, TransactionOutputCount>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
             final Integer outputCount = row.getInteger("output_count");
             transactionOutputCounts.put(transactionHash, new TransactionOutputCount(transactionId, outputCount));
         }

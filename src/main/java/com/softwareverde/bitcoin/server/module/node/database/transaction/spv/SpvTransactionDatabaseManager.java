@@ -238,7 +238,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            return Sha256Hash.fromHexString(row.getString("hash"));
+            return Sha256Hash.copyOf(row.getBytes("hash"));
         }
         finally {
             READ_LOCK.unlock();
@@ -267,7 +267,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
             transactionHashesMap.put(transactionHash, transactionId);
         }
