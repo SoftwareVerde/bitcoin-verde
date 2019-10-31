@@ -23,6 +23,7 @@ public class BitcoinProperties {
     protected Boolean _blockCacheIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
+    protected Boolean _shouldRelayInvalidSlpTransactions;
 
     public Integer getBitcoinPort() { return _bitcoinPort; }
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -40,4 +41,5 @@ public class BitcoinProperties {
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
     public String getDataDirectory() { return _dataDirectory; }
+    public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
 }

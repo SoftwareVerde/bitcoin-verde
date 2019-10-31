@@ -752,7 +752,8 @@ public class NodeModule {
         }
 
         { // Initialize Transaction Relay...
-            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, requestDataHandler, _nodeRpcHandler);
+            final Boolean shouldRelayInvalidSlpTransactions = _bitcoinProperties.isInvalidSlpTransactionRelayEnabled();
+            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, requestDataHandler, _nodeRpcHandler, shouldRelayInvalidSlpTransactions);
         }
 
         _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/transaction-bloom-filter");
