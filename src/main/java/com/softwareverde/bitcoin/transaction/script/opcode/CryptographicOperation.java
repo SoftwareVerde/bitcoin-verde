@@ -210,9 +210,11 @@ public class CryptographicOperation extends SubTypedOperation {
     protected Boolean _executeCheckMultiSignature(final Stack stack, final Context context) {
         final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_SIGNATURE;
 
-        final Integer publicKeyCount;
+        final int publicKeyCount;
         {
             final Value publicKeyCountValue = stack.pop();
+            if (! Operation.validateMinimalEncoding(publicKeyCountValue, context)) { return false; }
+
             publicKeyCount = publicKeyCountValue.asLong().intValue();
             if (publicKeyCount < 0) { return false; }
             if (publicKeyCount > MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT) { return false; }

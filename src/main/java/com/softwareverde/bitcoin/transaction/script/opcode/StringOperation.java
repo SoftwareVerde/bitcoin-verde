@@ -74,6 +74,8 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x00, 0x11, 0x22 } 0x03 SPLIT -> { 0x00, 0x11, 0x22 } { }
 
                 final Value beginIndexValue = stack.pop();
+                if (! Operation.validateMinimalEncoding(beginIndexValue, context)) { return false; }
+
                 final Value value = stack.pop();
 
                 final byte[] valueBytes = value.getBytes();

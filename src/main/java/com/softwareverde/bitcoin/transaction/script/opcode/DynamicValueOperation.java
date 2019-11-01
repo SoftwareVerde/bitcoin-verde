@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -50,8 +53,9 @@ public class DynamicValueOperation extends SubTypedOperation {
 
             case COPY_NTH: {
                 final Value nValue = stack.pop();
-                final Integer n = nValue.asInteger();
+                if (! Operation.validateMinimalEncoding(nValue, context)) { return false; }
 
+                final Integer n = nValue.asInteger();
                 stack.push(stack.peak(n));
                 return (! stack.didOverflow());
             }
