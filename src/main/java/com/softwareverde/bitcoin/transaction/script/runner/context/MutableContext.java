@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -8,9 +9,14 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableContext implements Context, Const {
     public static MutableContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent) {
+        return MutableContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE);
+    }
+
+    public static MutableContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime) {
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         final TransactionInput signedTransactionInput = signedTransactionInputs.get(transactionInputIndex);
 
@@ -20,12 +26,14 @@ public class MutableContext implements Context, Const {
         mutableContext.setTransactionInput(signedTransactionInput);
         mutableContext.setTransaction(signedTransaction);
         mutableContext.setBlockHeight(Long.MAX_VALUE);
+        mutableContext.setMedianBlockTime(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE));
         mutableContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
         mutableContext.setCurrentScriptLastCodeSeparatorIndex(0);
         return mutableContext;
     }
 
     protected Long _blockHeight;
+    protected MedianBlockTime _medianBlockTime;
     protected Transaction _transaction;
 
     protected Integer _transactionInputIndex;
@@ -40,6 +48,7 @@ public class MutableContext implements Context, Const {
 
     public MutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
+        _medianBlockTime = context.getMedianBlockTime();
         _transaction = ConstUtil.asConstOrNull(context.getTransaction());
         _transactionInputIndex = context.getTransactionInputIndex();
         _transactionInput = ConstUtil.asConstOrNull(context.getTransactionInput());
@@ -53,6 +62,10 @@ public class MutableContext implements Context, Const {
 
     public void setBlockHeight(final Long blockHeight) {
         _blockHeight = blockHeight;
+    }
+
+    public void setMedianBlockTime(final MedianBlockTime medianBlockTime) {
+        _medianBlockTime = medianBlockTime;
     }
 
     /**
@@ -91,6 +104,11 @@ public class MutableContext implements Context, Const {
     @Override
     public Long getBlockHeight() {
         return _blockHeight;
+    }
+
+    @Override
+    public MedianBlockTime getMedianBlockTime() {
+        return _medianBlockTime;
     }
 
     @Override

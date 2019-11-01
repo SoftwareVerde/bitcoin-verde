@@ -443,7 +443,7 @@ public class AbcScriptRunnerTests {
             }
 
             final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
-            final ScriptRunner scriptRunner = new ScriptRunner(medianBlockTime);
+            final ScriptRunner scriptRunner = new ScriptRunner();
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);
             transactionOutputBeingSpent.setAmount(amount);
@@ -463,6 +463,7 @@ public class AbcScriptRunnerTests {
             context.setTransactionInputIndex(0);
 
             context.setBlockHeight(0L);
+            context.setMedianBlockTime(medianBlockTime);
             if (flagsString.contains("P2SH")) {
                 context.setBlockHeight(Math.max(173805L, context.getBlockHeight()));
             }

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.chain.time;
 
 import com.softwareverde.constable.Const;
 
-public class ImmutableMedianBlockTime implements MedianBlockTime, Const {
+public class ImmutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, Const {
     protected final Long _medianBlockTimeInMilliseconds;
 
     public ImmutableMedianBlockTime(final Long medianBlockTimeInMilliseconds) {
