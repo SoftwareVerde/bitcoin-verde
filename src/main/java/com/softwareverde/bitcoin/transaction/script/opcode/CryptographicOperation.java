@@ -1,9 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.Bip66;
-import com.softwareverde.bitcoin.bip.Buip55;
-import com.softwareverde.bitcoin.bip.HF20171113;
-import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.bip.*;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
@@ -27,6 +25,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class CryptographicOperation extends SubTypedOperation {
@@ -208,6 +207,7 @@ public class CryptographicOperation extends SubTypedOperation {
     }
 
     protected Boolean _executeCheckMultiSignature(final Stack stack, final Context context) {
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
         final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_SIGNATURE;
 
         final int publicKeyCount;
@@ -256,11 +256,13 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
 
-                if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
-                    // Schnorr signatures are currently disabled for OP_CHECKMULTISIG...
-                    final Signature signature = scriptSignature.getSignature();
-                    if (signature.getType() == Signature.Type.SCHNORR) {
-                        return false;
+                if (! HF20191115.isEnabled(medianBlockTime)) {
+                    if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
+                        // Schnorr signatures are disabled for OP_CHECKMULTISIG until the 2019-11-15 HF...
+                        final Signature signature = scriptSignature.getSignature();
+                        if (signature.getType() == Signature.Type.SCHNORR) {
+                            return false;
+                        }
                     }
                 }
 
@@ -272,26 +274,100 @@ public class CryptographicOperation extends SubTypedOperation {
             allSignaturesWereEmpty = signaturesAreEmpty;
         }
 
-        stack.pop(); // Pop an extra value due to bug in the protocol...
+        // The checkBits field is used as an index within the publicKeys list for Schnorr MultiSig batching.
+        //  For ECDSA signatures, checkBits must be an empty value.
+        //  This value was previously unused and referred to as "nullDummy" before the 2019-11-15 HF.
+        final Value checkBitsValue = stack.pop();
+
+        final List<Integer> publicKeyIndexesToTry;
+        final boolean ecdsaSignaturesAreAllowed;
+        final boolean abortIfAnySignaturesFail;
+        final boolean signatureVerificationCountMustEqualPublicKeyIndexCount;
+        if ( (! HF20191115.isEnabled(medianBlockTime)) || (Util.areEqual(checkBitsValue, Value.ZERO)) ) {
+            ecdsaSignaturesAreAllowed = true;
+            abortIfAnySignaturesFail = false;
+            signatureVerificationCountMustEqualPublicKeyIndexCount = false;
+
+            { // Build `publicKeyIndexesToTry` as a list of indexes into the public key list.
+                // This operation mimics the legacy/ecdsa style of multi-sig validation, where all signatures are tested but are allowed to fail.
+                final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<Integer>(publicKeyCount);
+                for (int i = 0; i < publicKeyCount; ++i) {
+                    publicKeyIndexesBuilder.add(i);
+                }
+                publicKeyIndexesToTry = publicKeyIndexesBuilder.build();
+            }
+        }
+        else {
+            ecdsaSignaturesAreAllowed = false;
+            abortIfAnySignaturesFail = true;
+            signatureVerificationCountMustEqualPublicKeyIndexCount = true;
+
+            { // Ensure the bit field is not excessively large...
+                final int maxByteCount = ((publicKeyCount + 7) / 8);
+                if (checkBitsValue.getByteCount() != maxByteCount) {
+                    return false;
+                }
+            }
+
+            { // Build `publicKeyIndexesToTry` as a list of indexes into the `publicKeys` list.
+                // The `publicKeys` list is created in reverse order (i.e. the last PublicKey pushed is listed first).
+                // The checkBits bit array is defined so that the 0th-bit (i.e. 0x01) corresponds to the first-pushed PublicKey.
+
+                // Example:
+                //  Assume:
+                //      publicKeys := [ publicKey1, publicKey0 ]                    # Where publicKey0 was pushed to the script first, followed by publicKey1.
+                //      checkBits := 0b00000010                                     # The 2nd bit was set, accessible via ByteArray::getBit(6).
+                //  This configuration results in only signature1 being validated.
+
+                final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<Integer>();
+                final int bitCount = (checkBitsValue.getByteCount() * 8);
+                for (int i = 0; i < bitCount; ++i) {
+                    // NOTE: `i` represents the least significant bit within checkBits.
+                    //  Since checkBits may have left-padded bits, the array is iterated in reverse-order.
+                    final int byteArrayBitIndex = (bitCount - i - 1); // ByteArray::getBit indexes from MSBit to LSBit.
+                    final boolean isSet = checkBitsValue.getBit(byteArrayBitIndex);
+                    if (isSet) {
+                        final int publicKeyIndex = (publicKeyCount - i - 1);
+                        publicKeyIndexesBuilder.add(publicKeyIndex);
+
+                        if (publicKeyIndexesBuilder.getCount() >= publicKeyCount) {
+                            // The number of PublicKeys to check is greater than the number of PublicKeys available...
+                            return false;
+                        }
+                    }
+                }
+                publicKeyIndexesToTry = publicKeyIndexesBuilder.build();
+            }
+        }
 
         final Long blockHeight = context.getBlockHeight();
 
         final boolean signaturesAreValid;
-        {   // Signatures must appear in the same order as their paired public key, but the number of signatures may be less than the number of public keys.
-            // Example: P1, P2, P3 <-> S2, S3
-            //          P1, P2, P3 <-> S1, S3
-            //          P1, P2, P3 <-> S1, S2
-            //          P1, P2, P3 <-> S1, S2, S3
+        { // For the legacy implementation, signatures must appear in the same order as their paired public key, but the number of signatures may be less than the number of public keys.
+            //  Example: P1, P2, P3 <-> S2, S3
+            //           P1, P2, P3 <-> S1, S3
+            //           P1, P2, P3 <-> S1, S2
+            //           P1, P2, P3 <-> S1, S2, S3
+            //
+            // For the MultiSig-Schnorr batching mode, the public keys to test are provided within the old "nullDummy" parameter as a bit-array.
+
             boolean signaturesHaveMatchedPublicKeys = true;
-            int nextPublicKeyIndex = 0;
-            for (int i = 0; i < signatureCount; ++i) {
-                final ScriptSignature scriptSignature = signatures.get(i);
+            int signatureValidationCount = 0;
+            for (int signatureIndex = 0; signatureIndex < signatureCount; ++signatureIndex) {
+                final ScriptSignature scriptSignature = signatures.get(signatureIndex);
+
+                if (! ecdsaSignaturesAreAllowed) {
+                    final Signature signature = scriptSignature.getSignature();
+                    if (signature.getType() == Signature.Type.SECP256K1) {
+                        return false; // If ECDSA Signatures are not allowed (i.e. MultiSig-Schnorr mode), then immediately fail.
+                    }
+                }
 
                 boolean signatureHasPublicKeyMatch = false;
-                for (int j = nextPublicKeyIndex; j < publicKeyCount; ++j) {
-                    nextPublicKeyIndex += 1;
-
-                    final PublicKey publicKey = publicKeys.get(j);
+                int publicKeyIndexIndex = signatureValidationCount;
+                while (publicKeyIndexIndex < publicKeyIndexesToTry.getSize()) {
+                    final int nextPublicKeyIndex = publicKeyIndexesToTry.get(publicKeyIndexIndex);
+                    final PublicKey publicKey = publicKeys.get(nextPublicKeyIndex);
 
                     // Signatures and PublicKeys that are not used are allowed to be coded incorrectly.
                     //  Therefore, the publicKey checking is performed immediately before the signature check, and not when popped from the stack.
@@ -317,15 +393,28 @@ public class CryptographicOperation extends SubTypedOperation {
                             signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
                         }
                     }
+                    signatureValidationCount += 1;
+
                     if (signatureIsValid) {
                         signatureHasPublicKeyMatch = true;
                         break;
                     }
+                    else if (abortIfAnySignaturesFail) {
+                        return false;
+                    }
+
+                    publicKeyIndexIndex += 1;
                 }
 
                 if (! signatureHasPublicKeyMatch) {
                     signaturesHaveMatchedPublicKeys = false;
                     break;
+                }
+            }
+
+            if (signatureVerificationCountMustEqualPublicKeyIndexCount) {
+                if (signatureValidationCount != publicKeyIndexesToTry.getSize()) {
+                    return false;
                 }
             }
 
@@ -343,7 +432,6 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             stack.push(Value.fromBoolean(signaturesAreValid));
-            // stack.push(Value.fromBoolean(true));
         }
 
         return (! stack.didOverflow());
