@@ -34,6 +34,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashMap;
+import java.util.HashSet;
+
 public class AbcScriptRunnerTests {
     public static class FakeMedianBlockTime implements MedianBlockTime {
         protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
@@ -118,24 +121,45 @@ public class AbcScriptRunnerTests {
         }
     }
 
-    protected static final Json TEST_VECTOR_MANIFEST = Json.parse(IoUtil.getResource("/abc_test_vector_manifest.json"));
+    protected static final HashMap<Sha256Hash, String> DISABLED_TESTS;
+    protected static final HashSet<Sha256Hash> ENABLED_TESTS;
+    static {
+        DISABLED_TESTS = new HashMap<Sha256Hash, String>();
+        ENABLED_TESTS = new HashSet<Sha256Hash>();
+
+        final Json testVectorManifest = Json.parse(IoUtil.getResource("/abc_test_vector_manifest.json"));
+
+        final Json disabledTestVectors = testVectorManifest.get("disabledTestVectors");
+        for (final String testVectorHashString : disabledTestVectors.getKeys()) {
+            final Sha256Hash testVectorsHash = Sha256Hash.fromHexString(testVectorHashString);
+            final String comments = disabledTestVectors.getString(testVectorHashString);
+            DISABLED_TESTS.put(testVectorsHash, comments);
+        }
+
+        final Json enabledTestVectors = testVectorManifest.get("enabledTestVectors");
+        for (int i = 0; i < enabledTestVectors.length(); ++i) {
+            final Sha256Hash testVectorsHash = Sha256Hash.fromHexString(enabledTestVectors.getString(i));
+            ENABLED_TESTS.add(testVectorsHash);
+        }
+    }
 
     public static Boolean isTestVectorEnabled(final TestVector testVector) {
         final Sha256Hash testVectorHash = testVector.getHash();
-        final String testVectorHashString = testVectorHash.toString();
 
-        if (! TEST_VECTOR_MANIFEST.hasKey(testVectorHashString)) { return null; }
-        final Json testVectorManifestEntry = TEST_VECTOR_MANIFEST.get(testVectorHashString);
-        return testVectorManifestEntry.getBoolean("isEnabled");
+        if (DISABLED_TESTS.containsKey(testVectorHash)) { return false; }
+        if (ENABLED_TESTS.contains(testVectorHash)) { return true; }
+
+        return null;
     }
 
     public static String getTestVectorComments(final TestVector testVector) {
         final Sha256Hash testVectorHash = testVector.getHash();
-        final String testVectorHashString = testVectorHash.toString();
 
-        if (! TEST_VECTOR_MANIFEST.hasKey(testVectorHashString)) { return null; }
-        final Json testVectorManifestEntry = TEST_VECTOR_MANIFEST.get(testVectorHashString);
-        return testVectorManifestEntry.getString("comments");
+        if (DISABLED_TESTS.containsKey(testVectorHash)) {
+            return DISABLED_TESTS.get(testVectorHash);
+        }
+
+        return "";
     }
 
     public static Boolean shouldSkipTestVector(final TestVector testVector) {
@@ -170,13 +194,16 @@ public class AbcScriptRunnerTests {
             return true;
         }
 
-        return (! AbcScriptRunnerTests.isTestVectorEnabled(testVector));
+        final Boolean isTestVectorEnabled = AbcScriptRunnerTests.isTestVectorEnabled(testVector);
+        if (isTestVectorEnabled == null) { return null; }
+
+        return (! isTestVectorEnabled);
     }
 
     public static void rebuiltTestVectorManifest() {
-        final Json manifestJson = new Json();
+        final HashSet<Sha256Hash> newDisabledTests = new HashSet<Sha256Hash>();
+        final HashSet<Sha256Hash> newEnabledTests = new HashSet<Sha256Hash>();
 
-        boolean hasUnknownTestVectors = false;
         final Json testVectors = Json.parse(IoUtil.getResource("/abc_test_vectors.json"));
         for (int i = 0; i < testVectors.length(); ++i) {
             final Json testVectorJson = testVectors.get(i);
@@ -184,27 +211,55 @@ public class AbcScriptRunnerTests {
             if (testVector == null) { continue; }
 
             final Sha256Hash testVectorHash = testVector.getHash();
+            if (DISABLED_TESTS.containsKey(testVectorHash)) { continue; }
+            if (ENABLED_TESTS.contains(testVectorHash)) { continue; }
 
             final Boolean shouldSkipTestVector = AbcScriptRunnerTests.shouldSkipTestVector(testVector);
-            if (shouldSkipTestVector == null) {
-                System.out.println("Unknown Test Vector: " + testVectorHash + " -> " + testVector);
-                hasUnknownTestVectors = true;
+            if (Util.coalesce(shouldSkipTestVector, false)) {
+                newDisabledTests.add(testVectorHash);
             }
             else {
-                final String testVectorComments = AbcScriptRunnerTests.getTestVectorComments(testVector);
-
-                final Json testVectorManifestEntry = new Json(false);
-                testVectorManifestEntry.put("isEnabled", (! shouldSkipTestVector));
-                testVectorManifestEntry.put("comments", testVectorComments);
-
-                final String testVectorHashString = testVectorHash.toString();
-                manifestJson.put(testVectorHashString, testVectorManifestEntry);
+                newEnabledTests.add(testVectorHash);
             }
         }
 
-        Assert.assertFalse(hasUnknownTestVectors);
+        final Json manifestJson = new Json(false);
+        final Json disabledTestVectors = new Json(false);
+        final Json enabledTestVectors = new Json(true);
+
+        for (final Sha256Hash testVectorHash : DISABLED_TESTS.keySet()) {
+            final String comments = DISABLED_TESTS.get(testVectorHash);
+            disabledTestVectors.put(testVectorHash.toString(), comments);
+        }
+
+        for (final Sha256Hash testVectorHash : ENABLED_TESTS) {
+            enabledTestVectors.add(testVectorHash.toString());
+        }
+
+        for (final Sha256Hash testVectorHash : newEnabledTests) {
+            enabledTestVectors.add(testVectorHash.toString());
+        }
+
+        for (final Sha256Hash testVectorHash : newDisabledTests) {
+            enabledTestVectors.add(testVectorHash.toString());
+        }
+
+        manifestJson.put("enabledTestVectors", enabledTestVectors);
+        manifestJson.put("disabledTestVectors", disabledTestVectors);
 
         System.out.println(manifestJson.toFormattedString(2));
+
+        System.out.println();
+        System.out.println("New Disabled Tests: ");
+        for (final Sha256Hash testVectorHash : newDisabledTests) {
+            System.out.println(testVectorHash);
+        }
+
+        System.out.println();
+        System.out.println("New Enabled Tests: ");
+        for (final Sha256Hash testVectorHash : newEnabledTests) {
+            System.out.println(testVectorHash);
+        }
     }
 
     protected static ByteArray wrapByte(final byte value) {
@@ -580,7 +635,7 @@ public class AbcScriptRunnerTests {
                 failCount += 1;
                 System.out.println("FAILED: " + i);
                 System.out.println("Expected: " + expectedResult + " Actual: " + wasValid);
-                // break;
+                break;
             }
         }
 
@@ -591,8 +646,8 @@ public class AbcScriptRunnerTests {
         Assert.assertEquals(0, failCount);
     }
 
-    // @Test
-    // public void rebuild_test_vector_manifest() {
-    //     AbcScriptRunnerTests.rebuiltTestVectorManifest();
-    // }
+    @Test
+    public void rebuild_test_vector_manifest() {
+        AbcScriptRunnerTests.rebuiltTestVectorManifest();
+    }
 }
