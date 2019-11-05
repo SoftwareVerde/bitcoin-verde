@@ -129,30 +129,16 @@ public class AbcScriptRunnerTests {
         return testVectorManifestEntry.getBoolean("isEnabled");
     }
 
-    public static String getTestVectorComments(final TestVector testVector, final int testIndex) {
+    public static String getTestVectorComments(final TestVector testVector) {
         final Sha256Hash testVectorHash = testVector.getHash();
         final String testVectorHashString = testVectorHash.toString();
-
-        switch (testIndex) {
-            case 1203: return "Requires CHECKDATASIG with STRICTENC disabled.";
-            case 1317: return "Attempts to require that no forkId is set if ForkId is enabled, but ForkId is always enabled in practice.";
-
-            case 1324: return "Test is specific to the ABC feature-flag mechanisms.  Bitcoin Verde does not implement the same feature-flags mechanism as ABC, and therefore STRICTENC cannot be disabled with CHECKDATASIG.  In practice, STRICTENC is always enabled when CHECKDATASIG is enabled.  Example tests include attempting to allow invalid signature (High S), or bad DER signature, in combination with CHECKDATASIG and now LOW_S/STRICTENC/etc flags.";
-
-            case 1326: case 1328: case 1330: case 1336: case 1338: case 1340:
-            case 1354: case 1356: case 1358: case 1360: case 1366: case 1368: case 1370:
-                return "Test is specific to the ABC feature-flag mechanisms.";
-
-            case 1532: case 1533: case 1534: case 1536: case 1538: return "Test is a schnorr signatures with STRICTENC, but also does not use Bitcoin Cash HashType.  Attempts to mix DERSIG/NULLFAIL/STRICTENC/NULLDUMMY flags in unsupported combinations.";
-            case 1541: case 1543: return "Test is a schnorr signatures with STRICTENC, but also does not use Bitcoin Cash HashType.  Cannot disable FORKID without STRICTENC.";
-        };
 
         if (! TEST_VECTOR_MANIFEST.hasKey(testVectorHashString)) { return null; }
         final Json testVectorManifestEntry = TEST_VECTOR_MANIFEST.get(testVectorHashString);
         return testVectorManifestEntry.getString("comments");
     }
 
-    public static Boolean shouldSkipTestVector(final TestVector testVector, final int testIndex) {
+    public static Boolean shouldSkipTestVector(final TestVector testVector) {
         final String[] skippedTestFlags = new String[] { "DISCOURAGE_UPGRADABLE_NOPS", "REPLAY_PROTECTION" };
         for (final String skippedFlag : skippedTestFlags) {
             if (testVector.flagsString.contains(skippedFlag)) {
@@ -184,28 +170,7 @@ public class AbcScriptRunnerTests {
             return true;
         }
 
-        final int[] skippedTestIndices = new int[] {
-                1203, // Requires CHECKDATASIG with STRICTENC disabled...
-                1317, // Attempts to require that no forkId is set if ForkId is enabled, but ForkId is always enabled in practice.
-
-                // Tests are specific to the ABC feature-flag mechanisms.
-                // Bitcoin Verde does not implement the same feature-flags mechanism as ABC, and therefore STRICTENC cannot be disabled with CHECKDATASIG.
-                // In practice, STRICTENC is always enabled when CHECKDATASIG is enabled.
-                // Example tests include attempting to allow invalid signature (High S), or bad DER signature, in combination with CHECKDATASIG and now LOW_S/STRICTENC/etc flags.
-                1324, 1326, 1328, 1330, 1336, 1338, 1340,
-                1354, 1356, 1358, 1360, 1366, 1368, 1370,
-
-                // Tests are schnorr signatures with STRICTENC, but also does not use Bitcoin Cash HashType...
-                1532, 1533, 1534, 1536, 1538, // Attempts to mix DERSIG/NULLFAIL/STRICTENC/NULLDUMMY flags in unsupported combinations...
-                1541, 1543, // Cannot disable FORKID without STRICTENC...
-        };
-        for (final int skippedTestIndex : skippedTestIndices) {
-            if (testIndex == skippedTestIndex) {
-                return true;
-            }
-        }
-
-        return false; // AbcScriptRunnerTests.isTestVectorEnabled(testVector);
+        return (! AbcScriptRunnerTests.isTestVectorEnabled(testVector));
     }
 
     public static void rebuiltTestVectorManifest() {
@@ -218,19 +183,20 @@ public class AbcScriptRunnerTests {
             final TestVector testVector = TestVector.fromJson(testVectorJson);
             if (testVector == null) { continue; }
 
-            final Boolean shouldSkipTestVector = AbcScriptRunnerTests.shouldSkipTestVector(testVector, i);
+            final Sha256Hash testVectorHash = testVector.getHash();
+
+            final Boolean shouldSkipTestVector = AbcScriptRunnerTests.shouldSkipTestVector(testVector);
             if (shouldSkipTestVector == null) {
-                System.out.println("Unknown Test Vector: " + testVector);
+                System.out.println("Unknown Test Vector: " + testVectorHash + " -> " + testVector);
                 hasUnknownTestVectors = true;
             }
             else {
-                final String testVectorComments = AbcScriptRunnerTests.getTestVectorComments(testVector, i);
+                final String testVectorComments = AbcScriptRunnerTests.getTestVectorComments(testVector);
 
                 final Json testVectorManifestEntry = new Json(false);
                 testVectorManifestEntry.put("isEnabled", (! shouldSkipTestVector));
                 testVectorManifestEntry.put("comments", testVectorComments);
 
-                final Sha256Hash testVectorHash = testVector.getHash();
                 final String testVectorHashString = testVectorHash.toString();
                 manifestJson.put(testVectorHashString, testVectorManifestEntry);
             }
@@ -532,7 +498,7 @@ public class AbcScriptRunnerTests {
             final TestVector testVector = TestVector.fromJson(testVectorJson);
             if (testVector == null) { continue; }
 
-            final Boolean skipTest = AbcScriptRunnerTests.shouldSkipTestVector(testVector, i);
+            final Boolean skipTest = AbcScriptRunnerTests.shouldSkipTestVector(testVector);
             if (skipTest == null) {
                 System.out.println("TestVector is not listed in the manifest.  Consider rerunning AbcScriptRunnerTests.rebuildTestVectorManifest().");
                 System.out.println(testVector.getHash() + " -> " + testVector);
@@ -625,8 +591,8 @@ public class AbcScriptRunnerTests {
         Assert.assertEquals(0, failCount);
     }
 
-    @Test
-    public void rebuild_test_vector_manifest() {
-        AbcScriptRunnerTests.rebuiltTestVectorManifest();
-    }
+    // @Test
+    // public void rebuild_test_vector_manifest() {
+    //     AbcScriptRunnerTests.rebuiltTestVectorManifest();
+    // }
 }
