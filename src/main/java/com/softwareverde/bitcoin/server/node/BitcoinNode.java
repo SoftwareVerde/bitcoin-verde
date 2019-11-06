@@ -79,6 +79,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
+
     public interface BlockInventoryMessageCallback {
         void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
     }
@@ -107,9 +108,14 @@ public class BitcoinNode extends Node {
 
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
 
-    public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+    public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> {
+        default void onResult(final List<Sha256Hash> hashes, final Boolean isValid) {
+            this.onResult(hashes);
+        }
+    }
 
     public interface SpvBlockInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
@@ -287,6 +293,7 @@ public class BitcoinNode extends Node {
 
     protected OnNewBloomFilterCallback _onNewBloomFilterCallback = null;
     protected Boolean _transactionRelayIsEnabled = true;
+    protected Boolean _slpValidityCheckingIsEnabled = false;
 
     protected MutableBloomFilter _bloomFilter = null;
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
@@ -600,13 +607,23 @@ public class BitcoinNode extends Node {
                     }
                 } break;
 
+                case VALID_SLP_TRANSACTION:
+                case INVALID_SLP_TRANSACTION:
                 case TRANSACTION: {
+                    final boolean isSlp = (inventoryItemType != InventoryItemType.TRANSACTION);
+
                     final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
                     if (transactionsAnnouncementCallback != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                transactionsAnnouncementCallback.onResult(objectHashes);
+                                if (isSlp) {
+                                    final boolean isValid = (inventoryItemType == InventoryItemType.VALID_SLP_TRANSACTION);
+                                    transactionsAnnouncementCallback.onResult(objectHashes, isValid);
+                                }
+                                else {
+                                    transactionsAnnouncementCallback.onResult(objectHashes);
+                                }
                             }
                         });
                     }
@@ -644,7 +661,7 @@ public class BitcoinNode extends Node {
                     else {
                         Logger.debug("No handler set for SpvBlockInventoryMessageCallback.");
                     }
-                }
+                } break;
             }
         }
     }
@@ -1345,6 +1362,23 @@ public class BitcoinNode extends Node {
         if (synchronizeVersionMessage == null) { return null; }
 
         return (synchronizeVersionMessage.transactionRelayIsEnabled());
+    }
+
+    /**
+     * If the remote peer supports SLP validity checking, send an enable SLP transactions message.
+     */
+    public void enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        _enableSlpValidityChecking(shouldEnableSlpValidityChecking);
+    }
+
+    protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
+        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
+            enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
+
+            _queueMessage(enableSlpTransactionsMessage);
+        }
     }
 
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {

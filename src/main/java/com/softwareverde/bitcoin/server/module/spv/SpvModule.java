@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockD
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SlpValidity;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -463,7 +464,10 @@ public class SpvModule {
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                             TransactionUtil.startTransaction(databaseConnection);
-                            transactionDatabaseManager.storeTransaction(transaction);
+                            final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
+                            if (Transaction.isSlpTransaction(transaction)) {
+                                transactionDatabaseManager.setSlpValidity(transactionId, SlpValidity.UNKNOWN);
+                            }
                             TransactionUtil.commitTransaction(databaseConnection);
                         }
                         catch (final DatabaseException exception) {
@@ -492,8 +496,7 @@ public class SpvModule {
                             Logger.debug("Received " + transactions.getSize() + " transaction inventories.");
 
                             final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getSize());
-                            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                                final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
+                            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                                 for (final Sha256Hash transactionHash : transactions) {
@@ -510,6 +513,31 @@ public class SpvModule {
                             Logger.debug(unseenTransactions.getSize() + " transactions were new.");
                             if (! unseenTransactions.isEmpty()) {
                                 bitcoinNode.requestTransactions(unseenTransactions, _downloadTransactionsCallback);
+                            }
+                        }
+
+                        @Override
+                        public void onResult(final List<Sha256Hash> hashes, final Boolean isValid) {
+                            this.onResult(hashes);
+
+                            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                                final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                                for (final Sha256Hash hash : hashes) {
+                                    if (isValid) {
+                                        _wallet.markSlpTransactionAsValid(hash);
+                                    }
+                                    else {
+                                        _wallet.markSlpTransactionAsInvalid(hash);
+                                    }
+
+                                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
+                                    final SlpValidity slpValidity = isValid ? SlpValidity.VALID : SlpValidity.INVALID;
+                                    transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
+                                }
+                            }
+                            catch (final DatabaseException exception) {
+                                Logger.warn("Problem tracking SLP validity", exception);
                             }
                         }
                     };
@@ -592,6 +620,7 @@ public class SpvModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
             _bitcoinNodeManager.enableTransactionRelay(false);
+            _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
 
             for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
