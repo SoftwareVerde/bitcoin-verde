@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -63,6 +64,8 @@ public class AbcScriptRunnerTests {
 
     public static class TestVector {
         public static TestVector fromJson(final Json testVectorJson) {
+            // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
+
             if (testVectorJson.length() < 2) {
                 return null;
             }
@@ -457,6 +460,13 @@ public class AbcScriptRunnerTests {
 
     protected static Boolean originalNativeSecp256k1Value = null;
 
+    protected void _reconfigureProductionConstants() {
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
+    }
+
     @Before
     public void setup() {
         if (AbcScriptRunnerTests.originalNativeSecp256k1Value == null) {
@@ -466,20 +476,16 @@ public class AbcScriptRunnerTests {
         BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
         BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
         BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
         BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
 
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
     }
 
     @After
     public void teardown() {
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-
+        _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
     }
 
@@ -543,8 +549,6 @@ public class AbcScriptRunnerTests {
             transaction.addTransactionOutput(transactionOutput);
         }
 
-        // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
-
         int executedCount = 0;
         int skippedCount = 0;
         int failCount = 0;
@@ -604,6 +608,9 @@ public class AbcScriptRunnerTests {
             if (testVector.flagsString.contains("CHECKSEQUENCEVERIFY")) {
                 context.setBlockHeight(Math.max(419328L, context.getBlockHeight())); // Enable Bip112...
             }
+            if (testVector.flagsString.contains("CHECKLOCKTIMEVERIFY")) {
+                context.setBlockHeight(Math.max(388167L, context.getBlockHeight())); // Enable Bip65...
+            }
             if ( (i > 1000) && (testVector.flagsString.contains("STRICTENC") || testVector.flagsString.contains("DERSIG") || testVector.flagsString.contains("LOW_S")) ) {
                 context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55...
                 context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
@@ -620,10 +627,15 @@ public class AbcScriptRunnerTests {
             if ( (i >= 1189) && (testVector.lockingScriptString.contains("CHECKDATASIG")) ) {
                 context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
             }
+            if (testVector.flagsString.contains("SCHNORR_MULTISIG")) {
+                medianBlockTime.setMedianBlockTime(Math.max(HF20191115.ACTIVATION_BLOCK_TIME, medianBlockTime.getCurrentTimeInSeconds()));
+            }
 
+            // Reconfigure the BitcoinConstants to mimic some of the reference client's feature-flags...
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", testVector.flagsString.contains("SCHNORR"));
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", testVector.flagsString.contains("NULLFAIL"));
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", testVector.flagsString.contains("SIGHASH_FORKID"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", testVector.flagsString.contains("MINIMALDATA"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
 
@@ -632,9 +644,16 @@ public class AbcScriptRunnerTests {
             final boolean expectedResult = Util.areEqual("OK", testVector.expectedResultString);
 
             if (! Util.areEqual(expectedResult, wasValid)) {
+                // Retry with production values to assess severity...
+                _reconfigureProductionConstants();
+                context.setBlockHeight(Long.MAX_VALUE);
+                medianBlockTime.setMedianBlockTime(Long.MAX_VALUE);
+                final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context);
+                final boolean isPossiblyImportant = ( (! expectedResult) && isValidInProduction);
+
                 failCount += 1;
-                System.out.println("FAILED: " + i);
-                System.out.println("Expected: " + expectedResult + " Actual: " + wasValid);
+                System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + ")");
+                System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
                 break;
             }
         }
@@ -646,8 +665,8 @@ public class AbcScriptRunnerTests {
         Assert.assertEquals(0, failCount);
     }
 
-    @Test
-    public void rebuild_test_vector_manifest() {
-        AbcScriptRunnerTests.rebuiltTestVectorManifest();
-    }
+    // @Test
+    // public void rebuild_test_vector_manifest() {
+    //     AbcScriptRunnerTests.rebuiltTestVectorManifest();
+    // }
 }

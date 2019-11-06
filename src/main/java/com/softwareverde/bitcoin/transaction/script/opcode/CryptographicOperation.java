@@ -173,9 +173,10 @@ public class CryptographicOperation extends SubTypedOperation {
                 if (! signatureIsCanonicallyEncoded) { return false; }
             }
 
-            if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
-                final PublicKey publicKey = publicKeyValue.asPublicKey();
+            final PublicKey publicKey = publicKeyValue.asPublicKey();
+            if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
 
+            if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
                 if (Buip55.isEnabled(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
                     final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
                     if (! publicKeyIsStrictlyEncoded) { return false; }
@@ -186,6 +187,7 @@ public class CryptographicOperation extends SubTypedOperation {
             else {
                 // NOTE: An invalid scriptSignature is permitted, and just simply fails...
                 //  Example Transaction: 9FB65B7304AAA77AC9580823C2C06B259CC42591E5CCE66D76A81B6F51CC5C28
+
                 signatureIsValid = false;
             }
         }
@@ -321,12 +323,16 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<Integer>();
                 final int bitCount = (checkBitsValue.getByteCount() * 8);
+                int bitSetCount = 0;
                 for (int i = 0; i < bitCount; ++i) {
                     // NOTE: `i` represents the least significant bit within checkBits.
                     //  Since checkBits may have left-padded bits, the array is iterated in reverse-order.
                     final int byteArrayBitIndex = (bitCount - i - 1); // ByteArray::getBit indexes from MSBit to LSBit.
                     final boolean isSet = checkBitsValue.getBit(byteArrayBitIndex);
                     if (isSet) {
+                        bitSetCount += 1;
+                        if (i >= publicKeyCount) { return false; } // The bit index was set that is greater than the number of public keys available...
+
                         final int publicKeyIndex = (publicKeyCount - i - 1);
                         publicKeyIndexesBuilder.add(publicKeyIndex);
 
@@ -354,6 +360,8 @@ public class CryptographicOperation extends SubTypedOperation {
             boolean signaturesHaveMatchedPublicKeys = true;
             int signatureValidationCount = 0;
             for (int signatureIndex = 0; signatureIndex < signatureCount; ++signatureIndex) {
+                final int remainingSignatureCount = (signatureCount - signatureIndex);
+
                 final ScriptSignature scriptSignature = signatures.get(signatureIndex);
 
                 if (! ecdsaSignaturesAreAllowed) {
@@ -366,8 +374,16 @@ public class CryptographicOperation extends SubTypedOperation {
                 boolean signatureHasPublicKeyMatch = false;
                 int publicKeyIndexIndex = signatureValidationCount;
                 while (publicKeyIndexIndex < publicKeyIndexesToTry.getSize()) {
+
+                    { // Discontinue checking signatures if it is no longer possible that the required number of valid signatures will ever be met.
+                        //  This unfortunately disables checking publicKey validity, but this is intended according to ABC's implementation (TestVector ECE529A3309EB43E5A84DEAB9EA8F2577B0EAE4840C1BB1B20258D2F48C17424).
+                        final int remainingPublicKeyCount = (publicKeyIndexesToTry.getSize() - publicKeyIndexIndex);
+                        if (remainingSignatureCount > remainingPublicKeyCount) { break; }
+                    }
+
                     final int nextPublicKeyIndex = publicKeyIndexesToTry.get(publicKeyIndexIndex);
                     final PublicKey publicKey = publicKeys.get(nextPublicKeyIndex);
+                    if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
 
                     // Signatures and PublicKeys that are not used are allowed to be coded incorrectly.
                     //  Therefore, the publicKey checking is performed immediately before the signature check, and not when popped from the stack.
