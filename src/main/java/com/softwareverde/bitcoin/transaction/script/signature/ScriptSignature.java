@@ -38,7 +38,7 @@ public class ScriptSignature {
         final HashType hashType;
         final Signature signature;
         final ByteArray extraBytes;
-        if ( (BitcoinConstants.areSchnorrSignaturesEnabled()) && (bytes.getByteCount() == schnorrScriptSignatureByteCount) ) {
+        if (bytes.getByteCount() == schnorrScriptSignatureByteCount) {
             if (scriptSignatureContext == ScriptSignatureContext.CHECK_DATA_SIGNATURE) { // Schnorr CheckDataSignatures do not have a HashType...
                 signature = SchnorrSignature.fromBytes(bytes);
                 hashType = null;
@@ -55,11 +55,9 @@ public class ScriptSignature {
             final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
             signature = Secp256k1Signature.fromBytes(byteArrayReader);
 
-            if (BitcoinConstants.areSchnorrSignaturesEnabled()) {
-                final int signatureByteCount = (bytes.getByteCount() - byteArrayReader.remainingByteCount());
-                // 64-byte (+1 hashType) signatures are not allowed within ECDSA signature contexts when Schnorr signatures are enabled...
-                if (signatureByteCount == SchnorrSignature.BYTE_COUNT) { return null; }
-            }
+            final int signatureByteCount = (bytes.getByteCount() - byteArrayReader.remainingByteCount());
+            // 64-byte (+1 hashType) signatures are not allowed within ECDSA signature contexts when Schnorr signatures are enabled...
+            if (signatureByteCount == SchnorrSignature.BYTE_COUNT) { return null; }
 
             if (byteArrayReader.remainingByteCount() > 0) {
                 final byte hashTypeByte = bytes.getByte(bytes.getByteCount() - 1); // The HashType is always the last byte of the signature, if it's available.

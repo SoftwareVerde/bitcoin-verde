@@ -461,7 +461,6 @@ public class AbcScriptRunnerTests {
     protected static Boolean originalNativeSecp256k1Value = null;
 
     protected void _reconfigureProductionConstants() {
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
@@ -473,7 +472,6 @@ public class AbcScriptRunnerTests {
             AbcScriptRunnerTests.originalNativeSecp256k1Value = NativeSecp256k1.isEnabled();
         }
 
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
         BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
         BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
         BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
@@ -618,7 +616,7 @@ public class AbcScriptRunnerTests {
             if (testVector.flagsString.contains("NULLFAIL") || testVector.flagsString.contains("SIGHASH_FORKID")) {
                 context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
             }
-            if (testVector.flagsString.contains("SCHNORR")) {
+            if (testVector.flagsString.contains("STRICTENC")) {
                 medianBlockTime.setMedianBlockTime(1557921600L);
             }
             if (testVector.flagsString.contains("SIGPUSHONLY") || testVector.flagsString.contains("CLEANSTACK")) {
@@ -632,7 +630,6 @@ public class AbcScriptRunnerTests {
             }
 
             // Reconfigure the BitcoinConstants to mimic some of the reference client's feature-flags...
-            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", testVector.flagsString.contains("SCHNORR"));
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", testVector.flagsString.contains("NULLFAIL"));
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", testVector.flagsString.contains("SIGHASH_FORKID"));
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", testVector.flagsString.contains("MINIMALDATA"));
