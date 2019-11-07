@@ -61,7 +61,6 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SpvModule {
