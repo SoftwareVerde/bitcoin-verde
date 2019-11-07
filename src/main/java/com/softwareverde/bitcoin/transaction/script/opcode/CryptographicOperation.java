@@ -217,7 +217,9 @@ public class CryptographicOperation extends SubTypedOperation {
         final int publicKeyCount;
         {
             final Value publicKeyCountValue = stack.pop();
-            if (! Operation.validateMinimalEncoding(publicKeyCountValue, context)) { return false; }
+            if (HF20191115.isEnabled(medianBlockTime)) {
+                if (! Operation.validateMinimalEncoding(publicKeyCountValue, context)) { return false; }
+            }
 
             publicKeyCount = publicKeyCountValue.asLong().intValue();
             if (publicKeyCount < 0) { return false; }
@@ -239,6 +241,10 @@ public class CryptographicOperation extends SubTypedOperation {
         final Integer signatureCount;
         {
             final Value signatureCountValue = stack.pop();
+            if (HF20191115.isEnabled(medianBlockTime)) {
+                if (! Operation.validateMinimalEncoding(signatureCountValue, context)) { return false; }
+            }
+
             signatureCount = signatureCountValue.asLong().intValue();
             if (signatureCount < 0) { return false; }
             if (signatureCount > publicKeyCount) { return false; }
@@ -284,11 +290,11 @@ public class CryptographicOperation extends SubTypedOperation {
         final Value checkBitsValue = stack.pop();
 
         final List<Integer> publicKeyIndexesToTry;
-        final boolean ecdsaSignaturesAreAllowed;
+        final Signature.Type allowedSignatureType;
         final boolean abortIfAnySignaturesFail;
         final boolean signatureVerificationCountMustEqualPublicKeyIndexCount;
         if ( (! HF20191115.isEnabled(medianBlockTime)) || (Util.areEqual(checkBitsValue, Value.ZERO)) ) {
-            ecdsaSignaturesAreAllowed = true;
+            allowedSignatureType = Signature.Type.SECP256K1;
             abortIfAnySignaturesFail = false;
             signatureVerificationCountMustEqualPublicKeyIndexCount = false;
 
@@ -296,13 +302,15 @@ public class CryptographicOperation extends SubTypedOperation {
                 // This operation mimics the legacy/ecdsa style of multi-sig validation, where all signatures are tested but are allowed to fail.
                 final ImmutableListBuilder<Integer> publicKeyIndexesBuilder = new ImmutableListBuilder<Integer>(publicKeyCount);
                 for (int i = 0; i < publicKeyCount; ++i) {
+                    // The public keys must be attempted in order, starting with the last public key pushed must be the first attempted.
+                    //  This specific order is required due to strict-encoding rules that were added throughout the protocol's evolution.
                     publicKeyIndexesBuilder.add(i);
                 }
                 publicKeyIndexesToTry = publicKeyIndexesBuilder.build();
             }
         }
         else {
-            ecdsaSignaturesAreAllowed = false;
+            allowedSignatureType = Signature.Type.SCHNORR;
             abortIfAnySignaturesFail = true;
             signatureVerificationCountMustEqualPublicKeyIndexCount = true;
 
@@ -338,12 +346,13 @@ public class CryptographicOperation extends SubTypedOperation {
                         final int publicKeyIndex = (publicKeyCount - i - 1);
                         publicKeyIndexesBuilder.add(publicKeyIndex);
 
-                        if (publicKeyIndexesBuilder.getCount() >= publicKeyCount) {
+                        if (publicKeyIndexesBuilder.getCount() > publicKeyCount) {
                             // The number of PublicKeys to check is greater than the number of PublicKeys available...
                             return false;
                         }
                     }
                 }
+                if (bitSetCount != publicKeyCount) { return false; }
                 publicKeyIndexesToTry = publicKeyIndexesBuilder.build();
             }
         }
@@ -365,13 +374,6 @@ public class CryptographicOperation extends SubTypedOperation {
                 final int remainingSignatureCount = (signatureCount - signatureIndex);
 
                 final ScriptSignature scriptSignature = signatures.get(signatureIndex);
-
-                if (! ecdsaSignaturesAreAllowed) {
-                    final Signature signature = scriptSignature.getSignature();
-                    if (signature.getType() == Signature.Type.SECP256K1) {
-                        return false; // If ECDSA Signatures are not allowed (i.e. MultiSig-Schnorr mode), then immediately fail.
-                    }
-                }
 
                 boolean signatureHasPublicKeyMatch = false;
                 int publicKeyIndexIndex = signatureValidationCount;
@@ -407,6 +409,9 @@ public class CryptographicOperation extends SubTypedOperation {
                     final boolean signatureIsValid;
                     {
                         if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
+                            final Signature.Type signatureType = scriptSignature.getSignatureType();
+                            if (signatureType != allowedSignatureType) { return false; }
+
                             signatureIsValid = CryptographicOperation.verifySignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
                         }
                         else {

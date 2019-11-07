@@ -113,8 +113,12 @@ public class ScriptSignature {
         return _signature;
     }
 
+    public Signature.Type getSignatureType() {
+        return (_signature != null ? _signature.getType() : null);
+    }
+
     public Boolean isEmpty() {
-        return _signature.isEmpty();
+        return (_signature != null ? _signature.isEmpty() : true);
     }
 
     public Boolean hasExtraBytes() {
