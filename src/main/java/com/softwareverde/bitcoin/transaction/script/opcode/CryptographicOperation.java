@@ -174,7 +174,9 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             final PublicKey publicKey = publicKeyValue.asPublicKey();
-            if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
+            if (Buip55.isEnabled(blockHeight)) {
+                if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
+            }
 
             if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
                 if (Buip55.isEnabled(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
@@ -383,7 +385,9 @@ public class CryptographicOperation extends SubTypedOperation {
 
                     final int nextPublicKeyIndex = publicKeyIndexesToTry.get(publicKeyIndexIndex);
                     final PublicKey publicKey = publicKeys.get(nextPublicKeyIndex);
-                    if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
+                    if (Buip55.isEnabled(blockHeight)) {
+                        if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
+                    }
 
                     // Signatures and PublicKeys that are not used are allowed to be coded incorrectly.
                     //  Therefore, the publicKey checking is performed immediately before the signature check, and not when popped from the stack.

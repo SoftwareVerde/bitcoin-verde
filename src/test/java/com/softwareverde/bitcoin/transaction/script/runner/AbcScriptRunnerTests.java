@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
+import com.softwareverde.bitcoin.bip.Bip65;
+import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -607,17 +610,17 @@ public class AbcScriptRunnerTests {
                 context.setBlockHeight(Math.max(419328L, context.getBlockHeight())); // Enable Bip112...
             }
             if (testVector.flagsString.contains("CHECKLOCKTIMEVERIFY")) {
-                context.setBlockHeight(Math.max(388167L, context.getBlockHeight())); // Enable Bip65...
+                context.setBlockHeight(Math.max(Bip65.ACTIVATION_BLOCK_HEIGHT, context.getBlockHeight())); // Enable Bip65...
             }
             if ( (i > 1000) && (testVector.flagsString.contains("STRICTENC") || testVector.flagsString.contains("DERSIG") || testVector.flagsString.contains("LOW_S")) ) {
                 context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55...
                 context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
             }
             if (testVector.flagsString.contains("NULLFAIL") || testVector.flagsString.contains("SIGHASH_FORKID")) {
-                context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
+                context.setBlockHeight(Math.max(Buip55.ACTIVATION_BLOCK_HEIGHT, context.getBlockHeight())); // Enable BCH HF...
             }
             if (testVector.flagsString.contains("STRICTENC")) {
-                medianBlockTime.setMedianBlockTime(1557921600L);
+                medianBlockTime.setMedianBlockTime(Math.max(HF20190515.ACTIVATION_BLOCK_TIME, medianBlockTime.getCurrentTimeInSeconds()));
             }
             if (testVector.flagsString.contains("SIGPUSHONLY") || testVector.flagsString.contains("CLEANSTACK")) {
                 context.setBlockHeight(Math.max(556767L, context.getBlockHeight())); // Enable BCH HF20190505...
@@ -626,6 +629,7 @@ public class AbcScriptRunnerTests {
                 context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
             }
             if (testVector.flagsString.contains("SCHNORR_MULTISIG")) {
+                context.setBlockHeight(Math.max(Buip55.ACTIVATION_BLOCK_HEIGHT, context.getBlockHeight()));
                 medianBlockTime.setMedianBlockTime(Math.max(HF20191115.ACTIVATION_BLOCK_TIME, medianBlockTime.getCurrentTimeInSeconds()));
             }
 
