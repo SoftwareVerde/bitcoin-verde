@@ -61,6 +61,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SpvModule {
@@ -234,6 +235,18 @@ public class SpvModule {
 
             final HashSet<TransactionId> confirmedTransactionIds = new HashSet<TransactionId>();
 
+            { // load known valid/invalid SLP transaction hashes (unknowns will be handed automatically)
+                final List<Sha256Hash> validSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.VALID);
+                for (final Sha256Hash hash : validSlpTransactions) {
+                    _wallet.markSlpTransactionAsValid(hash);
+                }
+
+                final List<Sha256Hash> invalidSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.INVALID);
+                for (final Sha256Hash hash : invalidSlpTransactions) {
+                    _wallet.markSlpTransactionAsInvalid(hash);
+                }
+            }
+
             { // Load confirmed Transactions from database...
                 int loadedConfirmedTransactionCount = 0;
                 final List<BlockId> blockIds = blockDatabaseManager.getBlockIdsWithTransactions();
@@ -405,6 +418,8 @@ public class SpvModule {
                                 _wallet.addTransaction(transaction);
                             }
                         }
+
+                        _synchronizeSlpValidity();
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
                 }
@@ -764,6 +779,25 @@ public class SpvModule {
 
     public void synchronizeMerkleBlocks() {
         _synchronizeMerkleBlocks();
+        _synchronizeSlpValidity();
+    }
+
+    private void _synchronizeSlpValidity() {
+        final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode((node) -> node.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
+        if (bitcoinNode != null) {
+            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
+
+                if (unknownValidityTransactionHashes.getSize() > 0) {
+                    bitcoinNode.getSlpStatus(unknownValidityTransactionHashes);
+                }
+            }
+            catch (final Exception exception) {
+                Logger.warn("Unable to request SLP validity", exception);
+            }
+        }
     }
 
     /**

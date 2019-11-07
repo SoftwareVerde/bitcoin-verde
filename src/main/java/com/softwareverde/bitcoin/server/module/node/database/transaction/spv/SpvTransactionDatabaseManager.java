@@ -336,10 +336,11 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         }
     }
 
-    public List<Sha256Hash> getSlpTransactionsWithUnknownValidity() throws DatabaseException {
+    public List<Sha256Hash> getSlpTransactionsWithSlpStatus(final SlpValidity slpValidity) throws DatabaseException {
         READ_LOCK.lock();
         try {
-            final Query query = new Query("SELECT hash FROM transactions WHERE slp_validity = 'UNKNOWN'");
+            final Query query = new Query("SELECT hash FROM transactions WHERE slp_validity = ?");
+            query.setParameter(slpValidity.toString());
 
             final java.util.List<Row> rows = _databaseManager.getDatabaseConnection().query(query);
 

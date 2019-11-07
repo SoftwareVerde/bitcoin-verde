@@ -1064,10 +1064,18 @@ public class BitcoinNode extends Node {
 
     protected void _requestTransactions(final List<Sha256Hash> transactionHashes) {
         final RequestDataMessage requestTransactionMessage = _protocolMessageFactory.newRequestDataMessage();
-        for (final Sha256Hash transactionHash: transactionHashes) {
+        for (final Sha256Hash transactionHash : transactionHashes) {
             requestTransactionMessage.addInventoryItem(new InventoryItem(InventoryItemType.TRANSACTION, transactionHash));
         }
         _queueMessage(requestTransactionMessage);
+    }
+
+    protected void _requestSlpStatus(final List<Sha256Hash> transactionHashes) {
+        final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            querySlpStatusMessage.addHash(transactionHash);
+        }
+        _queueMessage(querySlpStatusMessage);
     }
 
     public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {
@@ -1438,6 +1446,10 @@ public class BitcoinNode extends Node {
         }
 
         _requestAddressBlocks(addresses);
+    }
+
+    public void getSlpStatus(final List<Sha256Hash> transactionHashes) {
+        _requestSlpStatus(transactionHashes);
     }
 
     @Override
