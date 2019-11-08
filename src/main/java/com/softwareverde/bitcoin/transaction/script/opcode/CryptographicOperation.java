@@ -211,12 +211,17 @@ public class CryptographicOperation extends SubTypedOperation {
     }
 
     protected Boolean _executeCheckMultiSignature(final Stack stack, final Context context) {
+        // Unlike some other script methods, Stack::didOverflow is checked immediately since values can be popped a variable number of times;
+        //  this helps to mitigate attack vectors that would otherwise capitalize on this effect.
+
         final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
         final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_SIGNATURE;
 
         final int publicKeyCount;
         {
             final Value publicKeyCountValue = stack.pop();
+            if (stack.didOverflow()) { return false; }
+
             if (HF20191115.isEnabled(medianBlockTime)) {
                 if (! Operation.validateMinimalEncoding(publicKeyCountValue, context)) { return false; }
             }
@@ -231,6 +236,8 @@ public class CryptographicOperation extends SubTypedOperation {
             final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
             for (int i = 0; i < publicKeyCount; ++i) {
                 final Value publicKeyValue = stack.pop();
+                if (stack.didOverflow()) { return false; }
+
                 final PublicKey publicKey = publicKeyValue.asPublicKey();
 
                 listBuilder.add(publicKey);
@@ -241,6 +248,8 @@ public class CryptographicOperation extends SubTypedOperation {
         final Integer signatureCount;
         {
             final Value signatureCountValue = stack.pop();
+            if (stack.didOverflow()) { return false; }
+
             if (HF20191115.isEnabled(medianBlockTime)) {
                 if (! Operation.validateMinimalEncoding(signatureCountValue, context)) { return false; }
             }
@@ -259,6 +268,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
             for (int i = 0; i < signatureCount; ++i) {
                 final Value signatureValue = stack.pop();
+                if (stack.didOverflow()) { return false; }
 
                 if (! signatureValue.isEmpty()) {
                     signaturesAreEmpty = false;
@@ -288,15 +298,18 @@ public class CryptographicOperation extends SubTypedOperation {
         //  For ECDSA signatures, checkBits must be an empty value.
         //  This value was previously unused and referred to as "nullDummy" before the 2019-11-15 HF.
         final Value checkBitsValue = stack.pop();
+        if (stack.didOverflow()) { return false; }
 
         final List<Integer> publicKeyIndexesToTry;
         final Signature.Type allowedSignatureType;
         final boolean abortIfAnySignaturesFail;
         final boolean signatureVerificationCountMustEqualPublicKeyIndexCount;
+        final boolean shouldReverseSignatureOrder;
         if ( (! HF20191115.isEnabled(medianBlockTime)) || (Util.areEqual(checkBitsValue, Value.ZERO)) ) {
             allowedSignatureType = Signature.Type.SECP256K1;
             abortIfAnySignaturesFail = false;
             signatureVerificationCountMustEqualPublicKeyIndexCount = false;
+            shouldReverseSignatureOrder = false;
 
             { // Build `publicKeyIndexesToTry` as a list of indexes into the public key list.
                 // This operation mimics the legacy/ecdsa style of multi-sig validation, where all signatures are tested but are allowed to fail.
@@ -313,6 +326,7 @@ public class CryptographicOperation extends SubTypedOperation {
             allowedSignatureType = Signature.Type.SCHNORR;
             abortIfAnySignaturesFail = true;
             signatureVerificationCountMustEqualPublicKeyIndexCount = true;
+            shouldReverseSignatureOrder = true;
 
             { // Ensure the bit field is not excessively large...
                 final int maxByteCount = ((publicKeyCount + 7) / 8);
@@ -335,10 +349,11 @@ public class CryptographicOperation extends SubTypedOperation {
                 final int bitCount = (checkBitsValue.getByteCount() * 8);
                 int bitSetCount = 0;
                 for (int i = 0; i < bitCount; ++i) {
-                    // NOTE: `i` represents the least significant bit within checkBits.
-                    //  Since checkBits may have left-padded bits, the array is iterated in reverse-order.
-                    final int byteArrayBitIndex = (bitCount - i - 1); // ByteArray::getBit indexes from MSBit to LSBit.
-                    final boolean isSet = checkBitsValue.getBit(byteArrayBitIndex);
+                    // checkBits is little endian encoded, therefore the first flag occurs within the 0th byte.
+                    //  The flags are organized numerically, i.e. 0x01 would require the first public key be used, and 0x80 would require only the 8th public key be used.
+                    //  Furthermore, 0xFFFF0F (0b111111111111111100001111) would require the first 20 public keys be used, which is structured differently than the bit-field
+                    //  in a bloom filter, which is more akin to an array of bits.
+                    final boolean isSet = (((checkBitsValue.getByte(i / 8) >> (i % 8)) & 0x01) == 0x01);
                     if (isSet) {
                         bitSetCount += 1;
                         if (i >= publicKeyCount) { return false; } // The bit index was set that is greater than the number of public keys available...
@@ -352,7 +367,7 @@ public class CryptographicOperation extends SubTypedOperation {
                         }
                     }
                 }
-                if (bitSetCount != publicKeyCount) { return false; }
+                if (bitSetCount != signatureCount) { return false; }
                 publicKeyIndexesToTry = publicKeyIndexesBuilder.build();
             }
         }
@@ -370,10 +385,18 @@ public class CryptographicOperation extends SubTypedOperation {
 
             boolean signaturesHaveMatchedPublicKeys = true;
             int signatureValidationCount = 0;
-            for (int signatureIndex = 0; signatureIndex < signatureCount; ++signatureIndex) {
-                final int remainingSignatureCount = (signatureCount - signatureIndex);
+            for (int i = 0; i < signatureCount; ++i) {
+                final int remainingSignatureCount = (signatureCount - i);
 
-                final ScriptSignature scriptSignature = signatures.get(signatureIndex);
+                final ScriptSignature scriptSignature;
+                {
+                    if (shouldReverseSignatureOrder) {
+                        scriptSignature = signatures.get(signatureCount - i - 1);
+                    }
+                    else {
+                        scriptSignature = signatures.get(i);
+                    }
+                }
 
                 boolean signatureHasPublicKeyMatch = false;
                 int publicKeyIndexIndex = signatureValidationCount;
@@ -470,6 +493,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final Value publicKeyValue = stack.pop();
         final Value messageValue = stack.pop();
         final Value signatureValue = stack.pop();
+        if (stack.didOverflow()) { return false; }
 
         final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
         if (Buip55.isEnabled(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
