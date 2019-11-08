@@ -11,7 +11,6 @@ import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
@@ -170,37 +169,6 @@ public class AbcScriptRunnerTests {
     }
 
     public static Boolean shouldSkipTestVector(final TestVector testVector) {
-        final String[] skippedTestFlags = new String[] { "DISCOURAGE_UPGRADABLE_NOPS", "REPLAY_PROTECTION" };
-        for (final String skippedFlag : skippedTestFlags) {
-            if (testVector.flagsString.contains(skippedFlag)) {
-                return true;
-            }
-        }
-
-        // SIG_NULLDUMMY is applied to the mempool only.  Verde does not currently intend on supporting this.
-        final String[] skippedResultTypes = new String[] { "OP_COUNT", "MINIMALDATA", "SIG_NULLDUMMY" };
-        for (final String resultType : skippedResultTypes) {
-            if (testVector.expectedResultString.contains(resultType)) {
-                return true;
-            }
-        }
-
-        if (testVector.expectedResultString.contains("UNKNOWN_ERROR") && testVector.flagsString.contains("MINIMALDATA")) {
-            return true;
-        }
-
-        if (testVector.expectedResultString.contains("NONCOMPRESSED_PUBKEY")) {
-            return true;
-        }
-
-        if (testVector.flagsString.contains("DISALLOW_SEGWIT_RECOVERY") && (! testVector.expectedResultString.contains("OK"))) {
-            return true;
-        }
-
-        if (testVector.flagsString.contains("MINIMALIF") && testVector.expectedResultString.contains("MINIMALIF")) {
-            return true;
-        }
-
         final Boolean isTestVectorEnabled = AbcScriptRunnerTests.isTestVectorEnabled(testVector);
         if (isTestVectorEnabled == null) { return null; }
 
@@ -566,11 +534,11 @@ public class AbcScriptRunnerTests {
                 Assert.fail();
             }
 
-            if (skipTest) {
-                skippedCount += 1;
-                System.out.println(i + ": " + "[SKIPPED] " + testVector);
-                continue;
-            }
+//            if (skipTest) {
+//                skippedCount += 1;
+//                System.out.println(i + ": " + "[SKIPPED] " + testVector);
+//                continue;
+//            }
 
             final UnlockingScript unlockingScript;
             final LockingScript lockingScript;
@@ -579,7 +547,7 @@ public class AbcScriptRunnerTests {
                 lockingScript = LockingScript.castFrom(AbcScriptRunnerTests.inflateScript(testVector.lockingScriptString));
             }
             finally {
-                System.out.println(i + ": " + testVector);
+                // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
             }
 
             final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
@@ -645,7 +613,12 @@ public class AbcScriptRunnerTests {
 
             final boolean expectedResult = Util.areEqual("OK", testVector.expectedResultString);
 
-            if (! Util.areEqual(expectedResult, wasValid)) {
+            if (Util.areEqual(expectedResult, wasValid)) {
+                if (skipTest) {
+                    System.out.println("Consider Enabling Test: " + testVector.getHash());
+                }
+            }
+            else {
                 // Retry with production values to assess severity...
                 _reconfigureProductionConstants();
                 context.setBlockHeight(Long.MAX_VALUE);
@@ -653,10 +626,12 @@ public class AbcScriptRunnerTests {
                 final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context);
                 final boolean isPossiblyImportant = ( (! expectedResult) && isValidInProduction);
 
-                failCount += 1;
-                System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + ")");
-                System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
-                break;
+                if (! skipTest) {
+                    failCount += 1;
+                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + ")");
+                    System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
+                    break;
+                }
             }
         }
 
