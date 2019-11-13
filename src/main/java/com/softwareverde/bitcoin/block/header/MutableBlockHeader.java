@@ -2,10 +2,13 @@ package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
@@ -25,10 +28,10 @@ public class MutableBlockHeader implements BlockHeader {
 
     public MutableBlockHeader(final BlockHeader blockHeader) {
         _version = blockHeader.getVersion();
-        _previousBlockHash = blockHeader.getPreviousBlockHash().asConst();
-        _merkleRoot = blockHeader.getMerkleRoot().asConst();
+        _previousBlockHash = (Sha256Hash) ConstUtil.asConstOrNull(blockHeader.getPreviousBlockHash());
+        _merkleRoot = (MerkleRoot) ConstUtil.asConstOrNull(blockHeader.getMerkleRoot());
         _timestamp = blockHeader.getTimestamp();
-        _difficulty = blockHeader.getDifficulty().asConst();
+        _difficulty = ConstUtil.asConstOrNull(blockHeader.getDifficulty());
         _nonce = blockHeader.getNonce();
     }
 
@@ -44,7 +47,7 @@ public class MutableBlockHeader implements BlockHeader {
     public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }
 
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
-        _previousBlockHash = previousBlockHash.asConst();
+        _previousBlockHash = (Sha256Hash) ConstUtil.asConstOrNull(previousBlockHash);
         _cachedHashCode = null;
     }
 
@@ -52,7 +55,7 @@ public class MutableBlockHeader implements BlockHeader {
     public MerkleRoot getMerkleRoot() { return _merkleRoot; }
 
     public void setMerkleRoot(final MerkleRoot merkleRoot) {
-        _merkleRoot = merkleRoot.asConst();
+        _merkleRoot = (MerkleRoot) ConstUtil.asConstOrNull(merkleRoot);
         _cachedHashCode = null;
     }
 
@@ -68,7 +71,7 @@ public class MutableBlockHeader implements BlockHeader {
     public Difficulty getDifficulty() { return _difficulty; }
 
     public void setDifficulty(final Difficulty difficulty) {
-        _difficulty = difficulty.asConst();
+        _difficulty = ConstUtil.asConstOrNull(difficulty);
         _cachedHashCode = null;
     }
 

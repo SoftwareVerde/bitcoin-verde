@@ -69,7 +69,7 @@ CREATE TABLE blocks (
     merkle_root BINARY(32) NOT NULL,
     version INT UNSIGNED NOT NULL DEFAULT '1',
     timestamp BIGINT UNSIGNED NOT NULL,
-    difficulty BINARY(8) NOT NULL,
+    difficulty BINARY(4) NOT NULL,
     nonce INT UNSIGNED NOT NULL,
     chain_work BINARY(32) NOT NULL,
     byte_count INT UNSIGNED,

@@ -28,7 +28,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -134,8 +133,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         }
         else {
             final Row previousBlockRow = rows.get(0);
-            final String hashString = previousBlockRow.getString("hash");
-            return Sha256Hash.fromHexString(hashString);
+            return Sha256Hash.copyOf(previousBlockRow.getBytes("hash"));
         }
     }
 
