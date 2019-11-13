@@ -38,6 +38,7 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
         _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(5));
         _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
+        _dataSource.setMaximumPoolSize(128); // NOTE: MySQL Default is 151.
         _dataSource.setAutoCommit(true);
 
         final String hostname = databaseProperties.getHostname();
