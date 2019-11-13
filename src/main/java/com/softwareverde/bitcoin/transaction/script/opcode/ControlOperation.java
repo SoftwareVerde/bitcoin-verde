@@ -1,16 +1,25 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class ControlOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CONTROL;
+
+    public static final ControlOperation IF             = new ControlOperation(Opcode.IF.getValue(),                Opcode.IF);
+    public static final ControlOperation NOT_IF         = new ControlOperation(Opcode.NOT_IF.getValue(),            Opcode.NOT_IF);
+    public static final ControlOperation ELSE           = new ControlOperation(Opcode.ELSE.getValue(),              Opcode.ELSE);
+    public static final ControlOperation END_IF         = new ControlOperation(Opcode.END_IF.getValue(),            Opcode.END_IF);
+    public static final ControlOperation RETURN         = new ControlOperation(Opcode.RETURN.getValue(),            Opcode.RETURN);
+    public static final ControlOperation VERIFY         = new ControlOperation(Opcode.VERIFY.getValue(),            Opcode.VERIFY);
+    public static final ControlOperation IF_VERSION     = new ControlOperation(Opcode.IF_VERSION.getValue(),        Opcode.IF_VERSION);
+    public static final ControlOperation IF_NOT_VERSION = new ControlOperation(Opcode.IF_NOT_VERSION.getValue(),    Opcode.IF_NOT_VERSION);
 
     protected static ControlOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -51,7 +60,7 @@ public class ControlOperation extends SubTypedOperation {
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("Opcode is disabled: " + _opcode);
             return false;
         }
 
@@ -82,7 +91,7 @@ public class ControlOperation extends SubTypedOperation {
                 if (controlState.shouldExecute()) {
                     final Value value = stack.pop();
                     final String userAgent = value.asString();
-                    final Boolean booleanValue = (Constants.USER_AGENT.equalsIgnoreCase(userAgent));
+                    final Boolean booleanValue = (BitcoinConstants.getUserAgent().equalsIgnoreCase(userAgent));
 
                     final Boolean notIf = (_opcode == Opcode.IF_NOT_VERSION);
                     condition = ( notIf ? (! booleanValue) : (booleanValue) );

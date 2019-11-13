@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.query.address;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.inflater.AddressInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -10,6 +11,12 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.Endian;
 
 public class QueryAddressBlocksMessageInflater extends BitcoinProtocolMessageInflater {
+
+    protected final AddressInflaters _addressInflaters;
+
+    public QueryAddressBlocksMessageInflater(final AddressInflaters addressInflaters) {
+        _addressInflaters = addressInflaters;
+    }
 
     @Override
     public QueryAddressBlocksMessage fromBytes(final byte[] bytes) {
@@ -25,8 +32,8 @@ public class QueryAddressBlocksMessageInflater extends BitcoinProtocolMessageInf
         final Integer bytesRequired = (Address.BYTE_COUNT * addressCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
-        final AddressInflater addressInflater = new AddressInflater();
-        for (int i=0; i<addressCount; ++i) {
+        for (int i = 0; i < addressCount; ++i) {
+            final AddressInflater addressInflater = _addressInflaters.getAddressInflater();
             final Address address = addressInflater.fromBytes(MutableByteArray.wrap(byteArrayReader.readBytes(Address.BYTE_COUNT, Endian.LITTLE)));
             if (address == null) { return null; }
 

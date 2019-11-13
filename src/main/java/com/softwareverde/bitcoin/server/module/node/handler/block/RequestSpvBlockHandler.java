@@ -5,38 +5,40 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.module.node.database.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.HashSet;
 
 public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallback {
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final SpvUnconfirmedTransactionsHandler _spvUnconfirmedTransactionsHandler;
 
-    public RequestSpvBlockHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public RequestSpvBlockHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler) {
+        _databaseManagerFactory = databaseManagerFactory;
+        _spvUnconfirmedTransactionsHandler = spvUnconfirmedTransactionsHandler;
     }
 
     @Override
     public void run(final List<Address> addresses, final BitcoinNode bitcoinNode) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
-            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
@@ -52,8 +54,6 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
             }
             if (transactionIds.isEmpty()) { return; }
 
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-
             final HashSet<BlockId> blockIds = new HashSet<BlockId>(transactionIds.size());
             for (final TransactionId transactionId : transactionIds) {
                 final BlockId blockId = transactionDatabaseManager.getBlockId(headBlockchainSegmentId, transactionId);
@@ -62,8 +62,6 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
                 blockIds.add(blockId);
             }
             if (blockIds.isEmpty()) { return; }
-
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final InventoryMessage inventoryMessage = new InventoryMessage();
             for (final BlockId blockId : blockIds) {
@@ -76,7 +74,11 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
             bitcoinNode.queueMessage(inventoryMessage);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
+        }
+
+        if (_spvUnconfirmedTransactionsHandler != null) {
+            _spvUnconfirmedTransactionsHandler.broadcastUnconfirmedTransactions(bitcoinNode);
         }
     }
 }

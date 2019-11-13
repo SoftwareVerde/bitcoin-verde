@@ -9,39 +9,6 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 
 public interface Block extends BlockHeaderWithTransactionCount {
-//    static MerkleTree.Filter<Transaction> createMerkleTreeFilter(final BloomFilter bloomFilter) {
-//        return new MerkleTree.Filter<Transaction>() {
-//            @Override
-//            public boolean shouldInclude(final Transaction transaction) {
-//                if (transaction == null) { return false; }
-//
-//                for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-//                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-//                    if (bloomFilter.containsItem(transactionOutputIdentifier.toBytes())) {
-//                        return true;
-//                    }
-//                }
-//
-//                for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-//                    final LockingScript lockingScript = transactionOutput.getLockingScript();
-//                    for (final Operation operation : lockingScript.getOperations()) {
-//                        if (operation.getType() == Operation.Type.OP_PUSH) {
-//                            if (bloomFilter.containsItem(((PushOperation) operation).getValue())) {
-//                                return true;
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                if (bloomFilter.containsItem(transaction.getHash())) {
-//                    return true;
-//                }
-//
-//                return false;
-//            }
-//        };
-//    }
-
     List<Transaction> getTransactions();
     List<Transaction> getTransactions(BloomFilter bloomFilter);
     CoinbaseTransaction getCoinbaseTransaction();

@@ -13,7 +13,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BlockDeflater {
-    public ByteArray toBytes(final Block block) {
+    public MutableByteArray toBytes(final Block block) {
         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
@@ -23,7 +23,7 @@ public class BlockDeflater {
         final ByteArrayBuilder byteArrayBuilder = blockHeaderDeflater.toByteArrayBuilder(block);
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount), Endian.BIG);
 
-        for (int i=0; i<transactionCount; ++i) {
+        for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
             final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
             byteArrayBuilder.appendBytes(transactionBytes, Endian.BIG);
@@ -42,7 +42,7 @@ public class BlockDeflater {
         final int transactionCount = transactions.getSize();
         byteCount += ByteUtil.variableLengthIntegerToBytes(transactionCount).length;
 
-        for (int i=0; i<transactionCount; ++i) {
+        for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
             byteCount += transactionDeflater.getByteCount(transaction);
         }

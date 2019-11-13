@@ -97,12 +97,12 @@ public class ProtocolMessageTests {
         Assert.assertEquals(0x000000005A7B4EE5L, synchronizeVersionMessage.getTimestamp().longValue());
 
         final BitcoinNodeIpAddress remoteNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
-        TestUtil.assertEqual(new byte[]{ (byte) 0x18, (byte) 0x23, (byte) 0x3C, (byte) 0x8A }, remoteNodeIpAddress.getIp().getBytes());
+        TestUtil.assertEqual(new byte[]{ (byte) 0x18, (byte) 0x23, (byte) 0x3C, (byte) 0x8A }, remoteNodeIpAddress.getIp().getBytes().getBytes());
         Assert.assertEquals(50764, remoteNodeIpAddress.getPort().intValue());
         Assert.assertEquals(0x0000000000000001L, remoteNodeIpAddress.getNodeFeatures().getFeatureFlags().longValue());
 
         final BitcoinNodeIpAddress localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
-        TestUtil.assertEqual(new byte[]{ (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 }, localNodeIpAddress.getIp().getBytes());
+        TestUtil.assertEqual(new byte[]{ (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 }, localNodeIpAddress.getIp().getBytes().getBytes());
         Assert.assertEquals(0, localNodeIpAddress.getPort().intValue());
         Assert.assertEquals(0x0000000000000037L, localNodeIpAddress.getNodeFeatures().getFeatureFlags().longValue());
 

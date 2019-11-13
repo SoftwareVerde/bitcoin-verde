@@ -1,6 +1,6 @@
 package com.softwareverde.concurrent.pool;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -11,6 +11,7 @@ public class MainThreadPool implements ThreadPool {
     protected final Long _threadKeepAliveMilliseconds;
     protected ThreadPoolExecutor _executorService;
     protected Runnable _shutdownCallback;
+    protected Integer _threadPriority = Thread.NORM_PRIORITY;
 
     final AtomicInteger _nextThreadId = new AtomicInteger(0);
 
@@ -25,13 +26,14 @@ public class MainThreadPool implements ThreadPool {
                 final Thread thread = new Thread(runnable);
                 thread.setName("MainThreadPool - " + nextThreadId);
                 thread.setDaemon(false);
+                thread.setPriority(_threadPriority);
                 thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
                     @Override
                     public void uncaughtException(final Thread thread, final Throwable throwable) {
                         try {
-                            throwable.printStackTrace(System.err);
+                            Logger.error("Uncaught exception in Thread Pool.", throwable);
                         }
-                        catch (final Throwable t) { }
+                        catch (final Throwable exception) { }
 
                         if (throwable instanceof Error) {
                             final Runnable shutdownCallback = _shutdownCallback;
@@ -60,6 +62,14 @@ public class MainThreadPool implements ThreadPool {
         _executorService = _createExecutorService();
     }
 
+    public void setThreadPriority(final Integer threadPriority) {
+        _threadPriority = threadPriority;
+    }
+
+    public Integer getThreadPriority() {
+        return _threadPriority;
+    }
+
     /**
      * Queues the Runnable to the ThreadPool.
      * If ThreadPool::stop has been invoked without a subsequent call to ThreadPool::start, the Runnable is dropped.
@@ -77,13 +87,13 @@ public class MainThreadPool implements ThreadPool {
                         runnable.run();
                     }
                     catch (final Exception exception) {
-                        Logger.log(exception);
+                        Logger.warn(exception);
                     }
                 }
             });
         }
         catch (final RejectedExecutionException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             // Execution rejected due to shutdown race condition...
         }
     }
@@ -116,7 +126,7 @@ public class MainThreadPool implements ThreadPool {
             executorService.shutdownNow(); // Cancel currently executing tasks...
             // Wait a while for tasks to respond to being cancelled...
             if (! executorService.awaitTermination(30, TimeUnit.SECONDS))
-                Logger.log("NOTICE: ThreadPool did not exit cleanly.");
+                Logger.warn("ThreadPool did not exit cleanly.");
             }
         }
         catch (final InterruptedException exception) {

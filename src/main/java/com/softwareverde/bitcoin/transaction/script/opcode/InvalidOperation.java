@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
@@ -11,21 +11,30 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class InvalidOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_INVALID;
 
-    protected static InvalidOperation fromBytes(final ByteArrayReader byteArrayReader) {
+    protected static InvalidOperation fromBytes(final ByteArrayReader byteArrayReader, final Boolean failIfPresent) {
         if (! byteArrayReader.hasBytes()) { return null; }
 
         final byte opcodeByte = byteArrayReader.readByte();
 
-        return new InvalidOperation(opcodeByte);
+        return new InvalidOperation(opcodeByte, failIfPresent);
     }
 
-    protected InvalidOperation(final byte value) {
+    protected final Boolean _failIfPresent;
+
+    protected InvalidOperation(final byte value, final Boolean failIfPresent) {
         super(value, TYPE, null);
+        _failIfPresent = failIfPresent;
+    }
+
+    @Override
+    public Boolean failIfPresent() {
+        if (_failIfPresent) { return true; }
+        return super.failIfPresent();
     }
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        Logger.log("NOTICE: Attempted to execute an unknown opcode: 0x" + HexUtil.toHexString(new byte[] { _opcodeByte }));
+        Logger.debug("NOTICE: Attempted to execute an unknown opcode: 0x" + HexUtil.toHexString(new byte[] { _opcodeByte }));
         return false;
     }
 

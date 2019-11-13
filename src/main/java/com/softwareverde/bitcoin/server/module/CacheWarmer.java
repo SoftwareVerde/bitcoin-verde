@@ -6,18 +6,18 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class CacheWarmer {
     public void warmUpCache(final MasterDatabaseManagerCache masterDatabaseManagerCache, final DatabaseConnectionFactory databaseConnectionFactory) {
-        final Runtime runtime = Runtime.getRuntime();
-
         try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
                 final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
 
@@ -38,7 +38,7 @@ public class CacheWarmer {
                     }
                 }
 
-                final Long maxUtxoCount = masterDatabaseManagerCache.getMaxCachedUtxoCount().unwrap();
+                final Long maxUtxoCount = Util.coalesce(masterDatabaseManagerCache.getMaxCachedUtxoCount(), UtxoCount.wrap(0L)).unwrap();
 
                 final Integer batchSize = 4096; // 512; // NOTE: Reducing the batch size greatly decreases the amount of memory-bloat during startup.
                 Long lastRowId = (newestUnspentTransactionOutputId + 1L);
@@ -74,7 +74,8 @@ public class CacheWarmer {
                     }
 
                     nanoTimer.stop();
-                    Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + cachedCount + " of " + maxUtxoCount + ") (" + (cachedCount / maxUtxoCount.floatValue() * 100.0F) + "%) (" + nanoTimer.getMillisecondsElapsed() + "ms)");
+                    Logger.debug("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + cachedCount + " of " + maxUtxoCount + ") (" + (cachedCount / maxUtxoCount.floatValue() * 100.0F) + "%) (" + nanoTimer.getMillisecondsElapsed() + "ms)");
+                    Logger.flush();
                 }
             }
 
@@ -82,7 +83,7 @@ public class CacheWarmer {
             masterDatabaseManagerCache.commit();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.error(exception);
             BitcoinUtil.exitFailure();
         }
     }

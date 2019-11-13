@@ -1,28 +1,37 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.timer.MilliTimer;
 
 class ValidationTask<T, S> implements Runnable {
-    private final DatabaseConnectionFactory _databaseConnectionFactory;
-    private final DatabaseManagerCache _databaseManagerCache;
-    private final TaskHandler<T, S> _taskHandler;
-    private final List<T> _list;
-    private int _startIndex;
-    private int _itemCount;
-    private Future _future;
-    private boolean _didEncounterError = false;
-    private volatile boolean _shouldAbort = false;
+    protected final String _name;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final TaskHandler<T, S> _taskHandler;
+    protected final List<T> _list;
 
-    public ValidationTask(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final List<T> list, final TaskHandler<T, S> taskHandler) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    protected final Container<Boolean> _shouldAbort = new Container<Boolean>(false);
+    protected final Container<Boolean> _isFinished = new Container<Boolean>(false);
+    protected final Container<Boolean> _didEncounterError = new Container<Boolean>(false);
+
+    protected int _startIndex;
+    protected int _itemCount;
+
+    protected void _reset() {
+        _shouldAbort.value = false;
+        synchronized (_isFinished) {
+            _isFinished.value = false;
+        }
+        _didEncounterError.value = false;
+    }
+
+    public ValidationTask(final String name, final FullNodeDatabaseManagerFactory databaseManagerFactory, final List<T> list, final TaskHandler<T, S> taskHandler) {
+        _name = name;
+        _databaseManagerFactory = databaseManagerFactory;
         _list = list;
         _taskHandler = taskHandler;
     }
@@ -35,42 +44,57 @@ class ValidationTask<T, S> implements Runnable {
         _itemCount = itemCount;
     }
 
-    public void enqueueTo(final ExecutorService executorService) {
-        _future = executorService.submit(this);
+    public void enqueueTo(final ThreadPool threadPool) {
+        threadPool.execute(this);
     }
 
     @Override
     public void run() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            _taskHandler.init(databaseConnection, _databaseManagerCache);
+        _reset();
+
+        final MilliTimer batchTimer = new MilliTimer();
+        batchTimer.start();
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _taskHandler.init(databaseManager);
 
             for (int j = 0; j < _itemCount; ++j) {
-                if (_shouldAbort) { return; }
+                if (_shouldAbort.value) { return; }
 
                 final T item = _list.get(_startIndex + j);
                 _taskHandler.executeTask(item);
             }
         }
         catch (final Exception exception) {
-            Logger.log(exception);
-            _didEncounterError = true;
+            Logger.debug(exception);
+            _didEncounterError.value = true;
+        }
+        finally {
+            synchronized (_isFinished) {
+                _isFinished.value = true;
+                _isFinished.notifyAll();
+            }
+
+            batchTimer.stop();
+            Logger.info(_name + " completed batch. " + _startIndex + " - " + (_startIndex + _itemCount - 1) + ". " + _itemCount + " in " + batchTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 
     public S getResult() {
-        if (_didEncounterError) { return null; }
+        if (_didEncounterError.value) { return null; }
 
-        if (_future != null) {
-            try {
-                _future.get();
-            }
-            catch (final Exception exception) {
-                Logger.log(exception);
+        synchronized (_isFinished) {
+            if (! _isFinished.value) {
+                try {
+                    _isFinished.wait();
+                }
+                catch (final Exception exception) {
+                    Logger.trace(exception);
 
-                final Thread currentThread = Thread.currentThread();
-                currentThread.interrupt(); // Do not consume the interrupted status...
+                    final Thread currentThread = Thread.currentThread();
+                    currentThread.interrupt(); // Do not consume the interrupted status...
 
-                return null;
+                    return null;
+                }
             }
         }
 
@@ -78,7 +102,7 @@ class ValidationTask<T, S> implements Runnable {
     }
 
     public void abort() {
-        _shouldAbort = true;
-        _didEncounterError = true;
+        _shouldAbort.value = true;
+        _didEncounterError.value = true;
     }
 }

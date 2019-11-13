@@ -3,8 +3,10 @@ package com.softwareverde.bitcoin.util;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.murmur.MurmurHashUtil;
+import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.Base58Util;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 
@@ -18,13 +20,13 @@ public class BitcoinUtil {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
             return messageDigest.digest(data);
         }
-        catch (final NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+        catch (final NoSuchAlgorithmException exception) {
+            throw new RuntimeException(exception);
         }
     }
 
     public static Sha256Hash sha256(final ByteArray data) {
-        return MutableSha256Hash.wrap(sha256(data.getBytes()));
+        return MutableSha256Hash.wrap(BitcoinUtil.sha256(data.getBytes()));
     }
 
     public static byte[] sha256(final byte[] data) {
@@ -32,8 +34,8 @@ public class BitcoinUtil {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
             return messageDigest.digest(data);
         }
-        catch (final NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+        catch (final NoSuchAlgorithmException exception) {
+            throw new RuntimeException(exception);
         }
     }
 
@@ -43,6 +45,10 @@ public class BitcoinUtil {
         final byte[] output = new byte[ripemd160Digest.getDigestSize()];
         ripemd160Digest.doFinal(output, 0);
         return output;
+    }
+
+    public static ByteArray ripemd160(final ByteArray data) {
+        return MutableByteArray.wrap(BitcoinUtil.ripemd160(data.getBytes()));
     }
 
     public static Long murmurHash(final Long nonce, final Integer functionIdentifier, final ByteArray bytes) {
@@ -57,13 +63,21 @@ public class BitcoinUtil {
         return Base58Util.base58StringToByteArray(base58String);
     }
 
+    public static String toBase32String(final byte[] bytes) {
+        return Base32Util.toBase32String(bytes);
+    }
+
+    public static byte[] base32StringToBytes(final String base58String) {
+        return Base32Util.base32StringToByteArray(base58String);
+    }
+
     public static String reverseEndianString(final String string) {
         final int charCount = string.length();
         final char[] reverseArray = new char[charCount];
-        for (int i=0; i<charCount/2; ++i) {
-            int index = (charCount - (i*2)) - 1;
-            reverseArray[i*2] = string.charAt(index - 1);
-            reverseArray[(i*2) + 1] = string.charAt(index);
+        for (int i = 0; i < (charCount / 2); ++i) {
+            int index = (charCount - (i * 2)) - 1;
+            reverseArray[i * 2] = string.charAt(index - 1);
+            reverseArray[(i * 2) + 1] = string.charAt(index);
         }
         return new String(reverseArray);
     }
@@ -99,12 +113,12 @@ public class BitcoinUtil {
     }
 
     public static void exitFailure() {
-        Logger.shutdown();
+        Logger.flush();
         System.exit(1);
     }
 
     public static void exitSuccess() {
-        Logger.shutdown();
+        Logger.flush();
         System.exit(0);
     }
 

@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class BitwiseOperation extends SubTypedOperation {
@@ -36,16 +36,15 @@ public class BitwiseOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        // Meh.
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
             return false;
         }
 
         switch (_opcode) {
             case BITWISE_INVERT: {
                 if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_INVERT is enabled on the Bitcoin SV fork...
-                    Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+                    Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
                     return false;
                 }
 
@@ -140,7 +139,7 @@ public class BitwiseOperation extends SubTypedOperation {
 
             case SHIFT_LEFT: {
                 if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_LSHIFT is enabled on the Bitcoin SV fork...
-                    Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+                    Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
                     return false;
                 }
 
@@ -172,7 +171,7 @@ public class BitwiseOperation extends SubTypedOperation {
 
             case SHIFT_RIGHT: {
                 if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_RSHIFT is enabled on the Bitcoin SV fork...
-                    Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+                    Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
                     return false;
                 }
 

@@ -3,45 +3,55 @@ package com.softwareverde.test.database;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionFactoryWrapper;
+import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
-import com.softwareverde.database.mysql.properties.Credentials;
+import com.softwareverde.database.properties.DatabaseCredentials;
 
-public class TestDatabase extends Database {
+public class TestDatabase implements Database {
+    protected MysqlTestDatabase _core;
+
     public TestDatabase(final MysqlTestDatabase core) {
-        super(core);
+        _core = core;
     }
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
-        return new DatabaseConnectionWrapper(((MysqlTestDatabase) _core).newConnection());
+        return new MysqlDatabaseConnectionWrapper(_core.newConnection());
     }
 
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
-        return new DatabaseConnectionFactoryWrapper(((MysqlTestDatabase) _core).newConnectionFactory());
+        return new MysqlDatabaseConnectionFactoryWrapper(_core.newConnectionFactory());
     }
 
     public void reset() throws DatabaseException {
-        ((MysqlTestDatabase) _core).reset();
+        _core.reset();
     }
 
     public DB getDatabaseInstance() {
-        return ((MysqlTestDatabase) _core).getDatabaseInstance();
+        return _core.getDatabaseInstance();
     }
 
-    public Credentials getCredentials() {
-        return ((MysqlTestDatabase) _core).getCredentials();
+    public DatabaseCredentials getCredentials() {
+        return _core.getCredentials();
     }
 
     public DatabaseConnectionFactory getDatabaseConnectionFactory() {
-        return new DatabaseConnectionFactoryWrapper(((MysqlTestDatabase) _core).getDatabaseConnectionFactory());
+        return new MysqlDatabaseConnectionFactoryWrapper(_core.getDatabaseConnectionFactory());
     }
 
     public MysqlDatabaseConnectionFactory getMysqlDatabaseConnectionFactory() {
-        return ((MysqlTestDatabase) _core).getDatabaseConnectionFactory();
+        return _core.getDatabaseConnectionFactory();
     }
+
+    public DatabaseConnectionPool getDatabaseConnectionPool() {
+        return _core.getDatabaseConnectionPool();
+    }
+
+    @Override
+    public void close() { }
 }

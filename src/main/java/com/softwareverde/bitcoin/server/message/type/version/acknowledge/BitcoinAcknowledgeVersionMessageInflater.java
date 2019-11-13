@@ -7,6 +7,10 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class BitcoinAcknowledgeVersionMessageInflater extends BitcoinProtocolMessageInflater {
 
+    public BitcoinAcknowledgeVersionMessageInflater() {
+        super();
+    }
+
     @Override
     public BitcoinAcknowledgeVersionMessage fromBytes(final byte[] bytes) {
         final BitcoinAcknowledgeVersionMessage synchronizeVersionMessage = new BitcoinAcknowledgeVersionMessage();

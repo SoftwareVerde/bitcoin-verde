@@ -2,21 +2,27 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
@@ -35,36 +41,22 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
-
-import java.io.File;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
 public class RepairModule {
-    public static void execute(final String configurationFileName, final String[] blockHashes) {
-        final RepairModule repairModule = new RepairModule(configurationFileName, blockHashes);
-        repairModule.run();
-    }
-
-    protected final Configuration _configuration;
+    protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final List<Sha256Hash> _blockHashes;
 
     protected final NodeInitializer _nodeInitializer;
     protected final MainThreadPool _threadPool = new MainThreadPool(256, 10000L);
 
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile =  new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            Logger.error("Invalid configuration file.");
-            BitcoinUtil.exitFailure();
-        }
-
-        return new Configuration(configurationFile);
-    }
-
-    protected RepairModule(final String configurationFilename, final String[] blockHashes) {
-        _configuration = _loadConfigurationFile(configurationFilename);
+    public RepairModule(BitcoinProperties bitcoinProperties, final Environment environment, final String[] blockHashes) {
+        _bitcoinProperties = bitcoinProperties;
+        _environment = environment;
 
         final ImmutableListBuilder<Sha256Hash> blockHashesBuilder = new ImmutableListBuilder<Sha256Hash>(blockHashes.length);
         for (final String blockHashString : blockHashes) {
@@ -75,20 +67,8 @@ public class RepairModule {
         }
         _blockHashes = blockHashesBuilder.build();
 
-        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
-        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
-
-        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
-        if (database == null) {
-            Logger.log("Error initializing database.");
-            BitcoinUtil.exitFailure();
-        }
-        Logger.log("[Database Online]");
-
-        final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
-        _environment = new Environment(database, masterDatabaseManagerCache);
-
+        final Database database = _environment.getDatabase();
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
@@ -102,9 +82,10 @@ public class RepairModule {
 
         { // Initialize NodeInitializer...
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+            final DatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
 
             final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
-            nodeInitializerProperties.synchronizationStatus = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
+            nodeInitializerProperties.synchronizationStatus = new SynchronizationStatusHandler(databaseManagerFactory);
             nodeInitializerProperties.queryBlocksCallback = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
             nodeInitializerProperties.queryBlockHeadersCallback = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
             nodeInitializerProperties.requestDataCallback = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
@@ -121,7 +102,9 @@ public class RepairModule {
             final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
                 @Override
                 public ThreadPool newThreadPool() {
-                    return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _threadPool);
+                    final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _threadPool);
+                    threadPoolThrottle.start();
+                    return threadPoolThrottle;
                 }
             };
 
@@ -140,9 +123,8 @@ public class RepairModule {
 
         final List<BitcoinNode> bitcoinNodes;
         {
-            final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
             final ImmutableListBuilder<BitcoinNode> bitcoinNodeListBuilder = new ImmutableListBuilder<BitcoinNode>();
-            for (final Configuration.SeedNodeProperties seedNodeProperties : bitcoinProperties.getSeedNodeProperties()) {
+            for (final SeedNodeProperties seedNodeProperties : _bitcoinProperties.getSeedNodeProperties()) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
 
@@ -152,12 +134,48 @@ public class RepairModule {
             bitcoinNodes = bitcoinNodeListBuilder.build();
 
             if (bitcoinNodes.isEmpty()) {
-                Logger.log("ERROR: No trusted nodes set.");
+                Logger.error("No trusted nodes set.");
                 BitcoinUtil.exitFailure();
             }
         }
 
         final BitcoinNode bitcoinNode = bitcoinNodes.get(0);
+
+        if ( (_blockHashes.getSize() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
+            try (final DatabaseConnection databaseConnection = database.newConnection()) {
+                final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
+
+                TransactionUtil.startTransaction(databaseConnection);
+                databaseConnection.executeSql(new Query("UPDATE blocks SET blockchain_segment_id = NULL"));
+                databaseConnection.executeSql(new Query("SET foreign_key_checks = 0"));
+                databaseConnection.executeSql(new Query("DELETE FROM blockchain_segments"));
+                databaseConnection.executeSql(new Query("SET foreign_key_checks = 1"));
+
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+
+                long i = 0L;
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT id FROM blocks ORDER BY block_height ASC"));
+                for (final Row row : rows) {
+                    final BlockId blockId = BlockId.wrap(row.getLong("id"));
+
+                    Logger.debug(i + " of " + rows.size() + " (" + blockId + ")");
+                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                        blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
+                    }
+
+                    i += 1L;
+                }
+                TransactionUtil.commitTransaction(databaseConnection);
+            }
+            catch (final DatabaseException exception) {
+                Logger.error("Error repairing BlockchainSegments.", exception);
+            }
+
+            if (masterDatabaseManagerCache != null) {
+                masterDatabaseManagerCache.close();
+            }
+            System.exit(0);
+        }
 
         for (final Sha256Hash blockHash : _blockHashes) {
             final Object synchronizer = new Object();
@@ -165,12 +183,13 @@ public class RepairModule {
                 @Override
                 public void onResult(final Block block) {
                     try (final DatabaseConnection databaseConnection = database.newConnection()) {
-                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+                        final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
                         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                         if (blockId == null) {
-                            Logger.log("Block not found: " + blockHash);
+                            Logger.error("Block not found: " + blockHash);
                             return;
                         }
 
@@ -178,12 +197,11 @@ public class RepairModule {
                         blockDatabaseManager.repairBlock(block);
                         TransactionUtil.commitTransaction(databaseConnection);
 
-                        Logger.log("Repaired block: " + blockHash);
+                        Logger.info("Repaired block: " + blockHash);
 
                     }
                     catch (final DatabaseException exception) {
-                        Logger.log(exception);
-                        Logger.log("Error repairing block: " + blockHash);
+                        Logger.error("Error repairing block: " + blockHash, exception);
                     }
 
                     synchronizer.notifyAll();
@@ -194,7 +212,10 @@ public class RepairModule {
             catch (final InterruptedException exception) { break; }
         }
 
-        _environment.getMasterDatabaseManagerCache().close();
+        if (masterDatabaseManagerCache != null) {
+            masterDatabaseManagerCache.close();
+        }
+
         System.exit(0);
     }
 }

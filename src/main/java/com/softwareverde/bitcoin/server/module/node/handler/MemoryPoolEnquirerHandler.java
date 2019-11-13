@@ -1,32 +1,30 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    public MemoryPoolEnquirerHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public MemoryPoolEnquirerHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
     public BloomFilter getBloomFilter(final Sha256Hash blockHash) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
             final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance((long) transactionIds.getSize(), 0.01D);
@@ -39,7 +37,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
             return bloomFilter;
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return BloomFilter.MATCH_NONE;
@@ -47,12 +45,12 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
 
     @Override
     public Integer getMemoryPoolTransactionCount() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             return transactionDatabaseManager.getUnconfirmedTransactionCount();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return 0;
@@ -60,15 +58,15 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
 
     @Override
     public Transaction getTransaction(final Sha256Hash transactionHash) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) { return null; }
 
             return transactionDatabaseManager.getTransaction(transactionId);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;

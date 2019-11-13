@@ -27,4 +27,9 @@ public class ImmutableCoinbaseTransaction extends ImmutableTransaction implement
         final TransactionOutput transactionOutput = _transactionOutputs.get(0);
         return transactionOutput.getAmount();
     }
+
+    @Override
+    public ImmutableCoinbaseTransaction asCoinbase() {
+        return this;
+    }
 }

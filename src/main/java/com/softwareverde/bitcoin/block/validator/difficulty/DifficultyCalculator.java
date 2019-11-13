@@ -6,14 +6,14 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.validator.BatchedBlockHeaders;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 
@@ -22,60 +22,59 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 public class DifficultyCalculator {
-    public static Boolean LOGGING_ENABLED = false;
-
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
     protected static final BigInteger TWO_RAISED_TO_256 = BigInteger.valueOf(2L).pow(256);
 
-    protected final BlockchainDatabaseManager _blockchainDatabaseManager;
-    protected final BlockHeaderDatabaseManager _blockHeaderDatabaseManager;
+    protected final DatabaseManager _databaseManager;
+    protected final BatchedBlockHeaders _batchedBlockHeaders;
 
-    public DifficultyCalculator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
-        _blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
+    public DifficultyCalculator(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
+        _batchedBlockHeaders = null;
+    }
+
+    public DifficultyCalculator(final DatabaseManager databaseManager, final BatchedBlockHeaders batchedBlockHeaders) {
+        _databaseManager = databaseManager;
+        _batchedBlockHeaders = batchedBlockHeaders;
     }
 
     protected Difficulty _calculateNewBitcoinCoreTarget(final BlockchainSegmentId blockchainSegmentId, final Long forBlockHeight, final BlockHeader nullableBlockHeader) throws DatabaseException {
         //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
 
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         final BlockId parentBlockId;
         if (nullableBlockHeader != null) {
-            parentBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(nullableBlockHeader.getPreviousBlockHash());
+            parentBlockId = blockHeaderDatabaseManager.getBlockHeaderId(nullableBlockHeader.getPreviousBlockHash());
         }
         else {
-            parentBlockId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (forBlockHeight - 1L));
+            parentBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (forBlockHeight - 1L));
         }
-        final BlockHeader parentBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(parentBlockId);
+        final BlockHeader parentBlockHeader = blockHeaderDatabaseManager.getBlockHeader(parentBlockId);
 
         //  1. Get the block that is 2016 blocks behind the head block of this chain.
         final long previousBlockHeight = (forBlockHeight - BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT); // NOTE: This is 2015 blocks worth of time (not 2016) because of a bug in Satoshi's implementation and is now part of the protocol definition.
-        final BlockId lastAdjustedBlockId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, previousBlockHeight);
-        final BlockHeader lastAdjustedBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(lastAdjustedBlockId);
+        final BlockId lastAdjustedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, previousBlockHeight);
+        final BlockHeader lastAdjustedBlockHeader = blockHeaderDatabaseManager.getBlockHeader(lastAdjustedBlockId);
         if (lastAdjustedBlockHeader == null) { return null; }
 
         //  2. Get the current block timestamp.
         final Long blockTimestamp = parentBlockHeader.getTimestamp();
         final Long previousBlockTimestamp = lastAdjustedBlockHeader.getTimestamp();
 
-        if (LOGGING_ENABLED) {
-            Logger.log(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
-            Logger.log(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
-        }
+        Logger.debug(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
+        Logger.debug(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
 
         //  3. Calculate the difference between the network-time and the time of the 2015th-parent block ("secondsElapsed"). (NOTE: 2015 instead of 2016 due to protocol bug.)
         final Long secondsElapsed = (blockTimestamp - previousBlockTimestamp);
-        if (LOGGING_ENABLED) {
-            Logger.log("2016 blocks in " + secondsElapsed + " (" + (secondsElapsed / 60F / 60F / 24F) + " days)");
-        }
+        Logger.debug("2016 blocks in " + secondsElapsed + " (" + (secondsElapsed / 60F / 60F / 24F) + " days)");
 
         //  4. Calculate the desired two-weeks elapse-time ("secondsInTwoWeeks").
         final Long secondsInTwoWeeks = 2L * 7L * 24L * 60L * 60L; // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
 
         //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
         final double difficultyAdjustment = (secondsInTwoWeeks.doubleValue() / secondsElapsed.doubleValue());
-        if (LOGGING_ENABLED) {
-            Logger.log("Adjustment: " + difficultyAdjustment);
-        }
+        Logger.debug("Adjustment: " + difficultyAdjustment);
 
         //  6. Bound difficultyAdjustment between [4, 0.25].
         final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));
@@ -93,24 +92,26 @@ public class DifficultyCalculator {
     }
 
     protected Difficulty _calculateBitcoinCashEmergencyDifficultyAdjustment(final BlockchainSegmentId blockchainSegmentId, final Long forBlockHeight, final BlockHeader nullableBlockHeader) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         final BlockId previousBlockBlockId;
         if (nullableBlockHeader != null) {
-            previousBlockBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(nullableBlockHeader.getPreviousBlockHash());
+            previousBlockBlockId = blockHeaderDatabaseManager.getBlockHeaderId(nullableBlockHeader.getPreviousBlockHash());
         }
         else {
-            previousBlockBlockId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (forBlockHeight - 1));
+            previousBlockBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (forBlockHeight - 1));
         }
         if (previousBlockBlockId == null) { return null; }
 
-        final BlockHeader previousBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);
+        final BlockHeader previousBlockHeader = blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);
 
-        final MedianBlockTime medianBlockTime = _blockHeaderDatabaseManager.calculateMedianBlockTimeStartingWithBlock(previousBlockBlockId);
-        final BlockId sixthParentBlockId = _blockHeaderDatabaseManager.getAncestorBlockId(previousBlockBlockId, 5);
-        final MedianBlockTime medianBlockTimeForSixthBlock = _blockHeaderDatabaseManager.calculateMedianBlockTime(sixthParentBlockId);
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTimeStartingWithBlock(previousBlockBlockId);
+        final BlockId sixthParentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(previousBlockBlockId, 5);
+        final MedianBlockTime medianBlockTimeForSixthBlock = blockHeaderDatabaseManager.calculateMedianBlockTime(sixthParentBlockId);
         final Long secondsInTwelveHours = 43200L;
 
         if (medianBlockTime == null || medianBlockTimeForSixthBlock == null) {
-            Logger.log("Unable to calculate difficulty for block: " + (nullableBlockHeader != null ? nullableBlockHeader.getHash() : ("Height: " + forBlockHeight)));
+            Logger.warn("Unable to calculate difficulty for block: " + (nullableBlockHeader != null ? nullableBlockHeader.getHash() : ("Height: " + forBlockHeight)));
             return null;
         }
 
@@ -122,9 +123,7 @@ public class DifficultyCalculator {
                 return minimumDifficulty;
             }
 
-            if (LOGGING_ENABLED) {
-                Logger.log("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
-            }
+            Logger.info("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
             return newDifficulty;
         }
 
@@ -132,17 +131,20 @@ public class DifficultyCalculator {
     }
 
     protected Difficulty _calculateNewBitcoinCashTarget(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3]; // The oldest BlockHeaders...
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3]; // The newest BlockHeaders...
 
-        final BlockId currentHeadBlockId = _blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
-        final Long currentHeadBlockHeight = _blockHeaderDatabaseManager.getBlockHeight(currentHeadBlockId);
+        final BlockId currentHeadBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
+        final Long currentHeadBlockHeight = blockHeaderDatabaseManager.getBlockHeight(currentHeadBlockId);
 
         // Set the lastBlockHeaders to be the head blockId, its parent, and its grandparent...
-        lastBlockHeaders[0] = _blockHeaderDatabaseManager.getBlockHeader(currentHeadBlockId); // NOTE: The most-recent blockHeader is the current head Block...
+        lastBlockHeaders[0] = blockHeaderDatabaseManager.getBlockHeader(currentHeadBlockId); // NOTE: The most-recent blockHeader is the current head Block...
         for (int i = 1; i < lastBlockHeaders.length; ++i) { // NOTICE: i = 1, not 0...
-            final BlockId ancestorBlockId = _blockHeaderDatabaseManager.getAncestorBlockId(currentHeadBlockId, i);
-            final BlockHeader blockHeader = _blockHeaderDatabaseManager.getBlockHeader(ancestorBlockId);
+            final BlockId ancestorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(currentHeadBlockId, i);
+            final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(ancestorBlockId);
             if (blockHeader == null) { return null; }
 
             lastBlockHeaders[i] = blockHeader;
@@ -150,10 +152,10 @@ public class DifficultyCalculator {
 
         // Set the firstBlockHeaders to be the 144th, 145th, and 146th parent of blockId's parent...
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
-            final BlockId blockHeaderId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (currentHeadBlockHeight - 144L - i));
+            final BlockId blockHeaderId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (currentHeadBlockHeight - 144L - i));
             if (blockHeaderId == null) { return null; }
 
-            final BlockHeader blockHeader = _blockHeaderDatabaseManager.getBlockHeader(blockHeaderId);
+            final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockHeaderId);
             firstBlockHeaders[i] = blockHeader;
         }
 
@@ -161,15 +163,26 @@ public class DifficultyCalculator {
     }
 
     protected Difficulty _calculateNewBitcoinCashTarget(final BlockId blockId, final Long blockHeight) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3]; // The oldest BlockHeaders...
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3]; // The newest BlockHeaders...
 
-        final BlockchainSegmentId blockchainSegmentId = _blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
         // Set the lastBlockHeaders to be blockId's parent, its grandparent, and its great grandparent...
         for (int i = 0; i < lastBlockHeaders.length; ++i) {
-            final BlockId ancestorBlockId = _blockHeaderDatabaseManager.getAncestorBlockId(blockId, (i + 1));
-            final BlockHeader blockHeader = _blockHeaderDatabaseManager.getBlockHeader(ancestorBlockId);
+
+            BlockHeader blockHeader = null;
+            if (_batchedBlockHeaders != null) {
+                blockHeader = _batchedBlockHeaders.getBlockHeader(blockHeight - (1L + i));
+            }
+
+            if (blockHeader == null) {
+                final BlockId ancestorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, (i + 1));
+                blockHeader = blockHeaderDatabaseManager.getBlockHeader(ancestorBlockId);
+            }
+
             if (blockHeader == null) { return null; }
 
             lastBlockHeaders[i] = blockHeader;
@@ -178,10 +191,22 @@ public class DifficultyCalculator {
         // Set the firstBlockHeaders to be the 144th, 145th, and 146th parents of blockId's parent...
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
             final Long parentBlockHeight = (blockHeight - 1);
-            final BlockId blockHeaderId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (parentBlockHeight - 144L - i));
-            if (blockHeaderId == null) { return null; }
+            final Long ancestorBlockHeight = (parentBlockHeight - 144L - i);
 
-            final BlockHeader blockHeader = _blockHeaderDatabaseManager.getBlockHeader(blockHeaderId);
+            BlockHeader blockHeader = null;
+            if (_batchedBlockHeaders != null) {
+                blockHeader = _batchedBlockHeaders.getBlockHeader(ancestorBlockHeight);
+            }
+
+            if (blockHeader == null) {
+                final BlockId blockHeaderId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, ancestorBlockHeight);
+                if (blockHeaderId == null) { return null; }
+
+                blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockHeaderId);
+            }
+
+            if (blockHeader == null) { return null; }
+
             firstBlockHeaders[i] = blockHeader;
         }
 
@@ -189,10 +214,12 @@ public class DifficultyCalculator {
     }
 
     protected Difficulty _calculateNewBitcoinCashTarget(final BlockHeader[] firstBlockHeaders, final BlockHeader[] lastBlockHeaders) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         final Comparator<BlockHeader> sortBlockHeaderByTimestampDescending = new Comparator<BlockHeader>() {
             @Override
-            public int compare(final BlockHeader o1, final BlockHeader o2) {
-                return (o2.getTimestamp().compareTo(o1.getTimestamp()));
+            public int compare(final BlockHeader blockHeader0, final BlockHeader blockHeader1) {
+                return (blockHeader1.getTimestamp().compareTo(blockHeader0.getTimestamp()));
             }
         };
 
@@ -219,10 +246,10 @@ public class DifficultyCalculator {
             }
         }
 
-        final BlockId firstBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getHash());
-        final BlockId lastBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(lastBlockHeader.getHash());
-        final ChainWork firstChainWork = _blockHeaderDatabaseManager.getChainWork(firstBlockId);
-        final ChainWork lastChainWork = _blockHeaderDatabaseManager.getChainWork(lastBlockId);
+        final BlockId firstBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getHash());
+        final BlockId lastBlockId = blockHeaderDatabaseManager.getBlockHeaderId(lastBlockHeader.getHash());
+        final ChainWork firstChainWork = blockHeaderDatabaseManager.getChainWork(firstBlockId);
+        final ChainWork lastChainWork = blockHeaderDatabaseManager.getChainWork(lastBlockId);
 
         final BigInteger workPerformed;
         {
@@ -255,20 +282,10 @@ public class DifficultyCalculator {
         return newDifficulty;
     }
 
-    public Difficulty calculateRequiredDifficulty(final BlockHeader blockHeader) {
+    protected Difficulty _calculateRequiredDifficulty(final BlockHeader blockHeader, final BlockId blockId, final Long blockHeight) {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         try {
-            final BlockId blockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
-            if (blockId == null) {
-                Logger.log("Unable to find BlockId from Hash: "+ blockHeader.getHash());
-                return null;
-            }
-
-            final Long blockHeight = _blockHeaderDatabaseManager.getBlockHeight(blockId); // blockchainSegment.getBlockHeight();  // NOTE: blockchainSegment.getBlockHeight() is not safe when replaying block-validation.
-            if (blockHeight == null) {
-                Logger.log("Invalid BlockHeight for BlockId: "+ blockId);
-                return null;
-            }
-
             final Boolean isFirstBlock = (Util.areEqual(blockHeader.getHash(), BlockHeader.GENESIS_BLOCK_HASH)); // (blockchainSegment.getBlockHeight() == 0);
             if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
@@ -276,36 +293,62 @@ public class DifficultyCalculator {
                 return _calculateNewBitcoinCashTarget(blockId, blockHeight);
             }
 
-            final Boolean requiresDifficultyEvaluation = (blockHeight % BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT == 0);
+            final boolean requiresDifficultyEvaluation = (blockHeight % BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT == 0);
             if (requiresDifficultyEvaluation) {
-                final BlockchainSegmentId blockchainSegmentId = _blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 return _calculateNewBitcoinCoreTarget(blockchainSegmentId, blockHeight, blockHeader);
             }
 
             if (Buip55.isEnabled(blockHeight)) {
-                final BlockchainSegmentId blockchainSegmentId = _blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockchainSegmentId, blockHeight, blockHeader);
             }
 
-            final BlockId previousBlockBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getPreviousBlockHash());
+            final BlockId previousBlockBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getPreviousBlockHash());
             if (previousBlockBlockId == null) { return null; }
 
-            final BlockHeader previousBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);
+            final BlockHeader previousBlockHeader = blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);
             return previousBlockHeader.getDifficulty();
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) { Logger.warn(exception); }
+
+        return null;
+    }
+
+    public Difficulty calculateRequiredDifficulty(final BlockHeader blockHeader) {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
+        try {
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
+            if (blockId == null) {
+                Logger.warn("Unable to find BlockId from Hash: "+ blockHeader.getHash());
+                return null;
+            }
+
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId); // blockchainSegment.getBlockHeight();  // NOTE: blockchainSegment.getBlockHeight() is not safe when replaying block-validation.
+            if (blockHeight == null) {
+                Logger.warn("Invalid BlockHeight for BlockId: "+ blockId);
+                return null;
+            }
+
+            return _calculateRequiredDifficulty(blockHeader, blockId, blockHeight);
+        }
+        catch (final DatabaseException exception) { Logger.warn(exception); }
 
         return null;
     }
 
     public Difficulty calculateRequiredDifficulty() {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         try {
-            final BlockId parentBlockId = _blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            final BlockId parentBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             if (parentBlockId == null) { return Difficulty.BASE_DIFFICULTY; } // Special case for the Genesis block...
 
-            final Long blockHeight = (_blockHeaderDatabaseManager.getBlockHeight(parentBlockId) + 1);
+            final Long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(parentBlockId) + 1);
 
-            final BlockchainSegmentId blockchainSegmentId = _blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             if (HF20171113.isEnabled(blockHeight)) {
                 return _calculateNewBitcoinCashTarget(blockchainSegmentId);
@@ -320,10 +363,10 @@ public class DifficultyCalculator {
                 return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockchainSegmentId, blockHeight, null);
             }
 
-            final BlockHeader parentBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(parentBlockId);
+            final BlockHeader parentBlockHeader = blockHeaderDatabaseManager.getBlockHeader(parentBlockId);
             return parentBlockHeader.getDifficulty();
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) { Logger.warn(exception); }
 
         return null;
     }

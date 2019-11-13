@@ -1,16 +1,16 @@
 package com.softwareverde.bitcoin.server.database.cache.recency;
 
+import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class RecentItemTracker<T> {
-    protected final HashMap<T, RecentItem<T>> _recentItemInstances;
-    protected final LinkedList<RecentItem<T>> _recentItems;
-    protected final HashSet<Long> _skippedAccesses;
+    protected final ConcurrentHashMap<T, RecentItem<T>> _recentItemInstances;
+    protected final ConcurrentLinkedDeque<RecentItem<T>> _recentItems;
+    protected final ConcurrentHashSet<Long> _skippedAccesses;
     protected long _oldestAccess = Long.MIN_VALUE;
     protected long _nextAccess = Long.MIN_VALUE;
 
@@ -21,9 +21,9 @@ public class RecentItemTracker<T> {
     }
 
     public RecentItemTracker(final Integer initialCapacity) {
-        _recentItemInstances = new HashMap<T, RecentItem<T>>(initialCapacity);
-        _recentItems = new LinkedList<RecentItem<T>>();
-        _skippedAccesses = new HashSet<Long>(initialCapacity);
+        _recentItemInstances = new ConcurrentHashMap<T, RecentItem<T>>(initialCapacity);
+        _recentItems = new ConcurrentLinkedDeque<RecentItem<T>>();
+        _skippedAccesses = new ConcurrentHashSet<Long>();
     }
 
     public void markRecent(final T item) {

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.memory;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class JvmMemoryStatus implements MemoryStatus {
     protected final Runtime _runtime;
@@ -46,6 +46,6 @@ public class JvmMemoryStatus implements MemoryStatus {
 
     @Override
     public void logCurrentMemoryUsage() {
-        Logger.log("Current JVM Memory Usage : " + (_calculateFreeMemory()) + " bytes | MAX=" + _getMaxMemory() + " TOTAL=" + _runtime.totalMemory() + " FREE=" + _runtime.freeMemory());
+        Logger.info("Current JVM Memory Usage : " + (_calculateFreeMemory()) + " bytes | MAX=" + _getMaxMemory() + " TOTAL=" + _runtime.totalMemory() + " FREE=" + _runtime.freeMemory());
     }
 }

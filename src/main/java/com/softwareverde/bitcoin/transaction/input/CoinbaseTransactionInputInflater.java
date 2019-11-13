@@ -10,15 +10,22 @@ import com.softwareverde.util.Util;
  *  If these additional assertions fail, null is returned.
  */
 public class CoinbaseTransactionInputInflater extends TransactionInputInflater {
+    public static Boolean isCoinbaseInput(final TransactionInput transactionInput) {
+        if (! Util.areEqual(transactionInput.getPreviousOutputTransactionHash(), Sha256Hash.EMPTY_HASH)) { return false; }
+
+        // TODO: Validate the following rules are applied since BlockHeight 0...
+        // if (transactionInput.getPreviousOutputIndex() != 0xFFFFFFFF) { return false; }
+        // if (transactionInput.getUnlockingScript().getByteCount() > 100) { return false; }
+        // TODO: Check if the signature script includes a blockHeight value (as of Transaction v2)...
+
+        return true;
+    }
+
     @Override
     protected MutableTransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableTransactionInput transactionInput = super._fromByteArrayReader(byteArrayReader);
 
-        if (! Util.areEqual(transactionInput._previousOutputTransactionHash, Sha256Hash.EMPTY_HASH)) { return null; }
-        if (transactionInput._previousOutputIndex != 0xFFFFFFFF) { return null; }
-        if (transactionInput._unlockingScript.getByteCount() > 100) { return null; }
-
-        // TODO: The signature script must include a blockHeight value as of Transaction Version 2.
+        if (! CoinbaseTransactionInputInflater.isCoinbaseInput(transactionInput)) { return null; }
 
         return transactionInput;
     }

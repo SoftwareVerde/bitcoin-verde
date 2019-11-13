@@ -48,7 +48,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
         _exponent = exponent;
 
         final int copyCount = Math.min(_significand.length, significand.length);
-        for (int i=0; i<copyCount; ++i) {
+        for (int i = 0; i < copyCount; ++i) {
             _significand[(_significand.length - i) - 1] = significand[(significand.length - i) - 1];
         }
     }
@@ -84,8 +84,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public Boolean isSatisfiedBy(final Sha256Hash hash) {
         _requireCachedBytes();
 
-        for (int i=0; i<_cachedBytes.getByteCount(); ++i) {
-            // if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
+        for (int i = 0; i < _cachedBytes.getByteCount(); ++i) {
             final int difficultyByte = ByteUtil.byteToInteger(_cachedBytes.getByte(i));
             final int sha256Byte = ByteUtil.byteToInteger(hash.getByte(i));
             if (sha256Byte == difficultyByte) { continue; }

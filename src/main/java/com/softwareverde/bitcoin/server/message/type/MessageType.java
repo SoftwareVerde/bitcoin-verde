@@ -1,57 +1,92 @@
 package com.softwareverde.bitcoin.server.message.type;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.Util;
 
-public enum MessageType {
-    SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
-    PING("ping"), PONG("pong"),
-    NODE_ADDRESSES("addr"),
+public class MessageType {
+    public static final Integer BYTE_COUNT = 12;
 
-    QUERY_BLOCKS("getblocks"), INVENTORY("inv"), QUERY_UNCONFIRMED_TRANSACTIONS("mempool"),
-    REQUEST_BLOCK_HEADERS("getheaders"), BLOCK_HEADERS("headers"),
-    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"), MERKLE_BLOCK("merkleblock"),
+    public static final MessageType SYNCHRONIZE_VERSION = new MessageType("version");
+    public static final MessageType ACKNOWLEDGE_VERSION = new MessageType("verack");
 
-    NOT_FOUND("notfound"), ERROR("reject"),
+    public static final MessageType PING = new MessageType("ping");
+    public static final MessageType PONG = new MessageType("pong");
 
-    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
-    ENABLE_COMPACT_BLOCKS("sendcmpct"),
+    public static final MessageType NODE_ADDRESSES = new MessageType("addr");
 
-    REQUEST_EXTRA_THIN_BLOCK("get_xthin"), EXTRA_THIN_BLOCK("xthinblock"), THIN_BLOCK("thinblock"),
-    REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx"),
+    public static final MessageType QUERY_BLOCKS = new MessageType("getblocks");
+    public static final MessageType INVENTORY = new MessageType("inv");
+    public static final MessageType QUERY_UNCONFIRMED_TRANSACTIONS = new MessageType("mempool");
 
-    FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr"),
+    public static final MessageType REQUEST_BLOCK_HEADERS = new MessageType("getheaders");
+    public static final MessageType BLOCK_HEADERS = new MessageType("headers");
+    public static final MessageType REQUEST_DATA = new MessageType("getdata");
+    public static final MessageType BLOCK = new MessageType("block");
+    public static final MessageType TRANSACTION = new MessageType("tx");
+    public static final MessageType MERKLE_BLOCK = new MessageType("merkleblock");
 
-    SET_TRANSACTION_BLOOM_FILTER("filterload"), UPDATE_TRANSACTION_BLOOM_FILTER("filteradd"), CLEAR_TRANSACTION_BLOOM_FILTER("filterclear"),
+    public static final MessageType NOT_FOUND = new MessageType("notfound");
+    public static final MessageType ERROR = new MessageType("reject");
+
+    public static final MessageType ENABLE_NEW_BLOCKS_VIA_HEADERS = new MessageType("sendheaders");
+    public static final MessageType ENABLE_COMPACT_BLOCKS = new MessageType("sendcmpct");
+
+    public static final MessageType REQUEST_EXTRA_THIN_BLOCK = new MessageType("get_xthin");
+    public static final MessageType EXTRA_THIN_BLOCK = new MessageType("xthinblock");
+    public static final MessageType THIN_BLOCK = new MessageType("thinblock");
+    public static final MessageType REQUEST_EXTRA_THIN_TRANSACTIONS = new MessageType("get_xblocktx");
+    public static final MessageType THIN_TRANSACTIONS = new MessageType("xblocktx");
+
+    public static final MessageType FEE_FILTER = new MessageType("feefilter");
+    public static final MessageType REQUEST_PEERS = new MessageType("getaddr");
+
+    public static final MessageType SET_TRANSACTION_BLOOM_FILTER = new MessageType("filterload");
+    public static final MessageType UPDATE_TRANSACTION_BLOOM_FILTER = new MessageType("filteradd");
+    public static final MessageType CLEAR_TRANSACTION_BLOOM_FILTER = new MessageType("filterclear");
 
     // BitcoinVerde Messages
-    QUERY_ADDRESS_BLOCKS("addrblocks");
+    public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks");
 
-    public static MessageType fromBytes(final byte[] bytes) {
-        for (final MessageType command : MessageType.values()) {
-            if (ByteUtil.areEqual(command._bytes, bytes)) {
-                return command;
-            }
-        }
-        return null;
-    }
+    protected final ByteArray _bytes;
+    protected final String _value;
 
-    private final byte[] _bytes = new byte[12];
-    private final String _value;
-
-    MessageType(final String value) {
+    protected MessageType(final String value) {
         _value = value;
-        final byte[] valueBytes = value.getBytes();
 
-        for (int i=0; i<_bytes.length; ++i) {
-            _bytes[i] = (i<valueBytes.length ? valueBytes[i] : 0x00);
-        }
+        final MutableByteArray mutableByteArray = new MutableByteArray(BYTE_COUNT);
+        final byte[] valueBytes = value.getBytes();
+        ByteUtil.setBytes(mutableByteArray.unwrap(), valueBytes);
+
+        _bytes = mutableByteArray.asConst();
     }
 
-    public byte[] getBytes() {
-        return ByteUtil.copyBytes(_bytes);
+    public ByteArray getBytes() {
+        return _bytes;
     }
 
     public String getValue() {
+        return _value;
+    }
+
+
+    @Override
+    public boolean equals(final Object object) {
+        if (this == object) { return true; }
+        if (! (object instanceof MessageType)) { return false; }
+
+        final MessageType messageType = (MessageType) object;
+        return ( Util.areEqual(_bytes, messageType._bytes) && Util.areEqual(_value, messageType._value) );
+    }
+
+    @Override
+    public int hashCode() {
+        return _value.hashCode();
+    }
+
+    @Override
+    public String toString() {
         return _value;
     }
 }

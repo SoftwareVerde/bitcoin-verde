@@ -77,22 +77,23 @@
             </div>
 
             <div class="transaction collapsed">
-                <div>
-                    <div class="hash"><label>Hash</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
-                    <div class="version"><label>Version</label><span class="value">1</span></div>
-                    <div class="byte-count"><label>Total Size</label><span class="value">1024</span></div>
-                    <div class="fee"><label>Fee</label><span class="value">0.0000</span></div>
-                    <div class="block-hashes"><label>Mined In Blocks</label><div class="values"></div></div>
-                    <div class="lock-time">
-                        <label>Lock Time</label>
-                        <div class="type"><label>Type</label><span class="value">BLOCK_HEIGHT</span></div>
-                        <div class="type-value"><label>Value</label><span class="value">00000000</span></div>
-                    </div>
-                    <div class="io">
-                        <div class="transaction-inputs"></div>
-                        <img class="tx-arrow" src="/img/tx-input-arrow.png" />
-                        <div class="transaction-outputs"></div>
-                    </div>
+                <div class="hash"><label>Transaction</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                <div class="floating-properties-container">
+                    <div class="version floating-property"><label>Version</label><span class="value">1</span></div>
+                    <div class="byte-count floating-property"><label>Size</label><span class="value">1024</span></div>
+                    <div class="fee floating-property"><label>Fee</label><span class="value">0.0000</span></div>
+                    <div class="slp floating-property"><label>Token</label><span class="value">BCH</span></div>
+                </div>
+                <div class="lock-time floating-property">
+                    <i class="img fas fa-lock"></i>
+                    <label>Lock Time</label>
+                    <span class="value">Locked Until Block #0</span>
+                </div>
+                <div class="block-hashes"><label>Mined In Blocks</label><div class="values"></div></div>
+                <div class="io">
+                    <div class="transaction-inputs"></div>
+                    <img class="tx-arrow" src="/img/tx-input-arrow.png" />
+                    <div class="transaction-outputs"></div>
                 </div>
             </div>
 

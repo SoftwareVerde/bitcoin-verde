@@ -4,14 +4,15 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.type.time.SystemTime;
@@ -38,7 +39,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                     .setParameter(blockHeight)
                     .setParameter(MerkleRoot.EMPTY_HASH)
                     .setParameter(0L)
-                    .setParameter(Difficulty.BASE_DIFFICULTY.encode())
+                    .setParameter(Difficulty.BASE_DIFFICULTY)
                     .setParameter(0L)
                     .setParameter(Sha256Hash.EMPTY_HASH)
             );
@@ -61,7 +62,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_return_priority_incomplete_blocks() throws DatabaseException {
         // Setup
-        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final HashMap<Sha256Hash, Long> blockHeights = new HashMap<Sha256Hash, Long>();
             final Long[] skippedBlockHeights = new Long[]{ };
             final HashSet<Long> skippedBlockHeightSet = new HashSet<Long>(Arrays.asList(skippedBlockHeights));
@@ -78,7 +79,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                 }
             }
 
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             // Action
             final List<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(new MutableList<NodeId>(0));
@@ -98,7 +99,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_return_priority_incomplete_blocks_separated_by_block_height() throws DatabaseException {
         // Setup
-        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final HashMap<Sha256Hash, Long> blockHeights = new HashMap<Sha256Hash, Long>();
             final Long[] skippedBlockHeights = new Long[]{ 2L, 50L, 55L, 56L, 60L };
             final HashSet<Long> skippedBlockHeightSet = new HashSet<Long>(Arrays.asList(skippedBlockHeights));
@@ -115,7 +116,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                 }
             }
 
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             // Action
             final List<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(new MutableList<NodeId>(0));
@@ -162,13 +163,13 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_return_single_priority_incomplete_block() throws DatabaseException {
         // Setup
-        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
 
             final Sha256Hash blockHash = MutableSha256Hash.wrap(BitcoinUtil.sha256(ByteUtil.integerToBytes(124)));
 
             _insertFakePendingBlock(blockHash, 124L);
 
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             // Action
             final List<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(new MutableList<NodeId>(0));

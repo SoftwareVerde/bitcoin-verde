@@ -2,9 +2,8 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -14,7 +13,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 
 import java.util.Map;
@@ -54,13 +53,12 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         }
     }
 
-    protected DatabaseConnection _databaseConnection;
-    protected DatabaseManagerCache _databaseManagerCache;
+    protected FullNodeDatabaseManager _databaseManager;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    protected static TransactionOutput _getTransactionOutput(final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    protected static TransactionOutput _getTransactionOutput(final FullNodeDatabaseManager databaseManager, final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions) {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex);
             final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
@@ -71,7 +69,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
                 final Transaction transactionContainingOutput = queuedTransactions.get(outputTransactionHash);
                 if (transactionContainingOutput != null) {
                     final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
-                    final Boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getSize());
+                    final boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getSize());
                     if (transactionOutputIndexIsValid) {
                         return transactionOutputs.get(transactionOutputIndex);
                     }
@@ -79,26 +77,26 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;
     }
 
-    protected static Long _calculateTotalTransactionInputs(final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    protected static Long _calculateTotalTransactionInputs(final FullNodeDatabaseManager databaseManager, final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions) {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final Sha256Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
             final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
 
-            final TransactionOutput transactionOutput = _getTransactionOutput(outputTransactionHash, transactionOutputIndex, queuedTransactions, databaseConnection, databaseManagerCache);
+            final TransactionOutput transactionOutput = _getTransactionOutput(databaseManager, outputTransactionHash, transactionOutputIndex, queuedTransactions);
 
             if (transactionOutput == null) {
-                Logger.log("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
+                Logger.debug("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
                 return -1L;
             }
 
@@ -116,9 +114,8 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     }
 
     @Override
-    public void init(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = databaseManagerCache;
+    public void init(final FullNodeDatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
     }
 
     @Override
@@ -126,7 +123,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         if (! _invalidTransactions.isEmpty()) { return; }
 
         final Long totalOutputValue = transaction.getTotalOutputValue();
-        final Long totalInputValue = _calculateTotalTransactionInputs(transaction, _queuedTransactionOutputs, _databaseConnection, _databaseManagerCache);
+        final Long totalInputValue = _calculateTotalTransactionInputs(_databaseManager, transaction, _queuedTransactionOutputs);
 
         final boolean transactionExpenditureIsValid = (totalOutputValue <= totalInputValue);
         if (! transactionExpenditureIsValid) {

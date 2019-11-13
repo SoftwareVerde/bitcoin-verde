@@ -352,6 +352,7 @@ class Ui {
         main.empty();
         main.append(transactionUi);
         transactionUi.fadeIn(500, function() {
+            transactionUi.click();
             window.HashResizer(transactionUi);
         });
     }
@@ -413,23 +414,26 @@ class Ui {
         });
 
         transactionUi.on("click", function() {
-            const elements = $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi);
+            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .slp", transactionUi);
+            const elements = $(".block-hashes", transactionUi);
             elements.each(function() {
                 const element = $(this);
                 elements.animationCompleteCount = 0;
                 if (element.css("display") == "none") {
-                    element.slideDown(function() {
+                    element.slideDown(200, function() {
                         element.css("visibility", "visible");
                         elements.animationCompleteCount += 1;
 
                         if (elements.animationCompleteCount >= elements.length) {
                             transactionUi.toggleClass("collapsed");
+                            nonAnimatedElements.each(function() { $(this).show(); });
 
                             window.HashResizer(transactionUi);
                         }
                     });
                 }
                 else {
+                    nonAnimatedElements.each(function() { $(this).hide(); });
                     element.slideUp(function() {
                         element.css("visibility", "hidden");
                         elements.animationCompleteCount += 1;
@@ -445,7 +449,7 @@ class Ui {
 
             return false;
         });
-        $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi).css("display", "none");
+        $(".version, .byte-count, .fee, .block-hashes, .lock-time, .version, .slp", transactionUi).css("display", "none");
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);
@@ -455,6 +459,33 @@ class Ui {
         $(".version .value", transactionUi).text(transaction.version);
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
+
+        const slpAttributeContainer = $(".slp", transactionUi);
+        if (transaction.slp) {
+            const slpAttributeValue = $(".slp .value", transactionUi);
+            const slpAttributeLabel = $(".slp label", transactionUi);
+            const transactionLabel = $(".hash > label", transactionUi);
+
+            transactionLabel.toggleClass("slp-transaction", true);
+            slpAttributeValue.text(transaction.slp.tokenAbbreviation);
+
+            if ((transaction.slp.tokenAbbreviation || "").length > 3) {
+                slpAttributeContainer.toggleClass("oversized", true);
+            }
+
+            if (! transaction.slp.isValid) {
+                slpAttributeLabel.text("INVALID");
+
+                slpAttributeContainer.toggleClass("invalid", true);
+                transactionLabel.toggleClass("invalid", true);
+            }
+            else {
+                slpAttributeContainer.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
+            }
+        }
+        else {
+            slpAttributeContainer.remove();
+        }
 
         const blocks = (transaction.blocks || []);
         for (let i = 0; i < blocks.length; i += 1) {
@@ -467,8 +498,12 @@ class Ui {
         }
 
         const lockTime = (transaction.lockTime || { type:"", value: "", bytes: "" });
-        $(".lock-time .type .value", transactionUi).text(lockTime.type);
-        $(".lock-time .type-value .value", transactionUi).text(lockTime.date || lockTime.value);
+        if (lockTime.type == "BLOCK_HEIGHT") {
+            $(".lock-time .value", transactionUi).text("Locked until Block #" + lockTime.value);
+        }
+        else {
+            $(".lock-time .value", transactionUi).text("Locked until Block #" + lockTime.date);
+        }
         $(".lock-time .type-value .bytes", transactionUi).text(lockTime.bytes);
 
         const transactionInputs = (transaction.inputs || [ ]);
@@ -553,4 +588,25 @@ class DateUtil {
         return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth() + 1) + "-" + DateUtil.padLeft(date.getDate()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
     }
 }
+
+/*
+    function resizeText(textNode) {
+        var container = textNode.parent();
+        var width = 75; // container.width(), height = container.height();
+        var height = 75;
+        console.log(width);
+        var bb = textNode[0].getBBox();
+        console.log(bb);
+        var widthTransform = width / bb.width;
+        console.log(bb.width);
+        var heightTransform = height / bb.height;
+        var value = (widthTransform < heightTransform ? widthTransform : heightTransform);
+        console.log(widthTransform + " vs " + heightTransform);
+        textNode.css("font-size", value + "em");
+
+        bb = textNode[0].getBBox();
+        console.log(height + " - (" + bb.height + "/ 2)");
+        textNode.attr("y", ((height + Math.min(height, bb.height)) / 2));
+    }
+*/
 

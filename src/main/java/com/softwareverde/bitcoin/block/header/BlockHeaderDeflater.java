@@ -39,14 +39,14 @@ public class BlockHeaderDeflater {
         ByteUtil.setBytes(byteData.merkleRoot, blockHeader.getMerkleRoot().getBytes());
 
         final byte[] timestampBytes = ByteUtil.longToBytes(blockHeader.getTimestamp());
-        for (int i=0; i<byteData.timestamp.length; ++i) {
+        for (int i = 0; i < byteData.timestamp.length; ++i) {
             byteData.timestamp[(byteData.timestamp.length - i) - 1] = timestampBytes[(timestampBytes.length - i) - 1];
         }
 
         ByteUtil.setBytes(byteData.difficulty, blockHeader.getDifficulty().encode().getBytes());
 
         final byte[] nonceBytes = ByteUtil.longToBytes(blockHeader.getNonce());
-        for (int i=0; i<byteData.nonce.length; ++i) {
+        for (int i = 0; i < byteData.nonce.length; ++i) {
             byteData.nonce[(byteData.nonce.length - i) - 1] = nonceBytes[(nonceBytes.length - i) - 1];
         }
 
@@ -62,10 +62,6 @@ public class BlockHeaderDeflater {
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
         return _serializeByteData(blockHeaderByteData);
-    }
-
-    public BlockHeaderByteData toByteData( final BlockHeader blockHeader) {
-        return _createByteData(blockHeader);
     }
 
     public Json toJson(final BlockHeader blockHeader) {

@@ -1,30 +1,36 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.*;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.module.node.database.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
@@ -40,7 +46,10 @@ public class BlockProcessor {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
     protected final NetworkTime _networkTime;
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final BlockInflaters _blockInflaters;
+    protected final BlockValidatorFactory _blockValidatorFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
@@ -51,9 +60,37 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+        this(
+            databaseManagerFactory,
+            masterDatabaseManagerCache,
+            new CoreInflater(),
+            transactionValidatorFactory,
+            networkTime,
+            medianBlockTime,
+            orphanedTransactionsCache
+        );
+    }
+
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+        this(
+            databaseManagerFactory,
+            masterDatabaseManagerCache,
+            blockInflaters,
+            new BlockValidatorFactoryCore(),
+            transactionValidatorFactory,
+            networkTime,
+            medianBlockTime,
+            orphanedTransactionsCache
+        );
+    }
+
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+        _databaseManagerFactory = databaseManagerFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
+        _blockInflaters = blockInflaters;
+        _transactionValidatorFactory = transactionValidatorFactory;
+        _blockValidatorFactory = blockValidatorFactory;
 
         _medianBlockTime = medianBlockTime;
         _networkTime = networkTime;
@@ -71,24 +108,28 @@ public class BlockProcessor {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
-    protected Long _processBlock(final Block block, final DatabaseConnection databaseConnection) throws DatabaseException {
-        try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache)) {
+    protected Long _processBlock(final Block block) throws DatabaseException {
+        try (
+            final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
+            final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager(localDatabaseManagerCache)
+        ) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final Sha256Hash blockHash = block.getHash();
             _processedBlockCount += 1;
 
-            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, localDatabaseManagerCache);
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseManagerCache);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseManagerCache);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final BlockchainSegmentId originalHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final BlockId blockId;
             final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
             if (blockHeaderExists) {
-                final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
+                final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
                 if (blockHasTransactions) {
-                    Logger.log("Skipping known block: " + blockHash);
+                    Logger.debug("Skipping known block: " + blockHash);
                     final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
                 }
@@ -102,10 +143,10 @@ public class BlockProcessor {
 
                     TransactionUtil.startTransaction(databaseConnection);
                     {
-                        Logger.log("Processing Block: " + blockHash);
-                        final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
+                        Logger.debug("Processing Block: " + blockHash);
+                        final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
                         if (blockHasTransactions) {
-                            Logger.log("Skipping known block: " + blockHash);
+                            Logger.debug("Skipping known block: " + blockHash);
                             final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                             return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
                         }
@@ -114,15 +155,15 @@ public class BlockProcessor {
                         blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
 
                         if (blockId == null) {
-                            Logger.log("Error storing BlockHeader: " + blockHash);
+                            Logger.debug("Error storing BlockHeader: " + blockHash);
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
                         }
 
-                        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+                        final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
                         final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
                         if (! blockHeaderValidationResponse.isValid) {
-                            Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
+                            Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
                         }
@@ -143,37 +184,39 @@ public class BlockProcessor {
 
                 if (! transactionsStoredSuccessfully) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.log("Invalid block. Unable to store transactions for block: " + blockHash);
+                    Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return null;
                 }
 
                 final int transactionCount = block.getTransactions().getSize();
-                Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+                Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
                 final Boolean blockIsValid;
+                { // NOTE: The DatabaseConnectionFactoryWrapper should not be closed.
+                    final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
+                    final ReadUncommittedDatabaseConnectionFactoryWrapper readUncommittedDatabaseConnectionFactoryWrapper = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
+                    final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory.newDatabaseManagerFactory(readUncommittedDatabaseConnectionFactoryWrapper, localDatabaseManagerCache);
 
-                final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);
-                try (final DatabaseConnectionPool readUncommittedDatabaseConnectionPool = new DatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
-                    final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+                    final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+                    blockValidator.setShouldLogValidBlocks(true);
 
                     blockValidationTimer.start();
                     final BlockValidationResult blockValidationResult = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
                     if (! blockValidationResult.isValid) {
-                        Logger.log(blockValidationResult.errorMessage);
+                        Logger.info(blockValidationResult.errorMessage);
                     }
                     blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
 
                     // localDatabaseManagerCache.log();
                     localDatabaseManagerCache.resetLog();
-
                 }
 
                 if (! blockIsValid) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.log("Invalid block. Transactions did not validate for block: " + blockHash);
+                    Logger.debug("Invalid block. Transactions did not validate for block: " + blockHash);
                     return null;
                 }
             }
@@ -181,7 +224,7 @@ public class BlockProcessor {
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-            final BlockDeflater blockDeflater = new BlockDeflater();
+            final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final Integer byteCount = blockDeflater.getByteCount(block);
             blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
 
@@ -195,7 +238,7 @@ public class BlockProcessor {
                     // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
 
                     final MilliTimer timer = new MilliTimer();
-                    Logger.log("NOTICE: Starting Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
+                    Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
                     timer.start();
                     // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
                     // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
@@ -211,7 +254,7 @@ public class BlockProcessor {
                         final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
                         if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
                     }
-                    Logger.log("NOTICE: Utxo Reorg - 2/5 complete.");
+                    Logger.trace("Utxo Reorg - 2/5 complete.");
 
                     // 2.5 Skip the shared block between the two segments (not strictly necessary, but more performant)...
                     nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
@@ -224,10 +267,10 @@ public class BlockProcessor {
 
                         nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
                     }
-                    Logger.log("NOTICE: Utxo Reorg - 3/5 complete.");
+                    Logger.trace("Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
-                    final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
                     transactionValidator.setLoggingEnabled(false);
 
                     final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
@@ -240,7 +283,7 @@ public class BlockProcessor {
                         }
                     }
 
-                    Logger.log("NOTICE: Utxo Reorg - 4/5 complete.");
+                    Logger.trace("Utxo Reorg - 4/5 complete.");
 
                     // 5. Remove transactions in UnconfirmedTransactions that depend on the removed transactions...
                     while (! transactionsToRemove.isEmpty()) {
@@ -250,7 +293,7 @@ public class BlockProcessor {
                         transactionsToRemove.addAll(chainedInvalidTransactions);
                     }
                     timer.stop();
-                    Logger.log("NOTICE: Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
+                    Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
                 }
                 else {
                     // Remove any transactions in the memory pool that were included in this block...
@@ -301,7 +344,7 @@ public class BlockProcessor {
             }
 
             // _averageBlocksPerSecond.value = averageBlocksPerSecond;
-            final Long now = System.currentTimeMillis();
+            // final Long now = System.currentTimeMillis();
             _averageBlocksPerSecond.value = averageBlocksPerSecond; // ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
             _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
@@ -313,8 +356,8 @@ public class BlockProcessor {
     }
 
     public Long processBlock(final Block block) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final Long newBlockHeight = _processBlock(block, databaseConnection);
+        try {
+            final Long newBlockHeight = _processBlock(block);
             final Boolean blockWasValid = (newBlockHeight != null);
             if ((blockWasValid) && (_orphanedTransactionsCache != null)) {
                 for (final Transaction transaction : block.getTransactions()) {
@@ -325,8 +368,7 @@ public class BlockProcessor {
             return newBlockHeight;
         }
         catch (final Exception exception) {
-            Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());
-            Logger.log(exception);
+            Logger.info("ERROR VALIDATING BLOCK: " + block.getHash(), exception);
         }
 
         return null;

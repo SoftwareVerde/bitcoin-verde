@@ -3,18 +3,18 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
     public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
@@ -22,8 +22,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) { }
     };
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseCache;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final SynchronizationStatus _synchronizationStatus;
 
     protected Runnable _newBlockHashReceivedCallback;
@@ -36,14 +35,16 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
     protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+            final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
             final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getSize());
             Sha256Hash previousBlockHash = null;
             for (final Sha256Hash blockHash : blockHashes) {
-                final Boolean blockExists = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
+                final Boolean blockExists = blockDatabaseManager.hasTransactions(blockHash);
                 if (blockExists) {
                     previousBlockHash = blockHash;
                     continue;
@@ -65,24 +66,40 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 previousBlockHash = blockHash;
             }
 
-            try {
-                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
-            }
-            catch (final DatabaseException databaseException) {
-                Logger.log("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+            final int maxRetryCount = 3;
+            int retryCount = 0;
+            while (retryCount < maxRetryCount) {
+                try {
+                    TransactionUtil.startTransaction(databaseConnection);
+                    storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+                    TransactionUtil.commitTransaction(databaseConnection);
+                    break;
+                }
+                catch (final DatabaseException databaseException) {
+                    Logger.debug("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+                    try {
+                        Thread.sleep(50L);
+                    }
+                    catch (final InterruptedException exception) {
+                        final Thread currentThread = Thread.currentThread();
+                        currentThread.interrupt();
+                        break;
+                    }
+                }
+                finally {
+                    retryCount += 1;
+                }
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return storeBlockHashesResult;
     }
 
-    public BlockInventoryMessageHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final SynchronizationStatus synchronizationStatus) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseCache = databaseCache;
+    public BlockInventoryMessageHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus) {
+        _databaseManagerFactory = databaseManagerFactory;
         _synchronizationStatus = synchronizationStatus;
     }
 
@@ -119,7 +136,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 //                    }
 //                }
 //                catch (final DatabaseException databaseException) {
-//                    Logger.log(databaseException);
+//                    Logger.warn(databaseException);
 //                }
 //            }
 //

@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class SignatureContextGenerator {
     // Reference: https://en.bitcoin.it/wiki/OP_CHECKSIG
@@ -23,13 +23,13 @@ public class SignatureContextGenerator {
         final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, useBitcoinCash), Long.MAX_VALUE);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
             final TransactionOutput transactionOutput = _transactionOutputRepository.get(transactionOutputIdentifier);
             if (transactionOutput == null) {
-                Logger.log("Unable to create SignatureContext for Transaction.  Unknown TransactionOutput: " + transactionOutputIdentifier);
+                Logger.debug("Unable to create SignatureContext for Transaction.  Unknown TransactionOutput: " + transactionOutputIdentifier);
                 return null;
             }
 

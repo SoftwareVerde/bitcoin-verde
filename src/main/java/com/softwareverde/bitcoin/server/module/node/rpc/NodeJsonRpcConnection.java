@@ -1,17 +1,20 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.io.Logger;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.HexUtil;
@@ -29,6 +32,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
 
+    protected final MasterInflater _masterInflater;
+
     protected final JsonSocket _jsonSocket;
     protected final Object _newMessageNotifier = new Object();
 
@@ -44,7 +49,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     protected Boolean _isUpgradedToHook = false;
 
     protected Json _executeJsonRequest(final Json rpcRequestJson) {
-        if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to hook-upgraded socket."); }
+        if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to a hook-upgraded socket."); }
+        if (! _jsonSocket.isConnected()) { throw new RuntimeException("Attempted to invoke Json request to a closed socket."); }
 
         _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
         _jsonSocket.beginListening();
@@ -83,23 +89,89 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return registerHookRpcJson;
     }
 
-    public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
-        java.net.Socket socket = null;
-        try {
-            socket = new java.net.Socket(hostname, port);
-        }
-        catch (final Exception exception) {
-            Logger.log(exception);
+    protected Json _getBlock(final Sha256Hash blockHash, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
         }
 
-        _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getBlock(final Long blockHeight, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("blockHeight", blockHeight);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getTransaction(final Sha256Hash transactionHash, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
+        this(
+            hostname,
+            port,
+            threadPool,
+            new CoreInflater()
+        );
+    }
+
+    public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool, final MasterInflater masterInflater) {
+        _masterInflater = masterInflater;
+
+        final java.net.Socket javaSocket;
+        {
+            java.net.Socket socket = null;
+            try { socket = new java.net.Socket(hostname, port); }
+            catch (final Exception exception) { Logger.debug(exception); }
+            javaSocket = socket;
+        }
+
+        _jsonSocket = ((javaSocket != null) ? new JsonSocket(javaSocket, threadPool) : null);
 
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);
         }
     }
 
-    public NodeJsonRpcConnection(final java.net.Socket socket, final ThreadPool threadPool) {
+    public NodeJsonRpcConnection(final java.net.Socket javaSocket, final ThreadPool threadPool) {
+        this(
+            javaSocket,
+            threadPool,
+            new CoreInflater()
+        );
+    }
+
+    public NodeJsonRpcConnection(final java.net.Socket socket, final ThreadPool threadPool, final MasterInflater masterInflater) {
+        _masterInflater = masterInflater;
+
         _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
 
         if (_jsonSocket != null) {
@@ -170,6 +242,17 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json getBlockHeaderHeight(final Sha256Hash blockHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash.toString());
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEIGHT");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public Json getBlockchainMetadata() {
         final Json rpcRequestJson = new Json();
         {
@@ -203,39 +286,27 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlock(final Sha256Hash blockHash) {
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("hash", blockHash);
+        return _getBlock(blockHash, null);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlock(final Sha256Hash blockHash, final Boolean hexFormat) {
+        return _getBlock(blockHash, hexFormat);
     }
 
     public Json getBlock(final Long blockHeight) {
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("blockHeight", blockHeight);
+        return _getBlock(blockHeight, null);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlock(final Long blockHeight, final Boolean hexFormat) {
+        return _getBlock(blockHeight, hexFormat);
     }
 
     public Json getTransaction(final Sha256Hash transactionHash) {
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("hash", transactionHash);
+        return _getTransaction(transactionHash, null);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "TRANSACTION");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getTransaction(final Sha256Hash transactionHash, final Boolean hexFormat) {
+        return _getTransaction(transactionHash, hexFormat);
     }
 
     public Json getStatus() {
@@ -294,9 +365,6 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
 
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-        final TransactionInflater transactionInflater = new TransactionInflater();
-
         _jsonSocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
@@ -308,9 +376,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                 switch (objectType) {
                     case "BLOCK": {
                         final String objectData = json.getString("object");
+                        final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
                         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (blockHeader == null) {
-                            Logger.log("Error inflating block: " + objectData);
+                            Logger.warn("Error inflating block: " + objectData);
                             return;
                         }
 
@@ -319,9 +388,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
                     case "TRANSACTION": {
                         final String objectData = json.getString("object");
+                        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (transaction == null) {
-                            Logger.log("Error inflating transaction: " + objectData);
+                            Logger.warn("Error inflating transaction: " + objectData);
                             return;
                         }
 
@@ -332,9 +402,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         final Json object = json.get("object");
                         final String transactionData = object.getString("transactionData");
                         final Long fee = object.getLong("transactionFee");
+                        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
                         if (transaction == null) {
-                            Logger.log("Error inflating transaction: " + transactionData);
+                            Logger.warn("Error inflating transaction: " + transactionData);
                             return;
                         }
 
@@ -352,9 +423,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json validatePrototypeBlock(final Block block) {
-        final BlockDeflater blockDeflater = new BlockDeflater();
-
         final Json rpcParametersJson = new Json();
+        final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
         rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
 
         final Json rpcRequestJson = new Json();
@@ -366,9 +436,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json submitTransaction(final Transaction transaction) {
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
-
         final Json rpcParametersJson = new Json();
+        final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
         rpcParametersJson.put("transactionData", transactionDeflater.toBytes(transaction));
 
         final Json rpcRequestJson = new Json();
@@ -380,14 +449,65 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json submitBlock(final Block block) {
-        final BlockDeflater blockDeflater = new BlockDeflater();
-
         final Json rpcParametersJson = new Json();
+        final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
         rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "POST");
         rpcRequestJson.put("query", "BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json isSlpTransaction(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "IS_SLP_TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json isValidSlpTransaction(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "IS_VALID_SLP_TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json validateTransaction(final Transaction transaction, final Boolean enableSlpValidation) {
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("transactionData", transactionBytes);
+        rpcParametersJson.put("enableSlpValidation", (enableSlpValidation ? 1 : 0));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "IS_VALID_SLP_TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getSlpTokenId(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "SLP_TOKEN_ID");
         rpcRequestJson.put("parameters", rpcParametersJson);
 
         return _executeJsonRequest(rpcRequestJson);

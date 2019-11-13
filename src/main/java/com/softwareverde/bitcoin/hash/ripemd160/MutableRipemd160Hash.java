@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.hash.ripemd160;
 
 import com.softwareverde.bitcoin.hash.MutableHash;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
@@ -13,7 +13,7 @@ public class MutableRipemd160Hash extends MutableHash implements Ripemd160Hash {
 
     public static MutableRipemd160Hash wrap(final byte[] bytes) {
         if (bytes.length != BYTE_COUNT) {
-            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            Logger.warn("Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
             return null;
         }
         return new MutableRipemd160Hash(bytes);
@@ -21,7 +21,7 @@ public class MutableRipemd160Hash extends MutableHash implements Ripemd160Hash {
 
     public static MutableRipemd160Hash copyOf(final byte[] bytes) {
         if (bytes.length != BYTE_COUNT) {
-            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            Logger.warn("Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
             return null;
         }
         return new MutableRipemd160Hash(ByteUtil.copyBytes(bytes));
@@ -46,7 +46,7 @@ public class MutableRipemd160Hash extends MutableHash implements Ripemd160Hash {
 
     public void setBytes(final byte[] bytes) {
         if (bytes.length != BYTE_COUNT) {
-            Logger.log("NOTICE: Attempted to set hash bytes of incorrect length: "+ bytes.length);
+            Logger.warn("Attempted to set hash bytes of incorrect length: "+ bytes.length);
             return;
         }
 

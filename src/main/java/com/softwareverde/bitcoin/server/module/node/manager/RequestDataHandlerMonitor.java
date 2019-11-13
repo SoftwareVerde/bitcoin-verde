@@ -7,12 +7,12 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 
 import java.util.WeakHashMap;
 
-public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallback {
+public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallback, TransactionWhitelist {
     public static final int BAN_THRESHOLD = -128;
     public static final float MAX_FALSE_POSITIVE_RATE = 0.15F;
 
@@ -23,7 +23,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
 
     public static RequestDataHandlerMonitor wrap(final BitcoinNode.RequestDataCallback core) {
         if (core instanceof RequestDataHandlerMonitor) {
-            Logger.log("NOTICE: Attempted to wrap RequestDataHandlerMonitor.");
+            Logger.warn("Attempted to wrap RequestDataHandlerMonitor.");
             return new RequestDataHandlerMonitor(((RequestDataHandlerMonitor) core)._core);
         }
 
@@ -35,7 +35,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
     protected void _checkFalsePositives() {
         final Float falsePositiveRate = PREVIOUS_TRANSACTIONS.getFalsePositiveRate(FILTER_TRANSACTION_COUNT);
         if (falsePositiveRate >= MAX_FALSE_POSITIVE_RATE) {
-            Logger.log("Resetting BanningRequestDataHandler BloomFilter. Item Count: " + FILTER_TRANSACTION_COUNT);
+            Logger.debug("Resetting BanningRequestDataHandler BloomFilter. Item Count: " + FILTER_TRANSACTION_COUNT);
             PREVIOUS_TRANSACTIONS.clear();
             FILTER_TRANSACTION_COUNT = 0L;
         }
@@ -59,7 +59,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
                     final Container<Integer> nodeScore = NODE_SCORES.get(bitcoinNode);
                     nodeScore.value += ((transactionWasSeenBefore ? 1 : -1));
                     if (nodeScore.value < BAN_THRESHOLD) {
-                        Logger.log("Disconnecting BitcoinNode " + bitcoinNode.getIp() + bitcoinNode.getUserAgent() + " - Requesting too many unusual Transactions. Score: " + nodeScore.value);
+                        Logger.debug("Disconnecting BitcoinNode " + bitcoinNode.getIp() + bitcoinNode.getUserAgent() + " - Requesting too many unusual Transactions. Score: " + nodeScore.value);
                         bitcoinNode.disconnect(); // TODO: Consider banning node...
                         return;
                     }
@@ -74,15 +74,16 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
                     // }
                 }
             }
-
-            _core.run(dataHashes, bitcoinNode);
         }
+
+        _core.run(dataHashes, bitcoinNode);
     }
 
     /**
      * TransactionHashes added via this method will not penalize nodes for requesting them.
      *  NOTE: Transactions added via this method will no longer be safe after the filter has become full.
      */
+    @Override
     public void addTransactionHash(final Sha256Hash transactionHash) {
         synchronized (MUTEX) {
             _checkFalsePositives();

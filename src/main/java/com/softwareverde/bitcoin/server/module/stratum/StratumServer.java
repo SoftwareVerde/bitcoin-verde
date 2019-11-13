@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
@@ -9,21 +10,16 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.miner.pool.WorkerId;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
-import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskFactory;
+import com.softwareverde.bitcoin.server.stratum.task.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
@@ -33,9 +29,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.ByteUtil;
@@ -52,12 +47,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class StratumServer {
+    public interface WorkerShareCallback {
+        void onNewWorkerShare(String workerUsername, Integer shareDifficulty);
+    }
+
     protected static final Boolean PROXY_VIABTC = false;
 
-    protected final Configuration.StratumProperties _stratumProperties;
+    protected final MasterInflater _masterInflater;
+    protected final StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool;
-    protected final DatabaseConnectionPool _databaseConnectionPool;
+    protected final StratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
 
     protected final PrivateKey _privateKey;
 
@@ -70,24 +70,26 @@ public class StratumServer {
 
     protected final ReentrantReadWriteLock.WriteLock _mineBlockTaskWriteLock;
     protected final ReentrantReadWriteLock.ReadLock _mineBlockTaskReadLock;
-    protected StratumMineBlockTaskFactory _stratumMineBlockTaskFactory;
+    protected ConfigurableStratumMineBlockTaskBuilder _stratumMineBlockTaskBuilder;
     protected StratumMineBlockTask _currentMineBlockTask = null;
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<Long, StratumMineBlockTask>();
 
     protected MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
     protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<TransactionWithFee>();
 
-    protected Integer _shareDifficulty = 2048;
+    protected final Integer _shareDifficulty = 2048;
 
     protected Boolean _validatePrototypeBlockBeforeMining = true;
 
-    protected Thread _rebuildTaskThread;
+    protected final Thread _rebuildTaskThread;
 
     protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
     protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
-    protected AtomicLong _shareCount = new AtomicLong(0L);
+    protected final AtomicLong _shareCount = new AtomicLong(0L);
 
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<JsonSocket>();
+
+    protected WorkerShareCallback _workerShareCallback;
 
     protected void _broadcastNewTask(final Boolean abandonOldJobs) {
         final Iterator<JsonSocket> iterator = _connections.iterator();
@@ -121,18 +123,18 @@ public class StratumServer {
         try {
             final Socket socket = new Socket(bitcoinRpcUrl, bitcoinRpcPort);
             if (socket.isConnected()) {
-                return new NodeJsonRpcConnection(socket, _threadPool);
+                return new NodeJsonRpcConnection(socket, _threadPool, _masterInflater);
             }
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return null;
     }
 
-    protected Block _assemblePrototypeBlock(final StratumMineBlockTaskFactory stratumMineBlockTaskFactory) {
-        final StratumMineBlockTask mineBlockTask = stratumMineBlockTaskFactory.buildMineBlockTask();
+    protected Block _assemblePrototypeBlock(final StratumMineBlockTaskBuilder stratumMineBlockTaskBuilder) {
+        final StratumMineBlockTask mineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();
         final String zeroes = Sha256Hash.EMPTY_HASH.toString();
         final String stratumNonce = zeroes.substring(0, (4 * 2));
         final String stratumExtraNonce2 = zeroes.substring(0, (_extraNonce2ByteCount * 2));
@@ -141,16 +143,17 @@ public class StratumServer {
     }
 
     protected void _rebuildNewMiningTask() {
-        final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = new StratumMineBlockTaskFactory(_totalExtraNonceByteCount);
+        final ConfigurableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = _stratumMineBlockTaskBuilderFactory.newStratumMineBlockTaskBuilder(_totalExtraNonceByteCount);
 
-        final String coinbaseMessage = Constants.COINBASE_MESSAGE;
+        final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
-        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.compressedFromPrivateKey(_privateKey);
 
         final BlockHeader previousBlockHeader;
         {
-            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
             final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
             final Json blockHeadersResponseJson = nodeRpcConnection.getBlockHeaders(1, true);
             final Json blockHeadersJson = blockHeadersResponseJson.get("blockHeaders");
@@ -180,7 +183,6 @@ public class StratumServer {
 
         final List<TransactionWithFee> transactions;
         {
-            final TransactionInflater transactionInflater = new TransactionInflater();
             final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
             final Json unconfirmedTransactionsResponseJson = nodeRpcConnection.getUnconfirmedTransactions(true);
             final Json unconfirmedTransactionsJson = unconfirmedTransactionsResponseJson.get("unconfirmedTransactions");
@@ -202,28 +204,28 @@ public class StratumServer {
         }
 
         // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
-        final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
+        final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
 
-        stratumMineBlockTaskFactory.setBlockVersion(BlockHeader.VERSION);
-        stratumMineBlockTaskFactory.setPreviousBlockHash(previousBlockHeader.getHash());
-        stratumMineBlockTaskFactory.setDifficulty(difficulty);
-        stratumMineBlockTaskFactory.setCoinbaseTransaction(coinbaseTransaction);
-        stratumMineBlockTaskFactory.setExtraNonce(_extraNonce);
-        stratumMineBlockTaskFactory.setBlockHeight(blockHeight);
+        stratumMineBlockTaskBuilder.setBlockVersion(BlockHeader.VERSION);
+        stratumMineBlockTaskBuilder.setPreviousBlockHash(previousBlockHeader.getHash());
+        stratumMineBlockTaskBuilder.setDifficulty(difficulty);
+        stratumMineBlockTaskBuilder.setCoinbaseTransaction(coinbaseTransaction);
+        stratumMineBlockTaskBuilder.setExtraNonce(_extraNonce);
+        stratumMineBlockTaskBuilder.setBlockHeight(blockHeight);
 
         for (final TransactionWithFee transaction : transactions) {
-            stratumMineBlockTaskFactory.addTransaction(transaction);
+            stratumMineBlockTaskBuilder.addTransaction(transaction);
         }
 
         if (_validatePrototypeBlockBeforeMining) {
             Boolean prototypeBlockIsValid = false;
             do {
-                final Block prototypeBlock = _assemblePrototypeBlock(stratumMineBlockTaskFactory);
+                final Block prototypeBlock = _assemblePrototypeBlock(stratumMineBlockTaskBuilder);
                 final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection();
                 final Json validatePrototypeBlockResponse = nodeJsonRpcConnection.validatePrototypeBlock(prototypeBlock);
                 final Boolean requestWasSuccessful = validatePrototypeBlockResponse.getBoolean("wasSuccess");
                 if (! requestWasSuccessful) {
-                    Logger.log("NOTICE: Error validating prototype block: " + validatePrototypeBlockResponse.getString("errorMessage"));
+                    Logger.warn("Error validating prototype block: " + validatePrototypeBlockResponse.getString("errorMessage"));
                     try { Thread.sleep(1000L); } catch (final InterruptedException exception) { return; }
                 }
                 else {
@@ -231,9 +233,9 @@ public class StratumServer {
                     prototypeBlockIsValid = validationResult.getBoolean("isValid");
                     if (! prototypeBlockIsValid) {
                         final String errorMessage = validationResult.getString("errorMessage");
-                        Logger.log("Invalid prototype block: " + errorMessage);
+                        Logger.warn("Invalid prototype block: " + errorMessage);
 
-                        final Transaction factoryCoinbaseTransaction = stratumMineBlockTaskFactory.getCoinbaseTransaction();
+                        final Transaction factoryCoinbaseTransaction = stratumMineBlockTaskBuilder.getCoinbaseTransaction();
 
                         final Json invalidTransactions = validationResult.get("invalidTransactions");
                         for (int i = 0; i < invalidTransactions.length(); ++i) {
@@ -241,12 +243,12 @@ public class StratumServer {
                             if (transactionHash == null) { continue; }
 
                             if (Util.areEqual(factoryCoinbaseTransaction.getHash(), transactionHash)) {
-                                Logger.log("ERROR: Invalid coinbase created. Exiting.");
+                                Logger.warn("ERROR: Invalid coinbase created. Exiting.");
                                 BitcoinUtil.exitFailure();
                             }
 
-                            Logger.log("Removing transaction from prototype block: " + transactionHash);
-                            stratumMineBlockTaskFactory.removeTransaction(transactionHash);
+                            Logger.debug("Removing transaction from prototype block: " + transactionHash);
+                            stratumMineBlockTaskBuilder.removeTransaction(transactionHash);
                         }
                     }
                 }
@@ -256,8 +258,8 @@ public class StratumServer {
         try {
             _mineBlockTaskWriteLock.lock();
 
-            _stratumMineBlockTaskFactory = stratumMineBlockTaskFactory;
-            _currentMineBlockTask = stratumMineBlockTaskFactory.buildMineBlockTask();
+            _stratumMineBlockTaskBuilder = stratumMineBlockTaskBuilder;
+            _currentMineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();
             _mineBlockTasks.clear();
             _mineBlockTasks.put(_currentMineBlockTask.getId(), _currentMineBlockTask);
 
@@ -279,7 +281,7 @@ public class StratumServer {
         try {
             _mineBlockTaskWriteLock.lock();
 
-            final StratumMineBlockTask stratumMineBlockTask = _stratumMineBlockTaskFactory.buildMineBlockTask();
+            final StratumMineBlockTask stratumMineBlockTask = _stratumMineBlockTaskBuilder.buildMineBlockTask();
             _currentMineBlockTask = stratumMineBlockTask;
             _mineBlockTasks.put(stratumMineBlockTask.getId(), stratumMineBlockTask);
         }
@@ -293,7 +295,7 @@ public class StratumServer {
             _mineBlockTaskWriteLock.lock();
 
             for (final TransactionWithFee queuedTransaction : _queuedTransactions) {
-                _stratumMineBlockTaskFactory.addTransaction(queuedTransaction);
+                _stratumMineBlockTaskBuilder.addTransaction(queuedTransaction);
             }
             _queuedTransactions.clear();
 
@@ -318,7 +320,7 @@ public class StratumServer {
             _mineBlockTaskReadLock.unlock();
         }
 
-        Logger.log("Sent: "+ mineBlockRequest.toString());
+        Logger.debug("Sent: "+ mineBlockRequest.toString());
         socketConnection.write(new JsonProtocolMessage(mineBlockRequest));
     }
 
@@ -329,7 +331,7 @@ public class StratumServer {
         parametersJson.add(_shareDifficulty); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
-        Logger.log("Sent: "+ mineBlockMessage.toString());
+        Logger.debug("Sent: "+ mineBlockMessage.toString());
         socketConnection.write(new JsonProtocolMessage(mineBlockMessage));
     }
 
@@ -367,7 +369,7 @@ public class StratumServer {
         final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
         responseMessage.setResult(resultJson);
 
-        Logger.log("Sent: "+ responseMessage);
+        Logger.debug("Sent: "+ responseMessage);
         socketConnection.write(new JsonProtocolMessage(responseMessage));
     }
 
@@ -376,7 +378,7 @@ public class StratumServer {
             final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
             responseMessage.setResult(ResponseMessage.RESULT_TRUE);
 
-            Logger.log("Sent: "+ responseMessage.toString());
+            Logger.debug("Sent: "+ responseMessage.toString());
             socketConnection.write(new JsonProtocolMessage(responseMessage));
         }
 
@@ -414,22 +416,22 @@ public class StratumServer {
 
             final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
             final Sha256Hash hash = blockHeader.getHash();
-            Logger.log(workerUsername + ": " + hash);
+            Logger.debug(workerUsername + ": " + hash);
             if (! shareDifficulty.isSatisfiedBy(hash)) {
                 submissionWasAccepted = false;
-                Logger.log("NOTICE: Share Difficulty not satisfied.");
+                Logger.warn("Share Difficulty not satisfied.");
 
                 final RequestMessage newRequestMessage = mineBlockTask.createRequest(false);
-                Logger.log("Resending Task: "+ newRequestMessage.toString());
+                Logger.debug("Resending Task: "+ newRequestMessage.toString());
                 socketConnection.write(new JsonProtocolMessage(newRequestMessage));
             }
             else if (blockHeader.isValid()) {
-                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-                Logger.log("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
+                final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
+                Logger.info("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
 
-                final BlockDeflater blockDeflater = new BlockDeflater();
+                final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.log(blockDeflater.toBytes(block));
+                Logger.info(blockDeflater.toBytes(block));
 
                 final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
                 final Json submitBlockResponse = nodeRpcConnection.submitBlock(block);
@@ -442,38 +444,56 @@ public class StratumServer {
         if (submissionWasAccepted) {
             _shareCount.incrementAndGet();
 
-            try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
-                final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
-                if (workerId == null) {
-                    Logger.log("NOTICE: Unknown worker: " + workerUsername);
-                }
-                else {
-                    accountDatabaseManager.addWorkerShare(workerId, _shareDifficulty);
-                    Logger.log("Added worker share: " + workerUsername + " " + _shareDifficulty);
-                }
-            }
-            catch (final DatabaseException databaseException) {
-                Logger.log("NOTICE: Unable to add worker share.");
+            final WorkerShareCallback workerShareCallback = _workerShareCallback;
+            if (workerShareCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        workerShareCallback.onNewWorkerShare(workerUsername, _shareDifficulty);
+                    }
+                });
             }
         }
 
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
 
-        Logger.log("Sent: "+ blockAcceptedMessage.toString());
+        Logger.debug("Sent: "+ blockAcceptedMessage.toString());
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
-    public StratumServer(final Configuration.StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool) {
+        this(
+            stratumProperties,
+            mainThreadPool,
+            new CoreInflater()
+        );
+    }
+
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater) {
+        this(
+            stratumProperties,
+            mainThreadPool,
+            masterInflater,
+            new StratumMineBlockTaskBuilderFactory() {
+                @Override
+                public ConfigurableStratumMineBlockTaskBuilder newStratumMineBlockTaskBuilder(final Integer totalExtraNonceByteCount) {
+                    return new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, masterInflater.getTransactionDeflater());
+                }
+            }
+        );
+    }
+
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater, final StratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
+        _stratumMineBlockTaskBuilderFactory = stratumMineBlockTaskBuilderFactory;
+        _masterInflater = masterInflater;
         _stratumProperties = stratumProperties;
         _threadPool = mainThreadPool;
-        _databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 128);
 
-        final AddressInflater addressInflater = new AddressInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 
         _privateKey = PrivateKey.createNewKey();
-        Logger.log("Private Key: " + _privateKey);
-        Logger.log("Address:     " + addressInflater.compressedFromPrivateKey(_privateKey).toBase58CheckEncoded());
+        Logger.info("Private Key: " + _privateKey);
+        Logger.info("Address:     " + addressInflater.compressedFromPrivateKey(_privateKey).toBase58CheckEncoded());
 
         _extraNonce = _createRandomBytes(_extraNonceByteCount);
 
@@ -482,7 +502,7 @@ public class StratumServer {
         _stratumServerSocket.setSocketEventCallback(new StratumServerSocket.SocketEventCallback() {
             @Override
             public void onConnect(final JsonSocket socketConnection) {
-                Logger.log("Node connected: " + socketConnection.getIp() + ":" + socketConnection.getPort());
+                Logger.debug("Node connected: " + socketConnection.getIp() + ":" + socketConnection.getPort());
                 _connections.add(socketConnection);
 
                 if (PROXY_VIABTC) {
@@ -494,7 +514,7 @@ public class StratumServer {
                             public void run() {
                                 final JsonProtocolMessage jsonProtocolMessage = viaBtcSocket.popMessage();
                                 final Json message = jsonProtocolMessage.getMessage();
-                                Logger.log("VIABTC SENT: " + message);
+                                Logger.trace("VIABTC SENT: " + message);
 
                                 socketConnection.write(jsonProtocolMessage);
                             }
@@ -505,7 +525,7 @@ public class StratumServer {
                             public void run() {
                                 final JsonProtocolMessage jsonProtocolMessage = socketConnection.popMessage();
                                 final Json message = jsonProtocolMessage.getMessage();
-                                Logger.log("ASIC SENT: " + message);
+                                Logger.trace("ASIC SENT: " + message);
 
                                 viaBtcSocket.write(jsonProtocolMessage);
                             }
@@ -514,7 +534,7 @@ public class StratumServer {
                         viaBtcSocket.beginListening();
                     }
                     catch (final Exception exception) {
-                        Logger.log(exception);
+                        Logger.warn(exception);
                     }
                 }
                 else {
@@ -527,7 +547,7 @@ public class StratumServer {
                             { // Handle Request Messages...
                                 final RequestMessage requestMessage = RequestMessage.parse(message);
                                 if (requestMessage != null) {
-                                    Logger.log("Received: " + requestMessage);
+                                    Logger.trace("Received: " + requestMessage);
 
                                     if (requestMessage.isCommand(RequestMessage.ClientCommand.SUBSCRIBE)) {
                                         _handleSubscribeMessage(requestMessage, socketConnection);
@@ -539,7 +559,7 @@ public class StratumServer {
                                         _handleSubmitMessage(requestMessage, socketConnection);
                                     }
                                     else {
-                                        Logger.log("Unrecognized Message: " + requestMessage.getCommand());
+                                        Logger.debug("Unrecognized Message: " + requestMessage.getCommand());
                                     }
                                 }
                             }
@@ -557,7 +577,7 @@ public class StratumServer {
 
             @Override
             public void onDisconnect(final JsonSocket disconnectedSocket) {
-                Logger.log("Node disconnected: " + disconnectedSocket.getIp() + ":" + disconnectedSocket.getPort());
+                Logger.debug("Node disconnected: " + disconnectedSocket.getIp() + ":" + disconnectedSocket.getPort());
 
                 final Iterator<JsonSocket> iterator = _connections.iterator();
                 while (iterator.hasNext()) {
@@ -597,14 +617,14 @@ public class StratumServer {
         nodeAnnouncementsRpcConnection.upgradeToAnnouncementHook(new NodeJsonRpcConnection.RawAnnouncementHookCallback() {
             @Override
             public void onNewBlockHeader(final BlockHeader blockHeader) {
-                Logger.log("New Block Received: " + blockHeader.getHash());
+                Logger.info("New Block Received: " + blockHeader.getHash());
                 _rebuildNewMiningTask();
                 _broadcastNewTask(true);
             }
 
             @Override
             public void onNewTransaction(final Transaction transaction, final Long fee) {
-                Logger.log("Adding Transaction: " + transaction.getHash());
+                Logger.info("Adding Transaction: " + transaction.getHash());
 
                 try {
                     _mineBlockTaskWriteLock.lock();
@@ -626,7 +646,7 @@ public class StratumServer {
 
         _stratumServerSocket.start();
 
-        Logger.log("[Server Online]");
+        Logger.info("[Server Online]");
 
         _rebuildTaskThread.start();
     }
@@ -643,11 +663,11 @@ public class StratumServer {
     }
 
     public Block getPrototypeBlock() {
-        return _assemblePrototypeBlock(_stratumMineBlockTaskFactory);
+        return _assemblePrototypeBlock(_stratumMineBlockTaskBuilder);
     }
 
     public Long getBlockHeight() {
-        return _stratumMineBlockTaskFactory.getBlockHeight();
+        return _stratumMineBlockTaskBuilder.getBlockHeight();
     }
 
     public Integer getShareDifficulty() {
@@ -663,4 +683,8 @@ public class StratumServer {
     }
 
     public Long getCurrentBlockStartTimeInSeconds() { return _currentBlockStartTime; }
+
+    public void setWorkerShareCallback(final WorkerShareCallback workerShareCallback) {
+        _workerShareCallback = workerShareCallback;
+    }
 }

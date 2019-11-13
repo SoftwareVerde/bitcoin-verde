@@ -5,11 +5,26 @@ import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class ArithmeticOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_ARITHMETIC;
+
+    public static final ArithmeticOperation ADD_ONE         = new ArithmeticOperation(Opcode.ADD_ONE.getValue(),            Opcode.ADD_ONE);
+    public static final ArithmeticOperation SUBTRACT_ONE    = new ArithmeticOperation(Opcode.SUBTRACT_ONE.getValue(),       Opcode.SUBTRACT_ONE);
+    public static final ArithmeticOperation MULTIPLY_BY_TWO = new ArithmeticOperation(Opcode.MULTIPLY_BY_TWO.getValue(),    Opcode.MULTIPLY_BY_TWO);
+    public static final ArithmeticOperation DIVIDE_BY_TWO   = new ArithmeticOperation(Opcode.DIVIDE_BY_TWO.getValue(),      Opcode.DIVIDE_BY_TWO);
+    public static final ArithmeticOperation NEGATE          = new ArithmeticOperation(Opcode.NEGATE.getValue(),             Opcode.NEGATE);
+    public static final ArithmeticOperation ABSOLUTE_VALUE  = new ArithmeticOperation(Opcode.ABSOLUTE_VALUE.getValue(),     Opcode.ABSOLUTE_VALUE);
+    public static final ArithmeticOperation NOT             = new ArithmeticOperation(Opcode.NOT.getValue(),                Opcode.NOT);
+    public static final ArithmeticOperation ADD             = new ArithmeticOperation(Opcode.ADD.getValue(),                Opcode.ADD);
+    public static final ArithmeticOperation SUBTRACT        = new ArithmeticOperation(Opcode.SUBTRACT.getValue(),           Opcode.SUBTRACT);
+    public static final ArithmeticOperation MULTIPLY        = new ArithmeticOperation(Opcode.MULTIPLY.getValue(),           Opcode.MULTIPLY);
+    public static final ArithmeticOperation DIVIDE          = new ArithmeticOperation(Opcode.DIVIDE.getValue(),             Opcode.DIVIDE);
+    public static final ArithmeticOperation MODULUS         = new ArithmeticOperation(Opcode.MODULUS.getValue(),            Opcode.MODULUS);
+    public static final ArithmeticOperation MIN             = new ArithmeticOperation(Opcode.MIN.getValue(),                Opcode.MIN);
+    public static final ArithmeticOperation MAX             = new ArithmeticOperation(Opcode.MAX.getValue(),                Opcode.MAX);
 
     protected static ArithmeticOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -30,19 +45,20 @@ public class ArithmeticOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        // Meh.
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("Opcode is disabled: " + _opcode);
             return false;
         }
 
         switch (_opcode) {
             case ADD_ONE: {
                 final Value value = stack.pop();
-                final Long intValue = value.asLong();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
-                final Long newIntValue = (intValue + 1L);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
+
+                final Long newIntValue = (longValue + 1L);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -52,10 +68,12 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case SUBTRACT_ONE: {
                 final Value value = stack.pop();
-                final Long intValue = value.asLong();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
-                final Long newIntValue = (intValue - 1L);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
+
+                final Long newIntValue = (longValue - 1L);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -65,10 +83,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MULTIPLY_BY_TWO: {
                 final Value value = stack.pop();
-                final Long intValue = value.asLong();
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (intValue * 2L);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long newIntValue = (longValue * 2L);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -78,10 +96,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case DIVIDE_BY_TWO: {
                 final Value value = stack.pop();
-                final Long intValue = value.asLong();
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Long newIntValue = (intValue / 2L);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long newIntValue = (longValue / 2L);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -91,10 +109,12 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case NEGATE: {
                 final Value value = stack.pop();
-                final Long intValue = value.asLong();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
-                final Long newIntValue = (-intValue);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
+
+                final Long newIntValue = (-longValue);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -104,10 +124,12 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case ABSOLUTE_VALUE: {
                 final Value value = stack.pop();
-                final Long intValue = value.asLong();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
-                final Long newIntValue = Math.abs(intValue);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
+
+                final Long newIntValue = Math.abs(longValue);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -117,11 +139,14 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case NOT: {
                 final Value value = stack.pop();
-                final Integer intValue = value.asInteger();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
-                final Long newIntValue = (intValue == 0 ? 1L : 0L);
+                final Long longValue = value.asLong();
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
-                final Value newValue = Value.fromInteger(newIntValue);
+                final Long newLongValue = (longValue == 0L ? 1L : 0L);
+
+                final Value newValue = Value.fromInteger(newLongValue);
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
@@ -129,13 +154,18 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case ADD: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                final Long newIntValue = (intValue0 + intValue1);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
+
+                final Long newIntValue = (longValue0 + longValue1);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -145,13 +175,18 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case SUBTRACT: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                final Long newIntValue = (intValue0 - intValue1);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
+
+                final Long newIntValue = (longValue0 - longValue1);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -161,18 +196,23 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MULTIPLY: {
                 if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_MUL is enabled on the Bitcoin SV fork...
-                    Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+                    Logger.debug("Opcode is disabled: " + _opcode);
                     return false;
                 }
 
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                final Long newIntValue = (intValue1 * intValue0);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
+
+                final Long newIntValue = (longValue1 * longValue0);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -185,15 +225,20 @@ public class ArithmeticOperation extends SubTypedOperation {
                 // { 0x0A } { 0x02 } DIVIDE -> { 0x05 }
 
                 final Value value1 = stack.pop(); // Divisor
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                if (intValue1 == 0) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
-                final Long newIntValue = (intValue0 / intValue1);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                if (longValue1 == 0) { return false; }
+
+                final Long newIntValue = (longValue0 / longValue1);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -206,15 +251,20 @@ public class ArithmeticOperation extends SubTypedOperation {
                 // { 0x0A } { 0x02 } MODULUS -> { 0x00 }
 
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                if (intValue1 == 0) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
 
-                final Long newIntValue = (intValue0 % intValue1);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                if (longValue1 == 0) { return false; }
+
+                final Long newIntValue = (longValue0 % longValue1);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -224,13 +274,18 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MIN: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                final Long newIntValue = Math.min(intValue1, intValue0);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
+
+                final Long newIntValue = Math.min(longValue1, longValue0);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);
@@ -240,13 +295,18 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MAX: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
-                final Long intValue0 = value0.asLong();
-                final Long intValue1 = value1.asLong();
+                final Long longValue0 = value0.asLong();
+                if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
 
-                final Long newIntValue = Math.max(intValue1, intValue0);
-                if (_didIntegerOverflow(newIntValue)) { return false; }
+                final Long longValue1 = value1.asLong();
+                if (! Operation.isWithinIntegerRange(longValue1)) { return false; }
+
+                final Long newIntValue = Math.max(longValue1, longValue0);
 
                 final Value newValue = Value.fromInteger(newIntValue);
                 stack.push(newValue);

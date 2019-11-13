@@ -1,8 +1,10 @@
 package com.softwareverde.bitcoin.transaction;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.input.CoinbaseTransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -17,22 +19,19 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
-public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
-    Long VERSION = 0x02L;
+public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
+    Long VERSION = BitcoinConstants.getTransactionVersion();
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
-    static Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {
-        final MutableTransaction coinbaseTransaction = new MutableTransaction();
-        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInput(blockHeight, coinbaseMessage));
-        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
-        return coinbaseTransaction;
-    }
+    static Boolean isCoinbaseTransaction(final Transaction transaction) {
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        if (transactionInputs.getSize() != 1) { return false; }
 
-    static Transaction createCoinbaseTransactionWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
-        final MutableTransaction coinbaseTransaction = new MutableTransaction();
-        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraNonceByteCount));
-        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
-        return coinbaseTransaction;
+        final TransactionInput transactionInput = transactionInputs.get(0);
+        final boolean isCoinbaseInput = CoinbaseTransactionInputInflater.isCoinbaseInput(transactionInput);
+        if (! isCoinbaseInput) { return false; }
+
+        return true;
     }
 
     /**
@@ -91,7 +90,8 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     LockTime getLockTime();
     Long getTotalOutputValue();
     Boolean matches(BloomFilter bloomFilter);
+    CoinbaseTransaction asCoinbase();
 
     @Override
-    ImmutableTransaction asConst();
+    ConstTransaction asConst();
 }

@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MutableMedianBlockTime implements MedianBlockTime, MedianBlockTimeWithBlocks {
+public class MutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, MedianBlockTimeWithBlocks {
     protected final Integer _requiredBlockCount;
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
@@ -18,7 +18,7 @@ public class MutableMedianBlockTime implements MedianBlockTime, MedianBlockTimeW
         final Integer blockCount = _previousBlocks.size();
 
         if (blockCount < _requiredBlockCount) {
-            // Logger.log("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
+            // Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
             return MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
         }
 

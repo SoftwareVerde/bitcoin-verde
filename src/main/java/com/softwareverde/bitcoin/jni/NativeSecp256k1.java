@@ -19,7 +19,7 @@
 
 package com.softwareverde.bitcoin.jni;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
 
@@ -75,7 +75,7 @@ public class NativeSecp256k1 {
             contextRef = secp256k1_init_context();
         }
         catch (final Exception exception) {
-            Logger.log("NOTICE: libsecp256k1 failed to load.");
+            Logger.warn("NOTICE: libsecp256k1 failed to load.");
             isEnabled = false;
         }
         _libraryLoadedCorrectly = isEnabled;

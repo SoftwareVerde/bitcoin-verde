@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.thin.transaction;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -13,11 +14,15 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class ThinTransactionsMessageInflater extends BitcoinProtocolMessageInflater {
+    protected final TransactionInflaters _transactionInflaters;
+
+    public ThinTransactionsMessageInflater(final TransactionInflaters transactionInflaters) {
+        _transactionInflaters = transactionInflaters;
+    }
+
     @Override
     public ThinTransactionsMessage fromBytes(final byte[] bytes) {
-        final TransactionInflater transactionInflater = new TransactionInflater();
-
-        final ThinTransactionsMessage thinTransactionsMessage = new ThinTransactionsMessage();
+        final ThinTransactionsMessage thinTransactionsMessage = new ThinTransactionsMessage(_transactionInflaters);
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.THIN_TRANSACTIONS);
@@ -29,6 +34,7 @@ public class ThinTransactionsMessageInflater extends BitcoinProtocolMessageInfla
         final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (transactionCount > BlockInflater.MAX_TRANSACTION_COUNT) { return null; }
 
+        final TransactionInflater transactionInflater = _transactionInflaters.getTransactionInflater();
         final ImmutableListBuilder<Transaction> transactionListBuilder = new ImmutableListBuilder<Transaction>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);

@@ -1,9 +1,38 @@
 group 'com.softwareverde'
-version '1.1.1'
+version '1.2.0'
 
 apply plugin: 'java'
+apply plugin: 'java-library'
 
 sourceCompatibility = 1.8
+
+sourceSets {
+    main {
+        java
+        resources
+    }
+    server {
+        java
+        resources
+
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+    test {
+        java
+        resources
+
+        compileClasspath += sourceSets.server.output
+        runtimeClasspath += sourceSets.server.output
+    }
+}
+
+configurations {
+    serverImplementation.extendsFrom implementation
+    serverRuntimeOnly.extendsFrom runtimeOnly
+
+    testImplementation.extendsFrom serverImplementation
+}
 
 repositories {
     mavenCentral()
@@ -11,28 +40,48 @@ repositories {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    // Library
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
-    compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
-    compile     (group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2') { force = true }
-    compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
-    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
-    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
-    compile     group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
-    compile     group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
+    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
+    implementation  group: 'org.mariadb.jdbc',          name: 'mariadb-java-client',    version: '2.4.1'
 
-    compile     group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
+    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.0.2'
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.0.2'
+    api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
+    api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.3'
 
-    // Logging
-    compile     group: 'org.slf4j',                 name: 'slf4j-api',              version: '1.7.9'
-    compile     group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',       version: '2.8.2'
-    compile     group: 'org.apache.logging.log4j',  name: 'log4j-api',              version: '2.8.2'
-    compile     group: 'org.apache.logging.log4j',  name: 'log4j-core',             version: '2.8.2'
+    // Server
+    serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.1.0'
+    serverImplementation(group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.0.1') {
+        exclude group: 'org.apache.logging.log4j',  module: '*'
+        exclude group: 'ch.qos.logback',            module: '*'
+        exclude group: 'org.springframework.boot',  module: '*'
+        exclude group: 'javax.annotations',         module: '*'
+        exclude group: 'javax.enterprise',          module: '*'
+        exclude group: 'javax.inject',              module: '*'
+        exclude group: 'org.apache.maven',          module: '*'
+        exclude group: 'org.hamcrest',              module: '*'
+        exclude group: 'org.slf4j',                 module: '*'
+        // exclude group: 'org.springframework',       module: '*'
+        // exclude group: 'commons-io',                module: '*'
+        // exclude group: 'org.apache.commons',        module: '*'
+    }
+    serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '3.4.1') {
+        exclude group: 'io.micrometer',             module: '*'
+        exclude group: 'org.javassist ',            module: '*'
+        exclude group: 'org.slf4j',                 module: '*'
+        exclude group: 'io.dropwizard.metrics',     module: '*'
+        exclude group: 'io.prometheus',             module: '*'
+        exclude group: 'org.hibernate',             module: '*'
+    }
+
+    serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
 
     // Testing
-    testCompile group: 'junit',                     name: 'junit',                  version: '4.11'
-    testCompile group: 'com.github.softwareverde',  name: 'java-mock',              version: 'v2.0.0'
+    testImplementation group: 'junit',                     name: 'junit',                  version: '4.11'
+    testImplementation group: 'com.github.softwareverde',  name: 'java-mock',              version: 'v2.0.0'
 }
 
 // configurations.all {
@@ -45,19 +94,33 @@ task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': version,
-                    'Main-Class': 'com.softwareverde.bitcoin.server.Main'
+                    'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
     }
 
-    baseName = project.name + '-server'
+    baseName = project.name + '-server-all'
 
-    doFirst {
-        from (configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }) {
-            exclude 'META-INF/MANIFEST.MF'
-            exclude 'META-INF/*.SF'
-            exclude 'META-INF/*.DSA'
-            exclude 'META-INF/*.RSA'
-        }
+    from (configurations.serverCompileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'META-INF/*.SF'
+        exclude 'META-INF/*.DSA'
+        exclude 'META-INF/*.RSA'
     }
+
+    from sourceSets.main.output
+    from sourceSets.server.output
+
+    with jar
+}
+
+task makeLibJar(type: Jar) {
+    manifest {
+        attributes  'Implementation-Title': 'Bitcoin Verde Library',
+                    'Implementation-Version': version
+    }
+
+    baseName = project.name + '-lib'
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     with jar
 }
@@ -66,18 +129,29 @@ task makeJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': version,
-                    'Main-Class': 'com.softwareverde.bitcoin.server.Main',
-                    'Class-Path': configurations.compile.collect { 'libs/' + it.getName() }.join(' ')
+                    'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
+                    'Class-Path': project.configurations.serverCompileClasspath.collect { 'libs/' + it.getName() }.join(' ')
     }
 
     baseName = project.name + '-server'
+
+    from sourceSets.main.output
+    from sourceSets.server.output
 
     with jar
 }
 
 task copyDependencies(type: Copy) {
-    from project.configurations.compile.resolvedConfiguration.resolvedArtifacts.file
+    from project.configurations.compileClasspath
     into "$buildDir/libs/libs"
+
+    from project.configurations.serverCompileClasspath
+    into "$buildDir/libs/libs"
+}
+
+test {
+    minHeapSize = "512m"
+    maxHeapSize = "2024m"
 }
 
 tasks.withType(Test) {
@@ -88,6 +162,7 @@ tasks.withType(Test) {
         exceptionFormat "full"
         showCauses true
         showStackTraces true
+        showStandardStreams false
 
         // set options for log level DEBUG and INFO
         debug {
@@ -113,12 +188,12 @@ tasks.withType(Javadoc) {
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
     from javadoc.destinationDir
 }
 
@@ -126,4 +201,3 @@ artifacts {
     archives sourcesJar
     archives javadocJar
 }
-

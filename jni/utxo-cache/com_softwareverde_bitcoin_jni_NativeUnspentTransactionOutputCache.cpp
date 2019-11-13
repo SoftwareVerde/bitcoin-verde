@@ -41,7 +41,7 @@ struct prevout {
     }
 
     bool operator==(const prevout& prevout) const {
-        for (int i=0; i<32; ++i) {
+        for (int i = 0; i < 32; ++i) {
             if (transaction_hash[i] != prevout.transaction_hash[i]) {
                 return false;
             }
@@ -50,7 +50,7 @@ struct prevout {
     }
 
     bool operator<(const prevout& prevout) const {
-        for (int i=0; i<32; ++i) {
+        for (int i = 0; i < 32; ++i) {
             if (transaction_hash[i] != prevout.transaction_hash[i]) {
                 return (transaction_hash[i] < prevout.transaction_hash[i]);
             }
@@ -210,7 +210,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1destroy(JNIEnv* environment, jclass _class) {
     if (CACHES == 0) { return; }
 
-    for (int i=0; i<256; ++i) {
+    for (int i = 0; i < 256; ++i) {
         if (CACHES[i] != 0) {
             delete CACHES[i];
             CACHES[i] = 0;
@@ -221,7 +221,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 }
 
 JNIEXPORT jint JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1createCache(JNIEnv* environment, jclass _class) {
-    for (int i=0; i<256; ++i) {
+    for (int i = 0; i < 256; ++i) {
         if (CACHES[i] == 0) {
             CACHES[i] = new cache();
             return i;

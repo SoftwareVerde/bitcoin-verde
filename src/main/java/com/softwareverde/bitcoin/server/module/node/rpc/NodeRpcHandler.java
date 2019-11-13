@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
@@ -10,11 +11,14 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
+import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -24,8 +28,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -55,6 +59,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         List<BitcoinNode> getNodes();
         void banNode(Ip ip);
         void unbanNode(Ip ip);
+        void addIpToWhitelist(Ip ip);
+        void removeIpFromWhitelist(Ip ip);
     }
 
     public interface QueryAddressHandler {
@@ -81,10 +87,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Long getBlockHeight();
 
         Long getBlockHeaderTimestamp();
-        Long getBlockTimestamp();
 
+        Long getBlockTimestamp();
         BlockHeader getBlockHeader(Long blockHeight);
+
         BlockHeader getBlockHeader(Sha256Hash blockHash);
+        Long getBlockHeaderHeight(final Sha256Hash blockHash);
 
         Block getBlock(Long blockHeight);
         Block getBlock(Sha256Hash blockHash);
@@ -99,9 +107,19 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         Long getBlockReward();
 
-        BlockValidationResult validatePrototypeBlock(final Block block);
+        Boolean isSlpTransaction(Sha256Hash transactionHash);
+        Boolean isValidSlpTransaction(Sha256Hash transactionHash);
+        SlpTokenId getSlpTokenId(Sha256Hash transactionHash);
+
+        BlockValidationResult validatePrototypeBlock(Block block);
+        ValidationResult validateTransaction(Transaction transaction, Boolean enableSlpValidation);
+
         void submitTransaction(Transaction transaction);
         void submitBlock(Block block);
+    }
+
+    public interface LogLevelSetter {
+        void setLogLevel(String packageName, String logLevel);
     }
 
     public interface MetadataHandler {
@@ -114,25 +132,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         public Container<Float> averageBlocksPerSecond;
         public Container<Float> averageTransactionsPerSecond;
     }
-
-    protected static abstract class LazyProtocolMessage {
-        private ProtocolMessage _cachedProtocolMessage;
-
-        protected abstract ProtocolMessage _createProtocolMessage();
-
-        public ProtocolMessage getProtocolMessage() {
-            if (_cachedProtocolMessage == null) {
-                _cachedProtocolMessage = _createProtocolMessage();
-            }
-
-            return _cachedProtocolMessage;
-        }
-    }
-
-    protected final ThreadPool _threadPool;
-    protected final Container<Float> _averageBlocksPerSecond;
-    protected final Container<Float> _averageBlockHeadersPerSecond;
-    protected final Container<Float> _averageTransactionsPerSecond;
 
     public enum HookEvent {
         NEW_BLOCK,
@@ -150,6 +149,20 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
+    protected static abstract class LazyProtocolMessage {
+        private ProtocolMessage _cachedProtocolMessage;
+
+        protected abstract ProtocolMessage _createProtocolMessage();
+
+        public ProtocolMessage getProtocolMessage() {
+            if (_cachedProtocolMessage == null) {
+                _cachedProtocolMessage = _createProtocolMessage();
+            }
+
+            return _cachedProtocolMessage;
+        }
+    }
+
     protected static class HookListener {
         public final JsonSocket socket;
         public final Boolean rawFormat;
@@ -162,6 +175,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
+    protected final MasterInflater _masterInflater;
+    protected final ThreadPool _threadPool;
+    protected final Container<Float> _averageBlocksPerSecond;
+    protected final Container<Float> _averageBlockHeadersPerSecond;
+    protected final Container<Float> _averageTransactionsPerSecond;
+
     protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<HookEvent, MutableList<HookListener>>();
 
     protected SynchronizationStatus _synchronizationStatusHandler = null;
@@ -173,12 +192,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected DataHandler _dataHandler = null;
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
+    protected LogLevelSetter _logLevelSetter = null;
 
     public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
+        this(statisticsContainer, threadPool, new CoreInflater());
+    }
+
+    public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool, final MasterInflater masterInflater) {
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
         _threadPool = threadPool;
+        _masterInflater = masterInflater;
     }
 
     // Requires GET: [blockHeight], [maxBlockCount=10], [rawFormat=0]
@@ -219,7 +244,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             for (final BlockHeader blockHeader : blockHeaders) {
                 if (shouldReturnRawBlockData) {
-                    final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                    final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
                     final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
                     blockHeadersJson.add(blockData);
                 }
@@ -285,7 +310,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         if (shouldReturnRawBlockData) {
-            final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+            final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
             final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
             response.put("block", blockData);
         }
@@ -348,7 +373,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         if (shouldReturnRawBlockData) {
-            final BlockDeflater blockDeflater = new BlockDeflater();
+            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
             final ByteArray blockData = blockDeflater.toBytes(block);
             response.put("block", blockData);
         }
@@ -406,7 +431,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         if (shouldReturnRawTransactionData) {
-            final TransactionDeflater transactionDeflater = new TransactionDeflater();
+            final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
             final ByteArray transactionData = transactionDeflater.toBytes(transaction);
             response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
         }
@@ -424,19 +449,29 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
-    protected void _queryBlockHeight(final Json response) {
+    protected void _queryBlockHeight(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
             return;
         }
 
-        final Long blockHeight = dataHandler.getBlockHeight();
-        final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight();
+        if (parameters.hasKey("hash")) {
+            final String blockHashString = parameters.getString("hash");
+            final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
+            final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight(blockHash);
 
-        response.put("blockHeight", blockHeight);
-        response.put("blockHeaderHeight", blockHeaderHeight);
-        response.put(WAS_SUCCESS_KEY, 1);
+            response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put(WAS_SUCCESS_KEY, 1);
+        }
+        else {
+            final Long blockHeight = dataHandler.getBlockHeight();
+            final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight();
+
+            response.put("blockHeight", blockHeight);
+            response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put(WAS_SUCCESS_KEY, 1);
+        }
     }
 
     // Requires GET:
@@ -482,7 +517,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         if (shouldReturnRawTransactionData) {
             final List<TransactionWithFee> transactions = dataHandler.getUnconfirmedTransactionsWithFees();
             for (final TransactionWithFee unconfirmedTransaction : transactions) {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
                 final ByteArray transactionData = transactionDeflater.toBytes(unconfirmedTransaction.transaction);
 
                 final Json unconfirmedTransactionJson = new Json();
@@ -584,7 +619,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final String addressString = parameters.getString("address");
-        final AddressInflater addressInflater = new AddressInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
@@ -617,7 +652,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final String addressString = parameters.getString("address");
-        final AddressInflater addressInflater = new AddressInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
@@ -654,6 +689,102 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         response.put("address", addressJson);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <hash>
+    protected void _queryIsSlpTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final Boolean isSlpTransaction = _dataHandler.isSlpTransaction(transactionHash);
+
+        if (isSlpTransaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP transaction status.");
+            return;
+        }
+
+        response.put("isSlpTransaction", isSlpTransaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <hash>
+    protected void _queryIsValidSlpTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final Boolean isValidSlpTransaction = _dataHandler.isValidSlpTransaction(transactionHash);
+
+        if (isValidSlpTransaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP transaction validity.");
+            return;
+        }
+
+        response.put("isValidSlpTransaction", isValidSlpTransaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <slpTokenId>
+    protected void _querySlpTokenId(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: hash");
+            return;
+        }
+
+        final String hashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(hashString);
+
+        if (transactionHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid transaction hash: " + hashString);
+            return;
+        }
+
+        final SlpTokenId slpTokenId = _dataHandler.getSlpTokenId(transactionHash);
+
+        if (slpTokenId == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to determine SLP Token Id.");
+            return;
+        }
+
+        response.put("slpTokenId", slpTokenId);
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -713,7 +844,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             response.put(ERROR_MESSAGE_KEY, "Invalid port: " + port);
         }
 
-        final Ip ip = Ip.fromString(host);
+        final Ip ip = Ip.fromStringOrHost(host);
         if (ip == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
             return;
@@ -738,7 +869,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String host = parameters.getString("host");
 
-        final Ip ip = Ip.fromString(host);
+        final Ip ip = Ip.fromStringOrHost(host);
         if (ip == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
             return;
@@ -763,7 +894,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String host = parameters.getString("host");
 
-        final Ip ip = Ip.fromString(host);
+        final Ip ip = Ip.fromStringOrHost(host);
         if (ip == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
             return;
@@ -839,7 +970,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final TransactionInflater transactionInflater = new TransactionInflater();
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
         if (transaction == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid Transaction");
@@ -870,7 +1001,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockBytes);
         if (block == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid Block");
@@ -881,7 +1012,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires POST: <block>
+    // Requires POST: <blockData>
     protected void _validatePrototypeBlock(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -901,16 +1032,128 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockBytes);
         if (block == null) {
-            response.put(ERROR_MESSAGE_KEY, "Invalid Block");
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block.");
             return;
         }
 
         final BlockValidationResult blockValidationResult = dataHandler.validatePrototypeBlock(block);
         response.put("blockValidation", blockValidationResult);
 
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <transactionData>, [enableSlpValidation=1]
+    protected void _validateTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("transactionData")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: transactionData");
+            return;
+        }
+
+        final String transactionHexString = parameters.getString("transactionData");
+        final ByteArray transactionBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(transactionHexString));
+        if (transactionBytes == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Transaction bytes.");
+            return;
+        }
+
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
+        if (transaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Transaction.");
+            return;
+        }
+
+        final String enableSlpValidationKey = "enableSlpValidation";
+        final Boolean enableSlpValidation = (parameters.hasKey(enableSlpValidationKey) ? parameters.getBoolean(enableSlpValidationKey) : true);
+
+        final ValidationResult blockValidationResult = dataHandler.validateTransaction(transaction, enableSlpValidation);
+        response.put("transactionValidation", blockValidationResult);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <packageName, logLevel>
+    protected void _setLogLevel(final Json parameters, final Json response) {
+        final LogLevelSetter logLevelSetter = _logLevelSetter;
+        if (logLevelSetter == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("packageName")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: packageName");
+            return;
+        }
+
+        if (! parameters.hasKey("logLevel")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: logLevel");
+            return;
+        }
+
+        final String packageName = parameters.getString("packageName");
+        final String logLevel = parameters.getString("logLevel");
+
+        logLevelSetter.setLogLevel(packageName, logLevel);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <host>
+    protected void _addIpToWhitelist(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("host")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: host");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+
+        final Ip ip = Ip.fromStringOrHost(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.addIpToWhitelist(ip);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <host>
+    protected void _removeIpFromWhitelist(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("host")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: host");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+
+        final Ip ip = Ip.fromStringOrHost(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.removeIpFromWhitelist(ip);
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -1001,6 +1244,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         _queryBlockchainHandler = queryBlockchainHandler;
     }
 
+    public void setLogLevelSetter(final LogLevelSetter logLevelSetter) {
+        _logLevelSetter = logLevelSetter;
+    }
+
     public void onNewBlock(final BlockHeader block) {
         // Ensure the provided block is only the header by copying it...
         final BlockHeader blockHeader = new ImmutableBlockHeader(block);
@@ -1025,7 +1272,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final LazyProtocolMessage lazyRawDataProtocolMessage = new LazyProtocolMessage() {
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
                 final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
 
                 final Json objectJson = new Json();
@@ -1056,7 +1303,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
                         }
                     }
                 }
@@ -1092,7 +1339,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final LazyProtocolMessage lazyRawProtocolMessage = new LazyProtocolMessage() {
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
                 final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
 
                 final Json json = new Json();
@@ -1108,7 +1355,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             lazyRawProtocolMessageWithFee = new LazyProtocolMessage() {
                 @Override
                 protected ProtocolMessage _createProtocolMessage() {
-                    final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                    final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
                     final ByteArray transactionData = transactionDeflater.toBytes(transaction);
 
                     final Json transactionJson = new Json();
@@ -1150,7 +1397,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
                         }
                     }
                 }
@@ -1174,7 +1421,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 response.put(ERROR_MESSAGE_KEY, null);
 
                 final Json parameters = message.get("parameters");
-                Boolean closeConnection = true;
+                boolean closeConnection = true;
 
                 switch (method.toUpperCase()) {
                     case "GET": {
@@ -1196,7 +1443,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "BLOCK_HEIGHT": {
-                                _queryBlockHeight(response);
+                                _queryBlockHeight(parameters, response);
                             } break;
 
                             case "DIFFICULTY": {
@@ -1232,6 +1479,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _queryBlockchainMetadata(response);
                             } break;
 
+                            case "IS_SLP_TRANSACTION": {
+                                _queryIsSlpTransaction(parameters, response);
+                            } break;
+
+                            case "IS_VALID_SLP_TRANSACTION": {
+                                _queryIsValidSlpTransaction(parameters, response);
+                            } break;
+
+                            case "SLP_TOKEN_ID": {
+                                _querySlpTokenId(parameters, response);
+                            } break;
+
                             default: {
                                 response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
@@ -1256,6 +1515,14 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _unbanNode(parameters, response);
                             } break;
 
+                            case "WHITELIST_NODE": {
+                                _addIpToWhitelist(parameters, response);
+                            } break;
+
+                            case "REMOVE_WHITELIST_NODE": {
+                                _removeIpFromWhitelist(parameters, response);
+                            } break;
+
                             case "ADD_HOOK": {
                                 final Boolean keepSocketOpen = _addHook(parameters, response, socketConnection);
                                 closeConnection = (! keepSocketOpen);
@@ -1271,6 +1538,14 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "VALIDATE_PROTOTYPE_BLOCK": {
                                 _validatePrototypeBlock(parameters, response);
+                            } break;
+
+                            case "VALIDATE_TRANSACTION": {
+                                _validateTransaction(parameters, response);
+                            } break;
+
+                            case "SET_LOG_LEVEL": {
+                                _setLogLevel(parameters, response);
                             } break;
 
                             default: {

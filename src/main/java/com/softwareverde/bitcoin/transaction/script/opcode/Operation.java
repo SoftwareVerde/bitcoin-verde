@@ -1,11 +1,15 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -22,7 +26,7 @@ public abstract class Operation implements Const {
         OP_DYNAMIC_VALUE(PUSH_STACK_SIZE, COPY_1ST, COPY_NTH, COPY_2ND, COPY_2ND_THEN_1ST, COPY_3RD_THEN_2ND_THEN_1ST, COPY_4TH_THEN_3RD, COPY_1ST_THEN_MOVE_TO_3RD),
         OP_CONTROL      (IF, NOT_IF, ELSE, END_IF, VERIFY, RETURN, IF_VERSION, IF_NOT_VERSION),
         OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_1ST_TRUE_THEN_COPY_1ST, POP, REMOVE_2ND_FROM_TOP, MOVE_NTH_TO_1ST, ROTATE_TOP_3, SWAP_1ST_WITH_2ND, POP_THEN_POP, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
-        OP_STRING       (CONCATENATE, SPLIT, ENCODE_NUMBER, DECODE_NUMBER, STRING_PUSH_LENGTH),
+        OP_STRING       (CONCATENATE, SPLIT, ENCODE_NUMBER, NUMBER_TO_BYTES, PUSH_1ST_BYTE_COUNT),
         OP_BITWISE      (BITWISE_INVERT, BITWISE_AND, BITWISE_OR, BITWISE_XOR, SHIFT_LEFT, SHIFT_RIGHT),
         OP_COMPARISON   (INTEGER_AND, INTEGER_OR, IS_EQUAL, IS_EQUAL_THEN_VERIFY, IS_TRUE, IS_NUMERICALLY_EQUAL, IS_NUMERICALLY_EQUAL_THEN_VERIFY, IS_NUMERICALLY_NOT_EQUAL, IS_LESS_THAN, IS_GREATER_THAN, IS_LESS_THAN_OR_EQUAL, IS_GREATER_THAN_OR_EQUAL, IS_WITHIN_RANGE),
         OP_ARITHMETIC   (ADD_ONE, SUBTRACT_ONE, MULTIPLY_BY_TWO, DIVIDE_BY_TWO, NEGATE, ABSOLUTE_VALUE, NOT, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS, MIN, MAX),
@@ -63,8 +67,22 @@ public abstract class Operation implements Const {
         }
     }
 
-    protected static Boolean _didIntegerOverflow(final long value) {
-        return (value > Integer.MAX_VALUE || value < Integer.MIN_VALUE);
+    protected static Boolean isWithinIntegerRange(final Long value) {
+        return ( (value <= Integer.MAX_VALUE) && (value > Integer.MIN_VALUE) ); // MIP-Encoding -2147483648 requires 5 bytes...
+    }
+
+    protected static Boolean isMinimallyEncoded(final ByteArray byteArray) {
+        final ByteArray minimallyEncodedByteArray = Value.minimallyEncodeBytes(byteArray);
+        if (minimallyEncodedByteArray == null) { return false; }
+
+        return (byteArray.getByteCount() == minimallyEncodedByteArray.getByteCount());
+    }
+
+    protected static Boolean validateMinimalEncoding(final Value value, final Context context) {
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+        if (! HF20191115.isEnabled(medianBlockTime)) { return true; }
+
+        return Operation.isMinimallyEncoded(value);
     }
 
     protected final byte _opcodeByte;
@@ -92,6 +110,12 @@ public abstract class Operation implements Const {
         }
 
         return true;
+    }
+
+    public Boolean failIfPresent() {
+        final Opcode opcode = _type.getSubtype(_opcodeByte);
+        if (opcode == null) { return false; } // Undefined subtypes are allowed to be present...
+        return opcode.failIfPresent();
     }
 
     public byte[] getBytes() {

@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -298,11 +299,12 @@ public class NodeManagerTests {
         final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, fakeSystemTime, _threadPool);
 
         {  // Mark nodes as idle...
-            nodes[0]._lastMessageReceivedTimestamp = -60000L;
-            nodes[1]._lastMessageReceivedTimestamp = -60000L;
-            nodes[2]._lastMessageReceivedTimestamp = -60000L;
-            nodes[3]._lastMessageReceivedTimestamp = -60000L;
-            nodes[4]._lastMessageReceivedTimestamp = -60000L;
+            final Long idleMs = -(BitcoinNodeManager.PING_AFTER_MS_IDLE + 100L);
+            nodes[0]._lastMessageReceivedTimestamp = idleMs;
+            nodes[1]._lastMessageReceivedTimestamp = idleMs;
+            nodes[2]._lastMessageReceivedTimestamp = idleMs;
+            nodes[3]._lastMessageReceivedTimestamp = idleMs;
+            nodes[4]._lastMessageReceivedTimestamp = idleMs;
         }
 
         { // Set node pings... From Best To Worst: 3, 2, 4, 0, 1

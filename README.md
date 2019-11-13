@@ -108,6 +108,21 @@ upgrade, checkout `v1.1.0` and run `./scripts/make-jar.sh`.  Restart your node v
 `./scripts/rpc-shutdown.sh` and `./scripts/rpc/run-node.sh`.
 
 
+## Running the Node as a Service/Daemon
+
+
+The ./scripts/run-node.sh script will run the node in the current shell, which will exit upon logout.
+To run the Node as a detatched process, you can start the run-node script via nohup, like so:
+`touch logs/node.log && nohup ./scripts/run-node.sh >> logs/node.log & tail -f logs/node.log`
+With this command you should be able to stop watching the logs with ctrl-c and may logout without
+the node quitting.
+
+Alternatively, you can install the daemon scripts located in `daemons` directory.  Currently,
+Bitcoin Verde comes with init.d and systemd versions of these scripts.  Installing them is
+dependent on your OS, and is out of scope of this README, but there are plenty of guides online
+for installing systemd or init.d processes.
+
+
 ## Contributions
 
 

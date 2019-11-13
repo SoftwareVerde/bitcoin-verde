@@ -3,26 +3,27 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
@@ -30,20 +31,23 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
         public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) { }
     };
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final BlockCache _blockCache;
 
-    public RequestDataHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockCache blockCache) {
+        _databaseManagerFactory = databaseManagerFactory;
+        _blockCache = blockCache;
     }
 
     @Override
     public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        if (_isShuttingDown.get()) { return; }
+
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 
@@ -71,9 +75,27 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final Block block = blockDatabaseManager.getBlock(blockId);
+                        final Block block;
+                        {
+                            if (_blockCache != null) {
+                                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+
+                                if (cachedBlock != null) {
+                                    block = cachedBlock;
+                                }
+                                else {
+                                    block = blockDatabaseManager.getBlock(blockId);
+                                    _blockCache.cacheBlock(block, blockHeight);
+                                }
+                            }
+                            else {
+                                block = blockDatabaseManager.getBlock(blockId);
+                            }
+                        }
+
                         if (block == null) {
-                            Logger.log("Error inflating Block: " + blockHash);
+                            Logger.warn("Error inflating Block: " + blockHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }
@@ -86,7 +108,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         }
 
                         getBlockDataTimer.stop();
-                        Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
+                        Logger.debug("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
 
                         final Sha256Hash batchContinueHash = bitcoinNode.getBatchContinueHash();
                         if (Util.areEqual(batchContinueHash, blockHash)) {
@@ -108,7 +130,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                         if (transaction == null) {
-                            Logger.log("Error inflating Transaction: " + transactionHash);
+                            Logger.warn("Error inflating Transaction: " + transactionHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }
@@ -116,11 +138,11 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         bitcoinNode.transmitTransaction(transaction);
 
                         getTransactionTimer.stop();
-                        Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
+                        Logger.info("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     default: {
-                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType());
+                        Logger.debug("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType());
                     } break;
                 }
             }
@@ -133,6 +155,12 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                 bitcoinNode.queueMessage(notFoundResponseMessage);
             }
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
+    }
+
+    public void shutdown() {
+        _isShuttingDown.set(true);
     }
 }

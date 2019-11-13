@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.database.cache.utxo;
 
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -17,7 +18,6 @@ public class NativeUnspentTransactionOutputCacheTests {
     @Test
     public void should_store_and_purge_items_from_the_native_utxo_cache() {
         NativeUnspentTransactionOutputCache.init();
-
         Assert.assertTrue(NativeUnspentTransactionOutputCache.isEnabled());
 
         final NativeUnspentTransactionOutputCache cache = new NativeUnspentTransactionOutputCache(UtxoCount.wrap(10L));

@@ -25,6 +25,7 @@ public class BinarySocketServer extends SocketServer<BinarySocket> {
         @Override
         void run(BinarySocket socketConnection);
     }
+
     public interface SocketDisconnectedCallback extends SocketServer.SocketDisconnectedCallback<BinarySocket> {
         @Override
         void run(BinarySocket socketConnection);

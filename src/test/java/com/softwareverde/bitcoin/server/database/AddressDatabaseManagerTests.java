@@ -1,7 +1,8 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.server.module.node.database.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -21,19 +22,20 @@ public class AddressDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_store_script_addresses() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
 
-        final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();
-        lockingScripts.add(ScriptBuilder.payToAddress("1CujTANFTa9YqSd9S6k3yCehoF2BBKs6ht"));
-        lockingScripts.add(ScriptBuilder.payToAddress("15iUw9oLzsdQNQreGQZ6aPvM5b73BneGKy"));
+            final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();
+            lockingScripts.add(ScriptBuilder.payToAddress("1CujTANFTa9YqSd9S6k3yCehoF2BBKs6ht"));
+            lockingScripts.add(ScriptBuilder.payToAddress("15iUw9oLzsdQNQreGQZ6aPvM5b73BneGKy"));
 
-        // Action
-        final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
+            // Action
+            final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
 
-        // Assert
-        Assert.assertEquals(2, addressIds.getSize());
-        Assert.assertEquals(1L, addressIds.get(0).longValue());
-        Assert.assertEquals(2L, addressIds.get(1).longValue());
+            // Assert
+            Assert.assertEquals(2, addressIds.getSize());
+            Assert.assertEquals(1L, addressIds.get(0).longValue());
+            Assert.assertEquals(2L, addressIds.get(1).longValue());
+        }
     }
 }

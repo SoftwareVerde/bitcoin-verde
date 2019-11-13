@@ -17,7 +17,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 /**
  * NOTE: It seems that all values within Bitcoin Core scripts are stored as little-endian.
@@ -27,24 +27,26 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
+    public static final Integer MAX_SCRIPT_BYTE_COUNT = 10000;
+
     protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
 
-    protected final MedianBlockTime _medianBlockTime;
-
-    public ScriptRunner(final MedianBlockTime medianBlockTime) {
-        _medianBlockTime = medianBlockTime;
-    }
+    public ScriptRunner() { }
 
     public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
         final MutableContext mutableContext = new MutableContext(context);
 
         final ControlState controlState = new ControlState();
 
+        if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) { return false; }
+        if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) { return false; }
+
         final Stack traditionalStack;
         final Stack payToScriptHashStack;
 
         { // Normal Script-Validation...
             traditionalStack = new Stack();
+            traditionalStack.setMaxItemCount(1000);
             try {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
                 if (unlockingScriptOperations == null) { return false; }
@@ -58,12 +60,18 @@ public class ScriptRunner {
                 for (final Operation operation : unlockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
+                    if (operation.failIfPresent()) { return false; }
+
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
                     final Boolean wasSuccessful = operation.applyTo(traditionalStack, controlState, mutableContext);
                     if (! wasSuccessful) { return false; }
                 }
+
+                if (controlState.isInCodeBlock()) { return false; } // IF/ELSE blocks cannot span scripts.
+
+                traditionalStack.clearAltStack(); // Clear the alt stack for the unlocking script, and for the payToScriptHash script...
 
                 payToScriptHashStack = new Stack(traditionalStack);
 
@@ -74,6 +82,8 @@ public class ScriptRunner {
                 for (final Operation operation : lockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
+                    if (operation.failIfPresent()) { return false; }
+
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
@@ -82,11 +92,12 @@ public class ScriptRunner {
                 }
             }
             catch (final Exception exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
                 return false;
             }
 
             { // Validate Stack...
+                if (traditionalStack.didOverflow()) { return false; }
                 if (traditionalStack.isEmpty()) { return false; }
                 final Value topStackValue = traditionalStack.pop();
                 if (! topStackValue.asBoolean()) { return false; }
@@ -124,6 +135,8 @@ public class ScriptRunner {
                     for (final Operation operation : redeemScriptOperations) {
                         mutableContext.incrementCurrentScriptIndex();
 
+                        if (operation.failIfPresent()) { return false; }
+
                         final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
                         if (! shouldExecute) { continue; }
                         
@@ -132,7 +145,7 @@ public class ScriptRunner {
                     }
                 }
                 catch (final Exception exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     return false;
                 }
 
@@ -150,7 +163,7 @@ public class ScriptRunner {
         if ( (HF20181115.isEnabled(context.getBlockHeight())) && (! HF20181115SV.isEnabled(context.getBlockHeight())) ) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) {
-                if (HF20190515.isEnabled(_medianBlockTime)) {
+                if (HF20190515.isEnabled(context.getMedianBlockTime())) {
                     final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                     final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
                     if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }

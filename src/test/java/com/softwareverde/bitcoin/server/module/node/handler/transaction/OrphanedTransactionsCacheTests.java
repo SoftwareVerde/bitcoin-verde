@@ -5,10 +5,10 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -70,35 +70,36 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
     @Test
     public void should_queue_transaction_whose_output_cannot_be_found() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-        final BlockInflater blockInflater = new BlockInflater();
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Transaction genesisBlockCoinbase = genesisBlock.getCoinbaseTransaction();
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            final Transaction genesisBlockCoinbase = genesisBlock.getCoinbaseTransaction();
 
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockDatabaseManager.insertBlock(genesisBlock);
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockDatabaseManager.insertBlock(genesisBlock);
+            }
+
+            final PrivateKey privateKey = PrivateKey.createNewKey();
+            final Transaction parentTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(genesisBlockCoinbase.getHash(), 0), genesisBlockCoinbase.getTransactionOutputs().get(0)); // NOTE: This transaction does not properly unlock its output...
+            final Transaction childTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(parentTransaction.getHash(), 0), parentTransaction.getTransactionOutputs().get(0));
+
+            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(_databaseManagerCache);
+
+            orphanedTransactionsCache.add(childTransaction, databaseManager);
+
+            Assert.assertNull(transactionDatabaseManager.getTransactionId(childTransaction.getHash()));
+
+            // Action
+            transactionDatabaseManager.storeTransaction(parentTransaction);
+            final Set<Transaction> possiblyValidTransactions = orphanedTransactionsCache.onTransactionAdded(parentTransaction);
+
+            // Assert
+            Assert.assertNotNull(possiblyValidTransactions);
+            Assert.assertEquals(1, possiblyValidTransactions.size());
+            Assert.assertEquals(childTransaction.getHash(), possiblyValidTransactions.iterator().next().getHash());
         }
-
-        final PrivateKey privateKey = PrivateKey.createNewKey();
-        final Transaction parentTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(genesisBlockCoinbase.getHash(), 0), genesisBlockCoinbase.getTransactionOutputs().get(0)); // NOTE: This transaction does not properly unlock its output...
-        final Transaction childTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(parentTransaction.getHash(), 0), parentTransaction.getTransactionOutputs().get(0));
-
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(_databaseManagerCache);
-
-        orphanedTransactionsCache.add(childTransaction, databaseConnection);
-
-        Assert.assertNull(transactionDatabaseManager.getTransactionId(childTransaction.getHash()));
-
-        // Action
-        transactionDatabaseManager.storeTransaction(parentTransaction);
-        final Set<Transaction> possiblyValidTransactions = orphanedTransactionsCache.onTransactionAdded(parentTransaction);
-
-        // Assert
-        Assert.assertNotNull(possiblyValidTransactions);
-        Assert.assertEquals(1, possiblyValidTransactions.size());
-        Assert.assertEquals(childTransaction.getHash(), possiblyValidTransactions.iterator().next().getHash());
     }
 }

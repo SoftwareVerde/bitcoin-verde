@@ -1,16 +1,24 @@
 package com.softwareverde.bitcoin.hash.sha256;
 
 import com.softwareverde.bitcoin.hash.MutableHash;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 
 public class MutableSha256Hash extends MutableHash implements Sha256Hash {
     public static MutableSha256Hash wrap(final byte[] bytes) {
         if (bytes.length != BYTE_COUNT) {
-            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            Logger.warn("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
             return null;
         }
         return new MutableSha256Hash(bytes);
+    }
+
+    public static MutableSha256Hash copyOf(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) {
+            Logger.warn("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            return null;
+        }
+        return new MutableSha256Hash(ByteUtil.copyBytes(bytes));
     }
 
     protected MutableSha256Hash(final byte[] bytes) {
@@ -32,7 +40,7 @@ public class MutableSha256Hash extends MutableHash implements Sha256Hash {
 
     public void setBytes(final byte[] bytes) {
         if (bytes.length != BYTE_COUNT) {
-            Logger.log("NOTICE: Attempted to set hash bytes of incorrect length: "+ bytes.length);
+            Logger.warn("NOTICE: Attempted to set hash bytes of incorrect length: "+ bytes.length);
             return;
         }
 

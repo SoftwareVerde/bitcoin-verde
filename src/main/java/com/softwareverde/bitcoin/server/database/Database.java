@@ -4,16 +4,12 @@ import com.softwareverde.database.DatabaseException;
 
 import java.sql.Connection;
 
-public abstract class Database implements com.softwareverde.database.Database<Connection> {
-    protected final com.softwareverde.database.Database _core;
+public interface Database extends DatabaseConnectionFactory, com.softwareverde.database.Database<Connection>, AutoCloseable {
+    @Override
+    DatabaseConnection newConnection() throws DatabaseException;
 
-    protected Database(final com.softwareverde.database.Database core) {
-        _core = core;
-    }
+    DatabaseConnectionFactory newConnectionFactory();
 
     @Override
-    public abstract DatabaseConnection newConnection() throws DatabaseException;
-
-    public abstract DatabaseConnectionFactory newConnectionFactory();
-
+    void close() throws DatabaseException;
 }

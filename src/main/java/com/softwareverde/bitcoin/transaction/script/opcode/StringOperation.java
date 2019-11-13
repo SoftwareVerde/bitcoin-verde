@@ -1,11 +1,15 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class StringOperation extends SubTypedOperation {
@@ -32,9 +36,8 @@ public class StringOperation extends SubTypedOperation {
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
 
-        // Meh.
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("Opcode is disabled: " + _opcode);
             return false;
         }
 
@@ -54,7 +57,7 @@ public class StringOperation extends SubTypedOperation {
                 //  multiple COPY_1ST STRING_CONCATENATE commands multiple times.  For instance, every 10 repetitions,
                 //  the memory usage increases 1024 times.
                 if (totalByteCount > MAX_BYTE_COUNT) {
-                    Logger.log("NOTICE: Max byte-count exceeded for Opcode: " + _opcode);
+                    Logger.debug("Max byte-count exceeded for Opcode: " + _opcode);
                     return false;
                 }
 
@@ -74,6 +77,8 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x00, 0x11, 0x22 } 0x03 SPLIT -> { 0x00, 0x11, 0x22 } { }
 
                 final Value beginIndexValue = stack.pop();
+                if (! Operation.validateMinimalEncoding(beginIndexValue, context)) { return false; }
+
                 final Value value = stack.pop();
 
                 final byte[] valueBytes = value.getBytes();
@@ -82,7 +87,7 @@ public class StringOperation extends SubTypedOperation {
                 final Integer index = beginIndexValue.asInteger();
 
                 if ( (index < 0) || (index > valueByteCount) ) {
-                    Logger.log("NOTICE: Index out of bounds for Opcode: " + _opcode);
+                    Logger.debug("Index out of bounds for Opcode: " + _opcode);
                     return false;
                 }
 
@@ -105,7 +110,7 @@ public class StringOperation extends SubTypedOperation {
             }
 
             // Encodes a signed binary number into Bitcoin's MPI format.
-            case ENCODE_NUMBER: { // TODO: Write tests for this implementation...
+            case ENCODE_NUMBER: {
                 // NOTE: Bitcoin Verde's internal representation is always big-endian.
                 // value ENCODE_NUMBER -> { minimum-encoded value }
                 // { 0x00, 0x00, 0x00, 0x00 } ENCODE_NUMBER -> { }
@@ -115,7 +120,7 @@ public class StringOperation extends SubTypedOperation {
                 final Value value = stack.pop();
 
                 final Long valueInteger = value.asLong();
-                if (_didIntegerOverflow(valueInteger)) { return false; }
+                if (! Operation.isWithinIntegerRange(valueInteger)) { return false; }
 
                 stack.push(Value.fromInteger(valueInteger));
 
@@ -123,49 +128,67 @@ public class StringOperation extends SubTypedOperation {
             }
 
             // Decodes an MPI-encoded number into a signed byte array of specific size.
-            case DECODE_NUMBER: { // TODO: Write tests for this implementation...
-                // value byteCount DECODE_NUMBER -> { value expressed as byteCount bytes }
-                // 0x02 0x04 DECODE_NUMBER -> { 0x00, 0x00, 0x00, 0x02 }
-                // { 0x85 } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0x05 }
-                // { 0x85 } { 0x02 } DECODE_NUMBER -> { 0x80, 0x05 }
-                // { 0x80, 0xFF } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0xFF }
+            case NUMBER_TO_BYTES: {
+                // value byteCount NUMBER_TO_BYTES -> { value expressed as byteCount bytes }
+                // 0x02 0x04 NUMBER_TO_BYTES -> { 0x00, 0x00, 0x00, 0x02 }
+                // { 0x85 } { 0x04 } NUMBER_TO_BYTES -> { 0x80, 0x00, 0x00, 0x05 }
+                // { 0x85 } { 0x02 } NUMBER_TO_BYTES -> { 0x80, 0x05 }
+                // { 0x80, 0xFF } { 0x04 } NUMBER_TO_BYTES -> { 0x80, 0x00, 0x00, 0xFF }
 
                 final Value byteCountValue = stack.pop();
                 final Value value = stack.pop();
 
-                final Integer byteCount = byteCountValue.asInteger();
-                final Long valueAsInteger = value.asLong();
-                final Value reinterpretedValue = Value.fromInteger(valueAsInteger);
+                final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+                if (HF20191115.isEnabled(medianBlockTime)) {
+                    if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
+                }
 
-                final byte[] minimallyEncodedValue = ByteUtil.reverseEndian(reinterpretedValue.getBytes());
-                if (byteCount < minimallyEncodedValue.length) { return false; }
+                final int byteCount = byteCountValue.asInteger();
 
-                final Boolean isNegative = (valueAsInteger < 0);
+                final MutableByteArray minimallyEncodedByteArray;
+                {
+                    final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                    if (minimallyEncodedValue == null) { return false; }
 
-                { // Remove the sign bit from the minimally encoded value...
-                    if (minimallyEncodedValue.length > 0) {
-                        minimallyEncodedValue[0] &= 0x7F;
+                    minimallyEncodedByteArray = new MutableByteArray(minimallyEncodedValue);
+                }
+
+                if (byteCount < minimallyEncodedByteArray.getByteCount()) { return false; } // Fail if data is lost during the conversion...
+
+                final Boolean isNegative;
+                {
+                    if (minimallyEncodedByteArray.isEmpty()) {
+                        isNegative = false;
+                    }
+                    else {
+                        isNegative = ( (minimallyEncodedByteArray.getByte(minimallyEncodedByteArray.getByteCount() - 1) & 0x80) != 0x00 );
                     }
                 }
 
-                final byte[] bytes = new byte[byteCount];
-                for (int i = 0; i < minimallyEncodedValue.length; ++i) {
-                    final byte b = minimallyEncodedValue[minimallyEncodedValue.length - i - 1];
-                    bytes[bytes.length - i - 1] = b;
+                { // Remove the sign bit from the minimally encoded value...
+                    if (! minimallyEncodedByteArray.isEmpty()) {
+                        final int lastIndex = (minimallyEncodedByteArray.getByteCount() - 1);
+                        final byte lastByte = minimallyEncodedByteArray.getByte(lastIndex);
+                        minimallyEncodedByteArray.set(lastIndex, (byte) (lastByte & 0x7F));
+                    }
                 }
+
+                final MutableByteArray bytes = new MutableByteArray(byteCount);
+                ByteUtil.setBytes(bytes, minimallyEncodedByteArray);
 
                 if ( (isNegative) && (byteCount > 0) ) {
-                    bytes[0] |= (byte) 0x80;
+                    final int lastByteIndex = (byteCount - 1);
+                    final byte lastByte = bytes.getByte(lastByteIndex);
+                    bytes.set(lastByteIndex, (byte) (lastByte | 0x80));
                 }
 
-                final byte[] littleEndianBytes = ByteUtil.reverseEndian(bytes);
-                final Value decodedValue = Value.fromBytes(littleEndianBytes);
+                final Value decodedValue = Value.fromBytes(bytes);
                 stack.push(decodedValue);
 
                 return (! stack.didOverflow());
             }
 
-            case STRING_PUSH_LENGTH: {
+            case PUSH_1ST_BYTE_COUNT: {
                 final Value value = stack.peak();
                 final long byteCount = value.getByteCount();
                 stack.push(Value.fromInteger(byteCount));

@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -8,6 +11,15 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class DynamicValueOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
+
+    public static final DynamicValueOperation PUSH_STACK_SIZE               = new DynamicValueOperation(Opcode.PUSH_STACK_SIZE.getValue(),              Opcode.PUSH_STACK_SIZE);
+    public static final DynamicValueOperation COPY_1ST                      = new DynamicValueOperation(Opcode.COPY_1ST.getValue(),                     Opcode.COPY_1ST);
+    public static final DynamicValueOperation COPY_NTH                      = new DynamicValueOperation(Opcode.COPY_NTH.getValue(),                     Opcode.COPY_NTH);
+    public static final DynamicValueOperation COPY_2ND                      = new DynamicValueOperation(Opcode.COPY_2ND.getValue(),                     Opcode.COPY_2ND);
+    public static final DynamicValueOperation COPY_2ND_THEN_1ST             = new DynamicValueOperation(Opcode.COPY_2ND_THEN_1ST.getValue(),            Opcode.COPY_2ND_THEN_1ST);
+    public static final DynamicValueOperation COPY_3RD_THEN_2ND_THEN_1ST    = new DynamicValueOperation(Opcode.COPY_3RD_THEN_2ND_THEN_1ST.getValue(),   Opcode.COPY_3RD_THEN_2ND_THEN_1ST);
+    public static final DynamicValueOperation COPY_4TH_THEN_3RD             = new DynamicValueOperation(Opcode.COPY_4TH_THEN_3RD.getValue(),            Opcode.COPY_4TH_THEN_3RD);
+    public static final DynamicValueOperation COPY_1ST_THEN_MOVE_TO_3RD     = new DynamicValueOperation(Opcode.COPY_1ST_THEN_MOVE_TO_3RD.getValue(),    Opcode.COPY_1ST_THEN_MOVE_TO_3RD);
 
     protected static DynamicValueOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -41,8 +53,9 @@ public class DynamicValueOperation extends SubTypedOperation {
 
             case COPY_NTH: {
                 final Value nValue = stack.pop();
-                final Integer n = nValue.asInteger();
+                if (! Operation.validateMinimalEncoding(nValue, context)) { return false; }
 
+                final Integer n = nValue.asInteger();
                 stack.push(stack.peak(n));
                 return (! stack.didOverflow());
             }

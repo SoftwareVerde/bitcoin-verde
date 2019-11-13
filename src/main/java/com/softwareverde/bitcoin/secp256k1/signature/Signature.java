@@ -15,4 +15,13 @@ public interface Signature extends Const {
     ByteArray encode();
     Boolean isCanonical();
     Signature asCanonical();
+    Boolean isEmpty();
+}
+
+abstract class SignatureCore implements Signature {
+    @Override
+    public String toString() {
+        final ByteArray encoded = this.encode();
+        return (encoded != null ? encoded.toString() : null);
+    }
 }

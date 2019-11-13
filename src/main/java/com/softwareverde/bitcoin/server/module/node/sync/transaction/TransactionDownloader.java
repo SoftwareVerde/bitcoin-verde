@@ -1,11 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.PendingTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -15,7 +14,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -32,22 +31,22 @@ public class TransactionDownloader extends SleepyService {
     protected final Object _downloadCallbackPin = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseCache;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNodeManager.DownloadTransactionCallback _transactionDownloadedCallback;
 
     protected Runnable _newTransactionAvailableCallback = null;
 
-    protected void _onTransactionDownloaded(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
+    protected void _onTransactionDownloaded(final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
         pendingTransactionDatabaseManager.storeTransaction(transaction);
     }
 
     protected void _markPendingTransactionIdsAsFailed(final Set<Sha256Hash> pendingTransactionHashes) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
+
             for (final Sha256Hash pendingTransactionHash : pendingTransactionHashes) {
                 final PendingTransactionId pendingTransactionId = pendingTransactionDatabaseManager.getPendingTransactionId(pendingTransactionHash);
                 if (pendingTransactionId == null) { continue; }
@@ -57,7 +56,7 @@ public class TransactionDownloader extends SleepyService {
             pendingTransactionDatabaseManager.purgeFailedPendingTransactions(MAX_DOWNLOAD_FAILURE_COUNT);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
@@ -83,7 +82,7 @@ public class TransactionDownloader extends SleepyService {
 
         if (! stalledTransactionHashes.isEmpty()) {
             for (final Sha256Hash stalledTransactionHash : stalledTransactionHashes) {
-                Logger.log("Stalled Transaction Detected: " + stalledTransactionHash);
+                Logger.warn("Stalled Transaction Detected: " + stalledTransactionHash);
                 _currentTransactionDownloadSet.remove(stalledTransactionHash);
             }
             _transactionDownloadedCallback.onFailure(stalledTransactionHashes);
@@ -112,7 +111,7 @@ public class TransactionDownloader extends SleepyService {
                     catch (final InterruptedException exception) { return false; }
 
                     if (waitTimer.getMillisecondsElapsed() > MAX_TIMEOUT) {
-                        Logger.log("NOTICE: Transaction download stalled.");
+                        Logger.warn("Transaction download stalled.");
                         _markPendingTransactionIdsAsFailed(_currentTransactionDownloadSet.keySet());
                         _currentTransactionDownloadSet.clear();
                         return false;
@@ -123,9 +122,11 @@ public class TransactionDownloader extends SleepyService {
             }
         }
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+            final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
+
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
             final List<NodeId> nodeIds;
             {
@@ -139,7 +140,7 @@ public class TransactionDownloader extends SleepyService {
                 }
                 nodeIds = listBuilder.build();
             }
-            final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
+
             final Map<NodeId, ? extends List<PendingTransactionId>> downloadPlan = pendingTransactionDatabaseManager.selectIncompletePendingTransactions(nodeIds);
             if (downloadPlan.isEmpty()) { return false; }
 
@@ -150,7 +151,7 @@ public class TransactionDownloader extends SleepyService {
                 for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                     final Sha256Hash transactionHash = pendingTransactionDatabaseManager.getPendingTransactionHash(pendingTransactionId);
                     if (transactionHash == null) { continue; }
-                    final Boolean itemIsAlreadyBeingDownloaded = _currentTransactionDownloadSet.containsKey(transactionHash);
+                    final boolean itemIsAlreadyBeingDownloaded = _currentTransactionDownloadSet.containsKey(transactionHash);
                     if (itemIsAlreadyBeingDownloaded) { continue; }
 
                     pendingTransactionHashes.add(transactionHash);
@@ -167,7 +168,7 @@ public class TransactionDownloader extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return false;
         }
 
@@ -177,19 +178,18 @@ public class TransactionDownloader extends SleepyService {
     @Override
     protected void _onSleep() { }
 
-    public TransactionDownloader(final BitcoinNodeManager bitcoinNodeManager, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
+    public TransactionDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
         _bitcoinNodeManager = bitcoinNodeManager;
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseCache = databaseCache;
+        _databaseManagerFactory = databaseManagerFactory;
 
         _transactionDownloadedCallback = new BitcoinNodeManager.DownloadTransactionCallback() {
             @Override
             public void onResult(final Transaction transaction) {
-                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    _onTransactionDownloaded(transaction, databaseConnection);
+                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    _onTransactionDownloaded(transaction, databaseManager);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                    Logger.warn(exception);
                     return;
                 }
                 finally {
@@ -201,7 +201,7 @@ public class TransactionDownloader extends SleepyService {
                         timer.stop();
                     }
 
-                    Logger.log("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+                    Logger.info("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
                     synchronized (_downloadCallbackPin) {
                         _downloadCallbackPin.notifyAll();
@@ -216,13 +216,13 @@ public class TransactionDownloader extends SleepyService {
 
             @Override
             public void onFailure(final List<Sha256Hash> transactionHashes) {
-                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
+                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
                     for (final Sha256Hash transactionHash : transactionHashes) {
                         final PendingTransactionId pendingTransactionId = pendingTransactionDatabaseManager.getPendingTransactionId(transactionHash);
                         if (pendingTransactionId == null) {
-                            Logger.log("Unable to increment download failure count for transaction: " + transactionHash);
+                            Logger.warn("Unable to increment download failure count for transaction: " + transactionHash);
                             return;
                         }
 
@@ -232,8 +232,8 @@ public class TransactionDownloader extends SleepyService {
                     pendingTransactionDatabaseManager.purgeFailedPendingTransactions(MAX_DOWNLOAD_FAILURE_COUNT);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                    Logger.log("Unable to increment download failure count for transactions...");
+                    Logger.warn(exception);
+                    Logger.warn("Unable to increment download failure count for transactions...");
                 }
                 finally {
                     for (final Sha256Hash transactionHash : transactionHashes) {
@@ -253,12 +253,12 @@ public class TransactionDownloader extends SleepyService {
     }
 
     public void submitTransaction(final Transaction transaction) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            _onTransactionDownloaded(transaction, databaseConnection);
-            Logger.log("Transaction submitted: " + transaction.getHash());
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _onTransactionDownloaded(transaction, databaseManager);
+            Logger.info("Transaction submitted: " + transaction.getHash());
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return;
         }
 

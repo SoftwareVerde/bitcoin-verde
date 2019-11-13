@@ -1,6 +1,7 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.io.Logger;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeader;
@@ -29,13 +30,14 @@ public class PacketBuffer extends ByteBuffer {
     }
 
     public PacketBuffer(final BinaryPacketFormat binaryPacketFormat) {
-        final int magicNumberByteCount = binaryPacketFormat.magicNumber.getByteCount();
+        final ByteArray magicNumber = binaryPacketFormat.getMagicNumber();
+        final int magicNumberByteCount = magicNumber.getByteCount();
         _mainNetMagicNumberByteCount = magicNumberByteCount;
         _packetStartingBytesBuffer = new byte[magicNumberByteCount];
-        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(binaryPacketFormat.magicNumber.getBytes());
+        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(magicNumber.getBytes());
 
-        _protocolMessageHeaderInflater = binaryPacketFormat.protocolMessageHeaderInflater;
-        _protocolMessageFactory = binaryPacketFormat.protocolMessageFactory;
+        _protocolMessageHeaderInflater = binaryPacketFormat.getProtocolMessageHeaderInflater();
+        _protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
     }
 
     public boolean hasMessage() {
@@ -53,7 +55,7 @@ public class PacketBuffer extends ByteBuffer {
         final int payloadByteCount = protocolMessageHeader.getPayloadByteCount();
 
         if (_byteCount < payloadByteCount) {
-            Logger.log("NOTICE: PacketBuffer.popMessage: Insufficient byte count.");
+            Logger.debug("PacketBuffer.popMessage: Insufficient byte count.");
             return null;
         }
 
@@ -62,13 +64,13 @@ public class PacketBuffer extends ByteBuffer {
         final byte[] fullPacket = _consumeContiguousBytes(fullPacketByteCount);
 
         if (fullPacketByteCount > Util.coalesce(_protocolMessageHeaderInflater.getMaxPacketByteCount(), Integer.MAX_VALUE)) {
-            Logger.log("IO: Dropping packet. Packet exceeded max byte count: " + fullPacketByteCount);
+            Logger.debug("Dropping packet. Packet exceeded max byte count: " + fullPacketByteCount);
             return null;
         }
 
         final ProtocolMessage protocolMessage = _protocolMessageFactory.fromBytes(fullPacket);
         if (protocolMessage == null) {
-            Logger.log("NOTICE: Error inflating message: " + HexUtil.toHexString(ByteUtil.copyBytes(fullPacket, 0, Math.min(fullPacket.length, 128))) + " (+"+ ( (fullPacket.length > 128) ? (fullPacket.length - 128) : 0 ) +" bytes)");
+            Logger.debug("Error inflating message: " + HexUtil.toHexString(ByteUtil.copyBytes(fullPacket, 0, Math.min(fullPacket.length, 128))) + " (+"+ ( (fullPacket.length > 128) ? (fullPacket.length - 128) : 0 ) +" bytes)");
         }
 
         return protocolMessage;

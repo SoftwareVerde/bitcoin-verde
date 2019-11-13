@@ -8,7 +8,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -24,7 +24,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
     @Override
     public void addAddress(final NodeIpAddress nodeIpAddress) {
         if (! (nodeIpAddress instanceof BitcoinNodeIpAddress)) {
-            Logger.log("NOTICE: Invalid NodeIpAddress type provided to BitcoinNodeIpAddressMessage.");
+            Logger.warn("Invalid NodeIpAddress type provided to BitcoinNodeIpAddressMessage.");
             return;
         }
 
@@ -52,7 +52,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
             addressesByteCount += networkAddressBytes.length;
         }
 
-        for (int i=0; i<networkAddressCount; ++i) {
+        for (int i = 0; i < networkAddressCount; ++i) {
             final byte[] networkAddressBytes = addressesBytes.get(i);
             final int writeIndex = (networkAddressByteCount * i);
             ByteUtil.setBytes(networkAddressesBytes, networkAddressBytes, writeIndex);

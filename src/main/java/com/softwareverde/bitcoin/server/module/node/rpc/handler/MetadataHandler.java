@@ -3,17 +3,22 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
+import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -21,22 +26,21 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    protected static void _addMetadataForBlockHeaderToJson(final Sha256Hash blockHash, final Json blockJson, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
+    protected static void _addMetadataForBlockHeaderToJson(final Sha256Hash blockHash, final Json blockJson, final DatabaseManager databaseConnection) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseConnection.getBlockHeaderDatabaseManager();
+        final BlockDatabaseManager blockDatabaseManager = databaseConnection.getBlockDatabaseManager();
 
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
@@ -51,13 +55,14 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
     }
 
-    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
+    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
         final String transactionHashString = transactionHash.toString();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
@@ -87,7 +92,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                         previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
 
                         if (previousTransactionOutputId == null) {
-                            Logger.log("NOTICE: Error calculating fee for Transaction: " + transactionHashString);
+                            Logger.warn("Error calculating fee for Transaction: " + transactionHashString);
                         }
                     }
                     else {
@@ -152,30 +157,55 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
 
         transactionJson.put("fee", transactionFee);
+
+        final Json slpJson;
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+        final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionId);
+        final Boolean hasSlpData = (slpTokenId != null);
+        if (hasSlpData) {
+            final SlpGenesisScript slpGenesisScript = slpTransactionDatabaseManager.getSlpGenesisScript(slpTokenId);
+            if (slpGenesisScript != null) {
+                slpJson = slpGenesisScript.toJson();
+
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final Boolean isValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+
+                slpJson.put("tokenId", slpTokenId);
+                slpJson.put("isValid", isValid);
+            }
+            else {
+                slpJson = null;
+            }
+
+        }
+        else {
+            slpJson = null;
+        }
+        transactionJson.put("slp", slpJson);
     }
 
-    public MetadataHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public MetadataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
     public void applyMetadataToBlockHeader(final Sha256Hash blockHash, final Json blockJson) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            _addMetadataForBlockHeaderToJson(blockHash, blockJson, databaseConnection, _databaseManagerCache);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _addMetadataForBlockHeaderToJson(blockHash, blockJson, databaseManager);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 
     @Override
     public void applyMetadataToTransaction(final Transaction transaction, final Json transactionJson) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _addMetadataForTransactionToJson(transaction, transactionJson, databaseManager);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
     }
 }

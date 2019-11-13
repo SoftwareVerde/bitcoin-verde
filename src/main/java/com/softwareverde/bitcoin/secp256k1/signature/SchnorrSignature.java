@@ -2,10 +2,9 @@ package com.softwareverde.bitcoin.secp256k1.signature;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
-public class SchnorrSignature implements Signature {
+public class SchnorrSignature extends SignatureCore {
     public static final Integer BYTE_COUNT = 64;
 
     public static SchnorrSignature fromBytes(final ByteArray byteArray) {
@@ -19,19 +18,12 @@ public class SchnorrSignature implements Signature {
     protected final ByteArray _r;
     protected final ByteArray _s;
 
+    /**
+     * NOTE: The r and s ByteArrays are not copied...
+     */
     private SchnorrSignature(final MutableByteArray r, final MutableByteArray s) {
         _r = r;
         _s = s;
-    }
-
-    public SchnorrSignature(final byte[] r, final byte[] s) {
-        _r = new ImmutableByteArray(r);
-        _s = new ImmutableByteArray(s);
-    }
-
-    public SchnorrSignature(final ByteArray r, final ByteArray s) {
-        _r = r.asConst();
-        _s = s.asConst();
     }
 
     @Override
@@ -65,5 +57,10 @@ public class SchnorrSignature implements Signature {
     @Override
     public Signature asCanonical() {
         return this;
+    }
+
+    @Override
+    public Boolean isEmpty() {
+        return false;
     }
 }

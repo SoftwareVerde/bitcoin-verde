@@ -24,6 +24,13 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
         _updateMode = 0x01;
     }
 
+    protected ImmutableBloomFilter(final byte[] bytes, final Long nonce, final Integer hashFunctionCount, final byte updateMode) {
+        _bytes = new ImmutableByteArray(bytes);
+        _nonce = nonce;
+        _hashFunctionCount = hashFunctionCount;
+        _updateMode = updateMode;
+    }
+
     @Override
     public Long getNonce() {
         return _nonce;

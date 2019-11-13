@@ -82,18 +82,18 @@ public class Schnorr {
         {
             final ByteArrayBuilder hashPreImageBuilder = new ByteArrayBuilder();
             hashPreImageBuilder.appendBytes(signature.getR());
-            hashPreImageBuilder.appendBytes(P.getEncoded());
+            hashPreImageBuilder.appendBytes(P.getEncoded(true));
             hashPreImageBuilder.appendBytes(message);
             e = new BigInteger(1, BitcoinUtil.sha256(hashPreImageBuilder.build())).mod(CURVE_N);
         }
 
         final ECPoint sG = CURVE_POINT_G.multiply(s);
         final ECPoint eP = P.multiply(e);
-        final ECPoint R = sG.add(eP.negate()); // R = sG - eP
+        final ECPoint R = sG.add(eP.negate()).normalize(); // R = sG - eP
         if (R.isInfinity()) { return false; }
 
-        if (! _jacobi(R.getY().toBigInteger()).equals(BigInteger.ONE)) { return false; }
+        if (! _jacobi(R.getYCoord().toBigInteger()).equals(BigInteger.ONE)) { return false; }
 
-        return R.getX().toBigInteger().equals(r);
+        return R.getXCoord().toBigInteger().equals(r);
     }
 }

@@ -12,7 +12,7 @@ public class PacketBufferTests {
         if (bytes == null) { return null; }
 
         final byte[] bytesWithExtra = new byte[bytes.length + extraByteCount];
-        for (int i=0; i<bytes.length; ++i) {
+        for (int i = 0; i < bytes.length; ++i) {
             bytesWithExtra[i] = bytes[i];
         }
         return bytesWithExtra;
@@ -64,10 +64,10 @@ public class PacketBufferTests {
         final byte[] readBytes0 = packetBuffer.readBytes(40);
 
         int x = 0;
-        for (int i=0; i<4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             final byte[] recycledBytes = packetBuffer.getRecycledBuffer();
 
-            Assert.assertEquals(((i*5) + 10), recycledBytes.length); // Ensure that the byte[] from above are being recycled (sizes in order: 0, 5, 10, 15)...
+            Assert.assertEquals(((i * 5) + 10), recycledBytes.length); // Ensure that the byte[] from above are being recycled (sizes in order: 0, 5, 10, 15)...
 
             for (int j = 0; j < recycledBytes.length; ++j) {
                 if (j < 10) {

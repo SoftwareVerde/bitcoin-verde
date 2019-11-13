@@ -9,5 +9,5 @@ else
     RAW_FORMAT=0
 fi
 
-(echo "{\"method\":\"GET\",\"query\":\"PROTOTYPE_BLOCK\",\"parameters\":{\"rawFormat\":\"${RAW_FORMAT}\"}}" && sleep 1) | nc localhost 3334
+(echo "{\"method\":\"GET\",\"query\":\"PROTOTYPE_BLOCK\",\"parameters\":{\"rawFormat\":\"${RAW_FORMAT}\"}}") | nc localhost 3334
 

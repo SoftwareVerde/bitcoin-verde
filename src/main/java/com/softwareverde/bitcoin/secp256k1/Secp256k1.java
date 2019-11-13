@@ -1,12 +1,13 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -21,6 +22,8 @@ import java.math.BigInteger;
 import java.security.Security;
 
 public class Secp256k1 {
+    public static final ByteArray CURVE_P;
+
     protected static final ECCurve CURVE;
     protected static final ECPoint CURVE_POINT_G;
     public static final ECDomainParameters CURVE_DOMAIN;
@@ -28,39 +31,42 @@ public class Secp256k1 {
     static {
         Security.addProvider(new BouncyCastleProvider());
 
-        final ECNamedCurveParameterSpec curveParameterSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
+        final String SECP256K1 = "secp256k1";
+        final ECNamedCurveParameterSpec curveParameterSpec = ECNamedCurveTable.getParameterSpec(SECP256K1);
         CURVE_POINT_G = curveParameterSpec.getG();
         CURVE = curveParameterSpec.getCurve();
-        CURVE_DOMAIN =  new ECDomainParameters(CURVE, CURVE_POINT_G, curveParameterSpec.getN());
+        CURVE_DOMAIN =  new ECDomainParameters(Secp256k1.CURVE, Secp256k1.CURVE_POINT_G, curveParameterSpec.getN());
+
+        CURVE_P = ByteArray.fromHexString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
     }
 
     public static byte[] getPublicKeyPoint(final byte[] privateKeyBytes) {
         final ECPoint pointQ = Secp256k1.CURVE_POINT_G.multiply(new BigInteger(1, privateKeyBytes));
-        return pointQ.getEncoded();
+        return pointQ.getEncoded(false);
     }
 
     public static ByteArray getPublicKeyPoint(final ByteArray privateKey) {
         final ECPoint pointQ = Secp256k1.CURVE_POINT_G.multiply(new BigInteger(1, privateKey.getBytes()));
-        return MutableByteArray.wrap(pointQ.getEncoded());
+        return MutableByteArray.wrap(pointQ.getEncoded(false));
     }
 
     protected static Boolean _verifySignatureViaBouncyCastle(final Signature signature, final PublicKey publicKey, final byte[] message) {
-        final ECPublicKeyParameters publicKeyParameters;
-        {
-            final ECPoint publicKeyPoint = Secp256k1.CURVE.decodePoint(publicKey.getBytes());
-            publicKeyParameters = new ECPublicKeyParameters(publicKeyPoint, Secp256k1.CURVE_DOMAIN);
-        }
-
-        final ECDSASigner signer = new ECDSASigner();
-        signer.init(false, publicKeyParameters);
-
         try {
+            final ECPublicKeyParameters publicKeyParameters;
+            {
+                final ECPoint publicKeyPoint = Secp256k1.CURVE.decodePoint(publicKey.getBytes());
+                publicKeyParameters = new ECPublicKeyParameters(publicKeyPoint, Secp256k1.CURVE_DOMAIN);
+            }
+
+            final ECDSASigner signer = new ECDSASigner();
+            signer.init(false, publicKeyParameters);
+
             return signer.verifySignature(message, new BigInteger(1, signature.getR().getBytes()), new BigInteger(1, signature.getS().getBytes()));
         }
         catch (final Exception exception) {
             // NOTE: Bouncy Castle contains/contained a bug that would crash during certain specially-crafted malicious signatures.
             //  Instead of crashing, the signature is instead just marked as invalid.
-            Logger.log(exception);
+            Logger.debug(exception);
             return false;
         }
     }
@@ -69,8 +75,8 @@ public class Secp256k1 {
         try {
             return NativeSecp256k1.verify(message, signature.asCanonical().encode().getBytes(), publicKey.getBytes());
         }
-        catch (Exception e) {
-            Logger.log(e);
+        catch (final Exception exception) {
+            Logger.warn(exception);
             return false;
         }
     }
@@ -84,10 +90,14 @@ public class Secp256k1 {
         return _verifySignatureViaBouncyCastle(signature, publicKey, message);
     }
 
-    public static Signature sign(final byte[] privateKey, final byte[] message) {
+    /**
+     * Signs the message with the provided PrivateKey.
+     *  The `message` variable is not hashed internally; therefore `message` should likely be a hash of the full message.
+     */
+    public static Signature sign(final PrivateKey privateKey, final byte[] message) {
         final ECPrivateKeyParameters privateKeyParameters;
         {
-            final BigInteger privateKeyBigInteger = new BigInteger(1, privateKey);
+            final BigInteger privateKeyBigInteger = new BigInteger(1, privateKey.getBytes());
             privateKeyParameters = new ECPrivateKeyParameters(privateKeyBigInteger, Secp256k1.CURVE_DOMAIN);
         }
 
@@ -123,12 +133,19 @@ public class Secp256k1 {
     }
 
     public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {
-        final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
+        try {
+            final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
 
-        final BigInteger x = decodedPoint.getX().toBigInteger();
-        final BigInteger y = decodedPoint.getY().toBigInteger();
-        final ECPoint decompressedPoint = CURVE.createPoint(x, y, false);
-        return decompressedPoint.getEncoded();
+            final ECPoint normalizedPoint = decodedPoint.normalize();
+            final BigInteger x = normalizedPoint.getXCoord().toBigInteger();
+            final BigInteger y = normalizedPoint.getYCoord().toBigInteger();
+            final ECPoint decompressedPoint = CURVE.createPoint(x, y);
+            return decompressedPoint.getEncoded(false);
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
     }
 
     protected Secp256k1() { }

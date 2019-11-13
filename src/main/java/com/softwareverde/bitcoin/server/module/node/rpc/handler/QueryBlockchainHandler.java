@@ -3,24 +3,21 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadataBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.io.Logger;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 
 public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHandler {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
 
-    public QueryBlockchainHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public QueryBlockchainHandler(final DatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
@@ -61,7 +58,7 @@ public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHan
             return blockchainMetadataList.build();
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             return null;
         }
     }

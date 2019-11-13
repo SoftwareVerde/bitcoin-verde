@@ -41,12 +41,13 @@ a {
     cursor: pointer;
     padding: 0;
     overflow: hidden;
-
     display: inline-block;
-    padding: 1em;
 }
 
-.navigation ul li a { }
+.navigation ul li a {
+    display: block;
+    padding: 1em;
+}
 
 .navigation ul li i {
     margin-right: 0.25em;

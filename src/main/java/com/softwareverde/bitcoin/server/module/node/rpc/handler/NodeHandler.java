@@ -41,4 +41,14 @@ public class NodeHandler implements NodeRpcHandler.NodeHandler {
     public void unbanNode(final Ip ip) {
         _nodeManager.unbanNode(ip);
     }
+
+    @Override
+    public void addIpToWhitelist(final Ip ip) {
+        _nodeManager.addIpToWhitelist(ip);
+    }
+
+    @Override
+    public void removeIpFromWhitelist(final Ip ip) {
+        _nodeManager.removeIpFromWhitelist(ip);
+    }
 }

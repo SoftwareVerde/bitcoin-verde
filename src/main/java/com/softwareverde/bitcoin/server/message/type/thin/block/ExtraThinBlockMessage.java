@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.message.type.thin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -16,12 +18,18 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
 
+    protected final BlockHeaderInflaters _blockHeaderInflaters;
+    protected final TransactionInflaters _transactionInflaters;
+
     protected BlockHeader _blockHeader;
     protected List<ByteArray> _transactionShortHashes = new MutableList<ByteArray>(0);
     protected List<Transaction> _missingTransactions = new MutableList<Transaction>(0);
 
-    public ExtraThinBlockMessage() {
+    public ExtraThinBlockMessage(final BlockHeaderInflaters blockHeaderInflaters, final TransactionInflaters transactionInflaters) {
         super(MessageType.EXTRA_THIN_BLOCK);
+
+        _blockHeaderInflaters = blockHeaderInflaters;
+        _transactionInflaters = transactionInflaters;
     }
 
     public BlockHeader getBlockHeader() {
@@ -50,8 +58,8 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final BlockHeaderDeflater blockHeaderDeflater = _blockHeaderInflaters.getBlockHeaderDeflater();
+        final TransactionDeflater transactionDeflater = _transactionInflaters.getTransactionDeflater();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 

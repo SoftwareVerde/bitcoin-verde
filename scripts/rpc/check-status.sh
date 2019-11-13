@@ -1,4 +1,4 @@
 #!/bin/bash
 
-(echo '{"method":"GET","query":"STATUS"}' && sleep 10) | nc localhost 8334
+(echo '{"method":"GET","query":"STATUS"}') | nc localhost 8334
 

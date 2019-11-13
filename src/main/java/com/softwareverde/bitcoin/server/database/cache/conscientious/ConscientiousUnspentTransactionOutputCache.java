@@ -2,12 +2,12 @@ package com.softwareverde.bitcoin.server.database.cache.conscientious;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 public class ConscientiousUnspentTransactionOutputCache<T, S> implements UnspentTransactionOutputCache {
 
@@ -16,7 +16,7 @@ public class ConscientiousUnspentTransactionOutputCache<T, S> implements Unspent
     protected final UnspentTransactionOutputCache _cache;
 
     protected void _pruneHalf() {
-        Logger.log("NOTICE: Pruning cache by half: " + _cache.toString());
+        Logger.debug("Pruning cache by half: " + _cache.toString());
         _memoryStatus.logCurrentMemoryUsage();
 
         _cache.pruneHalf();
@@ -24,13 +24,7 @@ public class ConscientiousUnspentTransactionOutputCache<T, S> implements Unspent
 
     protected ConscientiousUnspentTransactionOutputCache(final UnspentTransactionOutputCache cache, final Float memoryPercentThreshold) {
         _cache = cache;
-        _memoryStatus = new JvmMemoryStatus();
-        _memoryPercentThreshold = memoryPercentThreshold;
-    }
-
-    protected ConscientiousUnspentTransactionOutputCache(final UnspentTransactionOutputCache cache, final Float memoryPercentThreshold, final MemoryStatus memoryStatus) {
-        _cache = cache;
-        _memoryStatus = memoryStatus;
+        _memoryStatus = cache.getMemoryStatus();
         _memoryPercentThreshold = memoryPercentThreshold;
     }
 
@@ -49,7 +43,7 @@ public class ConscientiousUnspentTransactionOutputCache<T, S> implements Unspent
 
     @Override
     public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
-        final Boolean isAboveThreshold = (_memoryStatus.getMemoryUsedPercent() >= _memoryPercentThreshold);
+        final boolean isAboveThreshold = (_memoryStatus.getMemoryUsedPercent() >= _memoryPercentThreshold);
         if (isAboveThreshold) {
             _pruneHalf();
         }
@@ -59,7 +53,7 @@ public class ConscientiousUnspentTransactionOutputCache<T, S> implements Unspent
 
     @Override
     public void cacheUnspentTransactionOutputId(final Long insertId, final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
-        final Boolean isAboveThreshold = (_memoryStatus.getMemoryUsedPercent() >= _memoryPercentThreshold);
+        final boolean isAboveThreshold = (_memoryStatus.getMemoryUsedPercent() >= _memoryPercentThreshold);
         if (isAboveThreshold) {
             _pruneHalf();
         }
@@ -93,8 +87,18 @@ public class ConscientiousUnspentTransactionOutputCache<T, S> implements Unspent
     }
 
     @Override
+    public MemoryStatus getMemoryStatus() {
+        return _memoryStatus;
+    }
+
+    @Override
     public void pruneHalf() {
         _cache.pruneHalf();
+    }
+
+    @Override
+    public UtxoCount getMaxUtxoCount() {
+        return null;
     }
 
     @Override

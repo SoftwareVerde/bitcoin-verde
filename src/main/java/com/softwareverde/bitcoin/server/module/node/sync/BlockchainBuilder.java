@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -7,14 +8,17 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
@@ -25,7 +29,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class BlockchainBuilder extends SleepyService {
@@ -35,8 +39,8 @@ public class BlockchainBuilder extends SleepyService {
 
     protected final ThreadPool _threadPool;
     protected final BitcoinNodeManager _bitcoinNodeManager;
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseCache;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final BlockInflaters _blockInflaters;
     protected final BlockProcessor _blockProcessor;
     protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
     protected final BlockDownloadRequester _blockDownloadRequester;
@@ -49,11 +53,24 @@ public class BlockchainBuilder extends SleepyService {
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
 
         if (block != null) {
-            final Long processedBlockHeight = _blockProcessor.processBlock(block);
+
+            final Long processedBlockHeight;
+            { // Maximize the Thread priority and process the block...
+                final Thread currentThread = Thread.currentThread();
+                final Integer originalThreadPriority = currentThread.getPriority();
+                try {
+                    currentThread.setPriority(Thread.MAX_PRIORITY);
+                    processedBlockHeight = _blockProcessor.processBlock(block);
+                }
+                finally {
+                    currentThread.setPriority(originalThreadPriority);
+                }
+            }
+
             final Boolean blockWasValid = (processedBlockHeight != null);
 
             if (blockWasValid) {
@@ -71,17 +88,20 @@ public class BlockchainBuilder extends SleepyService {
             return blockWasValid;
         }
         else {
-            Logger.log("NOTICE: Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
+            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
             return false;
         }
     }
 
-    protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final DatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
+    protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final FullNodeDatabaseManager databaseManager, final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
         final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
         if (block == null) { return false; }
 
@@ -89,7 +109,6 @@ public class BlockchainBuilder extends SleepyService {
         final BlockHasher blockHasher = new BlockHasher();
         final Sha256Hash blockHash = blockHasher.calculateBlockHash(block);
         if (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockId = blockDatabaseManager.storeBlock(block);
             }
@@ -112,8 +131,13 @@ public class BlockchainBuilder extends SleepyService {
     public Boolean _run() {
         final Thread thread = Thread.currentThread();
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+
             pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
 
             { // Special case for storing the Genesis block...
@@ -123,7 +147,7 @@ public class BlockchainBuilder extends SleepyService {
 
                     final Boolean genesisBlockWasLoaded;
                     if (hasBlockDataAvailable) {
-                        genesisBlockWasLoaded = _processGenesisBlock(genesisPendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+                        genesisBlockWasLoaded = _processGenesisBlock(genesisPendingBlockId, databaseManager, pendingBlockDatabaseManager);
                     }
                     else {
                         genesisBlockWasLoaded = false;
@@ -144,15 +168,12 @@ public class BlockchainBuilder extends SleepyService {
                 final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
                 if (candidatePendingBlockId == null) {
                     // Request the next head block be downloaded... (depends on BlockHeaders)
-                    final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseCache);
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
                     final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
                     final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                     final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
                     if (nextBlockId != null) {
                         final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-                        Logger.log("Requesting Block: " + nextBlockHash);
+                        Logger.debug("Requesting Block: " + nextBlockHash);
                         _blockDownloadRequester.requestBlock(nextBlockHash);
                     }
                     break;
@@ -165,7 +186,7 @@ public class BlockchainBuilder extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                     TransactionUtil.commitTransaction(databaseConnection);
-                    Logger.log("Deleted failed pending block.");
+                    Logger.debug("Deleted failed pending block.");
                     continue;
                 }
 
@@ -187,7 +208,7 @@ public class BlockchainBuilder extends SleepyService {
                             TransactionUtil.startTransaction(databaseConnection);
                             pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                             TransactionUtil.commitTransaction(databaseConnection);
-                            Logger.log("Deleted failed pending block.");
+                            Logger.debug("Deleted failed pending block.");
                             break;
                         }
 
@@ -201,7 +222,7 @@ public class BlockchainBuilder extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
         }
 
         return false;
@@ -211,32 +232,44 @@ public class BlockchainBuilder extends SleepyService {
     protected void _onSleep() {
         final Status downloadStatus = _downloadStatusMonitor.getStatus();
         if (downloadStatus != Status.ACTIVE) {
-            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
+            try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
                 final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
                 _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
             }
             catch (final DatabaseException exception) {
-                Logger.log(exception);
+                Logger.warn(exception);
             }
         }
     }
 
-    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+        this(
+            bitcoinNodeManager,
+            databaseManagerFactory,
+            new CoreInflater(),
+            blockProcessor,
+            downloadStatusMonitor,
+            blockDownloadRequester,
+            threadPool
+        );
+    }
+
+    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _bitcoinNodeManager = bitcoinNodeManager;
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseCache = databaseCache;
+        _databaseManagerFactory = databaseManagerFactory;
+        _blockInflaters = blockInflaters;
         _blockProcessor = blockProcessor;
         _downloadStatusMonitor = downloadStatusMonitor;
         _blockDownloadRequester = blockDownloadRequester;
         _threadPool = threadPool;
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-            _hasGenesisBlock = blockDatabaseManager.blockHeaderHasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            _hasGenesisBlock = blockDatabaseManager.hasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
         }
         catch (final DatabaseException exception) {
-            Logger.log(exception);
+            Logger.warn(exception);
             _hasGenesisBlock = false;
         }
     }

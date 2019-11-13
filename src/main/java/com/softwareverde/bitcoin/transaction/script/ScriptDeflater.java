@@ -22,7 +22,7 @@ public class ScriptDeflater {
         if (scriptOperations == null) { return null; }
 
         final StringBuilder stringBuilder = new StringBuilder();
-        for (int i=0; i<scriptOperations.getSize(); ++i) {
+        for (int i = 0; i < scriptOperations.getSize(); ++i) {
             final Operation operation = scriptOperations.get(i);
             stringBuilder.append("(");
             stringBuilder.append(operation.toString());
@@ -44,7 +44,7 @@ public class ScriptDeflater {
         if (scriptOperations == null) { return null; }
 
         final StringBuilder stringBuilder = new StringBuilder();
-        for (int i=0; i<scriptOperations.getSize(); ++i) {
+        for (int i = 0; i < scriptOperations.getSize(); ++i) {
             final Operation operation = scriptOperations.get(i);
             stringBuilder.append(operation.toStandardString());
 

@@ -1,10 +1,12 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
@@ -64,7 +66,7 @@ public class ScriptRunnerTests {
         Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1).getBytes()));
 
         final MutableContext context = new MutableContext();
-        final ScriptRunner scriptRunner = new ScriptRunner(null);
+        final ScriptRunner scriptRunner = new ScriptRunner();
 
         final TransactionInput transactionInput = transaction1.getTransactionInputs().get(0);
         final TransactionOutput transactionOutput = transactionBeingSpent.getTransactionOutputs().get(0);
@@ -90,7 +92,7 @@ public class ScriptRunnerTests {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        final ScriptRunner scriptRunner = new ScriptRunner(null);
+        final ScriptRunner scriptRunner = new ScriptRunner();
 
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
             "01000000015AEFC06AF14A9216350A1F549971E0C8381D69B00B492CA20663CAEB5F191825010000006B4830450220210947BCC472D558BED1A36A573BC3C5E11914BE685E868639A46B330AE1879B022100964512E526759EE915A3178F43520CF53D2C38E18A229062EEAB8E2D544A91990121021B36AF5FEDC577DFBF74D75060B20305F1D9127A3C7A7373EF91BF684F6A0491FFFFFFFF0246FBBB84000000001976A914F6A9D96485D1D45D28E38662F617BA39A6B151BB88AC00093D00000000001976A914D948D7A14685B7B5B528034137AA4C590F84F62988AC00000000"
@@ -128,7 +130,7 @@ public class ScriptRunnerTests {
     @Test
     public void should_allow_segwit_recovery_after_20190515HF() {
         // Setup
-        final ScriptRunner scriptRunner = new ScriptRunner(null);
+        final ScriptRunner scriptRunner = new ScriptRunner();
 
         final MutableContext context = new MutableContext();
         context.setBlockHeight(590000L);
@@ -182,7 +184,7 @@ public class ScriptRunnerTests {
     @Test
     public void should_not_allow_invalid_segwit_recovery_after_20190515HF() {
         // Setup
-        final ScriptRunner scriptRunner = new ScriptRunner(null);
+        final ScriptRunner scriptRunner = new ScriptRunner();
 
         final MutableContext context = new MutableContext();
         context.setBlockHeight(590000L);
@@ -247,5 +249,28 @@ public class ScriptRunnerTests {
             // Assert
             Assert.assertFalse(outputIsUnlocked);
         }
+    }
+
+    @Test
+    public void should_validate_large_value_for_decode_number() {
+        // Setup
+        //  "0x10 0x0102030405060708090A0B0C0D0E0F10 DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT 0x08 0x0102030405060708 CAT 520"
+        //  "NUM2BIN 0x10 0x0102030405060708090A0B0C0D0E0F10 DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT 0x08 0x0102030405060708 CAT EQUAL"
+
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        final UnlockingScript unlockingScript = UnlockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E020802")));
+        final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("80100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E87")));
+
+        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        final MutableContext context = new MutableContext();
+        context.setBlockHeight(0L);
+        context.setMedianBlockTime(medianBlockTime);
+        final ScriptRunner scriptRunner = new ScriptRunner();
+
+        // Action
+        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
+
+        // Assert
+        Assert.assertTrue(isValid);
     }
 }

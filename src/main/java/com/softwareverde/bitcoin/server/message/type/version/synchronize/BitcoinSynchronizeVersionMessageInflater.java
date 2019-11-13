@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.version.synchronize;
 
+import com.softwareverde.bitcoin.inflater.ProtocolMessageInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -8,10 +9,14 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMessageInflater {
+    protected final NodeIpAddressInflater _nodeIpAddressInflater;
+
+    public BitcoinSynchronizeVersionMessageInflater(final ProtocolMessageInflaters protocolMessageInflaters) {
+        _nodeIpAddressInflater = protocolMessageInflaters.getNodeIpAddressInflater();
+    }
 
     @Override
     public BitcoinSynchronizeVersionMessage fromBytes(final byte[] bytes) {
-        final NodeIpAddressInflater nodeIpAddressInflater = new NodeIpAddressInflater();
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
@@ -26,10 +31,10 @@ public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMes
         synchronizeVersionMessage._timestampInSeconds = byteArrayReader.readLong(8, Endian.LITTLE);
 
         final byte[] remoteNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
-        synchronizeVersionMessage._remoteNodeIpAddress = nodeIpAddressInflater.fromBytes(remoteNetworkAddressBytes);
+        synchronizeVersionMessage._remoteNodeIpAddress = _nodeIpAddressInflater.fromBytes(remoteNetworkAddressBytes);
 
         final byte[] localNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
-        synchronizeVersionMessage._localNodeIpAddress = nodeIpAddressInflater.fromBytes(localNetworkAddressBytes);
+        synchronizeVersionMessage._localNodeIpAddress = _nodeIpAddressInflater.fromBytes(localNetworkAddressBytes);
 
         synchronizeVersionMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);
         synchronizeVersionMessage._userAgent = byteArrayReader.readVariableLengthString();

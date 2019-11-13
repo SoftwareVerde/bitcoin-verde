@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -9,6 +10,7 @@ import com.softwareverde.json.Jsonable;
 
 public interface Context extends Constable<ImmutableContext>, Jsonable {
     Long getBlockHeight();
+    MedianBlockTime getMedianBlockTime();
     TransactionInput getTransactionInput();
     TransactionOutput getTransactionOutput();
 

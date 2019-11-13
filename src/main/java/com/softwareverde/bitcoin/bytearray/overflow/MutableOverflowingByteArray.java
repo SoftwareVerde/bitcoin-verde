@@ -20,7 +20,7 @@ public class MutableOverflowingByteArray extends MutableByteArray {
     @Override
     public byte[] getBytes(final int startIndex, final int byteCount) {
         final byte[] bytes = new byte[byteCount];
-        for (int i=0; i<byteCount; ++i) {
+        for (int i = 0; i < byteCount; ++i) {
             final int readIndex = (startIndex + i);
             if (readIndex >= _bytes.length) { break; }
             bytes[i] = _bytes[readIndex];

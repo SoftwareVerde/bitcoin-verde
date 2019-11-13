@@ -1,10 +1,13 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class ComparisonOperation extends SubTypedOperation {
@@ -13,6 +16,20 @@ public class ComparisonOperation extends SubTypedOperation {
     //  In this context, for OP_SUB, 1 is subtracted from 2 (2-1), which results in 1 being put on the stack.
 
     public static final Type TYPE = Type.OP_COMPARISON;
+
+    public static final ComparisonOperation IS_EQUAL                            = new ComparisonOperation(Opcode.IS_EQUAL.getValue(),                           Opcode.IS_EQUAL);
+    public static final ComparisonOperation IS_EQUAL_THEN_VERIFY                = new ComparisonOperation(Opcode.IS_EQUAL_THEN_VERIFY.getValue(),               Opcode.IS_EQUAL_THEN_VERIFY);
+    public static final ComparisonOperation IS_TRUE                             = new ComparisonOperation(Opcode.IS_TRUE.getValue(),                            Opcode.IS_TRUE);
+    public static final ComparisonOperation IS_NUMERICALLY_EQUAL                = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL.getValue(),               Opcode.IS_NUMERICALLY_EQUAL);
+    public static final ComparisonOperation IS_NUMERICALLY_EQUAL_THEN_VERIFY    = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY.getValue(),   Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY);
+    public static final ComparisonOperation IS_NUMERICALLY_NOT_EQUAL            = new ComparisonOperation(Opcode.IS_NUMERICALLY_NOT_EQUAL.getValue(),           Opcode.IS_NUMERICALLY_NOT_EQUAL);
+    public static final ComparisonOperation IS_LESS_THAN                        = new ComparisonOperation(Opcode.IS_LESS_THAN.getValue(),                       Opcode.IS_LESS_THAN);
+    public static final ComparisonOperation IS_GREATER_THAN                     = new ComparisonOperation(Opcode.IS_GREATER_THAN.getValue(),                    Opcode.IS_GREATER_THAN);
+    public static final ComparisonOperation IS_LESS_THAN_OR_EQUAL               = new ComparisonOperation(Opcode.IS_LESS_THAN_OR_EQUAL.getValue(),              Opcode.IS_LESS_THAN_OR_EQUAL);
+    public static final ComparisonOperation IS_GREATER_THAN_OR_EQUAL            = new ComparisonOperation(Opcode.IS_GREATER_THAN_OR_EQUAL.getValue(),           Opcode.IS_GREATER_THAN_OR_EQUAL);
+    public static final ComparisonOperation INTEGER_AND                         = new ComparisonOperation(Opcode.INTEGER_AND.getValue(),                        Opcode.INTEGER_AND);
+    public static final ComparisonOperation INTEGER_OR                          = new ComparisonOperation(Opcode.INTEGER_OR.getValue(),                         Opcode.INTEGER_OR);
+    public static final ComparisonOperation IS_WITHIN_RANGE                     = new ComparisonOperation(Opcode.IS_WITHIN_RANGE.getValue(),                    Opcode.IS_WITHIN_RANGE);
 
     protected static ComparisonOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -31,131 +48,143 @@ public class ComparisonOperation extends SubTypedOperation {
         super(value, TYPE, opcode);
     }
 
+    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final Context context) {
+        final Value value0 = stack.pop();
+        if (! Operation.validateMinimalEncoding(value0, context)) { return null; }
+
+        final Value value1 = stack.pop();
+        if (! Operation.validateMinimalEncoding(value1, context)) { return null; }
+
+        if (stack.didOverflow()) { return null; }
+
+        final Long longValue0 = value0.asLong();
+        final Long longValue1 = value1.asLong();
+        if (! Operation.isWithinIntegerRange(longValue0)) { return null; }
+        if (! Operation.isWithinIntegerRange(longValue1)) { return null; }
+
+        return new Tuple<Long, Long>(longValue0, longValue1);
+    }
+
     protected Boolean _opIsEqual(final Stack stack) {
         final Value value0 = stack.pop();
         final Value value1 = stack.pop();
-        if (stack.didOverflow()) { return false; }
+        if (stack.didOverflow()) { return null; }
 
-        return ByteUtil.areEqual(value0.getBytes(), value1.getBytes());
+        return ByteUtil.areEqual(value0, value1);
     }
 
-    protected Boolean _opIsNumericallyEqual(final Stack stack) {
-        final Value value0 = stack.pop();
-        final Value value1 = stack.pop();
-        if (stack.didOverflow()) { return false; }
+    protected Boolean _opIsNumericallyEqual(final Stack stack, final Context context) {
+        final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+        if (numericTuple == null) { return null; }
 
-        final Boolean areEqual = (value1.asInteger().intValue() == value0.asInteger().intValue());
-        return (areEqual);
+        return Util.areEqual(numericTuple.first, numericTuple.second);
     }
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
             case IS_EQUAL: {
-                final Boolean isEqual = _opIsEqual(stack);
-                stack.push(Value.fromBoolean(isEqual));
-                return (! stack.didOverflow());
+                final Boolean areEqual = _opIsEqual(stack);
+                if (areEqual == null) { return false; }
+
+                stack.push(Value.fromBoolean(areEqual));
+                return true;
             }
 
             case IS_EQUAL_THEN_VERIFY: {
                 final Boolean areEqual = _opIsEqual(stack);
-                if (stack.didOverflow()) { return false; }
+                if (areEqual == null) { return false; }
+
                 return areEqual;
             }
 
             case IS_TRUE: {
                 final Value value = stack.pop();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+
                 final Boolean booleanValue = value.asBoolean();
                 stack.push(Value.fromBoolean(booleanValue));
+
                 return (! stack.didOverflow());
             }
 
             case IS_NUMERICALLY_EQUAL: {
-                final Boolean isEqual = _opIsNumericallyEqual(stack);
-                stack.push(Value.fromBoolean(isEqual));
-                return (! stack.didOverflow());
+                final Boolean areEqual = _opIsNumericallyEqual(stack, context);
+                if (areEqual == null) { return false; }
+
+                stack.push(Value.fromBoolean(areEqual));
+                return true;
             }
 
             case IS_NUMERICALLY_EQUAL_THEN_VERIFY: {
-                final Boolean areEqual = _opIsNumericallyEqual(stack);
-                if (stack.didOverflow()) { return false; }
+                final Boolean areEqual = _opIsNumericallyEqual(stack, context);
+                if (areEqual == null) { return false; }
+
                 return areEqual;
             }
 
             case IS_NUMERICALLY_NOT_EQUAL: {
-                final Boolean isEqual = _opIsNumericallyEqual(stack);
-                stack.push(Value.fromBoolean(! isEqual));
-                return (! stack.didOverflow());
+                final Boolean areEqual = _opIsNumericallyEqual(stack, context);
+                if (areEqual == null) { return false; }
+
+                stack.push(Value.fromBoolean(! areEqual));
+                return true;
             }
 
             case IS_LESS_THAN: {
-                final Value value0 = stack.pop();
-                final Value value1 = stack.pop();
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                if (numericTuple == null) { return false; }
 
-                final Boolean isLessThan = (value1.asInteger() < value0.asInteger());
+                final Boolean isLessThan = (numericTuple.second < numericTuple.first);
                 stack.push(Value.fromBoolean(isLessThan));
-                return (! stack.didOverflow());
+                return true;
             }
 
             case IS_GREATER_THAN: {
-                final Value value0 = stack.pop();
-                final Value value1 = stack.pop();
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                if (numericTuple == null) { return false; }
 
-                final Boolean isGreaterThan = (value1.asInteger() > value0.asInteger());
+                final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
                 stack.push(Value.fromBoolean(isGreaterThan));
-                return (! stack.didOverflow());
+                return true;
             }
 
             case IS_LESS_THAN_OR_EQUAL: {
-                final Value value0 = stack.pop();
-                final Value value1 = stack.pop();
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                if (numericTuple == null) { return false; }
 
-                final Integer valueInteger0 = value0.asInteger();
-                final Integer valueInteger1 = value1.asInteger();
-
-                final Boolean isLessThan = (valueInteger1 < valueInteger0);
-                final Boolean areEqual = (valueInteger0.intValue() == valueInteger1.intValue());
-                stack.push(Value.fromBoolean( (isLessThan) || (areEqual) ));
-                return (! stack.didOverflow());
+                final Boolean isLessThan = (numericTuple.second < numericTuple.first);
+                final Boolean areEqual = Util.areEqual(numericTuple.second, numericTuple.first);
+                stack.push(Value.fromBoolean(isLessThan || areEqual));
+                return true;
             }
 
             case IS_GREATER_THAN_OR_EQUAL: {
-                final Value value0 = stack.pop();
-                final Value value1 = stack.pop();
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                if (numericTuple == null) { return false; }
 
-                final Integer valueInteger0 = value0.asInteger();
-                final Integer valueInteger1 = value1.asInteger();
-
-                final Boolean isGreaterThan = (valueInteger1 > valueInteger0);
-                final Boolean areEqual = (valueInteger1.intValue() == valueInteger0.intValue());
-                stack.push (Value.fromBoolean( (isGreaterThan) || (areEqual) ));
-                return (! stack.didOverflow());
+                final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
+                final Boolean areEqual = Util.areEqual(numericTuple.second, numericTuple.first);
+                stack.push (Value.fromBoolean(isGreaterThan || areEqual));
+                return true;
             }
 
             case INTEGER_AND: {
-                final Value value0 = stack.pop();
-                final Value value1 = stack.pop();
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                if (numericTuple == null) { return false; }
 
-                final int intValue0 = value0.asInteger();
-                final int intValue1 = value1.asInteger();
-
-                final Boolean value = ((intValue1 != 0) && (intValue0 != 0));
+                final Boolean value = ( (numericTuple.second != 0L) && (numericTuple.first != 0L) );
                 stack.push(Value.fromBoolean(value));
-
-                return (! stack.didOverflow());
+                return true;
             }
 
             case INTEGER_OR: {
-                final Value value0 = stack.pop();
-                final Value value1 = stack.pop();
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+                if (numericTuple == null) { return false; }
 
-                final int intValue0 = value0.asInteger();
-                final int intValue1 = value1.asInteger();
-
-                final Boolean value = ((intValue1 != 0) || (intValue0 != 0));
+                final Boolean value = ( (numericTuple.second != 0L) || (numericTuple.first != 0L) );
                 stack.push(Value.fromBoolean(value));
-
-                return (! stack.didOverflow());
+                return true;
             }
 
             case IS_WITHIN_RANGE: {
@@ -164,15 +193,23 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Value valueMax = stack.pop();
                 final Value valueMin = stack.pop();
                 final Value value = stack.pop();
+                if (stack.didOverflow()) { return false; }
 
-                final int intValueMax = valueMax.asInteger();
-                final int intValueMin = valueMin.asInteger();
-                final int intValue = value.asInteger();
+                if (! Operation.validateMinimalEncoding(valueMax, context)) { return false; }
+                if (! Operation.validateMinimalEncoding(valueMin, context)) { return false; }
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
-                final Boolean resultValue = ((intValue >= intValueMin) || (intValue < intValueMax));
+                final Long longMax = valueMax.asLong();
+                final Long longMin = valueMin.asLong();
+                final Long longValue = value.asLong();
+
+                if (! Operation.isWithinIntegerRange(longMax)) { return false; }
+                if (! Operation.isWithinIntegerRange(longMin)) { return false; }
+                if (! Operation.isWithinIntegerRange(longValue)) { return false; }
+
+                final Boolean resultValue = ((longValue >= longMin) && (longValue < longMax));
                 stack.push(Value.fromBoolean(resultValue));
-
-                return (! stack.didOverflow());
+                return true;
             }
 
             default: { return false; }

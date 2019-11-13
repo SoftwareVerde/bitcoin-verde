@@ -14,7 +14,7 @@ public class Ipv4Tests {
         final Ipv4 ipv4 = Ipv4.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes().getBytes());
     }
 
     @Test
@@ -27,7 +27,7 @@ public class Ipv4Tests {
         final Ipv4 ipv4 = Ipv4.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes().getBytes());
     }
 
     @Test
@@ -40,7 +40,7 @@ public class Ipv4Tests {
         final Ipv4 ipv4 = Ipv4.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes().getBytes());
     }
 
     @Test
@@ -137,6 +137,6 @@ public class Ipv4Tests {
         final Ipv4 ipv4 = Ipv4.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv4.getBytes().getBytes());
     }
 }

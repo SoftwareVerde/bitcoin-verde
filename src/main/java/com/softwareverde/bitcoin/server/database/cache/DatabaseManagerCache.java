@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
+import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -22,7 +22,7 @@ public interface DatabaseManagerCache extends AutoCloseable {
     void invalidateTransactionIdCache();
 
     // TRANSACTION CACHE -----------------------------------------------------------------------------------------------
-    void cacheTransaction(TransactionId transactionId, ImmutableTransaction transaction);
+    void cacheTransaction(TransactionId transactionId, ConstTransaction transaction);
     Transaction getCachedTransaction(TransactionId transactionId);
     void invalidateTransactionCache();
 

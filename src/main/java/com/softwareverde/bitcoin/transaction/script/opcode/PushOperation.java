@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -17,6 +17,8 @@ import com.softwareverde.util.bytearray.Endian;
 public class PushOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_PUSH;
     public static final Integer VALUE_MAX_BYTE_COUNT = 520; // NOTE: Values should not be larger than 520 bytes in size. https://github.com/bitcoin/bitcoin/blob/v0.10.0rc3/src/script/script.h#L18
+
+    public static final PushOperation PUSH_ZERO = new PushOperation(Opcode.PUSH_ZERO.getValue(), Opcode.PUSH_ZERO, new Payload(false, null, Value.fromInteger(0L)));
 
     protected static class Payload {
         public final Boolean shouldBeSerialized;
@@ -70,8 +72,14 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA: {
                 final Integer valueByteCountLength = null;
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
+                }
+
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 if (value == null) { return null; }
+
                 payload = new Payload(true, valueByteCountLength, value);
             } break;
 
@@ -79,13 +87,14 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_BYTE: {
                 final Integer valueByteCountLength = 1;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength);
-                if (byteCount < 0) { return null; }
-                if (byteCount > VALUE_MAX_BYTE_COUNT) {
-                    // Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
-                    return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
                 }
+
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 if (value == null) { return null; }
+
                 payload = new Payload(true, valueByteCountLength, value);
             } break;
 
@@ -93,14 +102,14 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_SHORT: {
                 final Integer valueByteCountLength = 2;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
-                if (byteCount < 0) { return null; }
-                if (byteCount > VALUE_MAX_BYTE_COUNT) {
-                    // Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
-                    return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
                 }
 
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 if (value == null) { return null; }
+
                 payload = new Payload(true, valueByteCountLength, value);
             } break;
 
@@ -108,20 +117,20 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_INTEGER: {
                 final Integer valueByteCountLength = 4;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
-                if (byteCount < 0) { return null; }
-                if (byteCount > VALUE_MAX_BYTE_COUNT) {
-                    // Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
-                    return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
                 }
 
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 if (value == null) { return null; }
+
                 payload = new Payload(true, valueByteCountLength, value);
             } break;
 
             case PUSH_VERSION: {
                 final Integer valueByteCountLength = null;
-                final Value value = Value.fromBytes(StringUtil.stringToBytes(Constants.USER_AGENT));
+                final Value value = Value.fromBytes(StringUtil.stringToBytes(BitcoinConstants.getUserAgent()));
                 payload = new Payload(false, valueByteCountLength, value);
             } break;
 
@@ -131,6 +140,43 @@ public class PushOperation extends SubTypedOperation {
         if (byteArrayReader.didOverflow()) { return null; }
 
         return new PushOperation(opcodeByte, opcode, payload);
+    }
+
+    public static PushOperation pushBytes(final ByteArray byteArray) {
+        if (byteArray == null) { return null; }
+
+        final int byteCount = byteArray.getByteCount();
+        if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; }
+
+        if (byteCount == 0) {
+            // Use <0x4C 0x00> to support SLP.  If not using SLP, consider PushOperation.PUSH_ZERO.
+            final Payload payload = new Payload(true, 1, Value.ZERO);
+            return new PushOperation(Opcode.PUSH_DATA_BYTE.getValue(), Opcode.PUSH_DATA_BYTE, payload);
+        }
+        else if (byteCount <= Opcode.PUSH_DATA.getMaxValue()) {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, null, value);
+            return new PushOperation((byte) byteCount, Opcode.PUSH_DATA, payload);
+        }
+        else if (byteCount <= (1 << 8)) {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, 1, value);
+            return new PushOperation(Opcode.PUSH_DATA_BYTE.getValue(), Opcode.PUSH_DATA_BYTE, payload);
+        }
+        else if (byteCount <= (1 << 16)) {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, 2, value);
+            return new PushOperation(Opcode.PUSH_DATA_SHORT.getValue(), Opcode.PUSH_DATA_SHORT, payload);
+        }
+        else {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, 4, value);
+            return new PushOperation(Opcode.PUSH_DATA_INTEGER.getValue(), Opcode.PUSH_DATA_INTEGER, payload);
+        }
+    }
+
+    public static PushOperation pushValue(final Value value) {
+        return PushOperation.pushBytes(value);
     }
 
     protected final Payload _payload;
@@ -151,7 +197,7 @@ public class PushOperation extends SubTypedOperation {
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         if (! _opcode.isEnabled()) {
-            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            Logger.debug("Opcode is disabled: " + _opcode);
             return false;
         }
 

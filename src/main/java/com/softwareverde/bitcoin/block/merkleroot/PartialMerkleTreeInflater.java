@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.Endian;
 
 public class PartialMerkleTreeInflater {
@@ -19,7 +19,7 @@ public class PartialMerkleTreeInflater {
 
         final Integer hashesCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (hashesCount > MAX_HASHES_COUNT) {
-            Logger.log("MerkleBlock exceeded maximum hashes count: " + hashesCount);
+            Logger.debug("MerkleBlock exceeded maximum hashes count: " + hashesCount);
             return null;
         }
 
@@ -31,7 +31,7 @@ public class PartialMerkleTreeInflater {
 
         final Integer flagsByteCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (flagsByteCount > MAX_HASHES_COUNT) {
-            Logger.log("MerkleBlock exceeded maximum flag-bytes count: " + flagsByteCount);
+            Logger.debug("MerkleBlock exceeded maximum flag-bytes count: " + flagsByteCount);
             return null;
         }
 

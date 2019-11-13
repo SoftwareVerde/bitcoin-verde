@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
@@ -8,6 +9,8 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -18,36 +21,33 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
+import com.softwareverde.logging.Logger;
 
 public class MinerModule {
-    public static void execute(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
-        final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
-        minerModule.run();
-        Logger.shutdown();
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
 
+    protected final MasterInflater _masterInflater;
     protected final String _previousBlockHashString;
     protected final String _base58CheckAddress;
     protected final Integer _cpuThreadCount;
     protected final Integer _gpuThreadCount;
+    protected final GpuSha256 _gpuSha256;
 
-    public MinerModule(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
-        this._previousBlockHashString = previousBlockHashString;
-        this._base58CheckAddress = base58CheckAddress;
-        this._cpuThreadCount = cpuThreadCount;
-        this._gpuThreadCount = gpuThreadCount;
+    public MinerModule(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount, final GpuSha256 gpuSha256) {
+        _masterInflater = new CoreInflater();
+        _previousBlockHashString = previousBlockHashString;
+        _base58CheckAddress = base58CheckAddress;
+        _cpuThreadCount = cpuThreadCount;
+        _gpuThreadCount = gpuThreadCount;
+        _gpuSha256 = gpuSha256;
     }
 
     public void run() {
         try {
             final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_previousBlockHashString);
-            final AddressInflater addressInflater = new AddressInflater();
+            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 
             final Address address = addressInflater.fromBase58Check(_base58CheckAddress);
             if (address == null) {
@@ -85,12 +85,12 @@ public class MinerModule {
                 prototypeBlock.addTransaction(coinbaseTransaction);
             }
 
-            final Miner miner = new Miner(_cpuThreadCount, _gpuThreadCount);
+            final Miner miner = new Miner(_cpuThreadCount, _gpuThreadCount, _gpuSha256, _masterInflater);
             final Block block = miner.mineBlock(prototypeBlock);
 
-            final BlockDeflater blockDeflater = new BlockDeflater();
-            Logger.log(block.getHash());
-            Logger.log(HexUtil.toHexString(blockDeflater.toBytes(block).getBytes()));
+            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
+            Logger.info(block.getHash());
+            Logger.info(blockDeflater.toBytes(block));
         }
         catch (final Exception exception) {
             exception.printStackTrace();

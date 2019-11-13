@@ -1,16 +1,16 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.io.Logger;
+import com.softwareverde.logging.Logger;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,11 +40,11 @@ public class OrphanedTransactionsCache {
             }
         }
 
-        Logger.log("Purging old orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
+        Logger.debug("Purging old orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
     }
 
     protected void _purgeOldTransactions() {
-        final Integer itemsToRemoveCount = (MAX_ORPHANED_TRANSACTION_COUNT / 2);
+        final int itemsToRemoveCount = (MAX_ORPHANED_TRANSACTION_COUNT / 2);
         for (int i = 0; i < itemsToRemoveCount; ++i) {
             if (_orphanedTransactionsByAge.isEmpty()) { break; }
 
@@ -59,18 +59,18 @@ public class OrphanedTransactionsCache {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    public synchronized void add(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final Boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
+    public synchronized void add(final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
         if (! transactionIsUnique) { return; }
 
-        Logger.log("Queuing orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
+        Logger.debug("Queuing orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
 
         _orphanedTransactionsByAge.addLast(transaction);
         if (_orphanedTransactionSet.size() > MAX_ORPHANED_TRANSACTION_COUNT) {
             _purgeOldTransactions();
         }
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
@@ -99,7 +99,7 @@ public class OrphanedTransactionsCache {
 
             possiblyEligibleTransactions.addAll(queuedTransactions);
 
-            Logger.log("Promoting orphaned Transaction: " + transaction.getHash());
+            Logger.debug("Promoting orphaned Transaction: " + transaction.getHash());
         }
 
         if (_orphanedTransactionSet.contains(transaction)) {
