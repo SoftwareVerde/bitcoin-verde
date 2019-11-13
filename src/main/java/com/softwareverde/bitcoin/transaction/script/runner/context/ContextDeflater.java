@@ -7,6 +7,7 @@ public class ContextDeflater {
         final Json json = new Json();
 
         json.put("blockHeight", context.getBlockHeight());
+        json.put("medianBlockTime", context.getMedianBlockTime());
         json.put("transaction", context.getTransaction());
         json.put("transactionInputIndex", context.getTransactionInputIndex());
         json.put("transactionInput", context.getTransactionInput());

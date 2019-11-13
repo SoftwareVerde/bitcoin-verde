@@ -16,9 +16,9 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static Boolean SCHNORR_IS_ENABLED;
     protected static Boolean FAIL_ON_BAD_SIGNATURE;
     protected static Boolean REQUIRE_BITCOIN_CASH_FORK_ID;
+    protected static Boolean REQUIRE_MINIMAL_ENCODED_VALUES;
 
     protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
 
@@ -39,9 +39,9 @@ public class BitcoinConstants {
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
 
-        SCHNORR_IS_ENABLED = true;
         FAIL_ON_BAD_SIGNATURE = true;
         REQUIRE_BITCOIN_CASH_FORK_ID = true;
+        REQUIRE_MINIMAL_ENCODED_VALUES = true;
 
         BITCOIN_SIGNATURE_MESSAGE_MAGIC = "Bitcoin Signed Message:\n";
     }
@@ -144,10 +144,6 @@ public class BitcoinConstants {
         COINBASE_MESSAGE = coinbaseMessage;
     }
 
-    public static Boolean areSchnorrSignaturesEnabled() {
-        return SCHNORR_IS_ENABLED;
-    }
-
     // Aka the "NULLFAIL" flag.
     public static Boolean immediatelyFailOnNonEmptyInvalidSignatures() {
         return FAIL_ON_BAD_SIGNATURE;
@@ -156,6 +152,11 @@ public class BitcoinConstants {
     // Aka the "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID" flags.
     public static Boolean requireBitcoinCashForkId() {
         return REQUIRE_BITCOIN_CASH_FORK_ID;
+    }
+
+    // Aka the "STRICTENC" flag.
+    public static Boolean valuesMustBeMinimallyEncoded() {
+        return REQUIRE_MINIMAL_ENCODED_VALUES;
     }
 
     public static String getBitcoinSignatureMessageMagic() {

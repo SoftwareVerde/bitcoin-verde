@@ -648,7 +648,7 @@ public class Wallet {
             signedTransaction = transactionBeingSigned;
         }
 
-        final ScriptRunner scriptRunner = new ScriptRunner(_medianBlockTime);
+        final ScriptRunner scriptRunner = new ScriptRunner();
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         for (int i = 0; i < signedTransactionInputs.getSize(); ++i) {
             final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
@@ -659,7 +659,7 @@ public class Wallet {
                 transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
             }
 
-            final MutableContext context = MutableContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent);
+            final MutableContext context = MutableContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime);
             final Boolean outputIsUnlocked = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
 
             if (! outputIsUnlocked) {
