@@ -16,7 +16,7 @@ public class SpvResourceLoader {
      * @param resourcePath
      * @return
      */
-    public static InputStream getResource(final String resourcePath) {
+    public static InputStream getResourceAsStream(final String resourcePath) {
         final InputStream ioUtilSteam = IoUtil.getResourceAsStream(resourcePath);
         if (ioUtilSteam != null) {
             return ioUtilSteam;
@@ -27,5 +27,13 @@ public class SpvResourceLoader {
         }
         final InputStream classStream = SpvResourceLoader.class.getResourceAsStream(resourcePath);
         return classStream;
+    }
+
+    public static String getResource(final String resourcePath) {
+        final InputStream inputStream = SpvResourceLoader.getResourceAsStream(resourcePath);
+        if (inputStream == null) {
+            return null;
+        }
+        return IoUtil.streamToString(inputStream);
     }
 }
