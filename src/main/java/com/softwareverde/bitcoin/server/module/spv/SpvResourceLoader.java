@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.spv;
 
+import com.softwareverde.util.IoUtil;
+
 import java.io.InputStream;
 
 public class SpvResourceLoader {
@@ -8,7 +10,22 @@ public class SpvResourceLoader {
     public static final String INIT_SQL_INDEXES_SQLITE      = "/sql/spv/init_indexes_sqlite.sql";
     public static final String INIT_SQL_METADATA_SQLITE     = "/sql/spv/init_metadata_sqlite.sql";
 
+    /**
+     * Attempts to find the resource using different resource-loading entities.  The IoUtil method, this class's
+     * classloader, and then this class.  If none of these yields a non-null input stream, null is returned.
+     * @param resourcePath
+     * @return
+     */
     public static InputStream getResource(final String resourcePath) {
-        return SpvResourceLoader.class.getClassLoader().getResourceAsStream(resourcePath);
+        final InputStream ioUtilSteam = IoUtil.getResourceAsStream(resourcePath);
+        if (ioUtilSteam != null) {
+            return ioUtilSteam;
+        }
+        final InputStream classpathStream = SpvResourceLoader.class.getClassLoader().getResourceAsStream(resourcePath);
+        if (classpathStream != null) {
+            return classpathStream;
+        }
+        final InputStream classStream = SpvResourceLoader.class.getResourceAsStream(resourcePath);
+        return classStream;
     }
 }
