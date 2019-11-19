@@ -1,8 +1,19 @@
-
-# Bitcoin Verde v1.1.1
+# Bitcoin Verde v1.2.2
 
 
 ## Updates
+
+**v1.2.0**
+- 20191115 HF support (Multisig Schnorr Signatures).
+- SLP Validation.
+- Many SPV wallet SDK improvements.
+- Additional RPC commands including SLP validation.
+- Imported reference client test vectors to confirm compatibility.
+- Implemented a block cache for facilitating other nodes during their initial block download and improving performance of the explorer module.
+- NUM2BIN now follows ABC's quirk of allowing large byte arrays for encoding.
+- Migrated to Hikari database connection pool.
+- Optional block header bootstrapping for improved initial block download.
+- SPV nodes now receive matching mempool transactions when a bloom filter is set.
 
 **v1.1.0**
 

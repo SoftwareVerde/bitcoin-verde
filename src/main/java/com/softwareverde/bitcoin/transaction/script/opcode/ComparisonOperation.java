@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -47,9 +48,13 @@ public class ComparisonOperation extends SubTypedOperation {
         super(value, TYPE, opcode);
     }
 
-    protected Tuple<Long, Long> _popNumericTuple(final Stack stack) {
+    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final Context context) {
         final Value value0 = stack.pop();
+        if (! Operation.validateMinimalEncoding(value0, context)) { return null; }
+
         final Value value1 = stack.pop();
+        if (! Operation.validateMinimalEncoding(value1, context)) { return null; }
+
         if (stack.didOverflow()) { return null; }
 
         final Long longValue0 = value0.asLong();
@@ -68,8 +73,8 @@ public class ComparisonOperation extends SubTypedOperation {
         return ByteUtil.areEqual(value0, value1);
     }
 
-    protected Boolean _opIsNumericallyEqual(final Stack stack) {
-        final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+    protected Boolean _opIsNumericallyEqual(final Stack stack, final Context context) {
+        final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
         if (numericTuple == null) { return null; }
 
         return Util.areEqual(numericTuple.first, numericTuple.second);
@@ -95,15 +100,16 @@ public class ComparisonOperation extends SubTypedOperation {
 
             case IS_TRUE: {
                 final Value value = stack.pop();
-                if (stack.didOverflow()) { return false; }
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
                 final Boolean booleanValue = value.asBoolean();
                 stack.push(Value.fromBoolean(booleanValue));
-                return true;
+
+                return (! stack.didOverflow());
             }
 
             case IS_NUMERICALLY_EQUAL: {
-                final Boolean areEqual = _opIsNumericallyEqual(stack);
+                final Boolean areEqual = _opIsNumericallyEqual(stack, context);
                 if (areEqual == null) { return false; }
 
                 stack.push(Value.fromBoolean(areEqual));
@@ -111,14 +117,14 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_NUMERICALLY_EQUAL_THEN_VERIFY: {
-                final Boolean areEqual = _opIsNumericallyEqual(stack);
+                final Boolean areEqual = _opIsNumericallyEqual(stack, context);
                 if (areEqual == null) { return false; }
 
                 return areEqual;
             }
 
             case IS_NUMERICALLY_NOT_EQUAL: {
-                final Boolean areEqual = _opIsNumericallyEqual(stack);
+                final Boolean areEqual = _opIsNumericallyEqual(stack, context);
                 if (areEqual == null) { return false; }
 
                 stack.push(Value.fromBoolean(! areEqual));
@@ -126,7 +132,7 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_LESS_THAN: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
                 if (numericTuple == null) { return false; }
 
                 final Boolean isLessThan = (numericTuple.second < numericTuple.first);
@@ -135,7 +141,7 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_GREATER_THAN: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
                 if (numericTuple == null) { return false; }
 
                 final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
@@ -144,7 +150,7 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_LESS_THAN_OR_EQUAL: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
                 if (numericTuple == null) { return false; }
 
                 final Boolean isLessThan = (numericTuple.second < numericTuple.first);
@@ -154,7 +160,7 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_GREATER_THAN_OR_EQUAL: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
                 if (numericTuple == null) { return false; }
 
                 final Boolean isGreaterThan = (numericTuple.second > numericTuple.first);
@@ -164,7 +170,7 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case INTEGER_AND: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
                 if (numericTuple == null) { return false; }
 
                 final Boolean value = ( (numericTuple.second != 0L) && (numericTuple.first != 0L) );
@@ -173,7 +179,7 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case INTEGER_OR: {
-                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack);
+                final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
                 if (numericTuple == null) { return false; }
 
                 final Boolean value = ( (numericTuple.second != 0L) || (numericTuple.first != 0L) );
@@ -188,6 +194,10 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Value valueMin = stack.pop();
                 final Value value = stack.pop();
                 if (stack.didOverflow()) { return false; }
+
+                if (! Operation.validateMinimalEncoding(valueMax, context)) { return false; }
+                if (! Operation.validateMinimalEncoding(valueMin, context)) { return false; }
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
 
                 final Long longMax = valueMax.asLong();
                 final Long longMin = valueMin.asLong();

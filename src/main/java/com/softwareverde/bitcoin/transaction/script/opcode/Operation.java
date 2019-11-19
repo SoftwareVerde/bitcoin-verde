@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
@@ -74,6 +76,13 @@ public abstract class Operation implements Const {
         if (minimallyEncodedByteArray == null) { return false; }
 
         return (byteArray.getByteCount() == minimallyEncodedByteArray.getByteCount());
+    }
+
+    protected static Boolean validateMinimalEncoding(final Value value, final Context context) {
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+        if (! HF20191115.isEnabled(medianBlockTime)) { return true; }
+
+        return Operation.isMinimallyEncoded(value);
     }
 
     protected final byte _opcodeByte;

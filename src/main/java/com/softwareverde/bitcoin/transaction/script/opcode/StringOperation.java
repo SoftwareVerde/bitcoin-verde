@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -74,6 +77,8 @@ public class StringOperation extends SubTypedOperation {
                 // { 0x00, 0x11, 0x22 } 0x03 SPLIT -> { 0x00, 0x11, 0x22 } { }
 
                 final Value beginIndexValue = stack.pop();
+                if (! Operation.validateMinimalEncoding(beginIndexValue, context)) { return false; }
+
                 final Value value = stack.pop();
 
                 final byte[] valueBytes = value.getBytes();
@@ -133,7 +138,10 @@ public class StringOperation extends SubTypedOperation {
                 final Value byteCountValue = stack.pop();
                 final Value value = stack.pop();
 
-                if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
+                final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+                if (HF20191115.isEnabled(medianBlockTime)) {
+                    if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
+                }
 
                 final int byteCount = byteCountValue.asInteger();
 

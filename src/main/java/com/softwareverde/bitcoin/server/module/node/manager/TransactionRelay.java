@@ -33,26 +33,26 @@ public class TransactionRelay {
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final NodeRpcHandler _nodeRpcHandler;
     protected final TransactionWhitelist _transactionWhitelist;
+    protected final Boolean _shouldRelayInvalidSlpTransactions;
 
     public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _bitcoinNodeManager = bitcoinNodeManager;
-        _transactionWhitelist = null;
-        _nodeRpcHandler = null;
+        this(databaseManagerFactory, bitcoinNodeManager, null, null, false);
     }
 
     public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _bitcoinNodeManager = bitcoinNodeManager;
-        _transactionWhitelist = transactionWhitelist;
-        _nodeRpcHandler = null;
+        this(databaseManagerFactory, bitcoinNodeManager, transactionWhitelist, null, false);
     }
 
     public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist, final NodeRpcHandler nodeRpcHandler) {
+        this(databaseManagerFactory, bitcoinNodeManager, transactionWhitelist, nodeRpcHandler, false);
+    }
+
+    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist, final NodeRpcHandler nodeRpcHandler, final Boolean shouldRelayInvalidSlpTransactions) {
         _databaseManagerFactory = databaseManagerFactory;
         _bitcoinNodeManager = bitcoinNodeManager;
         _transactionWhitelist = transactionWhitelist;
         _nodeRpcHandler = nodeRpcHandler;
+        _shouldRelayInvalidSlpTransactions = shouldRelayInvalidSlpTransactions;
     }
 
     public void relayTransactions(final List<Transaction> transactions) {
@@ -87,7 +87,8 @@ public class TransactionRelay {
                     _transactionWhitelist.addTransactionHash(transactionHash);
                 }
 
-                if (Transaction.isSlpTransaction(transaction)) {
+                final Boolean isSlpTransaction = Transaction.isSlpTransaction(transaction);
+                if ( (isSlpTransaction) && (! _shouldRelayInvalidSlpTransactions)) {
                     // NOTE: Parent SlpTransactions may not have been cached within the the SlpTransactionValidator if it is still processing the initial catch-up batch.
                     //  This isn't ideal and may slow down transaction relaying until the SlpTransactionValidator has finished its first run-through...
                     //  TODO: Consider delaying SLP-Relaying by providing a TransactionRelay reference into the SlpTransactionProcessor and invoke ::relaySlpTransactions...

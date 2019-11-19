@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
@@ -478,6 +479,22 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "IS_VALID_SLP_TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json validateTransaction(final Transaction transaction, final Boolean enableSlpValidation) {
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("transactionData", transactionBytes);
+        rpcParametersJson.put("enableSlpValidation", (enableSlpValidation ? 1 : 0));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
         rpcRequestJson.put("query", "IS_VALID_SLP_TRANSACTION");
         rpcRequestJson.put("parameters", rpcParametersJson);
 

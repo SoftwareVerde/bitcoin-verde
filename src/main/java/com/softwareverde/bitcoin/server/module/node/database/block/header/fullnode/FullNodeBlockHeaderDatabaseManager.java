@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -44,10 +45,10 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
 
-        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<BlockHeader>(MedianBlockTime.BLOCK_COUNT);
+        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<BlockHeader>(MedianBlockTimeWithBlocks.BLOCK_COUNT);
 
         Sha256Hash blockHash = headBlockHash;
-        for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
+        for (int i = 0; i < MedianBlockTimeWithBlocks.BLOCK_COUNT; ++i) {
             final BlockId blockId = blockDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { break; }
 

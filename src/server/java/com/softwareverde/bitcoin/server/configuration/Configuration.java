@@ -103,6 +103,7 @@ public class Configuration {
         _bitcoinProperties._blockCacheIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.cacheBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
+        _bitcoinProperties._shouldRelayInvalidSlpTransactions = Util.parseBool(_properties.getProperty("bitcoin.relayInvalidSlpTransactions", "1"));
     }
 
     protected void _loadExplorerProperties() {

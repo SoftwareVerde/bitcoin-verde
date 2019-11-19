@@ -6,14 +6,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -26,32 +24,45 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
+import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidationCache;
+import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
+import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.util.Container;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final NetworkTime _networkTime;
+    protected final MedianBlockTime _medianBlockTime;
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockValidator _blockValidator;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final BlockDownloader _blockDownloader;
     protected final BlockCache _blockCache;
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final BlockCache blockCache) {
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BlockCache blockCache) {
         _databaseManagerFactory = databaseManagerFactory;
 
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
         _blockValidator = blockValidator;
+        _transactionValidatorFactory = transactionValidatorFactory;
+        _networkTime = networkTime;
+        _medianBlockTime = medianBlockTime;
         _blockCache = blockCache;
     }
 
@@ -422,10 +433,6 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public BlockValidationResult validatePrototypeBlock(final Block block) {
         Logger.info("Validating Prototype Block: " + block.getHash());
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
-        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-        final DatabaseManagerCache databaseManagerCache = _databaseManagerFactory.getDatabaseManagerCache();
-
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -435,7 +442,6 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
-                    final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
                     return _blockValidator.validatePrototypeBlock(blockId, block);
                 }
             }
@@ -446,6 +452,52 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         catch (final Exception exception) {
             Logger.warn(exception);
             return BlockValidationResult.invalid("An internal error occurred.");
+        }
+    }
+
+    @Override
+    public ValidationResult validateTransaction(final Transaction transaction, final Boolean enableSlpValidation) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
+
+            final Container<BlockchainSegmentId> blockchainSegmentIdContainer = new Container<BlockchainSegmentId>();
+
+            try {
+                TransactionUtil.startTransaction(databaseConnection);
+                blockchainSegmentIdContainer.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+
+                transactionDatabaseManager.storeTransaction(transaction);
+                final Boolean isValidTransaction =  transactionValidator.validateTransaction(blockchainSegmentIdContainer.value, blockHeight, transaction, true);
+                if (! isValidTransaction) {
+                    return ValidationResult.invalid("Invalid Transaction.");
+                }
+
+                if (enableSlpValidation) {
+                    final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(blockchainSegmentIdContainer, databaseManager, null);
+                    final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(blockchainSegmentIdContainer, databaseManager);
+                    final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
+
+                    final Boolean isValidSlpTransaction = slpTransactionValidator.validateTransaction(transaction);
+                    if (! isValidSlpTransaction) {
+                        return ValidationResult.invalid("Invalid SLP Transaction.");
+                    }
+                }
+
+                return ValidationResult.valid();
+            }
+            finally {
+                TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated transaction...
+            }
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return ValidationResult.invalid("An internal error occurred.");
         }
     }
 

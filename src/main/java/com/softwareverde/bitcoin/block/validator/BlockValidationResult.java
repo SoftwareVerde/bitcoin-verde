@@ -9,7 +9,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 
-public class BlockValidationResult implements Jsonable {
+public class BlockValidationResult extends ValidationResult {
     public static BlockValidationResult valid() {
         return new BlockValidationResult(true, null, null);
     }
@@ -29,19 +29,16 @@ public class BlockValidationResult implements Jsonable {
         return new BlockValidationResult(false, errorMessage, invalidTransactions);
     }
 
-    public final Boolean isValid;
-    public final String errorMessage;
     public final List<Sha256Hash> invalidTransactions;
 
     public BlockValidationResult(final Boolean isValid, final String errorMessage, final List<Sha256Hash> invalidTransactions) {
-        this.isValid = isValid;
-        this.errorMessage = errorMessage;
+        super(isValid, errorMessage);
         this.invalidTransactions = ConstUtil.asConstOrNull(invalidTransactions);
     }
 
     @Override
     public Json toJson() {
-        final Json json = new Json();
+        final Json json = super.toJson();
 
         final Json invalidTransactionsJson;
         if (this.invalidTransactions != null) {
@@ -54,8 +51,6 @@ public class BlockValidationResult implements Jsonable {
             invalidTransactionsJson = null;
         }
 
-        json.put("isValid", this.isValid);
-        json.put("errorMessage", this.errorMessage);
         json.put("invalidTransactions", invalidTransactionsJson);
 
         return json;

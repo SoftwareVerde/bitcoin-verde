@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MutableMedianBlockTime implements MedianBlockTime, MedianBlockTimeWithBlocks {
+public class MutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, MedianBlockTimeWithBlocks {
     protected final Integer _requiredBlockCount;
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
