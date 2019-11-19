@@ -1381,7 +1381,7 @@ public class BitcoinNode extends Node {
 
     protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
         final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+        if (remoteNodeFeatures != null && remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
             final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
             enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
 
