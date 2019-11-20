@@ -778,6 +778,9 @@ public class SpvModule {
 
     public void synchronizeMerkleBlocks() {
         _synchronizeMerkleBlocks();
+    }
+
+    public void synchronizeSlpValidity() {
         try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _synchronizeSlpValidity(databaseManager);
         }
@@ -793,7 +796,7 @@ public class SpvModule {
 
             final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
 
-            if (unknownValidityTransactionHashes.getSize() > 0) {
+            if (unknownValidityTransactionHashes.getCount() > 0) {
                 bitcoinNode.getSlpStatus(unknownValidityTransactionHashes);
             }
         }

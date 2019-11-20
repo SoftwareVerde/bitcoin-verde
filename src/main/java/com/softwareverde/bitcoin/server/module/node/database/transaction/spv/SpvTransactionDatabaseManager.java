@@ -336,6 +336,19 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         }
     }
 
+    public void clearSlpValidity() throws DatabaseException {
+        WRITE_LOCK.lock();
+        try {
+            final Query query = new Query("UPDATE transactions SET slp_validity = ? WHERE slp_validity IS NOT NULL");
+            query.setParameter(SlpValidity.UNKNOWN.toString());
+
+            _databaseManager.getDatabaseConnection().executeSql(query);
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
     public List<Sha256Hash> getSlpTransactionsWithSlpStatus(final SlpValidity slpValidity) throws DatabaseException {
         READ_LOCK.lock();
         try {
