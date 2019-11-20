@@ -418,7 +418,7 @@ public class SpvModule {
                             }
                         }
 
-                        _synchronizeSlpValidity();
+                        _synchronizeSlpValidity(databaseManager);
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
                 }
@@ -778,23 +778,23 @@ public class SpvModule {
 
     public void synchronizeMerkleBlocks() {
         _synchronizeMerkleBlocks();
-        _synchronizeSlpValidity();
+        try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _synchronizeSlpValidity(databaseManager);
+        }
+        catch (final Exception exception) {
+            Logger.error("Problem synchronizing SLP Validity.", exception);
+        }
     }
 
-    private void _synchronizeSlpValidity() {
+    private void _synchronizeSlpValidity(final SpvDatabaseManager spvDatabaseManager) throws DatabaseException {
         final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode((node) -> node.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
         if (bitcoinNode != null) {
-            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final SpvTransactionDatabaseManager transactionDatabaseManager = spvDatabaseManager.getTransactionDatabaseManager();
 
-                final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
+            final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
 
-                if (unknownValidityTransactionHashes.getSize() > 0) {
-                    bitcoinNode.getSlpStatus(unknownValidityTransactionHashes);
-                }
-            }
-            catch (final Exception exception) {
-                Logger.warn("Unable to request SLP validity", exception);
+            if (unknownValidityTransactionHashes.getSize() > 0) {
+                bitcoinNode.getSlpStatus(unknownValidityTransactionHashes);
             }
         }
     }

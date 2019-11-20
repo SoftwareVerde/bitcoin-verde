@@ -266,9 +266,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
-        final boolean slpValidityCheckingIsEnabled = _slpValidityCheckingIsEnabled;
-        if (slpValidityCheckingIsEnabled) {
-            bitcoinNode.enableSlpValidityChecking(slpValidityCheckingIsEnabled);
+        if (_slpValidityCheckingIsEnabled) {
+            bitcoinNode.enableSlpValidityChecking(true);
         }
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {

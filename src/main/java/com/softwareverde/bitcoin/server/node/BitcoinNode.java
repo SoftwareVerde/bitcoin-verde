@@ -1380,8 +1380,17 @@ public class BitcoinNode extends Node {
     }
 
     protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        if (_synchronizeVersionMessage == null) {
+            Logger.warn("Unable to set SLP validity checking for un-handshaked node: " + this.getRemoteNodeIpAddress().toString());
+            return;
+        }
         final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-        if (remoteNodeFeatures != null && remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+        if (remoteNodeFeatures == null) {
+            Logger.warn("Unable to verify SLP index node feature for node: " + this.getRemoteNodeIpAddress().toString());
+            return;
+        }
+        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+            Logger.debug("Enabling SLP Validity checking for node " + this.getRemoteNodeIpAddress());
             final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
             enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
 
