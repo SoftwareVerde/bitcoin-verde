@@ -79,7 +79,7 @@ public class BlockProcessorTests extends IntegrationTest {
             final MasterInflater masterInflater = new CoreInflater();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
 
-            final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
+            final MutableNetworkTime mutableNetworkTime = new MutableNetworkTime();
 
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
@@ -88,7 +88,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
             final BlockProcessor blockProcessor;
             {
-                blockProcessor = new BlockProcessor(databaseManagerFactory, masterDatabaseManagerCache, masterInflater, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
+                blockProcessor = new BlockProcessor(databaseManagerFactory, masterDatabaseManagerCache, masterInflater, transactionValidatorFactory, mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
                 blockProcessor.setMaxThreadCount(2);
                 blockProcessor.setTrustedBlockHeight(0L);
             }
