@@ -5,7 +5,7 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
-public class ParallelledTaskSpawner<T, S> {
+public class ParalleledTaskSpawner<T, S> {
     protected final String _name;
     protected final ThreadPool _threadPool;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -16,7 +16,7 @@ public class ParallelledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final String name, final ThreadPool threadPool, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public ParalleledTaskSpawner(final String name, final ThreadPool threadPool, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _name = name;
         _threadPool = threadPool;
         _databaseManagerFactory = databaseManagerFactory;
@@ -33,6 +33,7 @@ public class ParallelledTaskSpawner<T, S> {
             final int startIndex = i * itemsPerThread;
             final int remainingItems = (totalItemCount - startIndex);
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
+            if (itemCount < 1) { break; }
 
             final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_name, _databaseManagerFactory, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
