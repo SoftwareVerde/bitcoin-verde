@@ -1071,11 +1071,16 @@ public class BitcoinNode extends Node {
     }
 
     protected void _requestSlpStatus(final List<Sha256Hash> transactionHashes) {
-        final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
-        for (final Sha256Hash transactionHash : transactionHashes) {
-            querySlpStatusMessage.addHash(transactionHash);
+        if (! _slpValidityCheckingIsEnabled) {
+            Logger.warn("Attempting to Request SLP Status for " + transactionHashes.getCount() + " transactions when SLP validity checking has not been enabled.");
         }
-        _queueMessage(querySlpStatusMessage);
+        else {
+            final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
+            for (final Sha256Hash transactionHash : transactionHashes) {
+                querySlpStatusMessage.addHash(transactionHash);
+            }
+            _queueMessage(querySlpStatusMessage);
+        }
     }
 
     public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {

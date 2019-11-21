@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SlpValidity;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.slp.SlpUtil;
@@ -1126,6 +1127,8 @@ public class Wallet {
         }
         // cannot be invalid now
         _invalidSlpTransactions.remove(transactionHash);
+
+        Logger.debug(SlpValidity.VALID.toString() + " SLP transaction: " + transactionHash.toString());
     }
 
     public synchronized void markSlpTransactionAsInvalid(final Sha256Hash transactionHash) {
@@ -1133,6 +1136,8 @@ public class Wallet {
         _invalidSlpTransactions.add(transactionHash);
         // cannot be valid now
         _validSlpTransactions.remove(transactionHash);
+
+        Logger.debug(SlpValidity.INVALID.toString() + " SLP transaction: " + transactionHash.toString());
     }
 
     public synchronized void clearSlpValidity() {
