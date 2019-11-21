@@ -1400,6 +1400,8 @@ public class BitcoinNode extends Node {
             enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
 
             _queueMessage(enableSlpTransactionsMessage);
+
+            _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
         }
     }
 
