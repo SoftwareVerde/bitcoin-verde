@@ -82,9 +82,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
         try {
             _recentHashes.markRecent(key);
 
-            if (_cache.containsKey(key)) {
-                return;
-            }
+            final boolean isReplacingExistingItem = _cache.containsKey(key);
 
             if (_itemCount >= _maxItemCount) {
                 final KEY oldestItem = _recentHashes.getOldestItem();
@@ -95,7 +93,9 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
             }
 
             _cache.put(key, value);
-            _itemCount += 1;
+            if (! isReplacingExistingItem) {
+                _itemCount += 1;
+            }
         }
         finally {
             _writeLock.unlock();
