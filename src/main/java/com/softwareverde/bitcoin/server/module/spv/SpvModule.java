@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -797,7 +798,17 @@ public class SpvModule {
             final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
 
             if (unknownValidityTransactionHashes.getCount() > 0) {
-                bitcoinNode.getSlpStatus(unknownValidityTransactionHashes);
+                // request in batches of QuerySlpStatusMessage.MAX_HASH_COUNT
+                int startIndex = 0;
+                while (startIndex < unknownValidityTransactionHashes.getCount()) {
+                    final MutableList<Sha256Hash> batchOfHashes = new MutableList<>();
+                    for (int i=0; (i < QuerySlpStatusMessage.MAX_HASH_COUNT) && ((startIndex + i) < unknownValidityTransactionHashes.getCount()); i++) {
+                        batchOfHashes.add(unknownValidityTransactionHashes.get(startIndex + i));
+                    }
+                    bitcoinNode.getSlpStatus(batchOfHashes);
+
+                    startIndex += batchOfHashes.getCount();
+                }
             }
         }
     }
