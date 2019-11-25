@@ -519,7 +519,10 @@ public class Wallet {
             while (selectedTokenAmount < requiredTokenAmount) {
                 final long missingAmount = (requiredTokenAmount - selectedTokenAmount);
                 final Tuple<TransactionOutputIdentifier, Long> closestAmountTuple = Wallet.removeClosestTupleAmount(availableTokenAmounts, missingAmount);
-                if (closestAmountTuple == null) { return null; } // Insufficient tokens to fulfill payment amount...
+                if (closestAmountTuple == null) {
+                    Logger.info("Insufficient tokens to fulfill payment amount. Required: " + requiredTokenAmount + " Available: " + selectedTokenAmount);
+                    return null;
+                }
 
                 if (closestAmountTuple.second >= (requiredTokenAmount - preselectedTokenAmount)) { // If the next output covers the whole transaction, only use itself and the required outputs...
                     configuration.transactionOutputIdentifiersToSpend.clear();
@@ -755,6 +758,15 @@ public class Wallet {
         return signedTransaction;
     }
 
+    protected Transaction _createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
+        final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend);
+        if (slpTokenTransactionConfiguration == null) { return null; }
+
+        final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
+        final LockingScript slpTokenScript = slpScriptBuilder.createSendScript(slpTokenTransactionConfiguration.slpSendScript);
+        return _createSignedTransaction(slpTokenTransactionConfiguration.mutablePaymentAmounts, changeAddress, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend, slpTokenScript);
+    }
+
     protected MutableBloomFilter _generateBloomFilter() {
         final AddressInflater addressInflater = new AddressInflater();
 
@@ -883,13 +895,12 @@ public class Wallet {
         return _createSignedTransaction(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, opReturnScript);
     }
 
-    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
-        final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend);
-        if (slpTokenTransactionConfiguration == null) { return null; }
+    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress) {
+        return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, new MutableList<TransactionOutputIdentifier>(0));
+    }
 
-        final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
-        final LockingScript slpTokenScript = slpScriptBuilder.createSendScript(slpTokenTransactionConfiguration.slpSendScript);
-        return _createSignedTransaction(slpTokenTransactionConfiguration.mutablePaymentAmounts, changeAddress, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend, slpTokenScript);
+    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
+        return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend);
     }
 
     public synchronized MutableBloomFilter generateBloomFilter() {
