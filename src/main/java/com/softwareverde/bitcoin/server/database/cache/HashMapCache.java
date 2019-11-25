@@ -70,6 +70,9 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
     }
 
     public void invalidateItem(final KEY key) {
+        if (_cache.containsKey(key)) {
+            _itemCount -= 1;
+        }
         _cache.remove(key);
     }
 
