@@ -441,7 +441,7 @@ public class Wallet {
         return transactionOutputsToSpend;
     }
 
-    public synchronized List<TransactionOutputIdentifier> _getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final Long desiredSlpSpendAmount, final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend) {
+    public synchronized List<TransactionOutputIdentifier> _getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final Long desiredSlpSpendAmount, final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend, final boolean shouldIncludeNotYetValidatedTransactions) {
         final List<TransactionOutputIdentifier> mandatoryOutputs = new MutableList<TransactionOutputIdentifier>(0);
         final MutableList<SlpPaymentAmount> slpPaymentAmounts = new MutableList<SlpPaymentAmount>(newTransactionOutputCount);
         { // Create fake SlpPaymentAmounts that sum exactly to the requested amounts, and contain exactly newTransactionOutputCount items...
@@ -456,7 +456,7 @@ public class Wallet {
             }
         }
 
-        final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, slpPaymentAmounts, DUMMY_ADDRESS, requiredTransactionOutputsToSpend);
+        final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, slpPaymentAmounts, DUMMY_ADDRESS, requiredTransactionOutputsToSpend, shouldIncludeNotYetValidatedTransactions);
         if (slpTokenTransactionConfiguration == null) { return null; }
 
         final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
@@ -477,7 +477,7 @@ public class Wallet {
         return transactionOutputs;
     }
 
-    protected SlpTokenTransactionConfiguration _createSlpTokenTransactionConfiguration(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
+    protected SlpTokenTransactionConfiguration _createSlpTokenTransactionConfiguration(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final boolean shouldIncludeNotYetValidatedTransactions) {
         final SlpTokenTransactionConfiguration configuration = new SlpTokenTransactionConfiguration();
 
         final long requiredTokenAmount;
@@ -523,6 +523,9 @@ public class Wallet {
                 if (requiredTransactionOutputIdentifiersToSpend.contains(transactionOutputIdentifier)) { continue; }
 
                 if (! _isSlpTokenOutput(transactionOutputIdentifier)) { continue; }
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                if (! _isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) { continue; }
+
                 final Long tokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
                 if (tokenAmount == null) { continue; }
                 if (tokenAmount < 1L) { continue; }
@@ -872,11 +875,20 @@ public class Wallet {
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final Long desiredSlpSpendAmount) {
         final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
-        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend, true);
+    }
+
+    public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final Long desiredSlpSpendAmount, final boolean shouldIncludeNotYetValidatedTransactions) {
+        final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend, shouldIncludeNotYetValidatedTransactions);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final Long desiredSlpSpendAmount, final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend) {
-        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend, true);
+    }
+
+    public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final Long desiredSlpSpendAmount, final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend, final boolean shouldIncludeNotYetValidatedTransactions) {
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, desiredSlpSpendAmount, requiredTransactionOutputsToSpend, true);
     }
 
     public Long calculateFees(final Integer newOutputCount, final Integer outputsBeingSpentCount) {
@@ -910,7 +922,15 @@ public class Wallet {
     }
 
     public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
-        final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend);
+        return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, true);
+    }
+
+    public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final boolean shouldIncludeNotYetValidatedTransactions) {
+        return _createSlpTokenTransaction(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, shouldIncludeNotYetValidatedTransactions);
+    }
+
+    protected synchronized Transaction _createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final boolean shouldIncludeNotYetValidatedTransactions) {
+        final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, shouldIncludeNotYetValidatedTransactions);
         if (slpTokenTransactionConfiguration == null) { return null; }
 
         final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
@@ -964,12 +984,13 @@ public class Wallet {
         return transactionOutputs.build();
     }
 
-    public synchronized List<SpendableTransactionOutput> getTransactionOutputsAndSpendableTokens(final SlpTokenId tokenId) {
+    public synchronized List<SpendableTransactionOutput> getTransactionOutputsAndSpendableTokens(final SlpTokenId tokenId, final boolean shouldIncludeNotYetValidatedTransactions) {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
         final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
-            if (! _isSlpTokenOutput(transactionOutputIdentifier)) {
+            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            if (! _isSlpTokenOutput(transactionOutputIdentifier) || ! _isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) {
                 transactionOutputs.add(spendableTransactionOutput);
             }
             else if (_outputContainsSpendableSlpTokens(transactionOutputIdentifier)) {
@@ -1025,6 +1046,14 @@ public class Wallet {
     }
 
     public synchronized Long getBalance(final PublicKey publicKey, final SlpTokenId slpTokenId) {
+        return _getBalance(publicKey, slpTokenId, true);
+    }
+
+    public synchronized Long getBalance(final PublicKey publicKey, final SlpTokenId slpTokenId, final boolean shouldIncludeNotYetValidatedTransactions) {
+        return _getBalance(publicKey, slpTokenId, shouldIncludeNotYetValidatedTransactions);
+    }
+
+    protected synchronized Long _getBalance(final PublicKey publicKey, final SlpTokenId slpTokenId, final boolean shouldIncludeNotYetValidatedTransactions) {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final AddressInflater addressInflater = new AddressInflater();
@@ -1053,6 +1082,8 @@ public class Wallet {
 
                     final SlpTokenId transactionTokenId = _getSlpTokenId(transactionOutputIdentifier);
                     if (! Util.areEqual(slpTokenId, transactionTokenId)) { continue; }
+                    final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                    if (! _isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) { continue; }
 
                     final Long slpTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
                     amount += slpTokenAmount;
@@ -1062,7 +1093,15 @@ public class Wallet {
         return amount;
     }
 
+    public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId) {
+        return _getSlpTokenBalance(tokenId, true);
+    }
+
     public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId, boolean shouldIncludeNotYetValidatedTransactions) {
+        return _getSlpTokenBalance(tokenId, shouldIncludeNotYetValidatedTransactions);
+    }
+
+    protected synchronized Long _getSlpTokenBalance(final SlpTokenId tokenId, boolean shouldIncludeNotYetValidatedTransactions) {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
@@ -1070,21 +1109,17 @@ public class Wallet {
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
 
-                // skip invalid SLP transactions
-                if (! _invalidSlpTransactions.contains(transactionHash)) {
-                    // also skip not yet validated transactions if not including them
-                    if (! _notYetValidatedSlpTransactions.contains(transactionHash) || shouldIncludeNotYetValidatedTransactions) {
-                        final Transaction transaction = _transactions.get(transactionHash);
-                        if (transaction == null) { return null; }
+                if (_isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) {
+                    final Transaction transaction = _transactions.get(transactionHash);
+                    if (transaction == null) { return null; }
 
-                        final boolean outputContainsTokens = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
-                        if (! outputContainsTokens) { continue; }
+                    final boolean outputContainsTokens = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
+                    if (! outputContainsTokens) { continue; }
 
-                        final SlpTokenId transactionTokenId = SlpUtil.getTokenId(transaction);
-                        if (! Util.areEqual(tokenId, transactionTokenId)) { continue; }
+                    final SlpTokenId transactionTokenId = SlpUtil.getTokenId(transaction);
+                    if (! Util.areEqual(tokenId, transactionTokenId)) { continue; }
 
-                        amount += SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
-                    }
+                    amount += SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
                 }
             }
         }
@@ -1138,6 +1173,45 @@ public class Wallet {
         _validSlpTransactions.remove(transactionHash);
 
         Logger.debug(SlpValidity.INVALID.toString() + " SLP transaction: " + transactionHash.toString());
+    }
+
+    /**
+     * Return true if the transaction with the provided hash is known to be a valid SLP transaction or if <code>shouldTreatUnknownTransactionsAsValid</code>
+     * is true and the transaction is known to be an SLP transaction but is not known to be valid or not.
+     *
+     * If the transaction is completely unknown, returns null.
+     *
+     * Otherwise, returns false.
+     * @param transactionHash
+     * @param shouldTreatUnknownTransactionsAsValid
+     * @return
+     */
+    protected synchronized Boolean _isSlpTransactionAndIsValid(final Sha256Hash transactionHash, final boolean shouldTreatUnknownTransactionsAsValid) {
+        // if we know a transaction is valid, return true whether we have it or not
+        if (_validSlpTransactions.contains(transactionHash)) {
+            return true;
+        }
+
+        // if the transaction is not known, we cannot make a decision
+        if (! _transactions.containsKey(transactionHash)) {
+            return null;
+        }
+
+        final Transaction transaction = _transactions.get(transactionHash);
+        if (! Transaction.isSlpTransaction(transaction)) {
+            return false;
+        }
+
+        if (_invalidSlpTransactions.contains(transactionHash)) {
+            return false;
+        }
+
+        if (_notYetValidatedSlpTransactions.contains(transactionHash)) {
+            return shouldTreatUnknownTransactionsAsValid;
+        }
+
+        // is an SLP transaction and is not invalid or unknown so it must be valid
+        return true;
     }
 
     public synchronized void clearSlpValidity() {
