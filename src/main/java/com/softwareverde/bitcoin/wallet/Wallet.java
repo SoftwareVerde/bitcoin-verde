@@ -306,7 +306,7 @@ public class Wallet {
             if (! _validSlpTransactions.remove(transactionHash)) {
                 // not known to be valid
                 if (! _invalidSlpTransactions.contains(transactionHash)) {
-                    // not known to be invalid either
+                    // not known to be invalid either, add as not yet validated
                     _notYetValidatedSlpTransactions.add(transactionHash);
                 }
             }

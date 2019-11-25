@@ -19,7 +19,6 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -35,6 +34,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.SpvSlpTransactionValidator;
 import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
 import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
@@ -97,6 +97,7 @@ public class SpvModule {
     protected final SpvRequestDataHandler _spvRequestDataHandler = new SpvRequestDataHandler();
     protected BitcoinNodeManager _bitcoinNodeManager;
     protected BlockHeaderDownloader _blockHeaderDownloader;
+    protected SpvSlpTransactionValidator _spvSlpTransactionValidator;
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
 
     protected final SystemTime _systemTime = new SystemTime();
@@ -212,6 +213,9 @@ public class SpvModule {
 
         Logger.info("[Stopping Header Downloader]");
         _blockHeaderDownloader.stop();
+
+        Logger.info("[Stopping SPV SLP Validator]");
+        _spvSlpTransactionValidator.stop();
 
         Logger.info("[Stopping Node Manager]");
         _bitcoinNodeManager.shutdown();
@@ -419,7 +423,7 @@ public class SpvModule {
                             }
                         }
 
-                        _synchronizeSlpValidity(databaseManager);
+                        _synchronizeSlpValidity();
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
                 }
@@ -474,6 +478,8 @@ public class SpvModule {
                             return;
                         }
 
+                        boolean slpTransactionsFound = false;
+
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                             final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
@@ -481,6 +487,7 @@ public class SpvModule {
                             TransactionUtil.startTransaction(databaseConnection);
                             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
                             if (Transaction.isSlpTransaction(transaction)) {
+                                slpTransactionsFound = true;
                                 transactionDatabaseManager.setSlpValidity(transactionId, SlpValidity.UNKNOWN);
                             }
                             TransactionUtil.commitTransaction(databaseConnection);
@@ -499,6 +506,10 @@ public class SpvModule {
                                     newTransactionCallback.onNewTransactionReceived(transaction);
                                 }
                             });
+                        }
+
+                        if (slpTransactionsFound) {
+                            _synchronizeSlpValidity();
                         }
                     }
                 };
@@ -654,6 +665,10 @@ public class SpvModule {
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
 
+        { // Initialize SpvSlpValidator
+            _spvSlpTransactionValidator = new SpvSlpTransactionValidator(databaseManagerFactory, _bitcoinNodeManager);
+        }
+
         final LocalDatabaseManagerCache localDatabaseCache = (_masterDatabaseManagerCache != null ? new LocalDatabaseManagerCache(_masterDatabaseManagerCache) : null);
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -722,6 +737,9 @@ public class SpvModule {
 
         _connectToSeedNodes();
 
+        Logger.info("[Starting SPV SLP Validator]");
+        _spvSlpTransactionValidator.start();
+
         Logger.info("[Starting Header Downloader]");
         _blockHeaderDownloader.start();
 
@@ -783,36 +801,11 @@ public class SpvModule {
     }
 
     public void synchronizeSlpValidity() {
-        try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            _synchronizeSlpValidity(databaseManager);
-        }
-        catch (final Exception exception) {
-            Logger.error("Problem synchronizing SLP Validity.", exception);
-        }
+        _synchronizeSlpValidity();
     }
 
-    private void _synchronizeSlpValidity(final SpvDatabaseManager spvDatabaseManager) throws DatabaseException {
-        final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode((node) -> node.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
-        if (bitcoinNode != null) {
-            final SpvTransactionDatabaseManager transactionDatabaseManager = spvDatabaseManager.getTransactionDatabaseManager();
-
-            final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
-
-            if (unknownValidityTransactionHashes.getCount() > 0) {
-                // request in batches of QuerySlpStatusMessage.MAX_HASH_COUNT
-                Logger.info("Requesting SLP status of " + unknownValidityTransactionHashes.getCount() + " transactions from: " + bitcoinNode.getConnectionString());
-                int startIndex = 0;
-                while (startIndex < unknownValidityTransactionHashes.getCount()) {
-                    final MutableList<Sha256Hash> batchOfHashes = new MutableList<>();
-                    for (int i=0; (i < QuerySlpStatusMessage.MAX_HASH_COUNT) && ((startIndex + i) < unknownValidityTransactionHashes.getCount()); i++) {
-                        batchOfHashes.add(unknownValidityTransactionHashes.get(startIndex + i));
-                    }
-                    bitcoinNode.getSlpStatus(batchOfHashes);
-
-                    startIndex += batchOfHashes.getCount();
-                }
-            }
-        }
+    private void _synchronizeSlpValidity() {
+        _spvSlpTransactionValidator.wakeUp();
     }
 
     /**
