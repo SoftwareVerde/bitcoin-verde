@@ -147,7 +147,8 @@ public class Wallet {
             throw new RuntimeException("Unable to find TransactionOutput: " + transactionOutputIdentifier);
         }
 
-        return SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
+        final boolean isPartOfValidSlpTransaction = _isSlpTransactionAndIsValid(transactionHash, true);
+        return isPartOfValidSlpTransaction && SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
     }
 
     protected Boolean _outputContainsSpendableSlpTokens(final TransactionOutputIdentifier transactionOutputIdentifier) {
@@ -159,10 +160,11 @@ public class Wallet {
             throw new RuntimeException("Unable to find TransactionOutput: " + transactionOutputIdentifier);
         }
 
-        return SlpUtil.outputContainsSpendableSlpTokens(transaction, transactionOutputIndex);
+        final boolean isPartOfValidSlpTransaction = _isSlpTransactionAndIsValid(transactionHash, true);
+        return isPartOfValidSlpTransaction && SlpUtil.outputContainsSpendableSlpTokens(transaction, transactionOutputIndex);
     }
 
-    public synchronized List<SlpToken> _getSlpTokens(final SlpTokenId matchingSlpTokenId) {
+    public synchronized List<SlpToken> _getSlpTokens(final SlpTokenId matchingSlpTokenId, final boolean shouldIncludeNotYetValidatedTransactions) {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
         final ImmutableListBuilder<SlpToken> slpTokens = new ImmutableListBuilder<SlpToken>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
@@ -182,6 +184,8 @@ public class Wallet {
                     continue;
                 }
             }
+
+            if (! _isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) { continue; }
 
             final Long tokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
             final Boolean isBatonHolder = SlpUtil.isSlpTokenBatonHolder(transaction, transactionOutputIndex);
@@ -1003,11 +1007,19 @@ public class Wallet {
     }
 
     public synchronized List<SlpToken> getSlpTokens() {
-        return _getSlpTokens(null);
+        return _getSlpTokens(null, true);
+    }
+
+    public synchronized List<SlpToken> getSlpTokens(final boolean shouldIncludeNotYetValidatedTransactions) {
+        return _getSlpTokens(null, shouldIncludeNotYetValidatedTransactions);
     }
 
     public synchronized List<SlpToken> getSlpTokens(final SlpTokenId slpTokenId) {
-        return _getSlpTokens(slpTokenId);
+        return _getSlpTokens(slpTokenId, true);
+    }
+
+    public synchronized List<SlpToken> getSlpTokens(final SlpTokenId slpTokenId, final boolean shouldIncludeNotYetValidatedTransactions) {
+        return _getSlpTokens(slpTokenId, shouldIncludeNotYetValidatedTransactions);
     }
 
     public synchronized Long getBalance() {
