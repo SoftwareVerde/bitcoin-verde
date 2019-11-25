@@ -538,6 +538,7 @@ public class SpvModule {
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
+                                Logger.info("Marking " + hashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
                                 for (final Sha256Hash hash : hashes) {
                                     if (isValid) {
                                         _wallet.markSlpTransactionAsValid(hash);
@@ -799,6 +800,7 @@ public class SpvModule {
 
             if (unknownValidityTransactionHashes.getCount() > 0) {
                 // request in batches of QuerySlpStatusMessage.MAX_HASH_COUNT
+                Logger.info("Requesting SLP status of " + unknownValidityTransactionHashes.getCount() + " transactions from: " + bitcoinNode.getConnectionString());
                 int startIndex = 0;
                 while (startIndex < unknownValidityTransactionHashes.getCount()) {
                     final MutableList<Sha256Hash> batchOfHashes = new MutableList<>();
