@@ -73,6 +73,10 @@ public class SpvModule {
         void onNewTransactionReceived(Transaction transaction);
     }
 
+    public interface TransactionValidityChangedCallback {
+        void onTransactionValidityChanged(Sha256Hash transactionHash, SlpValidity slpValidity);
+    }
+
     public enum Status {
         INITIALIZING        ("Initializing"),
         LOADING             ("Loading"),
@@ -118,6 +122,7 @@ public class SpvModule {
     protected volatile Status _status = Status.OFFLINE;
     protected Runnable _onStatusUpdatedCallback = null;
     protected NewTransactionCallback _newTransactionCallback = null;
+    protected TransactionValidityChangedCallback _transactionValidityChangedCallback = null;
 
     protected Runnable _newBlockHeaderAvailableCallback = null;
 
@@ -549,13 +554,17 @@ public class SpvModule {
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
+                                final TransactionValidityChangedCallback transactionValidityChangedCallback = _transactionValidityChangedCallback != null ? _transactionValidityChangedCallback : (h, v) -> {};
+
                                 Logger.info("Marking " + hashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
                                 for (final Sha256Hash hash : hashes) {
                                     if (isValid) {
                                         _wallet.markSlpTransactionAsValid(hash);
+                                        transactionValidityChangedCallback.onTransactionValidityChanged(hash, SlpValidity.VALID);
                                     }
                                     else {
                                         _wallet.markSlpTransactionAsInvalid(hash);
+                                        transactionValidityChangedCallback.onTransactionValidityChanged(hash, SlpValidity.INVALID);
                                     }
 
                                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
@@ -759,6 +768,10 @@ public class SpvModule {
         _newTransactionCallback = newTransactionCallback;
     }
 
+    public void setTransactionValidityChangedCallback(final TransactionValidityChangedCallback transactionValidityChangedCallback) {
+        _transactionValidityChangedCallback = transactionValidityChangedCallback;
+    }
+
     public Status getStatus() {
         return _status;
     }
@@ -776,6 +789,8 @@ public class SpvModule {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             transactionDatabaseManager.storeTransaction(transaction);
         }
+
+        _wallet.addTransaction(transaction);
     }
 
     public void broadcastTransaction(final Transaction transaction) {

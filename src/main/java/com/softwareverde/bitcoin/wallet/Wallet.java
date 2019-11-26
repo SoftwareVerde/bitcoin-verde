@@ -1227,10 +1227,19 @@ public class Wallet {
     }
 
     public synchronized void clearSlpValidity() {
+        // mark explicitly tracked validity as unknown
         _notYetValidatedSlpTransactions.addAll(_validSlpTransactions);
         _notYetValidatedSlpTransactions.addAll(_invalidSlpTransactions);
         _validSlpTransactions.clear();
         _invalidSlpTransactions.clear();
+
+        // mark implicitly tracked validity as unknown
+        for (final Sha256Hash transactionHash : _transactions.keySet()) {
+            final Transaction transaction = _transactions.get(transactionHash);
+            if (Transaction.isSlpTransaction(transaction)) {
+                _notYetValidatedSlpTransactions.add(transactionHash);
+            }
+        }
     }
 
     public synchronized Long getSlpTokenAmount(final SlpTokenId slpTokenId, final TransactionOutputIdentifier transactionOutputIdentifier) {
