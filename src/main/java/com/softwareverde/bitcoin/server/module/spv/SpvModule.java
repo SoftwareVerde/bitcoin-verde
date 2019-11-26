@@ -493,7 +493,10 @@ public class SpvModule {
                             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
                             if (Transaction.isSlpTransaction(transaction)) {
                                 slpTransactionsFound = true;
-                                transactionDatabaseManager.setSlpValidity(transactionId, SlpValidity.UNKNOWN);
+                                final SlpValidity slpValidity = transactionDatabaseManager.getSlpValidity(transactionId);
+                                if (slpValidity == null) {
+                                    transactionDatabaseManager.setSlpValidity(transactionId, SlpValidity.UNKNOWN);
+                                }
                             }
                             TransactionUtil.commitTransaction(databaseConnection);
                         }
@@ -560,16 +563,16 @@ public class SpvModule {
                                 for (final Sha256Hash hash : hashes) {
                                     if (isValid) {
                                         _wallet.markSlpTransactionAsValid(hash);
-                                        transactionValidityChangedCallback.onTransactionValidityChanged(hash, SlpValidity.VALID);
                                     }
                                     else {
                                         _wallet.markSlpTransactionAsInvalid(hash);
-                                        transactionValidityChangedCallback.onTransactionValidityChanged(hash, SlpValidity.INVALID);
                                     }
 
-                                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
                                     final SlpValidity slpValidity = isValid ? SlpValidity.VALID : SlpValidity.INVALID;
+
+                                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
                                     transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
+                                    transactionValidityChangedCallback.onTransactionValidityChanged(hash, slpValidity);
                                 }
                             }
                             catch (final DatabaseException exception) {

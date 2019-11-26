@@ -315,6 +315,9 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
             }
 
             final String slpValidity = rows.get(0).getString("slp_validity");
+            if (slpValidity == null) {
+                return null;
+            }
             return SlpValidity.valueOf(slpValidity);
         }
         finally {
