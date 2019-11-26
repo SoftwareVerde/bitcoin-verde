@@ -483,21 +483,12 @@ public class SpvModule {
                             return;
                         }
 
-                        boolean slpTransactionsFound = false;
-
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                             final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                             TransactionUtil.startTransaction(databaseConnection);
-                            final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
-                            if (Transaction.isSlpTransaction(transaction)) {
-                                slpTransactionsFound = true;
-                                final SlpValidity slpValidity = transactionDatabaseManager.getSlpValidity(transactionId);
-                                if (slpValidity == null) {
-                                    transactionDatabaseManager.setSlpValidity(transactionId, SlpValidity.UNKNOWN);
-                                }
-                            }
+                            transactionDatabaseManager.storeTransaction(transaction);
                             TransactionUtil.commitTransaction(databaseConnection);
                         }
                         catch (final DatabaseException exception) {
@@ -516,7 +507,7 @@ public class SpvModule {
                             });
                         }
 
-                        if (slpTransactionsFound) {
+                        if (Transaction.isSlpTransaction(transaction)) {
                             _synchronizeSlpValidity();
                         }
                     }
@@ -571,8 +562,10 @@ public class SpvModule {
                                     final SlpValidity slpValidity = isValid ? SlpValidity.VALID : SlpValidity.INVALID;
 
                                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
-                                    transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
-                                    transactionValidityChangedCallback.onTransactionValidityChanged(hash, slpValidity);
+                                    if (transactionId != null) {
+                                        transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
+                                        transactionValidityChangedCallback.onTransactionValidityChanged(hash, slpValidity);
+                                    }
                                 }
                             }
                             catch (final DatabaseException exception) {
@@ -788,8 +781,8 @@ public class SpvModule {
     }
 
     public void storeTransaction(final Transaction transaction) throws DatabaseException {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             transactionDatabaseManager.storeTransaction(transaction);
         }
 
