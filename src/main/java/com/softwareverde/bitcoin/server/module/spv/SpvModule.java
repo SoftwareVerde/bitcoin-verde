@@ -808,6 +808,8 @@ public class SpvModule {
             Logger.info("Sending Tx Hash " + transaction.getHash() + " to " + bitcoinNode.getConnectionString());
             bitcoinNode.transmitTransactionHashes(transactionHashes);
         }
+
+        _synchronizeSlpValidity();
     }
 
     public void setMerkleBlockSyncUpdateCallback(final MerkleBlockSyncUpdateCallback merkleBlockSyncUpdateCallback) {
