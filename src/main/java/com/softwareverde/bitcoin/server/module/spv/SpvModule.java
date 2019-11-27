@@ -562,9 +562,14 @@ public class SpvModule {
                                     final SlpValidity slpValidity = isValid ? SlpValidity.VALID : SlpValidity.INVALID;
 
                                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
+                                    Logger.debug("Transaction ID for " + hash.toString() + ": " + transactionId);
                                     if (transactionId != null) {
-                                        transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
-                                        transactionValidityChangedCallback.onTransactionValidityChanged(hash, slpValidity);
+                                        final SlpValidity currentSlpValidity = transactionDatabaseManager.getSlpValidity(transactionId);
+                                        Logger.debug("Existing SLP validity for " + hash.toString() + ": " + currentSlpValidity);
+                                        if (currentSlpValidity != slpValidity) {
+                                            transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
+                                            transactionValidityChangedCallback.onTransactionValidityChanged(hash, slpValidity);
+                                        }
                                     }
                                 }
                             }
