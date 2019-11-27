@@ -20,7 +20,6 @@ public class DisabledMasterDatabaseManagerCache implements MasterDatabaseManager
     protected final Cache<BlockId, Long> _blockHeightCache = new DisabledCache<>();
     protected final UnspentTransactionOutputCache _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache();
 
-
     @Override
     public Cache<TransactionId, ConstTransaction> getTransactionCache() {
         return _transactionCache;

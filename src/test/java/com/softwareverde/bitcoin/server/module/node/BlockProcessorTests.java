@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.cache.*;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
@@ -22,7 +23,9 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
@@ -33,6 +36,12 @@ public class BlockProcessorTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
+    }
+
+    protected static void assertBlockchainSegment(final Sha256Hash blockHash, final BlockchainSegmentId blockchainSegmentId, final BlockHeaderDatabaseManager blockHeaderDatabaseManager) throws DatabaseException {
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        final BlockchainSegmentId actualBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+        Assert.assertEquals(blockchainSegmentId, actualBlockchainSegmentId);
     }
 
     @Test
@@ -57,7 +66,19 @@ public class BlockProcessorTests extends IntegrationTest {
             Where the insert-order is genesis -> block01 -> block02 -> invalidBlock01Prime -> block03
          */
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        // TODO: ReadonlyDatabaseCaches are a problem--writes do not currently invalidate the parent, which may create an invalid state.
+        // TODO: Writing to caches needs to be done after a query so that exceptions encountered during query execution prevent caching.
+
+        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
+        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+        final DatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+        // final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
+
+        final DatabaseConnectionPool databaseConnectionPool = _database.getDatabaseConnectionPool();
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, localDatabaseManagerCache);
+
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             // Setup
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
@@ -66,15 +87,6 @@ public class BlockProcessorTests extends IntegrationTest {
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockDatabaseManager.insertBlock(genesisBlock);
             }
-
-            final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
-            final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
-
-            final DatabaseConnectionPool databaseConnectionPool = _database.getDatabaseConnectionPool();
-            final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-            final DatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-            final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, readOnlyDatabaseManagerCache);
 
             final MasterInflater masterInflater = new CoreInflater();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
@@ -98,36 +110,66 @@ public class BlockProcessorTests extends IntegrationTest {
             final Block block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_3));
             final Block invalidBlock01Prime = blockInflater.fromBytes(ByteArray.fromHexString("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D619000000000073387C6C752B492D7D6DA0CA48715EE10394683D4421B602E80B754657B2E0A79130D05DFFFF001DE339AB7E0201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0104FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC0000000002000000013BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A0000000000FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC00000000"));
 
+            final Runnable blockchainSegmentChecker = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash());
+                        final BlockId block01BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block01.getHash());
+                        final BlockId block02BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block02.getHash());
+                        final BlockId invalidBlock01PrimeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(invalidBlock01Prime.getHash());
+                        final BlockId block03BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block03.getHash());
+
+                        final BlockchainSegmentId genesisBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId);
+                        final BlockchainSegmentId block01BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block01BlockId);
+                        final BlockchainSegmentId block02BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block02BlockId);
+                        final BlockchainSegmentId block03BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block03BlockId);
+                        final BlockchainSegmentId invalidBlock01PrimeBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(invalidBlock01PrimeBlockId);
+
+                        final boolean invalidBlockHasBeenStored = (invalidBlock01PrimeBlockId != null);
+
+                        if (genesisBlockchainSegmentId == null) { return; }
+                        if (block01BlockchainSegmentId == null) { return; }
+
+                        // The genesis block, the first block of the valid chain, and the invalid block should all be on different blockchain segments.
+                        if (invalidBlockHasBeenStored) {
+                            Assert.assertNotEquals(genesisBlockchainSegmentId, block01BlockchainSegmentId);
+                        }
+                        else {
+                            Assert.assertEquals(genesisBlockchainSegmentId, block01BlockchainSegmentId);
+                        }
+
+                        if (invalidBlock01PrimeBlockchainSegmentId == null) { return; }
+                        Assert.assertNotEquals(genesisBlockchainSegmentId, invalidBlock01PrimeBlockchainSegmentId);
+                        Assert.assertNotEquals(block01BlockchainSegmentId, invalidBlock01PrimeBlockchainSegmentId);
+
+                        if (block02BlockchainSegmentId == null) { return; }
+                        // The valid chain should all be on the same blockchain segment.
+                        Assert.assertEquals(block01BlockchainSegmentId, block02BlockchainSegmentId);
+
+                        if (block03BlockchainSegmentId == null) { return; }
+                        Assert.assertEquals(block01BlockchainSegmentId, block03BlockchainSegmentId);
+                    }
+                    catch (final DatabaseException exception) {
+                        throw new RuntimeException(exception);
+                    }
+                }
+            };
+
+            blockchainSegmentChecker.run();
+
             // Action
             blockProcessor.processBlock(block01);
+            blockchainSegmentChecker.run(); // Assert
+
             blockProcessor.processBlock(block02);
-            blockProcessor.processBlock(invalidBlock01Prime); // Causes a reorg at blockHeight=1
+            blockchainSegmentChecker.run(); // Assert
+
+            blockProcessor.processBlock(invalidBlock01Prime); // Causes a fork at blockHeight=1
+            blockchainSegmentChecker.run(); // Assert
+
             blockProcessor.processBlock(block03);
-
-            // Assert
-            final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash());
-            final BlockchainSegmentId genesisBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId);
-
-            final BlockId block01BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block01.getHash());
-            final BlockchainSegmentId block01BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block01BlockId);
-
-            final BlockId block02BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block02.getHash());
-            final BlockchainSegmentId block02BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block02BlockId);
-
-            final BlockId block03BlockId = blockHeaderDatabaseManager.getBlockHeaderId(block03.getHash());
-            final BlockchainSegmentId block03BlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block03BlockId);
-
-            final BlockId invalidBlock01PrimeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(invalidBlock01Prime.getHash());
-            final BlockchainSegmentId invalidBlock01PrimeBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(invalidBlock01PrimeBlockId);
-
-            // The genesis block, the first block of the valid chain, and the invalid block should all be on different blockchain segments.
-            Assert.assertNotEquals(genesisBlockchainSegmentId, block01BlockchainSegmentId);
-            Assert.assertNotEquals(genesisBlockchainSegmentId, invalidBlock01PrimeBlockchainSegmentId);
-            Assert.assertNotEquals(block01BlockchainSegmentId, invalidBlock01PrimeBlockchainSegmentId);
-
-            // The valid chain should all be on the same blockchain segment.
-            Assert.assertEquals(block01BlockchainSegmentId, block02BlockchainSegmentId);
-            Assert.assertEquals(block01BlockchainSegmentId, block03BlockchainSegmentId);
+            blockchainSegmentChecker.run(); // Assert
         }
     }
 
