@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.conscientious.MemoryConscientiousCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
@@ -11,29 +11,26 @@ import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOu
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
-import com.softwareverde.bitcoin.transaction.ConstTransaction;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.util.Util;
 
 public class MasterDatabaseManagerCacheCore implements MasterDatabaseManagerCache {
-    protected static <T, S> void _commitToCache(final MutableCache<T, S> cache, final MutableCache<T, S> destination) {
-        if (cache.masterCacheWasInvalidated()) {
-            destination.invalidate();
-        }
+    protected static <T, S> void _commitToCache(final Cache<T, S> cache, final Cache<T, S> destination) {
         for (final T key : cache.getKeys()) {
-            final S value = cache.removeItem(key);
-            destination.cacheItem(key, value);
+            final S value = cache.remove(key);
+            destination.set(key, value);
         }
     }
 
     protected final UnspentTransactionOutputCacheFactory _unspentTransactionOutputCacheFactory;
-    protected final MutableCache<ImmutableSha256Hash, TransactionId> _transactionIdCache;
-    protected final MutableCache<TransactionId, ConstTransaction> _transactionCache;
-    protected final MutableCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache;
-    protected final MutableCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache;
-    protected final MutableCache<String, AddressId> _addressIdCache;
-    protected final MutableCache<BlockId, Long> _blockHeightCache;
+    protected final Cache<Sha256Hash, TransactionId> _transactionIdCache;
+    protected final Cache<TransactionId, Transaction> _transactionCache;
+    protected final Cache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache;
+    protected final Cache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache;
+    protected final Cache<String, AddressId> _addressIdCache;
+    protected final Cache<BlockId, Long> _blockHeightCache;
     protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
 
     protected final UtxoCount _maxCachedUtxoCount;
@@ -45,8 +42,8 @@ public class MasterDatabaseManagerCacheCore implements MasterDatabaseManagerCach
     public MasterDatabaseManagerCacheCore(final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory) {
         final MemoryStatus memoryStatus = new JvmMemoryStatus();
 
-        _transactionIdCache                 = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<ImmutableSha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
-        _transactionCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, ConstTransaction>(                   "TransactionCache",             128000), memoryStatus);
+        _transactionIdCache                 = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<Sha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
+        _transactionCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, Transaction>(                   "TransactionCache",             128000), memoryStatus);
         _transactionOutputIdCache           = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId",          128000), memoryStatus);
         _blockIdBlockchainSegmentIdCache    = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, BlockchainSegmentId>(                          "BlockId-BlockchainSegmentId",  2048), memoryStatus);
         _blockHeightCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, Long>(                                         "BlockHeightCache",             2048), memoryStatus);
@@ -58,9 +55,9 @@ public class MasterDatabaseManagerCacheCore implements MasterDatabaseManagerCach
     }
 
     @Override
-    public Cache<TransactionId, ConstTransaction> getTransactionCache() { return _transactionCache; }
+    public Cache<TransactionId, Transaction> getTransactionCache() { return _transactionCache; }
     @Override
-    public Cache<ImmutableSha256Hash, TransactionId> getTransactionIdCache() { return _transactionIdCache; }
+    public Cache<Sha256Hash, TransactionId> getTransactionIdCache() { return _transactionIdCache; }
     @Override
     public Cache<CachedTransactionOutputIdentifier, TransactionOutputId> getTransactionOutputIdCache() { return _transactionOutputIdCache; }
     @Override

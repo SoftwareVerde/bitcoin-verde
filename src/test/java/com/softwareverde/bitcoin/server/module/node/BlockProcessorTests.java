@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.cache.*;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
@@ -25,7 +24,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
@@ -38,14 +36,7 @@ public class BlockProcessorTests extends IntegrationTest {
         _resetDatabase();
     }
 
-    protected static void assertBlockchainSegment(final Sha256Hash blockHash, final BlockchainSegmentId blockchainSegmentId, final BlockHeaderDatabaseManager blockHeaderDatabaseManager) throws DatabaseException {
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        final BlockchainSegmentId actualBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-        Assert.assertEquals(blockchainSegmentId, actualBlockchainSegmentId);
-    }
-
-    @Test
-    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block() throws Exception {
+    protected static void _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(final DatabaseManagerCache databaseManagerCache, final MasterDatabaseManagerCache masterDatabaseManagerCache) throws Exception {
         /*
             This test emulates a found error in production on 2019-11-15 shortly after the hard fork.  While the HF did not cause the bug, it did cause
             the bug to manifest when a 10+ old block was mined that was invalid with the new HF rules.
@@ -69,14 +60,8 @@ public class BlockProcessorTests extends IntegrationTest {
         // TODO: ReadonlyDatabaseCaches are a problem--writes do not currently invalidate the parent, which may create an invalid state.
         // TODO: Writing to caches needs to be done after a query so that exceptions encountered during query execution prevent caching.
 
-        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
-        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-        final DatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-        // final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
-
         final DatabaseConnectionPool databaseConnectionPool = _database.getDatabaseConnectionPool();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, localDatabaseManagerCache);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, databaseManagerCache);
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             // Setup
@@ -96,7 +81,7 @@ public class BlockProcessorTests extends IntegrationTest {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
 
-            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(localDatabaseManagerCache);
+            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseManagerCache);
 
             final BlockProcessor blockProcessor;
             {
@@ -173,4 +158,33 @@ public class BlockProcessorTests extends IntegrationTest {
         }
     }
 
+    @Test
+    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_NO_CACHE() throws Exception {
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new DisabledMasterDatabaseManagerCache();
+        final DatabaseManagerCache localDatabaseManagerCache = new DisabledDatabaseManagerCache();
+
+        _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(localDatabaseManagerCache, masterDatabaseManagerCache);
+    }
+
+    @Test
+    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_READONLY_CACHE() throws Exception {
+        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
+        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
+
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+        final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
+
+        _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(databaseManagerCache, masterDatabaseManagerCache);
+    }
+
+    @Test
+    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_CACHE() throws Exception {
+        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
+        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
+
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+        final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+
+        _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(databaseManagerCache, masterDatabaseManagerCache);
+    }
 }

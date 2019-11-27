@@ -8,13 +8,14 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
-public class ImmutableTransaction implements ConstTransaction {
+public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableSha256Hash _hash;
     protected final Long _version;
     protected final List<ImmutableTransactionInput> _transactionInputs;

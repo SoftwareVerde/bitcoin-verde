@@ -19,7 +19,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
-public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
+public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
     Long VERSION = BitcoinConstants.getTransactionVersion();
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
@@ -93,5 +93,5 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     CoinbaseTransaction asCoinbase();
 
     @Override
-    ConstTransaction asConst();
+    ImmutableTransaction asConst();
 }
