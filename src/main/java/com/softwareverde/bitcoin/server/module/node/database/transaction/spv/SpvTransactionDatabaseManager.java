@@ -21,6 +21,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -348,8 +349,12 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     }
 
     protected void _setSlpValidity(final TransactionId transactionId, final SlpValidity validity) throws DatabaseException {
+        final String validityString = validity.toString();
+
+        Logger.debug("Setting validity of transaction " + transactionId + " to " + validityString);
+
         final Query query = new Query("UPDATE transactions SET slp_validity = ? WHERE id = ?");
-        query.setParameter(validity.toString());
+        query.setParameter(validityString);
         query.setParameter(transactionId);
 
         _databaseManager.getDatabaseConnection().executeSql(query);
