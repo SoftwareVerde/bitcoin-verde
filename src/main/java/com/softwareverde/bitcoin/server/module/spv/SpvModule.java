@@ -547,8 +547,11 @@ public class SpvModule {
 
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
                                 final TransactionValidityChangedCallback transactionValidityChangedCallback = _transactionValidityChangedCallback != null ? _transactionValidityChangedCallback : (h, v) -> {};
+
+                                TransactionUtil.startTransaction(databaseConnection);
 
                                 Logger.info("Marking " + hashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
                                 for (final Sha256Hash hash : hashes) {
@@ -570,6 +573,7 @@ public class SpvModule {
                                         }
                                     }
                                 }
+                                TransactionUtil.commitTransaction(databaseConnection);
                             }
                             catch (final DatabaseException exception) {
                                 Logger.warn("Problem tracking SLP validity", exception);
