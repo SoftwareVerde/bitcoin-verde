@@ -7,7 +7,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
-import com.softwareverde.json.Jsonable;
 
 public class BlockValidationResult extends ValidationResult {
     public static BlockValidationResult valid() {
