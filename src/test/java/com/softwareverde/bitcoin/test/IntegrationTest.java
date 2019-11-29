@@ -46,7 +46,7 @@ public class IntegrationTest extends UnitTest {
     }
 
     protected static void _resetDatabase() {
-        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer("queries/bitcoin_init.sql", 2, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
+        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer("sql/full_node/init_mysql.sql", 2, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
         try {
             _database.reset();
 

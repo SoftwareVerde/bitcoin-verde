@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Constable;
@@ -32,6 +33,13 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
         if (! isCoinbaseInput) { return false; }
 
         return true;
+    }
+
+    static Boolean isSlpTransaction(final Transaction transaction) {
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final TransactionOutput transactionOutput = transactionOutputs.get(0);
+        final Boolean isSlpTransaction = SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
+        return isSlpTransaction;
     }
 
     /**

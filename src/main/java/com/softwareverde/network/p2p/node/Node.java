@@ -251,7 +251,7 @@ public abstract class Node {
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
         final Long msElapsed = (now - pingRequest.timestamp);
 
-        _latencies.pushItem(msElapsed);
+        _latencies.push(msElapsed);
 
         if (pingCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -562,7 +562,7 @@ public abstract class Node {
     }
 
     public Long getAveragePing() {
-        final int itemCount = _latencies.getItemCount();
+        final int itemCount = _latencies.getCount();
         long sum = 0L;
         long count = 0L;
         for (int i = 0; i < itemCount; ++i) {

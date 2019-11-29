@@ -87,9 +87,7 @@ public class TransactionRelay {
                     _transactionWhitelist.addTransactionHash(transactionHash);
                 }
 
-                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-                final TransactionOutput transactionOutput = transactionOutputs.get(0);
-                final Boolean isSlpTransaction = SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
+                final Boolean isSlpTransaction = Transaction.isSlpTransaction(transaction);
                 if ( (isSlpTransaction) && (! _shouldRelayInvalidSlpTransactions)) {
                     // NOTE: Parent SlpTransactions may not have been cached within the the SlpTransactionValidator if it is still processing the initial catch-up batch.
                     //  This isn't ideal and may slow down transaction relaying until the SlpTransactionValidator has finished its first run-through...

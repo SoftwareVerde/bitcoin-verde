@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -20,6 +21,8 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -153,7 +156,15 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public TransactionId storeTransaction(final Transaction transaction) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
-            return _storeTransaction(transaction);
+            final TransactionId transactionId = _storeTransaction(transaction);
+
+            if (Transaction.isSlpTransaction(transaction)) {
+                final SlpValidity slpValidity = _getSlpValidity(transactionId);
+                if (slpValidity == null) {
+                    _setSlpValidity(transactionId, SlpValidity.UNKNOWN);
+                }
+            }
+            return transactionId;
         }
         finally {
             WRITE_LOCK.unlock();
@@ -295,6 +306,88 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
             if (transactionId == null) { return new MutableList<BlockId>(); }
 
             return _getBlockIds(transactionId);
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
+
+    public SlpValidity getSlpValidity(final TransactionId transactionId) throws DatabaseException {
+        READ_LOCK.lock();
+        try {
+            return _getSlpValidity(transactionId);
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
+
+    protected SlpValidity _getSlpValidity(final TransactionId transactionId) throws DatabaseException {
+        final Query query = new Query("SELECT slp_validity FROM transactions WHERE id = ?");
+        query.setParameter(transactionId);
+
+        final java.util.List<Row> rows = _databaseManager.getDatabaseConnection().query(query);
+        if (rows.size() == 0) {
+            return null;
+        }
+
+        final String slpValidity = rows.get(0).getString("slp_validity");
+        if (slpValidity == null) {
+            return null;
+        }
+        return SlpValidity.valueOf(slpValidity);
+    }
+
+    public void setSlpValidity(final TransactionId transactionId, final SlpValidity validity) throws DatabaseException {
+        WRITE_LOCK.lock();
+        try {
+            _setSlpValidity(transactionId, validity);
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
+    protected void _setSlpValidity(final TransactionId transactionId, final SlpValidity validity) throws DatabaseException {
+        final String validityString = validity.toString();
+
+        Logger.debug("Setting validity of transaction " + transactionId + " to " + validityString);
+
+        final Query query = new Query("UPDATE transactions SET slp_validity = ? WHERE id = ?");
+        query.setParameter(validityString);
+        query.setParameter(transactionId);
+
+        _databaseManager.getDatabaseConnection().executeSql(query);
+    }
+
+    public void clearSlpValidity() throws DatabaseException {
+        WRITE_LOCK.lock();
+        try {
+            final Query query = new Query("UPDATE transactions SET slp_validity = ? WHERE slp_validity IS NOT NULL");
+            query.setParameter(SlpValidity.UNKNOWN.toString());
+
+            _databaseManager.getDatabaseConnection().executeSql(query);
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
+    public List<Sha256Hash> getSlpTransactionsWithSlpStatus(final SlpValidity slpValidity) throws DatabaseException {
+        READ_LOCK.lock();
+        try {
+            final Query query = new Query("SELECT hash FROM transactions WHERE slp_validity = ?");
+            query.setParameter(slpValidity.toString());
+
+            final java.util.List<Row> rows = _databaseManager.getDatabaseConnection().query(query);
+
+            final MutableList<Sha256Hash> hashes = new MutableList<>();
+            for (final Row row : rows) {
+                final String hashString = row.getString("hash");
+                final Sha256Hash hash = MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(hashString));
+                hashes.add(hash);
+            }
+            return hashes;
         }
         finally {
             READ_LOCK.unlock();

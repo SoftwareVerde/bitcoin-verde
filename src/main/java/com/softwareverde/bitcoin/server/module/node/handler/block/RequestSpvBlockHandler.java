@@ -68,7 +68,7 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                 if (blockHash == null) { continue; }
 
-                inventoryMessage.addInventoryItem(new InventoryItem(InventoryItemType.SPV_BLOCK, blockHash));
+                inventoryMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
             }
 
             bitcoinNode.queueMessage(inventoryMessage);
