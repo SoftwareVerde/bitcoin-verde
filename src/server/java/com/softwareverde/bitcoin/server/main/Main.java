@@ -215,7 +215,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = getUtxoCacheFactory(maxUtxoCacheByteCount);
+                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
 
@@ -281,7 +281,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = getUtxoCacheFactory(maxUtxoCacheByteCount);
+                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
@@ -318,7 +318,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = getUtxoCacheFactory(maxUtxoCacheByteCount);
+                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
