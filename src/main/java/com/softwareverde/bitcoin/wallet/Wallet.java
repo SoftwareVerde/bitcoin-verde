@@ -284,7 +284,7 @@ public class Wallet {
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final List<TransactionOutput> transactionOutputs = constTransaction.getTransactionOutputs();
-        for (int transactionOutputIndex = 0; transactionOutputIndex < transactionOutputs.getSize(); ++transactionOutputIndex) {
+        for (int transactionOutputIndex = 0; transactionOutputIndex < transactionOutputs.getCount(); ++transactionOutputIndex) {
             final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIndex);
 
             final LockingScript lockingScript = transactionOutput.getLockingScript();
@@ -576,7 +576,7 @@ public class Wallet {
         final List<SpendableTransactionOutput> spendableTransactionOutputs = _getOutputsToSpend(desiredSpendAmount, feesContainer, requiredTransactionOutputIdentifiersToSpend);
         if (spendableTransactionOutputs == null) { return null; }
 
-        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<TransactionOutputIdentifier>(spendableTransactionOutputs.getSize());
+        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<TransactionOutputIdentifier>(spendableTransactionOutputs.getCount());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             transactionOutputs.add(spendableTransactionOutput.getIdentifier());
         }
@@ -590,7 +590,7 @@ public class Wallet {
         { // Calculate the total token amount and build the SlpSendScript used to create the SLP LockingScript...
             long totalAmount = 0L;
             configuration.slpSendScript.setTokenId(slpTokenId);
-            for (int i = 0; i < paymentAmounts.getSize(); ++i) {
+            for (int i = 0; i < paymentAmounts.getCount(); ++i) {
                 final SlpPaymentAmount slpPaymentAmount = paymentAmounts.get(i);
                 final int transactionOutputId = (i + 1);
                 configuration.slpSendScript.setAmount(transactionOutputId, slpPaymentAmount.tokenAmount);
@@ -679,7 +679,7 @@ public class Wallet {
             {
                 Integer index = null;
                 // If the changeAddress is already specified, reuse its output's index...
-                for (int i = 0; i < paymentAmounts.getSize(); ++i) {
+                for (int i = 0; i < paymentAmounts.getCount(); ++i) {
                     final PaymentAmount paymentAmount = paymentAmounts.get(i);
                     if (Util.areEqual(changeAddress, paymentAmount.address)) {
                         index = i;
@@ -694,7 +694,7 @@ public class Wallet {
                     final Long bchAmount = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
                     final SlpPaymentAmount changePaymentAmount = new SlpPaymentAmount(changeAddress, bchAmount, changeAmount);
                     configuration.mutablePaymentAmounts.add(changePaymentAmount);
-                    changeOutputIndex = (configuration.mutablePaymentAmounts.getSize() - 1);
+                    changeOutputIndex = (configuration.mutablePaymentAmounts.getCount() - 1);
                 }
             }
             configuration.slpSendScript.setAmount((changeOutputIndex + 1), changeAmount); // The index is increased by one to account for the SlpScript TransactionOutput...
@@ -711,7 +711,7 @@ public class Wallet {
         transaction.setVersion(Transaction.VERSION);
         transaction.setLockTime(LockTime.MIN_TIMESTAMP);
 
-        for (int i = 0; i < transactionOutputsToSpend.getSize(); ++i) {
+        for (int i = 0; i < transactionOutputsToSpend.getCount(); ++i) {
             final SpendableTransactionOutput spendableTransactionOutput = transactionOutputsToSpend.get(i);
 
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
@@ -741,7 +741,7 @@ public class Wallet {
             transactionOutputIndex += 1;
         }
 
-        for (int i = 0; i < paymentAmounts.getSize(); ++i) {
+        for (int i = 0; i < paymentAmounts.getCount(); ++i) {
             final PaymentAmount paymentAmount = paymentAmounts.get(i);
 
             { // TransactionOutput...
@@ -762,7 +762,7 @@ public class Wallet {
         {
             Transaction transactionBeingSigned = transaction;
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-            for (int i = 0; i < transactionInputs.getSize(); ++i) {
+            for (int i = 0; i < transactionInputs.getCount(); ++i) {
                 final SpendableTransactionOutput spendableTransactionOutput = transactionOutputsToSpend.get(i);
                 final TransactionOutput transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
 
@@ -788,7 +788,7 @@ public class Wallet {
 
         final ScriptRunner scriptRunner = new ScriptRunner();
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
-        for (int i = 0; i < signedTransactionInputs.getSize(); ++i) {
+        for (int i = 0; i < signedTransactionInputs.getCount(); ++i) {
             final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
             final TransactionOutput transactionOutputBeingSpent;
             {
@@ -815,7 +815,7 @@ public class Wallet {
             totalPaymentAmount += paymentAmount.amount;
         }
 
-        final int newOutputCount = (paymentAmounts.getSize() + (changeAddress != null ? 1 : 0));
+        final int newOutputCount = (paymentAmounts.getCount() + (changeAddress != null ? 1 : 0));
 
         final Container<Long> feesContainer = _createNewFeeContainer(newOutputCount, opReturnScript);
         final List<SpendableTransactionOutput> transactionOutputsToSpend = _getOutputsToSpend(totalPaymentAmount, feesContainer, mandatoryOutputs);
@@ -828,7 +828,7 @@ public class Wallet {
         }
 
         final boolean shouldIncludeChangeOutput;
-        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getSize() + 1);
+        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getCount() + 1);
         {
             paymentAmountsWithChange.addAll(paymentAmounts);
 
@@ -844,7 +844,7 @@ public class Wallet {
             if (shouldIncludeChangeOutput) {
                 // Check paymentAmountsWithChange for an existing output using the change address...
                 Integer changePaymentAmountIndex = null;
-                for (int i = 0; i < paymentAmountsWithChange.getSize(); ++i) {
+                for (int i = 0; i < paymentAmountsWithChange.getCount(); ++i) {
                     final PaymentAmount paymentAmount = paymentAmountsWithChange.get(i);
                     if (Util.areEqual(changeAddress, paymentAmount.address)) {
                         changePaymentAmountIndex = i;
@@ -872,7 +872,7 @@ public class Wallet {
             }
         }
 
-        Logger.info("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmountsWithChange.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (shouldIncludeChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
+        Logger.info("Creating Transaction. Spending " + transactionOutputsToSpend.getCount() + " UTXOs. Creating " + paymentAmountsWithChange.getCount() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (shouldIncludeChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
 
         final Transaction signedTransaction = _createSignedTransaction(paymentAmountsWithChange, transactionOutputsToSpend, opReturnScript);
         if (signedTransaction == null) { return null; }

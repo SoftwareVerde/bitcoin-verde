@@ -117,7 +117,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
         final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
-        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getCount());
         for (final TransactionId transactionId : transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, shouldUpdateUnspentOutputCache);
             if (transaction == null) { return null; }

@@ -412,8 +412,8 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
             flags = new MutableByteArray(1);
         }
         else {
-            final MutableByteArray mutableFlags = new MutableByteArray((flagBits.getSize() + 7) / 8);
-            for (int i = 0; i < flagBits.getSize(); ++i) {
+            final MutableByteArray mutableFlags = new MutableByteArray((flagBits.getCount() + 7) / 8);
+            for (int i = 0; i < flagBits.getCount(); ++i) {
                 mutableFlags.setBit(i, flagBits.get(i));
             }
             flags = mutableFlags;

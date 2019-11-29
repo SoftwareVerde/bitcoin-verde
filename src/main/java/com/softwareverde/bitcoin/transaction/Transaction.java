@@ -26,7 +26,7 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
 
     static Boolean isCoinbaseTransaction(final Transaction transaction) {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        if (transactionInputs.getSize() != 1) { return false; }
+        if (transactionInputs.getCount() != 1) { return false; }
 
         final TransactionInput transactionInput = transactionInputs.get(0);
         final boolean isCoinbaseInput = CoinbaseTransactionInputInflater.isCoinbaseInput(transactionInput);

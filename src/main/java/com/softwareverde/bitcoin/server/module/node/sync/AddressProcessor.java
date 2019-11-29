@@ -71,7 +71,7 @@ public class AddressProcessor extends SleepyService {
                 final List<LockingScriptId> lockingScriptIds = transactionOutputDatabaseManager.getLockingScriptsWithUnprocessedTypes(BATCH_SIZE);
                 if (lockingScriptIds.isEmpty()) { return false; }
 
-                lockingScriptCount = lockingScriptIds.getSize();
+                lockingScriptCount = lockingScriptIds.getCount();
 
                 final List<LockingScript> lockingScripts = transactionOutputDatabaseManager.getLockingScripts(lockingScriptIds);
 
@@ -105,7 +105,7 @@ public class AddressProcessor extends SleepyService {
                                     final SlpScript slpScript = slpScriptInflater.fromLockingScript(lockingScript);
 
                                     final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-                                    final int transactionOutputCount = transactionOutputs.getSize();
+                                    final int transactionOutputCount = transactionOutputs.getCount();
 
                                     slpTransactionIsValid = ( (slpScript != null) && (transactionOutputCount >= slpScript.getMinimumTransactionOutputCount()) );
 
@@ -116,7 +116,7 @@ public class AddressProcessor extends SleepyService {
                                                 final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getSize())) {
+                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getCount())) {
                                                     slpTransactionIsValid = false;
                                                 }
                                                 else {
@@ -138,7 +138,7 @@ public class AddressProcessor extends SleepyService {
                                                 final Integer generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getSize())) {
+                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getCount())) {
                                                     slpTransactionIsValid = false;
                                                 }
                                                 else {

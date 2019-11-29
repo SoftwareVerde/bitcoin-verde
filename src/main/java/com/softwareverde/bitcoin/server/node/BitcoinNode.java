@@ -209,7 +209,7 @@ public class BitcoinNode extends Node {
         }
 
         protected Boolean hasAllTransactions() {
-            return Util.areEqual(_merkleBlock.getTransactionCount(), _transactions.getSize());
+            return Util.areEqual(_merkleBlock.getTransactionCount(), _transactions.getCount());
         }
 
         protected void addTransaction(final Transaction transaction) {
@@ -715,7 +715,7 @@ public class BitcoinNode extends Node {
 
         final PartialMerkleTree partialMerkleTree = merkleBlock.getPartialMerkleTree();
         final List<Sha256Hash> merkleTreeTransactionHashes = partialMerkleTree.getTransactionHashes();
-        final int transactionCount = merkleTreeTransactionHashes.getSize();
+        final int transactionCount = merkleTreeTransactionHashes.getCount();
 
         if (transactionCount == 0) {
             // No Transactions should be transmitted alongside this MerkleBlock, so execute any callbacks and return early.
@@ -1146,7 +1146,7 @@ public class BitcoinNode extends Node {
     }
 
     public void requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
-        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getSize());
+        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getCount());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
             shortTransactionHashesBuilder.add(shortTransactionHash);

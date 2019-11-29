@@ -69,14 +69,14 @@ public class TransactionRelay {
             final List<NodeId> connectedNodes;
             {
                 final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-                final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(nodes.getSize());
+                final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(nodes.getCount());
                 for (final BitcoinNode bitcoinNode : nodes) {
                     nodeIdsBuilder.add(bitcoinNode.getId());
                 }
                 connectedNodes = nodeIdsBuilder.build();
             }
 
-            final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<TransactionWithFee>((_nodeRpcHandler != null) ? transactions.getSize() : 0);
+            final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<TransactionWithFee>((_nodeRpcHandler != null) ? transactions.getCount() : 0);
             final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
             for (final Transaction transaction : transactions) {
                 final Sha256Hash transactionHash = transaction.getHash();

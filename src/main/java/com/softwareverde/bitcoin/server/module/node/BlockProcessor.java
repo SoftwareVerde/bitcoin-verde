@@ -188,7 +188,7 @@ public class BlockProcessor {
                     return null;
                 }
 
-                final int transactionCount = block.getTransactions().getSize();
+                final int transactionCount = block.getTransactions().getCount();
                 Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
                 final Boolean blockIsValid;
@@ -312,7 +312,7 @@ public class BlockProcessor {
                 }
             }
 
-            final Integer blockTransactionCount = block.getTransactions().getSize();
+            final Integer blockTransactionCount = block.getTransactions().getCount();
 
             final Float averageBlocksPerSecond;
             final Float averageTransactionsPerSecond;

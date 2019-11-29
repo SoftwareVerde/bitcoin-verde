@@ -29,7 +29,7 @@ public class ScriptInflaterTests {
         TestUtil.assertEqual(expectedScript.getBytes().getBytes(), script.getBytes().getBytes());
 
         final List<Operation> operations = script.getOperations();
-        Assert.assertEquals(2, operations.getSize());
+        Assert.assertEquals(2, operations.getCount());
 
         Assert.assertEquals(Operation.Type.OP_PUSH, operations.get(0).getType());
         Assert.assertEquals(Operation.Type.OP_PUSH, operations.get(1).getType());
@@ -61,7 +61,7 @@ public class ScriptInflaterTests {
         Assert.assertNotNull(script);
 
         final List<Operation> operations = script.getOperations();
-        Assert.assertEquals(24, operations.getSize());
+        Assert.assertEquals(24, operations.getCount());
         Assert.assertEquals(Operation.Type.OP_PUSH, operations.get(0).getType());
         Assert.assertEquals(Operation.Type.OP_INVALID, operations.get(1).getType());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("E4"), operations.get(1).getBytes());

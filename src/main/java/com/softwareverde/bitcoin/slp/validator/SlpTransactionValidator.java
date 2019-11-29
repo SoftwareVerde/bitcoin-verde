@@ -38,7 +38,7 @@ public class SlpTransactionValidator {
     }
 
     protected Map<Sha256Hash, Transaction> _getTransactions(final List<TransactionInput> transactionInputs, final Boolean allowUnconfirmedTransactions) {
-        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getSize());
+        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getCount());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             transactionHashes.add(transactionHash);

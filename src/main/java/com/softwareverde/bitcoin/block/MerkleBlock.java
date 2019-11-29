@@ -25,7 +25,7 @@ public class MerkleBlock extends ImmutableBlockHeader {
 
     public Integer getTransactionCount() {
         final List<Sha256Hash> transactionHashes = _partialMerkleTree.getTransactionHashes();
-        return transactionHashes.getSize();
+        return transactionHashes.getCount();
     }
 
     @Override

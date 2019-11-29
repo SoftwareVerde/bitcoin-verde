@@ -536,7 +536,7 @@ public class SpvModule {
                         public void onResult(final List<Sha256Hash> transactions) {
                             Logger.debug("Received " + transactions.getCount() + " transaction inventories.");
 
-                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getSize());
+                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getCount());
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
@@ -551,7 +551,7 @@ public class SpvModule {
                                 Logger.warn(exception);
                             }
 
-                            Logger.debug(unseenTransactions.getSize() + " transactions were new.");
+                            Logger.debug(unseenTransactions.getCount() + " transactions were new.");
                             if (! unseenTransactions.isEmpty()) {
                                 bitcoinNode.requestTransactions(unseenTransactions, _downloadTransactionsCallback);
                             }
@@ -603,7 +603,7 @@ public class SpvModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
 
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -641,7 +641,7 @@ public class SpvModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);

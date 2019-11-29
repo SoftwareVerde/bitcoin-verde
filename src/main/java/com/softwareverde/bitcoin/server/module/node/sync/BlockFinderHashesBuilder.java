@@ -42,7 +42,7 @@ public class BlockFinderHashesBuilder {
 
             blockHashes.add(blockHash);
 
-            if (blockHashes.getSize() >= 10) {
+            if (blockHashes.getCount() >= 10) {
                 blockHeightStep *= 2;
             }
         }

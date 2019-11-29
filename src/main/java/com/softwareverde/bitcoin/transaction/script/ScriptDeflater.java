@@ -22,13 +22,13 @@ public class ScriptDeflater {
         if (scriptOperations == null) { return null; }
 
         final StringBuilder stringBuilder = new StringBuilder();
-        for (int i = 0; i < scriptOperations.getSize(); ++i) {
+        for (int i = 0; i < scriptOperations.getCount(); ++i) {
             final Operation operation = scriptOperations.get(i);
             stringBuilder.append("(");
             stringBuilder.append(operation.toString());
             stringBuilder.append(")");
 
-            if (i + 1 < scriptOperations.getSize()) {
+            if (i + 1 < scriptOperations.getCount()) {
                 stringBuilder.append(" ");
             }
         }
@@ -44,11 +44,11 @@ public class ScriptDeflater {
         if (scriptOperations == null) { return null; }
 
         final StringBuilder stringBuilder = new StringBuilder();
-        for (int i = 0; i < scriptOperations.getSize(); ++i) {
+        for (int i = 0; i < scriptOperations.getCount(); ++i) {
             final Operation operation = scriptOperations.get(i);
             stringBuilder.append(operation.toStandardString());
 
-            if (i + 1 < scriptOperations.getSize()) {
+            if (i + 1 < scriptOperations.getCount()) {
                 stringBuilder.append(" ");
             }
         }

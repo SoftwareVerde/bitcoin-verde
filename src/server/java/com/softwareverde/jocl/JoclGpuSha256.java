@@ -170,7 +170,7 @@ public class JoclGpuSha256 implements GpuSha256 {
             throw new IllegalStateException("GpuSha256 kernel has been shutdown for this instance. Be sure GpuSha256.getInstance() is called for a new reference after a call to SpuSha256.shutdown().");
         }
 
-        final int inputsCount = inputs.getSize();
+        final int inputsCount = inputs.getCount();
         if (inputsCount == 0) { return new MutableList<Sha256Hash>(); }
         final int byteCountPerInput;
         {

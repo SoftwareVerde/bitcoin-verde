@@ -257,13 +257,13 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         Long previousBlockHeight = _getBlockHeight(previousBlockId);
         ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
 
-        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getSize());
+        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getCount());
 
         BlockId leadingBlockId = BlockId.wrap((previousBlockId == null ? 0L : previousBlockId.longValue()) + 1L);
 
         int batchStartIndex = 0;
-        while (batchStartIndex < blockHeaders.getSize()) {
-            int batchSize = Math.min(blockHeaders.getSize() - blockIds.getSize(), maxBatchSize); // Limiting query variables to below 999
+        while (batchStartIndex < blockHeaders.getCount()) {
+            int batchSize = Math.min(blockHeaders.getCount() - blockIds.getCount(), maxBatchSize); // Limiting query variables to below 999
 
             final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
@@ -694,7 +694,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
             hashesMap.put(blockId, blockHash);
         }
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockIds.getSize());
+        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockIds.getCount());
         for (final BlockId blockId : blockIds) {
             blockHashes.add(hashesMap.get(blockId));
         }

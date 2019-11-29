@@ -56,7 +56,7 @@ public class StratumModuleTests {
 
         // Assert
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(4, transactions.getSize());
+        Assert.assertEquals(4, transactions.getCount());
 
         // Enforce LTOR...
         Assert.assertEquals(Sha256Hash.fromHexString("09DB13063DF69B27786D01A7397A46D46FE3D780A0BDDE433CDC89DA7DBFFAF8"), transactions.get(1).getHash());

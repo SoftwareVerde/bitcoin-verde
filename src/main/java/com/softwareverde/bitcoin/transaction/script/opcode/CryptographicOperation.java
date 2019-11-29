@@ -400,11 +400,11 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 boolean signatureHasPublicKeyMatch = false;
                 int publicKeyIndexIndex = signatureValidationCount;
-                while (publicKeyIndexIndex < publicKeyIndexesToTry.getSize()) {
+                while (publicKeyIndexIndex < publicKeyIndexesToTry.getCount()) {
 
                     { // Discontinue checking signatures if it is no longer possible that the required number of valid signatures will ever be met.
                         //  This unfortunately disables checking publicKey validity, but this is intended according to ABC's implementation (TestVector ECE529A3309EB43E5A84DEAB9EA8F2577B0EAE4840C1BB1B20258D2F48C17424).
-                        final int remainingPublicKeyCount = (publicKeyIndexesToTry.getSize() - publicKeyIndexIndex);
+                        final int remainingPublicKeyCount = (publicKeyIndexesToTry.getCount() - publicKeyIndexIndex);
                         if (remainingSignatureCount > remainingPublicKeyCount) { break; }
                     }
 
@@ -461,7 +461,7 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             if (signatureVerificationCountMustEqualPublicKeyIndexCount) {
-                if (signatureValidationCount != publicKeyIndexesToTry.getSize()) {
+                if (signatureValidationCount != publicKeyIndexesToTry.getCount()) {
                     return false;
                 }
             }

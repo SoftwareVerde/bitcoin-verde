@@ -67,7 +67,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
                 @Override
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                     try {
-                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
+                        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
                         for (final Sha256Hash transactionHash : transactionHashes) {
                             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
@@ -101,7 +101,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             }
 
             synchronized (validationCount) {
-                while (validationCount.get() < transactionIds.getSize()) {
+                while (validationCount.get() < transactionIds.getCount()) {
                     validationCount.wait();
                 }
             }
@@ -271,7 +271,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
                 new TransactionAccumulator() {
                     @Override
                     public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
-                        final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getSize());
+                        final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
                         for (final Sha256Hash transactionHash : transactionHashes) {
                             returnedTransactions.put(transactionHash, transactions.get(transactionHash));
                         }

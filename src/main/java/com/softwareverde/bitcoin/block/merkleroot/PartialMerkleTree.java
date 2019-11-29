@@ -67,7 +67,7 @@ public class PartialMerkleTree implements Const {
     }
 
     protected PartialMerkleTreeNode<Transaction> _buildPartialMerkleTree() {
-        final int maxHashIndex = _hashes.getSize();
+        final int maxHashIndex = _hashes.getCount();
         final int maxFlagsIndex = (_flags.getByteCount() * 8);
 
         int flagIndex = 0;

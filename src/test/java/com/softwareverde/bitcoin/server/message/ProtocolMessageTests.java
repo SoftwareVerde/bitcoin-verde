@@ -171,7 +171,7 @@ public class ProtocolMessageTests {
         Assert.assertEquals(MessageType.REQUEST_BLOCK_HEADERS, requestBlockHeadersMessage.getCommand());
 
         final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
-        Assert.assertEquals(30, blockHeaderHashes.getSize());
+        Assert.assertEquals(30, blockHeaderHashes.getCount());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
@@ -237,7 +237,7 @@ public class ProtocolMessageTests {
         Assert.assertEquals(MessageType.QUERY_BLOCKS, queryBlocksMessage.getCommand());
 
         final List<Sha256Hash> blockHeaderHashes = queryBlocksMessage.getBlockHashes();
-        Assert.assertEquals(30, blockHeaderHashes.getSize());
+        Assert.assertEquals(30, blockHeaderHashes.getCount());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
