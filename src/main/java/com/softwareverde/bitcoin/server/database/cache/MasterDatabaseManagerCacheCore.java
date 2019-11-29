@@ -4,19 +4,93 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.cache.conscientious.MemoryConscientiousCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
-import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
-import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.util.Util;
 
 public class MasterDatabaseManagerCacheCore implements MasterDatabaseManagerCache {
+    public enum CacheSize {
+        DISABLED, SMALL, MEDIUM, LARGE
+    }
+
+    public static class CacheConfiguration {
+        protected Integer _transactionIdCacheItemCount;
+        protected Integer _transactionCacheItemCount;
+        protected Integer _transactionOutputIdCacheItemCount;
+        protected Integer _blockIdBlockchainSegmentIdCacheItemCount;
+        protected Integer _blockHeightCacheItemCount;
+        protected Integer _addressIdCacheItemCount;
+
+        public CacheConfiguration() { }
+
+        public Integer getTransactionIdCacheItemCount() { return _transactionIdCacheItemCount; }
+        public Integer getTransactionCacheItemCount() { return _transactionCacheItemCount; }
+        public Integer getTransactionOutputIdCacheItemCount() { return _transactionOutputIdCacheItemCount; }
+        public Integer getBlockIdBlockchainSegmentIdCacheItemCount() { return _blockIdBlockchainSegmentIdCacheItemCount; }
+        public Integer getBlockHeightCacheItemCount() { return _blockHeightCacheItemCount; }
+        public Integer getAddressIdCacheItemCount() { return _addressIdCacheItemCount; }
+    }
+
+    protected static CacheConfiguration getCacheConfiguration(final CacheSize cacheSize) {
+        final CacheConfiguration cacheConfiguration = new CacheConfiguration();
+
+        switch (cacheSize) {
+            case DISABLED: {
+                cacheConfiguration._transactionIdCacheItemCount = null;
+                cacheConfiguration._transactionCacheItemCount = null;
+                cacheConfiguration._transactionOutputIdCacheItemCount = null;
+                cacheConfiguration._blockIdBlockchainSegmentIdCacheItemCount = null;
+                cacheConfiguration._blockHeightCacheItemCount = null;
+                cacheConfiguration._addressIdCacheItemCount = null;
+            } break;
+
+            case SMALL: {
+                // A Small cache stores about one 32MB block data.
+                cacheConfiguration._transactionIdCacheItemCount = 128000;
+                cacheConfiguration._transactionCacheItemCount = 128000;
+                cacheConfiguration._transactionOutputIdCacheItemCount = 256000;
+                cacheConfiguration._blockIdBlockchainSegmentIdCacheItemCount = 2048;
+                cacheConfiguration._blockHeightCacheItemCount = 2048;
+                cacheConfiguration._addressIdCacheItemCount = null;
+            } break;
+
+            case MEDIUM: {
+                // A Medium cache stores about one day's worth of 32MB block data.
+                cacheConfiguration._transactionIdCacheItemCount = 18432000;
+                cacheConfiguration._transactionCacheItemCount = 18432000;
+                cacheConfiguration._transactionOutputIdCacheItemCount = 36864000;
+                cacheConfiguration._blockIdBlockchainSegmentIdCacheItemCount = 4096;
+                cacheConfiguration._blockHeightCacheItemCount = 4096;
+                cacheConfiguration._addressIdCacheItemCount = null;
+            } break;
+
+            case LARGE: {
+                // A Large cache stores about one weeks's worth of 32MB block data.
+                cacheConfiguration._transactionIdCacheItemCount = 129024000;
+                cacheConfiguration._transactionCacheItemCount = 129024000;
+                cacheConfiguration._transactionOutputIdCacheItemCount = 258048000;
+                cacheConfiguration._blockIdBlockchainSegmentIdCacheItemCount = 4096;
+                cacheConfiguration._blockHeightCacheItemCount = 4096;
+                cacheConfiguration._addressIdCacheItemCount = null;
+            } break;
+        }
+
+        return cacheConfiguration;
+    }
+
+    protected static <T, S> Cache<T, S> newCache(final String cacheName, final Integer cacheSize) {
+        if (Util.coalesce(cacheSize) < 1) {
+            return new DisabledCache<T, S>();
+        }
+
+        return new HashMapCache<T, S>(cacheName, cacheSize);
+    }
+
     protected static <T, S> void _commitToCache(final Cache<T, S> cache, final Cache<T, S> destination) {
         for (final T key : cache.getKeys()) {
             final S value = cache.remove(key);
@@ -36,18 +110,22 @@ public class MasterDatabaseManagerCacheCore implements MasterDatabaseManagerCach
     protected final UtxoCount _maxCachedUtxoCount;
 
     public MasterDatabaseManagerCacheCore() {
-        this(null);
+        this(null, CacheSize.SMALL);
     }
 
     public MasterDatabaseManagerCacheCore(final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory) {
-        final MemoryStatus memoryStatus = new JvmMemoryStatus();
+        this(unspentTransactionOutputCacheFactory, CacheSize.MEDIUM);
+    }
 
-        _transactionIdCache                 = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<Sha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
-        _transactionCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, Transaction>(                   "TransactionCache",             128000), memoryStatus);
-        _transactionOutputIdCache           = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId",          128000), memoryStatus);
-        _blockIdBlockchainSegmentIdCache    = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, BlockchainSegmentId>(                          "BlockId-BlockchainSegmentId",  2048), memoryStatus);
-        _blockHeightCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, Long>(                                         "BlockHeightCache",             2048), memoryStatus);
-        _addressIdCache                     = MemoryConscientiousCache.wrap(0.95F, new DisabledCache<String, AddressId>(), memoryStatus);
+    public MasterDatabaseManagerCacheCore(final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory, final CacheSize cacheSize) {
+        final CacheConfiguration cacheConfiguration = MasterDatabaseManagerCacheCore.getCacheConfiguration(cacheSize);
+
+        _transactionIdCache                 = MasterDatabaseManagerCacheCore.newCache("TransactionIdCache", cacheConfiguration.getTransactionIdCacheItemCount());
+        _transactionCache                   = MasterDatabaseManagerCacheCore.newCache("TransactionCache", cacheConfiguration.getTransactionCacheItemCount());
+        _transactionOutputIdCache           = MasterDatabaseManagerCacheCore.newCache("TransactionOutputIdCache", cacheConfiguration.getTransactionOutputIdCacheItemCount());
+        _blockIdBlockchainSegmentIdCache    = MasterDatabaseManagerCacheCore.newCache("BlockchainSegmentIdCache", cacheConfiguration.getBlockIdBlockchainSegmentIdCacheItemCount());
+        _blockHeightCache                   = MasterDatabaseManagerCacheCore.newCache("BlockHeightCache", cacheConfiguration.getBlockHeightCacheItemCount());
+        _addressIdCache                     = MasterDatabaseManagerCacheCore.newCache("AddressIdCache", cacheConfiguration.getAddressIdCacheItemCount());
 
         _unspentTransactionOutputCacheFactory = Util.coalesce(unspentTransactionOutputCacheFactory, DisabledUnspentTransactionOutputCache.FACTORY);
         _unspentTransactionOutputCache = _unspentTransactionOutputCacheFactory.newUnspentTransactionOutputCache();
