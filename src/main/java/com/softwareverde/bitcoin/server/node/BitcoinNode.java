@@ -109,8 +109,8 @@ public class BitcoinNode extends Node {
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
 
     public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> {
-        default void onResult(final List<Sha256Hash> hashes, final Boolean isValid) {
-            this.onResult(hashes);
+        default void onResult(final List<Sha256Hash> transactionHashes, final Boolean isValid) {
+            this.onResult(transactionHashes);
         }
     }
 
@@ -1083,6 +1083,29 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        if (_synchronizeVersionMessage == null) {
+            Logger.warn("Unable to set SLP validity checking for un-handshaked node: " + this.getRemoteNodeIpAddress());
+            return;
+        }
+
+        final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
+        if (remoteNodeFeatures == null) {
+            Logger.warn("Unable to verify SLP index node feature for node: " + this.getRemoteNodeIpAddress());
+            return;
+        }
+
+        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+            Logger.debug("Enabling SLP Validity checking for node " + this.getRemoteNodeIpAddress());
+            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
+            enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
+
+            _queueMessage(enableSlpTransactionsMessage);
+
+            _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
+        }
+    }
+
     public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {
         final QueryBlocksMessage queryBlocksMessage = _protocolMessageFactory.newQueryBlocksMessage();
         for (final Sha256Hash blockHash : blockHashes) {
@@ -1382,27 +1405,6 @@ public class BitcoinNode extends Node {
      */
     public void enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
         _enableSlpValidityChecking(shouldEnableSlpValidityChecking);
-    }
-
-    protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
-        if (_synchronizeVersionMessage == null) {
-            Logger.warn("Unable to set SLP validity checking for un-handshaked node: " + this.getRemoteNodeIpAddress().toString());
-            return;
-        }
-        final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-        if (remoteNodeFeatures == null) {
-            Logger.warn("Unable to verify SLP index node feature for node: " + this.getRemoteNodeIpAddress().toString());
-            return;
-        }
-        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
-            Logger.debug("Enabling SLP Validity checking for node " + this.getRemoteNodeIpAddress());
-            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
-            enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
-
-            _queueMessage(enableSlpTransactionsMessage);
-
-            _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
-        }
     }
 
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {

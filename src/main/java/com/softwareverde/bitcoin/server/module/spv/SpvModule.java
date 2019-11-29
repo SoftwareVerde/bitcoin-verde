@@ -25,7 +25,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SlpValidity;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
@@ -89,6 +88,11 @@ public class SpvModule {
 
         public String getValue() { return this.value; }
     }
+
+    protected static final TransactionValidityChangedCallback IGNORE_TRANSACTION_VALIDITY_CHANGED_CALLBACK = new TransactionValidityChangedCallback() {
+        @Override
+        public void onTransactionValidityChanged(final Sha256Hash transactionHash, final SlpValidity slpValidity) { }
+    };
 
     protected final Object _initPin = new Object();
     protected Boolean _isInitialized = false;
@@ -164,6 +168,10 @@ public class SpvModule {
         }
     }
 
+    protected void _synchronizeSlpValidity() {
+        _spvSlpTransactionValidator.wakeUp();
+    }
+
     protected void _executeMerkleBlockSyncUpdateCallback() {
         final MerkleBlockSyncUpdateCallback merkleBlockSyncUpdateCallback = _merkleBlockSyncUpdateCallback;
         if (merkleBlockSyncUpdateCallback == null) { return; }
@@ -213,18 +221,26 @@ public class SpvModule {
     protected void _shutdown() {
         _setStatus(Status.SHUTTING_DOWN);
 
-        Logger.info("[Stopping MerkleBlock Downloader]");
-        _merkleBlockDownloader.shutdown();
+        if (_merkleBlockDownloader != null) {
+            Logger.info("[Stopping MerkleBlock Downloader]");
+            _merkleBlockDownloader.shutdown();
+        }
 
-        Logger.info("[Stopping Header Downloader]");
-        _blockHeaderDownloader.stop();
+        if (_blockHeaderDownloader != null) {
+            Logger.info("[Stopping Header Downloader]");
+            _blockHeaderDownloader.stop();
+        }
 
-        Logger.info("[Stopping SPV SLP Validator]");
-        _spvSlpTransactionValidator.stop();
+        if (_spvSlpTransactionValidator != null) {
+            Logger.info("[Stopping SPV SLP Validator]");
+            _spvSlpTransactionValidator.stop();
+        }
 
-        Logger.info("[Stopping Node Manager]");
-        _bitcoinNodeManager.shutdown();
-        _bitcoinNodeManager.stopNodeMaintenanceThread();
+        if (_bitcoinNodeManager != null) {
+            Logger.info("[Stopping Node Manager]");
+            _bitcoinNodeManager.shutdown();
+            _bitcoinNodeManager.stopNodeMaintenanceThread();
+        }
 
         Logger.info("[Shutting Down Thread Server]");
         _mainThreadPool.stop();
@@ -246,13 +262,13 @@ public class SpvModule {
 
             { // load known valid/invalid SLP transaction hashes (unknowns will be handed automatically)
                 final List<Sha256Hash> validSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.VALID);
-                for (final Sha256Hash hash : validSlpTransactions) {
-                    _wallet.markSlpTransactionAsValid(hash);
+                for (final Sha256Hash transactionHash : validSlpTransactions) {
+                    _wallet.markSlpTransactionAsValid(transactionHash);
                 }
 
                 final List<Sha256Hash> invalidSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.INVALID);
-                for (final Sha256Hash hash : invalidSlpTransactions) {
-                    _wallet.markSlpTransactionAsInvalid(hash);
+                for (final Sha256Hash transactionHash : invalidSlpTransactions) {
+                    _wallet.markSlpTransactionAsInvalid(transactionHash);
                 }
             }
 
@@ -518,7 +534,7 @@ public class SpvModule {
                     return new BitcoinNode.TransactionInventoryMessageCallback() {
                         @Override
                         public void onResult(final List<Sha256Hash> transactions) {
-                            Logger.debug("Received " + transactions.getSize() + " transaction inventories.");
+                            Logger.debug("Received " + transactions.getCount() + " transaction inventories.");
 
                             final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getSize());
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -542,34 +558,33 @@ public class SpvModule {
                         }
 
                         @Override
-                        public void onResult(final List<Sha256Hash> hashes, final Boolean isValid) {
-                            this.onResult(hashes);
+                        public void onResult(final List<Sha256Hash> transactionHashes, final Boolean isValid) {
+                            this.onResult(transactionHashes);
 
                             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
                                 final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-                                final TransactionValidityChangedCallback transactionValidityChangedCallback = _transactionValidityChangedCallback != null ? _transactionValidityChangedCallback : (h, v) -> {};
+                                final TransactionValidityChangedCallback transactionValidityChangedCallback = Util.coalesce(_transactionValidityChangedCallback, IGNORE_TRANSACTION_VALIDITY_CHANGED_CALLBACK);
 
                                 TransactionUtil.startTransaction(databaseConnection);
-
-                                Logger.info("Marking " + hashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
-                                for (final Sha256Hash hash : hashes) {
+                                Logger.info("Marking " + transactionHashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
+                                for (final Sha256Hash transactionHash : transactionHashes) {
                                     if (isValid) {
-                                        _wallet.markSlpTransactionAsValid(hash);
+                                        _wallet.markSlpTransactionAsValid(transactionHash);
                                     }
                                     else {
-                                        _wallet.markSlpTransactionAsInvalid(hash);
+                                        _wallet.markSlpTransactionAsInvalid(transactionHash);
                                     }
 
-                                    final SlpValidity slpValidity = isValid ? SlpValidity.VALID : SlpValidity.INVALID;
+                                    final SlpValidity slpValidity = (isValid ? SlpValidity.VALID : SlpValidity.INVALID);
 
-                                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(hash);
+                                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                                     if (transactionId != null) {
                                         final SlpValidity currentSlpValidity = transactionDatabaseManager.getSlpValidity(transactionId);
                                         if (currentSlpValidity != slpValidity) {
                                             transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
-                                            transactionValidityChangedCallback.onTransactionValidityChanged(hash, slpValidity);
+                                            transactionValidityChangedCallback.onTransactionValidityChanged(transactionHash, slpValidity);
                                         }
                                     }
                                 }
@@ -822,10 +837,6 @@ public class SpvModule {
 
     public void synchronizeSlpValidity() {
         _synchronizeSlpValidity();
-    }
-
-    private void _synchronizeSlpValidity() {
-        _spvSlpTransactionValidator.wakeUp();
     }
 
     /**

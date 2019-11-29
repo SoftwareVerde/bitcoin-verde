@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -22,7 +21,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -323,50 +321,60 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     }
 
     protected SlpValidity _getSlpValidity(final TransactionId transactionId) throws DatabaseException {
-        final Query query = new Query("SELECT slp_validity FROM transactions WHERE id = ?");
-        query.setParameter(transactionId);
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = _databaseManager.getDatabaseConnection().query(query);
-        if (rows.size() == 0) {
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT slp_validity FROM transactions WHERE id = ?")
+                .setParameter(transactionId)
+        );
+
+        if (rows.isEmpty()) {
             return null;
         }
 
-        final String slpValidity = rows.get(0).getString("slp_validity");
+        final Row row = rows.get(0);
+        final String slpValidity = row.getString("slp_validity");
         if (slpValidity == null) {
             return null;
         }
+
         return SlpValidity.valueOf(slpValidity);
     }
 
-    public void setSlpValidity(final TransactionId transactionId, final SlpValidity validity) throws DatabaseException {
+    public void setSlpValidity(final TransactionId transactionId, final SlpValidity slpValidity) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
-            _setSlpValidity(transactionId, validity);
+            _setSlpValidity(transactionId, slpValidity);
         }
         finally {
             WRITE_LOCK.unlock();
         }
     }
 
-    protected void _setSlpValidity(final TransactionId transactionId, final SlpValidity validity) throws DatabaseException {
-        final String validityString = validity.toString();
-
-        Logger.debug("Setting validity of transaction " + transactionId + " to " + validityString);
+    protected void _setSlpValidity(final TransactionId transactionId, final SlpValidity slpValidity) throws DatabaseException {
+        Logger.debug("Setting SLP validity of transaction " + transactionId + " to " + slpValidity);
 
         final Query query = new Query("UPDATE transactions SET slp_validity = ? WHERE id = ?");
-        query.setParameter(validityString);
+        if (slpValidity != null) {
+            query.setParameter(slpValidity.toString());
+        }
+        else {
+            query.setNullParameter();
+        }
         query.setParameter(transactionId);
 
-        _databaseManager.getDatabaseConnection().executeSql(query);
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        databaseConnection.executeSql(query);
     }
 
     public void clearSlpValidity() throws DatabaseException {
         WRITE_LOCK.lock();
         try {
-            final Query query = new Query("UPDATE transactions SET slp_validity = ? WHERE slp_validity IS NOT NULL");
-            query.setParameter(SlpValidity.UNKNOWN.toString());
-
-            _databaseManager.getDatabaseConnection().executeSql(query);
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            databaseConnection.executeSql(
+                new Query("UPDATE transactions SET slp_validity = ? WHERE slp_validity IS NOT NULL")
+                    .setParameter(SlpValidity.UNKNOWN.toString())
+            );
         }
         finally {
             WRITE_LOCK.unlock();
@@ -377,14 +385,20 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         READ_LOCK.lock();
         try {
             final Query query = new Query("SELECT hash FROM transactions WHERE slp_validity = ?");
-            query.setParameter(slpValidity.toString());
+            if (slpValidity != null) {
+                query.setParameter(slpValidity.toString());
+            }
+            else {
+                query.setNullParameter();
+            }
 
-            final java.util.List<Row> rows = _databaseManager.getDatabaseConnection().query(query);
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            final java.util.List<Row> rows = databaseConnection.query(query);
 
-            final MutableList<Sha256Hash> hashes = new MutableList<>();
+            final MutableList<Sha256Hash> hashes = new MutableList<Sha256Hash>(rows.size());
             for (final Row row : rows) {
                 final String hashString = row.getString("hash");
-                final Sha256Hash hash = MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(hashString));
+                final Sha256Hash hash = Sha256Hash.fromHexString(hashString);
                 hashes.add(hash);
             }
             return hashes;

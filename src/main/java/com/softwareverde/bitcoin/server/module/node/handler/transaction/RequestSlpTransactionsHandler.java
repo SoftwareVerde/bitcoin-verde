@@ -17,6 +17,14 @@ import com.softwareverde.logging.Logger;
 public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTransactionsCallback {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
+    protected Boolean _getSlpStatus(final FullNodeDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
+
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+        return slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+    }
+
     public RequestSlpTransactionsHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
@@ -27,7 +35,7 @@ public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTran
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final MutableList<Sha256Hash> validatedTransactionHashes = new MutableList<>();
+            final MutableList<Sha256Hash> validatedTransactionHashes = new MutableList<Sha256Hash>(transactionHashes.getCount());
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final Boolean isValid = _getSlpStatus(databaseManager, blockchainSegmentId, transactionHash);
                 if (isValid != null) {
@@ -55,14 +63,5 @@ public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTran
             Logger.warn(exception);
             return null;
         }
-    }
-
-    private Boolean _getSlpStatus(final FullNodeDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
-
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final Boolean isValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
-        return isValid;
     }
 }

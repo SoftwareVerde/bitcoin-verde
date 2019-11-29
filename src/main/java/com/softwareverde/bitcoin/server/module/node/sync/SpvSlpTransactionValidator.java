@@ -13,6 +13,7 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.network.p2p.node.manager.NodeManager;
 
 import java.util.concurrent.TimeUnit;
 
@@ -26,9 +27,7 @@ public class SpvSlpTransactionValidator extends SleepyService {
     }
 
     @Override
-    protected void _onStart() {
-
-    }
+    protected void _onStart() { }
 
     @Override
     protected Boolean _run() {
@@ -37,11 +36,16 @@ public class SpvSlpTransactionValidator extends SleepyService {
 
             final List<Sha256Hash> unknownValidityTransactionHashes = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.UNKNOWN);
 
-            if (unknownValidityTransactionHashes.getCount() == 0) {
+            if (unknownValidityTransactionHashes.isEmpty()) {
                 return false;
             }
 
-            final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode((node) -> node.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
+            final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(new NodeManager.NodeFilter<BitcoinNode>() {
+                @Override
+                public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
+                    return bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED);
+                }
+            });
             if (bitcoinNode == null) {
                 // unable to find an appropriate node
                 Logger.warn("Unable to request SLP validity of " + unknownValidityTransactionHashes.getCount() + " transactions: no SLP indexing nodes available.");
@@ -61,7 +65,10 @@ public class SpvSlpTransactionValidator extends SleepyService {
 
                 startIndex += batchOfHashes.getCount();
             }
+
+            // TODO: Refactor this so the validator could immediately wake up if a call to ::wakeUp was invoked (i.e. when an indexing node was connected)...
             Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+
             return true;
         }
         catch (final Exception exception) {
@@ -71,7 +78,5 @@ public class SpvSlpTransactionValidator extends SleepyService {
     }
 
     @Override
-    protected void _onSleep() {
-
-    }
+    protected void _onSleep() { }
 }

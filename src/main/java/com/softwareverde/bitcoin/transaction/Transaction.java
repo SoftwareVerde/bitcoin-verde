@@ -38,8 +38,7 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     static Boolean isSlpTransaction(final Transaction transaction) {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
-        final Boolean isSlpTransaction = SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
-        return isSlpTransaction;
+        return SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
     }
 
     /**
