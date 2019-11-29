@@ -3,11 +3,9 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -16,6 +14,15 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.util.Util;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
+
+    // TODO: Cache sizes should be reduced for intermediary caches...
+    protected final HashMapCache<Sha256Hash, TransactionId> _transactionIdCache = new HashMapCache<Sha256Hash, TransactionId>("TransactionIdCache", HashMapCache.DEFAULT_CACHE_SIZE);
+    protected final HashMapCache<TransactionId, Transaction> _transactionCache = new HashMapCache<TransactionId, Transaction>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
+    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", 1048576);
+    protected final HashMapCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 1460);
+    protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
+    protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<BlockId, Long>("BlockHeight", 500000);
+    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
 
     public LocalDatabaseManagerCache() {
         _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache();
@@ -37,37 +44,21 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _unspentTransactionOutputCache.setMasterCache(masterCache.getUnspentTransactionOutputCache());
     }
 
-    @Override
-    public void log() {
-        _transactionIdCache.debug();
-        _transactionCache.debug();
-        _transactionOutputIdCache.debug();
-        _blockIdBlockchainSegmentIdCache.debug();
-        _addressIdCache.debug();
-    }
-
-    @Override
-    public void resetLog() {
-        _transactionIdCache.resetDebug();
-        _transactionCache.resetDebug();
-        _transactionOutputIdCache.resetDebug();
-        _blockIdBlockchainSegmentIdCache.resetDebug();
-        _addressIdCache.resetDebug();
-    }
-
-
     // TRANSACTION ID CACHE --------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<ImmutableSha256Hash, TransactionId> _transactionIdCache = new HashMapCache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", HashMapCache.DEFAULT_CACHE_SIZE);
-
     @Override
-    public void cacheTransactionId(final ImmutableSha256Hash transactionHash, final TransactionId transactionId) {
-        _transactionIdCache.cacheItem(transactionHash, transactionId);
+    public void cacheTransactionId(final Sha256Hash transactionHash, final TransactionId transactionId) {
+        _transactionIdCache.set(transactionHash.asConst(), transactionId);
     }
 
     @Override
-    public TransactionId getCachedTransactionId(final ImmutableSha256Hash transactionHash) {
-        return _transactionIdCache.getCachedItem(transactionHash);
+    public void invalidateTransactionId(final Sha256Hash transactionHash) {
+        _transactionIdCache.invalidate(transactionHash);
+    }
+
+    @Override
+    public TransactionId getCachedTransactionId(final Sha256Hash transactionHash) {
+        return _transactionIdCache.get(transactionHash);
     }
 
     @Override
@@ -75,23 +66,26 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionIdCache.invalidate();
     }
 
-    public HashMapCache<ImmutableSha256Hash, TransactionId> getTransactionIdCache() { return _transactionIdCache; }
+    public HashMapCache<Sha256Hash, TransactionId> getTransactionIdCache() { return _transactionIdCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
 
 
     // TRANSACTION CACHE -----------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<TransactionId, ConstTransaction> _transactionCache = new HashMapCache<TransactionId, ConstTransaction>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
+    @Override
+    public void cacheTransaction(final TransactionId transactionId, final Transaction transaction) {
+        _transactionCache.set(transactionId, transaction);
+    }
 
     @Override
-    public void cacheTransaction(final TransactionId transactionId, final ConstTransaction transaction) {
-        _transactionCache.cacheItem(transactionId, transaction);
+    public void invalidateTransaction(final TransactionId transactionId) {
+        _transactionCache.invalidate(transactionId);
     }
 
     @Override
     public Transaction getCachedTransaction(final TransactionId transactionId) {
-        return _transactionCache.getCachedItem(transactionId);
+        return _transactionCache.get(transactionId);
     }
 
     @Override
@@ -99,24 +93,28 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionCache.invalidate();
     }
 
-    public HashMapCache<TransactionId, ConstTransaction> getTransactionCache() { return _transactionCache; }
+    public HashMapCache<TransactionId, Transaction> getTransactionCache() { return _transactionCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
 
     // TRANSACTION OUTPUT ID CACHE -------------------------------------------------------------------------------------
 
-    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", 1048576);
-
     @Override
     public void cacheTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
         final CachedTransactionOutputIdentifier cachedTransactionOutputIdentifier = new CachedTransactionOutputIdentifier(transactionId, transactionOutputIndex);
-        _transactionOutputIdCache.cacheItem(cachedTransactionOutputIdentifier, transactionOutputId);
+        _transactionOutputIdCache.set(cachedTransactionOutputIdentifier, transactionOutputId);
+    }
+
+    @Override
+    public void invalidateTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex) {
+        final CachedTransactionOutputIdentifier cachedTransactionOutputIdentifier = new CachedTransactionOutputIdentifier(transactionId, transactionOutputIndex);
+        _transactionOutputIdCache.invalidate(cachedTransactionOutputIdentifier);
     }
 
     @Override
     public TransactionOutputId getCachedTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex) {
         final CachedTransactionOutputIdentifier cachedTransactionOutputIdentifier = new CachedTransactionOutputIdentifier(transactionId, transactionOutputIndex);
-        return _transactionOutputIdCache.getCachedItem(cachedTransactionOutputIdentifier);
+        return _transactionOutputIdCache.get(cachedTransactionOutputIdentifier);
     }
 
     @Override
@@ -130,16 +128,19 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // BLOCK BLOCK CHAIN SEGMENT ID CACHE ------------------------------------------------------------------------------
 
-    protected final HashMapCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 1460);
-
     @Override
     public void cacheBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) {
-        _blockIdBlockchainSegmentIdCache.cacheItem(blockId, blockchainSegmentId);
+        _blockIdBlockchainSegmentIdCache.set(blockId, blockchainSegmentId);
+    }
+
+    @Override
+    public void invalidCachedBlockchainSegmentId(final BlockId blockId) {
+        _blockIdBlockchainSegmentIdCache.invalidate(blockId);
     }
 
     @Override
     public BlockchainSegmentId getCachedBlockchainSegmentId(final BlockId blockId) {
-        return _blockIdBlockchainSegmentIdCache.getCachedItem(blockId);
+        return _blockIdBlockchainSegmentIdCache.get(blockId);
     }
 
     @Override
@@ -153,16 +154,19 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // ADDRESS ID CACHE ------------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
-
     @Override
     public void cacheAddressId(final String address, final AddressId addressId) {
-        _addressIdCache.cacheItem(address, addressId);
+        _addressIdCache.set(address, addressId);
+    }
+
+    @Override
+    public void invalidateAddressId(final String address) {
+        _addressIdCache.invalidate(address);
     }
 
     @Override
     public AddressId getCachedAddressId(final String address) {
-        return _addressIdCache.getCachedItem(address);
+        return _addressIdCache.get(address);
     }
 
     @Override
@@ -176,16 +180,19 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // BLOCK HEIGHT CACHE ----------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<BlockId, Long>("BlockHeight", 500000);
-
     @Override
     public void cacheBlockHeight(final BlockId blockId, final Long blockHeight) {
-        _blockHeightCache.cacheItem(blockId, blockHeight);
+        _blockHeightCache.set(blockId, blockHeight);
+    }
+
+    @Override
+    public void invalidateBlockHeight(final BlockId blockId) {
+        _blockHeightCache.invalidate(blockId);
     }
 
     @Override
     public Long getCachedBlockHeight(final BlockId blockId) {
-        return _blockHeightCache.getCachedItem(blockId);
+        return _blockHeightCache.get(blockId);
     }
 
     @Override
@@ -198,8 +205,6 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
     // -----------------------------------------------------------------------------------------------------------------
 
     // UNSPENT TRANSACTION OUTPUT CACHE --------------------------------------------------------------------------------
-
-    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
 
     @Override
     public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {

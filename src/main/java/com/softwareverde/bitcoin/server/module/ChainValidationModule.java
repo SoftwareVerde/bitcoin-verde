@@ -157,9 +157,6 @@ public class ChainValidationModule {
                     _blockCache.cacheBlock(block, blockHeight);
                 }
 
-                databaseManagerCache.log();
-                databaseManagerCache.resetLog();
-
                 nextBlockHash = null;
                 final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, blockId);
                 if (nextBlockId != null) {

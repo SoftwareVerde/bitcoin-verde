@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -97,6 +98,9 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
                 .setParameter(blockchainSegmentId)
                 .setParameter(newBlockchainSegmentId)
         );
+
+        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
+        databaseManagerCache.invalidateBlockIdBlockchainSegmentIdCache();
 
         return newBlockchainSegmentId;
     }

@@ -171,6 +171,8 @@ public class BlockProcessor {
                         storeBlockHeaderTimer.stop();
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
+                    _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+                    _masterDatabaseManagerCache.commit();
                 }
             }
 
@@ -209,9 +211,6 @@ public class BlockProcessor {
                     }
                     blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
-
-                    // localDatabaseManagerCache.log();
-                    localDatabaseManagerCache.resetLog();
                 }
 
                 if (! blockIsValid) {
@@ -221,6 +220,8 @@ public class BlockProcessor {
                 }
             }
             TransactionUtil.commitTransaction(databaseConnection);
+            _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+            _masterDatabaseManagerCache.commit();
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 

@@ -311,27 +311,27 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
-
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id = ?")
                 .setParameter(blockchainSegmentId)
                 .setParameter(blockId)
         );
+
+        databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
     }
 
     protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        for (final BlockId blockId : blockIds) {
-            databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
-        }
-
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
                 .setParameter(blockchainSegmentId)
         );
+
+        for (final BlockId blockId : blockIds) {
+            databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
+        }
     }
 
     protected BlockchainSegmentId _getBlockchainSegmentId(final BlockId blockId) throws DatabaseException {

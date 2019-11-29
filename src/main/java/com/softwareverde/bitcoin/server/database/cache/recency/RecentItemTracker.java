@@ -87,10 +87,6 @@ public class RecentItemTracker<T> {
         return _recentItems.size();
     }
 
-    public Double getMsSpentSearching() {
-        return _msSpentSearching;
-    }
-
     public void clear() {
         _recentItemInstances.clear();
         _recentItems.clear();
@@ -98,10 +94,6 @@ public class RecentItemTracker<T> {
         _oldestAccess = Long.MIN_VALUE;
         _nextAccess = Long.MIN_VALUE;
 
-        _resetDebug();
-    }
-
-    public void resetDebug() {
         _resetDebug();
     }
 }

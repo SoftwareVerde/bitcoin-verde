@@ -10,9 +10,12 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.properties.DatabaseCredentials;
+import com.softwareverde.util.Util;
 
 public class TestDatabase implements Database {
-    protected MysqlTestDatabase _core;
+    protected final MysqlTestDatabase _core;
+    protected DatabaseConnectionPool _databaseConnectionPool;
+    protected MysqlDatabaseConnectionFactory _databaseConnectionFactory;
 
     public TestDatabase(final MysqlTestDatabase core) {
         _core = core;
@@ -25,7 +28,7 @@ public class TestDatabase implements Database {
 
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
-        return new MysqlDatabaseConnectionFactoryWrapper(_core.newConnectionFactory());
+        return new MysqlDatabaseConnectionFactoryWrapper(Util.coalesce(_databaseConnectionFactory, _core.newConnectionFactory()));
     }
 
     public void reset() throws DatabaseException {
@@ -41,15 +44,27 @@ public class TestDatabase implements Database {
     }
 
     public DatabaseConnectionFactory getDatabaseConnectionFactory() {
-        return new MysqlDatabaseConnectionFactoryWrapper(_core.getDatabaseConnectionFactory());
+        return new MysqlDatabaseConnectionFactoryWrapper(Util.coalesce(_databaseConnectionFactory, _core.getDatabaseConnectionFactory()));
     }
 
     public MysqlDatabaseConnectionFactory getMysqlDatabaseConnectionFactory() {
-        return _core.getDatabaseConnectionFactory();
+        return Util.coalesce(_databaseConnectionFactory, _core.getDatabaseConnectionFactory());
     }
 
     public DatabaseConnectionPool getDatabaseConnectionPool() {
-        return _core.getDatabaseConnectionPool();
+        return Util.coalesce(_databaseConnectionPool, _core.getDatabaseConnectionPool());
+    }
+
+    public MysqlTestDatabase getCore() {
+        return _core;
+    }
+
+    public void setDatabaseConnectionPool(final DatabaseConnectionPool databaseConnectionPool) {
+        _databaseConnectionPool = databaseConnectionPool;
+    }
+
+    public void setDatabaseConnectionFactory(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+        _databaseConnectionFactory = databaseConnectionFactory;
     }
 
     @Override

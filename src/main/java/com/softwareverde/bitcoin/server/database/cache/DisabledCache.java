@@ -3,31 +3,49 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
-public class DisabledCache<T, S> implements MutableCache<T, S> {
-    @Override
-    public void cacheItem(final T key, final S value) { }
+public class DisabledCache<KEY, VALUE> implements Cache<KEY, VALUE> {
+
+    protected final Cache<KEY, VALUE> _masterCache;
+
+    public DisabledCache() {
+        _masterCache = null;
+    }
+
+    public DisabledCache(final Cache<KEY, VALUE> masterCache) {
+        _masterCache = masterCache;
+    }
 
     @Override
-    public S removeItem(final T key) { return null; }
+    public List<KEY> getKeys() {
+        return new MutableList<KEY>(0);
+    }
 
     @Override
-    public void invalidate() { }
+    public VALUE get(final KEY key) { return null; }
 
     @Override
-    public Boolean masterCacheWasInvalidated() { return false; }
+    public void set(final KEY key, final VALUE value) {
+        if (_masterCache != null) {
+            _masterCache.invalidate(key);
+        }
+    }
 
     @Override
-    public List<T> getKeys() { return new MutableList<T>(0); }
+    public VALUE remove(final KEY key) {
+        return null;
+    }
 
     @Override
-    public S getCachedItem(final T t) { return null; }
+    public void invalidate(final KEY key) {
+        if (_masterCache != null) {
+            _masterCache.invalidate(key);
+        }
+    }
 
     @Override
-    public Integer getItemCount() { return 0; }
-
-    @Override
-    public Integer getMaxItemCount() { return 0; }
-
-    @Override
-    public void debug() { }
+    public void invalidate() {
+        if (_masterCache != null) {
+            _masterCache.invalidate();
+        }
+    }
 }

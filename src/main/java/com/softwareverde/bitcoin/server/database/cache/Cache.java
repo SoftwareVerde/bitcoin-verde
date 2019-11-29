@@ -3,13 +3,13 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.constable.list.List;
 
 public interface Cache<KEY, VALUE> {
-
-    Boolean masterCacheWasInvalidated();
     List<KEY> getKeys();
 
-    VALUE getCachedItem(KEY key);
-    Integer getItemCount();
-    Integer getMaxItemCount();
+    VALUE get(KEY key);
+    void set(KEY key, VALUE value);
 
-    void debug();
+    VALUE remove(KEY key);
+
+    void invalidate(KEY key);
+    void invalidate();
 }

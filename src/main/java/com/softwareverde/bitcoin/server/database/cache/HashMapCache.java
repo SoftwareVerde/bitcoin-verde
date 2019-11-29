@@ -3,12 +3,11 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.bitcoin.server.database.cache.recency.RecentItemTracker;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.logging.Logger;
 
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache<KEY, VALUE> {
+public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
     public static final Integer DEFAULT_CACHE_SIZE = 65536;
     public static final Integer DISABLED_CACHE_SIZE = 0;
 
@@ -16,7 +15,6 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
     protected final ReentrantReadWriteLock.ReadLock _readLock;
 
     protected Cache<KEY, VALUE> _masterCache = new DisabledCache<KEY, VALUE>();
-    protected Boolean _wasMasterCacheInvalidated = false;
 
     protected final String _name;
     protected final Integer _maxItemCount;
@@ -26,13 +24,6 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
 
     protected int _cacheQueryCount = 0;
     protected int _cacheMissCount = 0;
-
-    protected void _resetDebug() {
-        _cacheQueryCount = 0;
-        _cacheMissCount = 0;
-
-        _recentHashes.resetDebug();
-    }
 
     public HashMapCache(final String name, final Integer cacheSize) {
         _name = name;
@@ -55,26 +46,34 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
             _itemCount = 0;
             _recentHashes.clear();
 
-            _masterCache = new DisabledCache<KEY, VALUE>();
-            _wasMasterCacheInvalidated = true;
-
-            _resetDebug();
+            _masterCache.invalidate();
         }
         finally {
             _writeLock.unlock();
         }
     }
 
-    public void resetDebug() {
-        _resetDebug();
-    }
+    @Override
+    public void invalidate(final KEY key) {
+        _masterCache.invalidate(key);
 
-    public void invalidateItem(final KEY key) {
-        _cache.remove(key);
+        _writeLock.lock();
+
+        try {
+            if (_cache.containsKey(key)) {
+                _itemCount -= 1;
+            }
+            _cache.remove(key);
+        }
+        finally {
+            _writeLock.unlock();
+        }
     }
 
     @Override
-    public void cacheItem(final KEY key, final VALUE value) {
+    public void set(final KEY key, final VALUE value) {
+        _masterCache.invalidate(key);
+
         if (_maxItemCount < 1) { return; }
 
         _writeLock.lock();
@@ -82,9 +81,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
         try {
             _recentHashes.markRecent(key);
 
-            if (_cache.containsKey(key)) {
-                return;
-            }
+            final boolean isReplacingExistingItem = _cache.containsKey(key);
 
             if (_itemCount >= _maxItemCount) {
                 final KEY oldestItem = _recentHashes.getOldestItem();
@@ -95,7 +92,9 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
             }
 
             _cache.put(key, value);
-            _itemCount += 1;
+            if (! isReplacingExistingItem) {
+                _itemCount += 1;
+            }
         }
         finally {
             _writeLock.unlock();
@@ -103,16 +102,16 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
     }
 
     @Override
-    public VALUE removeItem(final KEY key) {
-
+    public VALUE remove(final KEY key) {
         _writeLock.lock();
 
         try {
-            final VALUE value = _cache.remove(key);
-            if (value != null) {
-                _itemCount -=1 ;
-            }
-            return value;
+            if (! _cache.containsKey(key)) { return null; }
+
+                final VALUE item = _cache.remove(key);
+                // _recentHashes.remove(key);
+                _itemCount -= 1;
+                return item;
         }
         finally {
             _writeLock.unlock();
@@ -121,25 +120,16 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
 
     public void setMasterCache(final Cache<KEY, VALUE> cache) {
         _masterCache = cache;
-        _wasMasterCacheInvalidated = false;
     }
 
-    @Override
-    public Boolean masterCacheWasInvalidated() {
-        return _wasMasterCacheInvalidated;
-    }
-
-    /**
-     * Returns the set of keys cached in this cache.
-     *  The returned keys do not include the keys within the MasterCache.
-     *  The keys returned are not in order of most-recent access.
-     */
     @Override
     public List<KEY> getKeys() {
         _readLock.lock();
 
         try {
-            return new MutableList<KEY>(_cache.keySet());
+            final MutableList<KEY> keys = new MutableList<KEY>(_cache.size());
+            keys.addAll(_cache.keySet());
+            return keys;
         }
         finally {
             _readLock.unlock();
@@ -147,11 +137,11 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
     }
 
     @Override
-    public VALUE getCachedItem(final KEY key) {
+    public VALUE get(final KEY key) {
         _readLock.lock();
 
         try {
-            final VALUE cachedItem = _masterCache.getCachedItem(key);
+            final VALUE cachedItem = _masterCache.get(key);
             if (cachedItem != null) { return cachedItem; }
 
             if (_maxItemCount < 1) { return null; }
@@ -165,43 +155,6 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
 
             _recentHashes.markRecent(key);
             return _cache.get(key);
-        }
-        finally {
-            _readLock.unlock();
-        }
-    }
-
-    @Override
-    public Integer getItemCount() {
-        _readLock.lock();
-
-        try {
-            return (_itemCount + _masterCache.getItemCount());
-        }
-        finally {
-            _readLock.unlock();
-        }
-    }
-
-    @Override
-    public Integer getMaxItemCount() {
-        _readLock.lock();
-
-        try {
-            return (_maxItemCount + _masterCache.getMaxItemCount());
-        }
-        finally {
-            _readLock.unlock();
-        }
-    }
-
-    @Override
-    public void debug() {
-        _readLock.lock();
-
-        try {
-            Logger.debug(_name + " Cache Miss/Queries: " + _cacheMissCount + "/" + _cacheQueryCount + " ("+ (((float) _cacheMissCount) / ((float) _cacheQueryCount) * 100) +"% Miss) | Cache Size: " + _itemCount + "/" + _maxItemCount + " | Time Spent Searching: " + _recentHashes.getMsSpentSearching());
-            _masterCache.debug();
         }
         finally {
             _readLock.unlock();
