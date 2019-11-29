@@ -211,10 +211,6 @@ public class BlockProcessor {
                     }
                     blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
-
-                    // localDatabaseManagerCache.log();
-                    // localDatabaseManagerCache.resetLog();
-                    _masterDatabaseManagerCache.commit();
                 }
 
                 if (! blockIsValid) {
@@ -225,6 +221,7 @@ public class BlockProcessor {
             }
             TransactionUtil.commitTransaction(databaseConnection);
             _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+            _masterDatabaseManagerCache.commit();
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 

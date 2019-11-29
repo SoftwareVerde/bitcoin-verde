@@ -57,9 +57,6 @@ public class BlockProcessorTests extends IntegrationTest {
             Where the insert-order is genesis -> block01 -> block02 -> invalidBlock01Prime -> block03
          */
 
-        // TODO: ReadonlyDatabaseCaches are a problem--writes do not currently invalidate the parent, which may create an invalid state.
-        // TODO: Writing to caches needs to be done after a query so that exceptions encountered during query execution prevent caching.
-
         final DatabaseConnectionPool databaseConnectionPool = _database.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, databaseManagerCache);
 
