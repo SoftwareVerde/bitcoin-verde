@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -288,7 +289,8 @@ public class TransactionOutputDatabaseManager {
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
             public void run(final List<Sha256Hash> batchItems) throws Exception {
-                final Query query = new Query("SELECT id, hash, output_count FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(batchItems) + ")");
+                final Query query = new Query("SELECT id, hash, output_count FROM transactions WHERE hash IN (?)");
+                query.setInClauseParameters(batchItems, ValueExtractor.SHA256_HASH);
 
                 if (databaseConnectionFactory != null) {
                     try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
@@ -410,7 +412,7 @@ public class TransactionOutputDatabaseManager {
      *  The set of TransactionOutputIdentifiers should not include Coinbase identifiers.
      */
     public Map<TransactionOutputIdentifier, TransactionOutputId> getTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final int identifierCount = transactionOutputIdentifiers.getSize();
+        final int identifierCount = transactionOutputIdentifiers.getCount();
         final HashMap<TransactionOutputIdentifier, TransactionOutputId> transactionOutputIds = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(identifierCount);
 
         final MilliTimer setupTimer = new MilliTimer();
@@ -524,7 +526,8 @@ public class TransactionOutputDatabaseManager {
         databaseManagerCache.invalidateTransactionOutputIdCache();
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM transaction_outputs WHERE (transaction_id, `index`) IN (" + DatabaseUtil.createInClause(transactionOutputIds, DatabaseUtil.Extractors.TransactionOutputId) + ")")
+            new Query("DELETE FROM transaction_outputs WHERE (transaction_id, `index`) IN (?)")
+                .setInClauseParameters(transactionOutputIds, ValueExtractor.TRANSACTION_OUTPUT_ID)
         );
     }
 
@@ -593,7 +596,8 @@ public class TransactionOutputDatabaseManager {
         }
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM address_processor_queue WHERE locking_script_id IN (" + DatabaseUtil.createInClause(lockingScriptIds) + ")")
+            new Query("DELETE FROM address_processor_queue WHERE locking_script_id IN (?)")
+                .setInClauseParameters(lockingScriptIds, ValueExtractor.IDENTIFIER)
         );
     }
 
@@ -604,10 +608,11 @@ public class TransactionOutputDatabaseManager {
     public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final int scriptCount = lockingScriptIds.getSize();
+        final int scriptCount = lockingScriptIds.getCount();
         final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<LockingScriptId, LockingScript>(scriptCount);
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, script FROM locking_scripts WHERE id IN (" + DatabaseUtil.createInClause(lockingScriptIds, keyMap) + ")")
+            new Query("SELECT id, script FROM locking_scripts WHERE id IN (?)")
+                .setInClauseParameters(lockingScriptIds, ValueExtractor.IDENTIFIER)
         );
         if (rows.size() != scriptCount) { return null; }
 

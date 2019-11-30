@@ -8,10 +8,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.cache.*;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -20,7 +17,6 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Orphaned
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -165,10 +161,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
     @Test
     public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_READONLY_CACHE() throws Exception {
-        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
-        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
-
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(databaseManagerCache, masterDatabaseManagerCache);
@@ -176,10 +169,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
     @Test
     public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_CACHE() throws Exception {
-        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(ByteUtil.Unit.GIGABYTES);
-        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
-
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
         final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(databaseManagerCache, masterDatabaseManagerCache);

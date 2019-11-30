@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -189,11 +190,10 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
             }
 
             if (! disabledFeatures.isEmpty()) {
-                final String inClause = DatabaseUtil.createInClause(disabledFeatures);
-
                 databaseConnection.executeSql(
-                    new Query("DELETE FROM node_features WHERE node_id = ? AND feature IN (" + inClause + ")")
+                    new Query("DELETE FROM node_features WHERE node_id = ? AND feature IN (?)")
                         .setParameter(nodeId)
+                        .setInClauseParameters(disabledFeatures, ValueExtractor.NODE_FEATURE)
                 );
             }
         }
@@ -254,7 +254,10 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         if (pendingBlockIds.isEmpty()) { return; }
-        databaseConnection.executeSql(new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (" + DatabaseUtil.createInClause(pendingBlockIds) + ")"));
+        databaseConnection.executeSql(
+            new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (?)")
+                .setInClauseParameters(pendingBlockIds, ValueExtractor.IDENTIFIER)
+        );
     }
 
     @Override
@@ -282,8 +285,9 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
+            new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (?)")
                 .setParameter(transactionHash)
+                .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
         );
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
@@ -318,8 +322,9 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
             pendingBlockTableReadLock.lock();
 
             rows = databaseConnection.query(
-                new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
+                new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (?)")
                     .setParameter(blockHash)
+                    .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
             );
         }
         finally {
@@ -363,17 +368,19 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         if (pendingTransactionIds.isEmpty()) { return; }
 
-        databaseConnection.executeSql(new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (" + DatabaseUtil.createInClause(pendingTransactionIds) + ")"));
+        databaseConnection.executeSql(
+            new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (?)")
+                .setInClauseParameters(pendingTransactionIds, ValueExtractor.IDENTIFIER)
+        );
     }
 
     @Override
     public List<BitcoinNodeIpAddress> findNodes(final List<NodeFeatures.Feature> requiredFeatures, final Integer maxCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final String inClause = DatabaseUtil.createInClause(requiredFeatures);
-
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE nodes.last_handshake_timestamp IS NOT NULL AND hosts.is_banned = 0 AND node_features.feature IN (" + inClause + ") ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
+            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE nodes.last_handshake_timestamp IS NOT NULL AND hosts.is_banned = 0 AND node_features.feature IN (?) ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
+                .setInClauseParameters(requiredFeatures, ValueExtractor.NODE_FEATURE)
         );
 
         final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());

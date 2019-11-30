@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.database.query;
 public class BatchedUpdateQuery extends Query {
     protected static class BatchedUpdateQueryWrapper extends com.softwareverde.database.query.BatchedUpdateQuery {
         public BatchedUpdateQueryWrapper(final Query query, final Boolean shouldConsumeQuery) {
-            super(query, shouldConsumeQuery);
+            super(query, shouldConsumeQuery, new ParameterFactory());
         }
     }
 

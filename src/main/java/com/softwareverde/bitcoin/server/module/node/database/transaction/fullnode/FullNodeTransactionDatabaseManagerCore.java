@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -416,7 +417,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (transactionIds.isEmpty()) { return; }
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")")
+            new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id IN (?)")
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
     }
 
@@ -501,7 +503,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
+            new Query("SELECT id, hash FROM transactions WHERE id IN (?)")
+                .setInClauseParameters(transactionIdRange, ValueExtractor.LONG)
         );
         if (! Util.areEqual(rows.size(), affectedRowCount)) {
             Logger.warn("Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
@@ -702,7 +705,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 @Override
                 public void run(final List<Sha256Hash> batchItems) throws DatabaseException {
                     // Of the "possibly seen" transactions, prove they've actually been seen...
-                    final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(batchItems) + ")");
+                    final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
+                    query.setInClauseParameters(batchItems, ValueExtractor.SHA256_HASH);
 
                     final java.util.List<Row> rows;
                     final DatabaseConnectionFactory connectionFactory = _databaseManager.getDatabaseConnectionFactory();
@@ -854,7 +858,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
             public void run(final List<Sha256Hash> batchItems) throws Exception {
-                final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN(" + DatabaseUtil.createInClause(batchItems) + ")");
+                final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
+                query.setInClauseParameters(batchItems, ValueExtractor.SHA256_HASH);
+
                 if (databaseConnectionFactory != null) {
                     try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
                         rows.addAll(databaseConnection.query(query));
@@ -963,10 +969,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
                 "WHERE " +
                     "(transaction_inputs.previous_transaction_id, transaction_inputs.previous_transaction_output_index) IN (" +
-                        "SELECT previous_transaction_id, previous_transaction_output_index FROM transaction_inputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")" +
+                        "SELECT previous_transaction_id, previous_transaction_output_index FROM transaction_inputs WHERE transaction_id IN (?)" +
                     ")" +
                 "GROUP BY unconfirmed_transactions.transaction_id"
             )
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
@@ -991,9 +998,10 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     "INNER JOIN unconfirmed_transactions " +
                         "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
                 "WHERE " +
-                        "transaction_inputs.previous_transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") " +
+                        "transaction_inputs.previous_transaction_id IN (?) " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
             )
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());

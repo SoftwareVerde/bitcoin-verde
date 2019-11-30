@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.address.MutableSpendableTransactionOutput;
 import com.softwareverde.bitcoin.server.module.node.database.address.SpendableTransactionOutput;
@@ -285,7 +286,8 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, address FROM addresses WHERE address IN (" + DatabaseUtil.createInClause(newAddresses) + ")")
+            new Query("SELECT id, address FROM addresses WHERE address IN (?)")
+                .setInClauseParameters(newAddresses, ValueExtractor.STRING)
         );
         for (final Row row : rows) {
             final AddressId addressId = AddressId.wrap(row.getLong("id"));

@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -323,8 +324,9 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         databaseConnection.executeSql(
-            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
+            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (?)")
                 .setParameter(blockchainSegmentId)
+                .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
 
         for (final BlockId blockId : blockIds) {
@@ -681,7 +683,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     public List<Sha256Hash> getBlockHashes(final List<BlockId> blockIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
+            new Query("SELECT id, hash FROM blocks WHERE id IN (?)")
+                .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
 
         final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<BlockId, Sha256Hash>(rows.size());
