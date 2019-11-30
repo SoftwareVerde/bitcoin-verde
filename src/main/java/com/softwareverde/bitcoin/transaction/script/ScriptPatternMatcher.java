@@ -55,8 +55,8 @@ public class ScriptPatternMatcher {
     }
 
     protected Boolean _matchesPattern(final List<Opcode> pattern, final List<Operation> scriptOperations) {
-        final int opcodeCount = pattern.getSize();
-        final int operationCount = scriptOperations.getSize();
+        final int opcodeCount = pattern.getCount();
+        final int operationCount = scriptOperations.getCount();
 
         if (opcodeCount != operationCount) { return false; }
 
@@ -122,7 +122,7 @@ public class ScriptPatternMatcher {
     protected PublicKey _extractPublicKeyFromPayToPublicKey(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
-        if (scriptOperations.getSize() != PAY_TO_PUBLIC_KEY_PATTERN.getSize()) { return null; }
+        if (scriptOperations.getCount() != PAY_TO_PUBLIC_KEY_PATTERN.getCount()) { return null; }
 
         final Operation operation = scriptOperations.get(0);
         if (! (operation instanceof PushOperation)) {
@@ -168,7 +168,7 @@ public class ScriptPatternMatcher {
     protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
-        if (scriptOperations.getSize() != PAY_TO_PUBLIC_KEY_HASH_PATTERN.getSize()) { return null; }
+        if (scriptOperations.getCount() != PAY_TO_PUBLIC_KEY_HASH_PATTERN.getCount()) { return null; }
 
         final Operation operation = scriptOperations.get(2);
         if (! (operation instanceof PushOperation)) {
@@ -185,7 +185,7 @@ public class ScriptPatternMatcher {
     protected Address _extractAddressFromPayToScriptHash(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
-        if (scriptOperations.getSize() != PAY_TO_SCRIPT_HASH_PATTERN.getSize()) { return null; }
+        if (scriptOperations.getCount() != PAY_TO_SCRIPT_HASH_PATTERN.getCount()) { return null; }
 
         final Operation operation = scriptOperations.get(1);
         if (! (operation instanceof PushOperation)) {
@@ -322,7 +322,7 @@ public class ScriptPatternMatcher {
     // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-segwit-recovery.md
     public Boolean matchesSegregatedWitnessProgram(final UnlockingScript unlockingScript) {
         final List<Operation> operations = unlockingScript.getOperations();
-        if (operations.getSize() != 1) { return false; }
+        if (operations.getCount() != 1) { return false; }
 
         final Operation operation = operations.get(0);
         if (operation.getType() != Operation.Type.OP_PUSH) { return false; }

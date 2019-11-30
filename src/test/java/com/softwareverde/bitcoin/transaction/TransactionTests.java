@@ -66,8 +66,8 @@ public class TransactionTests {
         final Sha256Hash transactionHash = transaction.getHash();
 
         // Assert
-        Assert.assertEquals(expectedInputCount, transaction.getTransactionInputs().getSize());
-        Assert.assertEquals(expectedOutputCount, transaction.getTransactionOutputs().getSize());
+        Assert.assertEquals(expectedInputCount, transaction.getTransactionInputs().getCount());
+        Assert.assertEquals(expectedOutputCount, transaction.getTransactionOutputs().getCount());
         Assert.assertEquals(transactionHash, expectedTransactionHash);
     }
 }

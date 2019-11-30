@@ -207,7 +207,6 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
 
@@ -272,7 +271,6 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
@@ -308,7 +306,6 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
                 final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);

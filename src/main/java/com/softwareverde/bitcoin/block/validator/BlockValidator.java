@@ -59,7 +59,7 @@ public class BlockValidator {
         final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
             final List<Transaction> fullTransactionList = block.getTransactions();
-            final int transactionCount = (fullTransactionList.getSize() - 1);
+            final int transactionCount = (fullTransactionList.getCount() - 1);
             final ImmutableArrayListBuilder<Transaction> listBuilder = new ImmutableArrayListBuilder<Transaction>(transactionCount);
             int transactionIndex = 0;
             for (final Transaction transaction : fullTransactionList) {
@@ -77,7 +77,7 @@ public class BlockValidator {
         final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
         threadPool.setThreadPriority(currentThread.getPriority());
 
-        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool, _databaseManagerFactory);
+        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool, _databaseManagerFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
             @Override
             public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
@@ -85,7 +85,7 @@ public class BlockValidator {
             }
         });
 
-        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool, _databaseManagerFactory);
+        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool, _databaseManagerFactory);
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
@@ -96,7 +96,7 @@ public class BlockValidator {
         final int threadCount;
         final boolean executeBothTasksAsynchronously;
         {
-            final int transactionCount = transactions.getSize();
+            final int transactionCount = transactions.getCount();
             if (transactionCount > 512) {
                 executeBothTasksAsynchronously = false;
                 threadCount = Math.max(_maxThreadCount, 1);
@@ -160,10 +160,10 @@ public class BlockValidator {
             final List<TransactionInput> transactionInputs = coinbaseTransaction.getTransactionInputs();
 
             { // Validate transaction amount...
-                if (transactionInputs.getSize() != 1) {
+                if (transactionInputs.getCount() != 1) {
                     totalExpenditureValidationTaskSpawner.abort();
                     transactionValidationTaskSpawner.abort();
-                    return BlockValidationResult.invalid("Invalid coinbase transaction inputs. Count: " + transactionInputs.getSize() + "; " + "Block: " + block.getHash(), coinbaseTransaction);
+                    return BlockValidationResult.invalid("Invalid coinbase transaction inputs. Count: " + transactionInputs.getCount() + "; " + "Block: " + block.getHash(), coinbaseTransaction);
                 }
             }
 
@@ -306,7 +306,7 @@ public class BlockValidator {
             validateBlockTimer.stop();
             if (_shouldLogValidBlocks) {
                 final List<Transaction> transactions = block.getTransactions();
-                Logger.info("Validated " + transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+                Logger.info("Validated " + transactions.getCount() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getCount() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
             }
         }
         else {

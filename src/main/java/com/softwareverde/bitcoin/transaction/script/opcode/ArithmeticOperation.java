@@ -53,6 +53,8 @@ public class ArithmeticOperation extends SubTypedOperation {
         switch (_opcode) {
             case ADD_ONE: {
                 final Value value = stack.pop();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+
                 final Long longValue = value.asLong();
                 if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
@@ -66,6 +68,8 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case SUBTRACT_ONE: {
                 final Value value = stack.pop();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+
                 final Long longValue = value.asLong();
                 if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
@@ -105,6 +109,8 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case NEGATE: {
                 final Value value = stack.pop();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+
                 final Long longValue = value.asLong();
                 if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
@@ -118,6 +124,8 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case ABSOLUTE_VALUE: {
                 final Value value = stack.pop();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+
                 final Long longValue = value.asLong();
                 if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
@@ -131,6 +139,8 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case NOT: {
                 final Value value = stack.pop();
+                if (! Operation.validateMinimalEncoding(value, context)) { return false; }
+
                 final Long longValue = value.asLong();
                 if (! Operation.isWithinIntegerRange(longValue)) { return false; }
 
@@ -144,7 +154,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case ADD: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
@@ -162,7 +175,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case SUBTRACT: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
@@ -185,7 +201,10 @@ public class ArithmeticOperation extends SubTypedOperation {
                 }
 
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
@@ -206,7 +225,10 @@ public class ArithmeticOperation extends SubTypedOperation {
                 // { 0x0A } { 0x02 } DIVIDE -> { 0x05 }
 
                 final Value value1 = stack.pop(); // Divisor
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
@@ -229,7 +251,10 @@ public class ArithmeticOperation extends SubTypedOperation {
                 // { 0x0A } { 0x02 } MODULUS -> { 0x00 }
 
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
@@ -249,7 +274,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MIN: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }
@@ -267,7 +295,10 @@ public class ArithmeticOperation extends SubTypedOperation {
 
             case MAX: {
                 final Value value1 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value1, context)) { return false; }
+
                 final Value value0 = stack.pop();
+                if (! Operation.validateMinimalEncoding(value0, context)) { return false; }
 
                 final Long longValue0 = value0.asLong();
                 if (! Operation.isWithinIntegerRange(longValue0)) { return false; }

@@ -69,9 +69,13 @@ public class StackOperation extends SubTypedOperation {
                 return (! stack.didOverflow());
             }
             case MOVE_NTH_TO_1ST: {
-                final Integer nthIndex = stack.pop().asInteger();
+                final Value nthIndexValue = stack.pop();
+                if (! Operation.validateMinimalEncoding(nthIndexValue, context)) { return false; }
+
+                final Integer nthIndex = nthIndexValue.asInteger();
                 final Value nthItem = stack.pop(nthIndex);
                 stack.push(nthItem);
+
                 return (! stack.didOverflow());
             }
             case ROTATE_TOP_3: {

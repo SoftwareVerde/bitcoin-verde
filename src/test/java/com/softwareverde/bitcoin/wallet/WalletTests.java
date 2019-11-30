@@ -33,7 +33,7 @@ public class WalletTests {
 
         // Assert
         Assert.assertEquals(Long.valueOf(1L), selectedTuple.second);
-        Assert.assertEquals(9, sortedTuples.getSize());
+        Assert.assertEquals(9, sortedTuples.getCount());
     }
 
     @Test
@@ -47,7 +47,7 @@ public class WalletTests {
 
         // Assert
         Assert.assertEquals(desiredResult, selectedTuple.second);
-        Assert.assertEquals(9, sortedTuples.getSize());
+        Assert.assertEquals(9, sortedTuples.getCount());
     }
 
     @Test
@@ -61,7 +61,7 @@ public class WalletTests {
 
         // Assert
         Assert.assertEquals(desiredResult, selectedTuple.second);
-        Assert.assertEquals(9, sortedTuples.getSize());
+        Assert.assertEquals(9, sortedTuples.getCount());
     }
 
     @Test
@@ -75,7 +75,7 @@ public class WalletTests {
 
         // Assert
         Assert.assertEquals(desiredResult, selectedTuple.second);
-        Assert.assertEquals(9, sortedTuples.getSize());
+        Assert.assertEquals(9, sortedTuples.getCount());
     }
 
     @Test
@@ -89,7 +89,7 @@ public class WalletTests {
 
         // Assert
         Assert.assertEquals(Long.valueOf(10L), selectedTuple.second);
-        Assert.assertEquals(9, sortedTuples.getSize());
+        Assert.assertEquals(9, sortedTuples.getCount());
     }
 
     @Test
@@ -104,6 +104,6 @@ public class WalletTests {
         // Assert
         Assert.assertEquals(Long.valueOf(5L), selectedTuple0.second);
         Assert.assertEquals(Long.valueOf(6L), selectedTuple1.second);
-        Assert.assertEquals(8, sortedTuples.getSize());
+        Assert.assertEquals(8, sortedTuples.getCount());
     }
 }

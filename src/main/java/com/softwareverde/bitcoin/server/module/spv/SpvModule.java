@@ -25,7 +25,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SlpValidity;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -33,6 +33,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.SpvSlpTransactionValidator;
 import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
 import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
@@ -71,6 +72,10 @@ public class SpvModule {
         void onNewTransactionReceived(Transaction transaction);
     }
 
+    public interface TransactionValidityChangedCallback {
+        void onTransactionValidityChanged(Sha256Hash transactionHash, SlpValidity slpValidity);
+    }
+
     public enum Status {
         INITIALIZING        ("Initializing"),
         LOADING             ("Loading"),
@@ -84,6 +89,11 @@ public class SpvModule {
         public String getValue() { return this.value; }
     }
 
+    protected static final TransactionValidityChangedCallback IGNORE_TRANSACTION_VALIDITY_CHANGED_CALLBACK = new TransactionValidityChangedCallback() {
+        @Override
+        public void onTransactionValidityChanged(final Sha256Hash transactionHash, final SlpValidity slpValidity) { }
+    };
+
     protected final Object _initPin = new Object();
     protected Boolean _isInitialized = false;
 
@@ -95,6 +105,7 @@ public class SpvModule {
     protected final SpvRequestDataHandler _spvRequestDataHandler = new SpvRequestDataHandler();
     protected BitcoinNodeManager _bitcoinNodeManager;
     protected BlockHeaderDownloader _blockHeaderDownloader;
+    protected SpvSlpTransactionValidator _spvSlpTransactionValidator;
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
 
     protected final SystemTime _systemTime = new SystemTime();
@@ -115,6 +126,7 @@ public class SpvModule {
     protected volatile Status _status = Status.OFFLINE;
     protected Runnable _onStatusUpdatedCallback = null;
     protected NewTransactionCallback _newTransactionCallback = null;
+    protected TransactionValidityChangedCallback _transactionValidityChangedCallback = null;
 
     protected Runnable _newBlockHeaderAvailableCallback = null;
 
@@ -153,6 +165,10 @@ public class SpvModule {
             final BitcoinNode node = _nodeInitializer.initializeNode(nodeIpAddress);
             _bitcoinNodeManager.addNode(node);
         }
+    }
+
+    protected void _synchronizeSlpValidity() {
+        _spvSlpTransactionValidator.wakeUp();
     }
 
     protected void _executeMerkleBlockSyncUpdateCallback() {
@@ -204,15 +220,26 @@ public class SpvModule {
     protected void _shutdown() {
         _setStatus(Status.SHUTTING_DOWN);
 
-        Logger.info("[Stopping MerkleBlock Downloader]");
-        _merkleBlockDownloader.shutdown();
+        if (_merkleBlockDownloader != null) {
+            Logger.info("[Stopping MerkleBlock Downloader]");
+            _merkleBlockDownloader.shutdown();
+        }
 
-        Logger.info("[Stopping Header Downloader]");
-        _blockHeaderDownloader.stop();
+        if (_blockHeaderDownloader != null) {
+            Logger.info("[Stopping Header Downloader]");
+            _blockHeaderDownloader.stop();
+        }
 
-        Logger.info("[Stopping Node Manager]");
-        _bitcoinNodeManager.shutdown();
-        _bitcoinNodeManager.stopNodeMaintenanceThread();
+        if (_spvSlpTransactionValidator != null) {
+            Logger.info("[Stopping SPV SLP Validator]");
+            _spvSlpTransactionValidator.stop();
+        }
+
+        if (_bitcoinNodeManager != null) {
+            Logger.info("[Stopping Node Manager]");
+            _bitcoinNodeManager.shutdown();
+            _bitcoinNodeManager.stopNodeMaintenanceThread();
+        }
 
         Logger.info("[Shutting Down Thread Server]");
         _mainThreadPool.stop();
@@ -231,6 +258,18 @@ public class SpvModule {
             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final HashSet<TransactionId> confirmedTransactionIds = new HashSet<TransactionId>();
+
+            { // load known valid/invalid SLP transaction hashes (unknowns will be handed automatically)
+                final List<Sha256Hash> validSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.VALID);
+                for (final Sha256Hash transactionHash : validSlpTransactions) {
+                    _wallet.markSlpTransactionAsValid(transactionHash);
+                }
+
+                final List<Sha256Hash> invalidSlpTransactions = transactionDatabaseManager.getSlpTransactionsWithSlpStatus(SlpValidity.INVALID);
+                for (final Sha256Hash transactionHash : invalidSlpTransactions) {
+                    _wallet.markSlpTransactionAsInvalid(transactionHash);
+                }
+            }
 
             { // Load confirmed Transactions from database...
                 int loadedConfirmedTransactionCount = 0;
@@ -403,6 +442,8 @@ public class SpvModule {
                                 _wallet.addTransaction(transaction);
                             }
                         }
+
+                        _synchronizeSlpValidity();
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
                 }
@@ -480,6 +521,10 @@ public class SpvModule {
                                 }
                             });
                         }
+
+                        if (Transaction.isSlpTransaction(transaction)) {
+                            _synchronizeSlpValidity();
+                        }
                     }
                 };
 
@@ -488,11 +533,10 @@ public class SpvModule {
                     return new BitcoinNode.TransactionInventoryMessageCallback() {
                         @Override
                         public void onResult(final List<Sha256Hash> transactions) {
-                            Logger.debug("Received " + transactions.getSize() + " transaction inventories.");
+                            Logger.debug("Received " + transactions.getCount() + " transaction inventories.");
 
-                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getSize());
-                            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                                final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
+                            final MutableList<Sha256Hash> unseenTransactions = new MutableList<Sha256Hash>(transactions.getCount());
+                            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                                 final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                                 for (final Sha256Hash transactionHash : transactions) {
@@ -506,9 +550,47 @@ public class SpvModule {
                                 Logger.warn(exception);
                             }
 
-                            Logger.debug(unseenTransactions.getSize() + " transactions were new.");
+                            Logger.debug(unseenTransactions.getCount() + " transactions were new.");
                             if (! unseenTransactions.isEmpty()) {
                                 bitcoinNode.requestTransactions(unseenTransactions, _downloadTransactionsCallback);
+                            }
+                        }
+
+                        @Override
+                        public void onResult(final List<Sha256Hash> transactionHashes, final Boolean isValid) {
+                            this.onResult(transactionHashes);
+
+                            try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                                final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                                final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+                                final TransactionValidityChangedCallback transactionValidityChangedCallback = Util.coalesce(_transactionValidityChangedCallback, IGNORE_TRANSACTION_VALIDITY_CHANGED_CALLBACK);
+
+                                TransactionUtil.startTransaction(databaseConnection);
+                                Logger.info("Marking " + transactionHashes.getCount() + " SLP transactions as " + (isValid ? "valid" : "invalid"));
+                                for (final Sha256Hash transactionHash : transactionHashes) {
+                                    if (isValid) {
+                                        _wallet.markSlpTransactionAsValid(transactionHash);
+                                    }
+                                    else {
+                                        _wallet.markSlpTransactionAsInvalid(transactionHash);
+                                    }
+
+                                    final SlpValidity slpValidity = (isValid ? SlpValidity.VALID : SlpValidity.INVALID);
+
+                                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                                    if (transactionId != null) {
+                                        final SlpValidity currentSlpValidity = transactionDatabaseManager.getSlpValidity(transactionId);
+                                        if (currentSlpValidity != slpValidity) {
+                                            transactionDatabaseManager.setSlpValidity(transactionId, slpValidity);
+                                            transactionValidityChangedCallback.onTransactionValidityChanged(transactionHash, slpValidity);
+                                        }
+                                    }
+                                }
+                                TransactionUtil.commitTransaction(databaseConnection);
+                            }
+                            catch (final DatabaseException exception) {
+                                Logger.warn("Problem tracking SLP validity", exception);
                             }
                         }
                     };
@@ -520,7 +602,7 @@ public class SpvModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
 
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -558,7 +640,7 @@ public class SpvModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getCount());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
@@ -591,6 +673,7 @@ public class SpvModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
             _bitcoinNodeManager.enableTransactionRelay(false);
+            _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
 
             for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
@@ -606,6 +689,10 @@ public class SpvModule {
             _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, blockValidatorFactory, medianBlockHeaderTime, null, _mainThreadPool);
             _blockHeaderDownloader.setMaxHeaderBatchSize(100);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
+        }
+
+        { // Initialize SpvSlpValidator
+            _spvSlpTransactionValidator = new SpvSlpTransactionValidator(databaseManagerFactory, _bitcoinNodeManager);
         }
 
         final LocalDatabaseManagerCache localDatabaseCache = (_masterDatabaseManagerCache != null ? new LocalDatabaseManagerCache(_masterDatabaseManagerCache) : null);
@@ -676,6 +763,9 @@ public class SpvModule {
 
         _connectToSeedNodes();
 
+        Logger.info("[Starting SPV SLP Validator]");
+        _spvSlpTransactionValidator.start();
+
         Logger.info("[Starting Header Downloader]");
         _blockHeaderDownloader.start();
 
@@ -695,6 +785,10 @@ public class SpvModule {
         _newTransactionCallback = newTransactionCallback;
     }
 
+    public void setTransactionValidityChangedCallback(final TransactionValidityChangedCallback transactionValidityChangedCallback) {
+        _transactionValidityChangedCallback = transactionValidityChangedCallback;
+    }
+
     public Status getStatus() {
         return _status;
     }
@@ -708,10 +802,12 @@ public class SpvModule {
     }
 
     public void storeTransaction(final Transaction transaction) throws DatabaseException {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             transactionDatabaseManager.storeTransaction(transaction);
         }
+
+        _wallet.addTransaction(transaction);
     }
 
     public void broadcastTransaction(final Transaction transaction) {
@@ -726,6 +822,8 @@ public class SpvModule {
             Logger.info("Sending Tx Hash " + transaction.getHash() + " to " + bitcoinNode.getConnectionString());
             bitcoinNode.transmitTransactionHashes(transactionHashes);
         }
+
+        _synchronizeSlpValidity();
     }
 
     public void setMerkleBlockSyncUpdateCallback(final MerkleBlockSyncUpdateCallback merkleBlockSyncUpdateCallback) {
@@ -734,6 +832,10 @@ public class SpvModule {
 
     public void synchronizeMerkleBlocks() {
         _synchronizeMerkleBlocks();
+    }
+
+    public void synchronizeSlpValidity() {
+        _synchronizeSlpValidity();
     }
 
     /**

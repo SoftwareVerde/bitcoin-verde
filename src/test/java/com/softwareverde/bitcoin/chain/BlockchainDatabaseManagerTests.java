@@ -1198,7 +1198,7 @@ class Void {
             context.setBlockHeight(6L);
             context.setTransactionOutputBeingSpent(outputBeingSpent);
             context.setCurrentScriptLastCodeSeparatorIndex(0);
-            final ScriptRunner scriptRunner = new ScriptRunner(null);
+            final ScriptRunner scriptRunner = new ScriptRunner();
             final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
             Assert.assertTrue(outputIsUnlocked);
 

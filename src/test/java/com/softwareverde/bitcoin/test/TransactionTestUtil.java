@@ -69,7 +69,7 @@ public class TransactionTestUtil {
     }
 
     public static List<Sha256Hash> getTransactionHashes(final List<Transaction> transactions) {
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactions.getSize());
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             transactionHashes.add(transaction.getHash());
         }

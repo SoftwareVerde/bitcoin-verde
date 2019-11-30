@@ -92,7 +92,7 @@ public class MutableBlock implements Block {
         _cachedHashCode = null;
 
         final MutableList<Transaction> oldTransactions = _transactions;
-        _transactions = new MutableList<Transaction>(_transactions.getSize());
+        _transactions = new MutableList<Transaction>(_transactions.getCount());
         for (final Transaction transaction : oldTransactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             if (! Util.areEqual(transactionHashToRemove, transactionHash)) {
@@ -209,7 +209,7 @@ public class MutableBlock implements Block {
 
     @Override
     public Integer getTransactionCount() {
-        return _transactions.getSize();
+        return _transactions.getCount();
     }
 
     @Override

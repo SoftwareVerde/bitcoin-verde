@@ -69,7 +69,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
                 final Transaction transactionContainingOutput = queuedTransactions.get(outputTransactionHash);
                 if (transactionContainingOutput != null) {
                     final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
-                    final boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getSize());
+                    final boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getCount());
                     if (transactionOutputIndexIsValid) {
                         return transactionOutputs.get(transactionOutputIndex);
                     }
@@ -87,7 +87,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
-        for (int i = 0; i < transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getCount(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final Sha256Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();

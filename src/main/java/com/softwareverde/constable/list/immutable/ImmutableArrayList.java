@@ -43,7 +43,7 @@ public class ImmutableArrayList<T> implements List<T>, Const {
 
     @SuppressWarnings("unchecked")
     public ImmutableArrayList(final List<T> list) {
-        final int itemCount = list.getSize();
+        final int itemCount = list.getCount();
 
         _items = (T[]) (new Object[itemCount]);
 
@@ -59,6 +59,7 @@ public class ImmutableArrayList<T> implements List<T>, Const {
     }
 
     @Override
+    @Deprecated
     public int getSize() {
         return _items.length;
     }

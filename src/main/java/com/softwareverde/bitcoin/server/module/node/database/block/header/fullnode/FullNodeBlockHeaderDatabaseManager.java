@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -43,10 +44,10 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
 
-        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<BlockHeader>(MedianBlockTime.BLOCK_COUNT);
+        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<BlockHeader>(MedianBlockTimeWithBlocks.BLOCK_COUNT);
 
         Sha256Hash blockHash = headBlockHash;
-        for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
+        for (int i = 0; i < MedianBlockTimeWithBlocks.BLOCK_COUNT; ++i) {
             final BlockId blockId = blockDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { break; }
 
@@ -254,13 +255,13 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         Long previousBlockHeight = _getBlockHeight(previousBlockId);
         ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
 
-        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getSize());
+        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getCount());
 
         BlockId leadingBlockId = BlockId.wrap((previousBlockId == null ? 0L : previousBlockId.longValue()) + 1L);
 
         int batchStartIndex = 0;
-        while (batchStartIndex < blockHeaders.getSize()) {
-            int batchSize = Math.min(blockHeaders.getSize() - blockIds.getSize(), maxBatchSize); // Limiting query variables to below 999
+        while (batchStartIndex < blockHeaders.getCount()) {
+            int batchSize = Math.min(blockHeaders.getCount() - blockIds.getCount(), maxBatchSize); // Limiting query variables to below 999
 
             final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
@@ -308,27 +309,27 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
-
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id = ?")
                 .setParameter(blockchainSegmentId)
                 .setParameter(blockId)
         );
+
+        databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
     }
 
     protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        for (final BlockId blockId : blockIds) {
-            databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
-        }
-
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
                 .setParameter(blockchainSegmentId)
         );
+
+        for (final BlockId blockId : blockIds) {
+            databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
+        }
     }
 
     protected BlockchainSegmentId _getBlockchainSegmentId(final BlockId blockId) throws DatabaseException {
@@ -691,7 +692,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
             hashesMap.put(blockId, blockHash);
         }
 
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockIds.getSize());
+        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockIds.getCount());
         for (final BlockId blockId : blockIds) {
             blockHashes.add(hashesMap.get(blockId));
         }

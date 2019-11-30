@@ -152,7 +152,7 @@ public class RepairModule {
         bitcoinNode.connect();
         bitcoinNode.handshake();
 
-        if ( (_blockHashes.getSize() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
+        if ( (_blockHashes.getCount() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
             try (final DatabaseConnection databaseConnection = database.newConnection()) {
                 final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
 

@@ -33,7 +33,7 @@ public class AddressDatabaseManagerTests extends IntegrationTest {
             final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
 
             // Assert
-            Assert.assertEquals(2, addressIds.getSize());
+            Assert.assertEquals(2, addressIds.getCount());
             Assert.assertEquals(1L, addressIds.get(0).longValue());
             Assert.assertEquals(2L, addressIds.get(1).longValue());
         }

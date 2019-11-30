@@ -63,7 +63,7 @@ public class Schnorr {
         //  for key P into a signature (R,s + aH(R || m)) for key P + aG and the same message, for any integer a. This is
         //  not a concern for Bitcoin currently, as all signature hashes indirectly commit to the public keys. However,
         //  this may change with proposals such as SIGHASH_NOINPUT (BIP 118), or when the signature scheme is used for
-        //  other purposes-especially in combination with schemes like BIP32's unhardened derivation. To combat this, we
+        //  other purposes--especially in combination with schemes like BIP32's unhardened derivation. To combat this, we
         //  choose key prefixed Schnorr signatures; changing the equation to sG = R + H(R || P || m)P.
 
         // sG = R + H(R || P || m)P

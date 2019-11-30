@@ -67,7 +67,7 @@ public class MutableScript implements Script {
 
     public void removeOperations(final Opcode opcode) {
         int i = 0;
-        while (i < _operations.getSize()) {
+        while (i < _operations.getCount()) {
             final Operation operation = _operations.get(i);
             final boolean shouldRemoveOperation = opcode.matchesByte(operation.getOpcodeByte());
             if (shouldRemoveOperation) {
@@ -82,7 +82,7 @@ public class MutableScript implements Script {
 
     public void removePushOperations(final ByteArray byteArray) {
         int i = 0;
-        while (i < _operations.getSize()) {
+        while (i < _operations.getCount()) {
             final Operation operation = _operations.get(i);
             final boolean shouldRemoveOperation;
             { // Remove all push-operations containing byteArray...

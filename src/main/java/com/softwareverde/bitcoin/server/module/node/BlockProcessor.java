@@ -172,6 +172,8 @@ public class BlockProcessor {
                         storeBlockHeaderTimer.stop();
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
+                    _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+                    _masterDatabaseManagerCache.commit();
                 }
             }
 
@@ -189,7 +191,7 @@ public class BlockProcessor {
                     return null;
                 }
 
-                final int transactionCount = block.getTransactions().getSize();
+                final int transactionCount = block.getTransactions().getCount();
                 Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
                 final Boolean blockIsValid;
@@ -210,9 +212,6 @@ public class BlockProcessor {
                     }
                     blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
-
-                    // localDatabaseManagerCache.log();
-                    localDatabaseManagerCache.resetLog();
                 }
 
                 if (! blockIsValid) {
@@ -222,6 +221,8 @@ public class BlockProcessor {
                 }
             }
             TransactionUtil.commitTransaction(databaseConnection);
+            _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+            _masterDatabaseManagerCache.commit();
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
@@ -313,7 +314,7 @@ public class BlockProcessor {
                 }
             }
 
-            final Integer blockTransactionCount = block.getTransactions().getSize();
+            final Integer blockTransactionCount = block.getTransactions().getCount();
 
             final Float averageBlocksPerSecond;
             final Float averageTransactionsPerSecond;

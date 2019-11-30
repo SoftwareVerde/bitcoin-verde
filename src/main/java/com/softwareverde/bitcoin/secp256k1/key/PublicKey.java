@@ -82,6 +82,10 @@ public class PublicKey extends ImmutableByteArray implements Const {
         return new PublicKey(compressedPublicKeyPoint);
     }
 
+    public Boolean isValid() {
+        return (_isCompressed() || _isDecompressed());
+    }
+
     @Override
     public PublicKey asConst() {
         return this;

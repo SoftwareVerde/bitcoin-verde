@@ -40,8 +40,10 @@ import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFou
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
+import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.request.block.RequestExtraThinBlockMessage;
@@ -77,6 +79,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
+
     public interface BlockInventoryMessageCallback {
         void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
     }
@@ -105,9 +108,14 @@ public class BitcoinNode extends Node {
 
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
 
-    public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+    public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> {
+        default void onResult(final List<Sha256Hash> transactionHashes, final Boolean isValid) {
+            this.onResult(transactionHashes);
+        }
+    }
 
     public interface SpvBlockInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
@@ -141,6 +149,11 @@ public class BitcoinNode extends Node {
 
     public interface RequestSpvBlocksCallback {
         void run(List<Address> addresses, BitcoinNode bitcoinNode);
+    }
+
+    public interface RequestSlpTransactionsCallback {
+        void run(List<Sha256Hash> transactionHashes, BitcoinNode bitcoinNode);
+        Boolean getSlpStatus(Sha256Hash transactionHash);
     }
 
     public interface RequestExtraThinBlockCallback {
@@ -196,7 +209,7 @@ public class BitcoinNode extends Node {
         }
 
         protected Boolean hasAllTransactions() {
-            return Util.areEqual(_merkleBlock.getTransactionCount(), _transactions.getSize());
+            return Util.areEqual(_merkleBlock.getTransactionCount(), _transactions.getCount());
         }
 
         protected void addTransaction(final Transaction transaction) {
@@ -252,6 +265,7 @@ public class BitcoinNode extends Node {
     protected RequestPeersHandler _requestPeersHandler = null;
     protected QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback = null;
     protected RequestSpvBlocksCallback _requestSpvBlocksCallback = null;
+    protected RequestSlpTransactionsCallback _requestSlpTransactionsCallback = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
@@ -275,9 +289,11 @@ public class BitcoinNode extends Node {
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
+    protected Boolean _slpTransactionsIsEnabled = false;
 
     protected OnNewBloomFilterCallback _onNewBloomFilterCallback = null;
     protected Boolean _transactionRelayIsEnabled = true;
+    protected Boolean _slpValidityCheckingIsEnabled = false;
 
     protected MutableBloomFilter _bloomFilter = null;
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
@@ -323,6 +339,7 @@ public class BitcoinNode extends Node {
             _queryBlockHeadersCallback = null;
             _requestDataMessageCallback = null;
             _requestSpvBlocksCallback = null;
+            _requestSlpTransactionsCallback = null;
             _blockInventoryMessageHandler = null;
             _requestExtraThinBlockCallback = null;
             _requestExtraThinTransactionCallback = null;
@@ -494,6 +511,11 @@ public class BitcoinNode extends Node {
         _messageRouter.addRoute(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER,(final ProtocolMessage message) -> { _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message); });
         _messageRouter.addRoute(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, (final ProtocolMessage message) -> { _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message); });
         _messageRouter.addRoute(MessageType.QUERY_ADDRESS_BLOCKS,           (final ProtocolMessage message) -> { _onQueryAddressBlocks((QueryAddressBlocksMessage) message); });
+        _messageRouter.addRoute(MessageType.ENABLE_SLP_TRANSACTIONS,        (final ProtocolMessage message) -> {
+            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = (EnableSlpTransactionsMessage) message;
+            _slpTransactionsIsEnabled = enableSlpTransactionsMessage.isEnabled();
+        });
+        _messageRouter.addRoute(MessageType.QUERY_SLP_STATUS,               (final ProtocolMessage message) -> { _onQuerySlpStatus((QuerySlpStatusMessage) message); });
 
         _messageRouter.setUnknownRouteHandler(new MessageRouter.UnknownRouteHandler() {
             @Override
@@ -585,13 +607,23 @@ public class BitcoinNode extends Node {
                     }
                 } break;
 
+                case VALID_SLP_TRANSACTION:
+                case INVALID_SLP_TRANSACTION:
                 case TRANSACTION: {
+                    final boolean isSlp = (inventoryItemType != InventoryItemType.TRANSACTION);
+
                     final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
                     if (transactionsAnnouncementCallback != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                transactionsAnnouncementCallback.onResult(objectHashes);
+                                if (isSlp) {
+                                    final boolean isValid = (inventoryItemType == InventoryItemType.VALID_SLP_TRANSACTION);
+                                    transactionsAnnouncementCallback.onResult(objectHashes, isValid);
+                                }
+                                else {
+                                    transactionsAnnouncementCallback.onResult(objectHashes);
+                                }
                             }
                         });
                     }
@@ -600,7 +632,7 @@ public class BitcoinNode extends Node {
                     }
                 } break;
 
-                case SPV_BLOCK: {
+                case MERKLE_BLOCK: {
                     if (Logger.isDebugEnabled()) {
                         for (final Sha256Hash objectHash : objectHashes) {
                             Logger.debug("Received AddressBlock: " + objectHash + " from " + _connection);
@@ -629,7 +661,7 @@ public class BitcoinNode extends Node {
                     else {
                         Logger.debug("No handler set for SpvBlockInventoryMessageCallback.");
                     }
-                }
+                } break;
             }
         }
     }
@@ -683,7 +715,7 @@ public class BitcoinNode extends Node {
 
         final PartialMerkleTree partialMerkleTree = merkleBlock.getPartialMerkleTree();
         final List<Sha256Hash> merkleTreeTransactionHashes = partialMerkleTree.getTransactionHashes();
-        final int transactionCount = merkleTreeTransactionHashes.getSize();
+        final int transactionCount = merkleTreeTransactionHashes.getCount();
 
         if (transactionCount == 0) {
             // No Transactions should be transmitted alongside this MerkleBlock, so execute any callbacks and return early.
@@ -954,6 +986,24 @@ public class BitcoinNode extends Node {
         }
     }
 
+    private void _onQuerySlpStatus(final QuerySlpStatusMessage querySlpStatusMessage) {
+        if (_slpTransactionsIsEnabled) {
+            final RequestSlpTransactionsCallback requestDataCallback = _requestSlpTransactionsCallback;
+            if (requestDataCallback != null) {
+                final List<Sha256Hash> transactionHashes = querySlpStatusMessage.getHashes().asConst();
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        requestDataCallback.run(transactionHashes, BitcoinNode.this);
+                    }
+                });
+            }
+            else {
+                Logger.debug("No handler set for RequestSlpTransactions message.");
+            }
+        }
+    }
+
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = _protocolMessageFactory.newQueryBlocksMessage();
         queryBlocksMessage.addBlockHash(blockHash);
@@ -1014,10 +1064,46 @@ public class BitcoinNode extends Node {
 
     protected void _requestTransactions(final List<Sha256Hash> transactionHashes) {
         final RequestDataMessage requestTransactionMessage = _protocolMessageFactory.newRequestDataMessage();
-        for (final Sha256Hash transactionHash: transactionHashes) {
+        for (final Sha256Hash transactionHash : transactionHashes) {
             requestTransactionMessage.addInventoryItem(new InventoryItem(InventoryItemType.TRANSACTION, transactionHash));
         }
         _queueMessage(requestTransactionMessage);
+    }
+
+    protected void _requestSlpStatus(final List<Sha256Hash> transactionHashes) {
+        if (! _slpValidityCheckingIsEnabled) {
+            Logger.warn("Attempting to Request SLP Status for " + transactionHashes.getCount() + " transactions when SLP validity checking has not been enabled.");
+        }
+        else {
+            final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
+            for (final Sha256Hash transactionHash : transactionHashes) {
+                querySlpStatusMessage.addHash(transactionHash);
+            }
+            _queueMessage(querySlpStatusMessage);
+        }
+    }
+
+    protected void _enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        if (_synchronizeVersionMessage == null) {
+            Logger.warn("Unable to set SLP validity checking for un-handshaked node: " + this.getRemoteNodeIpAddress());
+            return;
+        }
+
+        final NodeFeatures remoteNodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
+        if (remoteNodeFeatures == null) {
+            Logger.warn("Unable to verify SLP index node feature for node: " + this.getRemoteNodeIpAddress());
+            return;
+        }
+
+        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+            Logger.debug("Enabling SLP Validity checking for node " + this.getRemoteNodeIpAddress());
+            final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
+            enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
+
+            _queueMessage(enableSlpTransactionsMessage);
+
+            _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
+        }
     }
 
     public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {
@@ -1060,7 +1146,7 @@ public class BitcoinNode extends Node {
     }
 
     public void requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
-        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getSize());
+        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getCount());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
             shortTransactionHashesBuilder.add(shortTransactionHash);
@@ -1089,9 +1175,26 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
+        final RequestSlpTransactionsCallback requestSlpTransactionsCallback = _requestSlpTransactionsCallback;
+
         final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
-            final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+            final InventoryItem inventoryItem;
+            if (! _slpTransactionsIsEnabled || requestSlpTransactionsCallback == null) {
+                inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+            }
+            else {
+                final Boolean isValid = requestSlpTransactionsCallback.getSlpStatus(transactionHash);
+                if (isValid == null) {
+                    inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+                }
+                else if (isValid) {
+                    inventoryItem = new InventoryItem(InventoryItemType.VALID_SLP_TRANSACTION, transactionHash);
+                }
+                else {
+                    inventoryItem = new InventoryItem(InventoryItemType.INVALID_SLP_TRANSACTION, transactionHash);
+                }
+            }
             inventoryMessage.addInventoryItem(inventoryItem);
         }
 
@@ -1226,6 +1329,10 @@ public class BitcoinNode extends Node {
         _requestSpvBlocksCallback = requestSpvBlocksCallback;
     }
 
+    public void setRequestSlpTransactionsCallback(final RequestSlpTransactionsCallback requestSlpTransactionsCallback) {
+        _requestSlpTransactionsCallback = requestSlpTransactionsCallback;
+    }
+
     public void setBlockInventoryMessageHandler(final BlockInventoryMessageCallback blockInventoryMessageHandler) {
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
     }
@@ -1293,6 +1400,13 @@ public class BitcoinNode extends Node {
         return (synchronizeVersionMessage.transactionRelayIsEnabled());
     }
 
+    /**
+     * If the remote peer supports SLP validity checking, send an enable SLP transactions message.
+     */
+    public void enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        _enableSlpValidityChecking(shouldEnableSlpValidityChecking);
+    }
+
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {
         _queueMessage(protocolMessage);
     }
@@ -1350,6 +1464,10 @@ public class BitcoinNode extends Node {
         }
 
         _requestAddressBlocks(addresses);
+    }
+
+    public void getSlpStatus(final List<Sha256Hash> transactionHashes) {
+        _requestSlpStatus(transactionHashes);
     }
 
     @Override

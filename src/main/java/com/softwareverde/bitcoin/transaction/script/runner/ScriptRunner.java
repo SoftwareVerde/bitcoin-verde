@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.bip.HF20190515;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
@@ -31,11 +30,7 @@ public class ScriptRunner {
 
     protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
 
-    protected final MedianBlockTime _medianBlockTime;
-
-    public ScriptRunner(final MedianBlockTime medianBlockTime) {
-        _medianBlockTime = medianBlockTime;
-    }
+    public ScriptRunner() { }
 
     public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
         final MutableContext mutableContext = new MutableContext(context);
@@ -167,7 +162,7 @@ public class ScriptRunner {
         if ( (HF20181115.isEnabled(context.getBlockHeight())) && (! HF20181115SV.isEnabled(context.getBlockHeight())) ) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) {
-                if (HF20190515.isEnabled(_medianBlockTime)) {
+                if (HF20190515.isEnabled(context.getMedianBlockTime())) {
                     final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                     final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
                     if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }

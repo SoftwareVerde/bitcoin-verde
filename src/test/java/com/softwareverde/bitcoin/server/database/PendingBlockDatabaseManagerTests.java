@@ -92,7 +92,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(Long.valueOf(1L), blockHeights.get(downloadPlan.get(0).first));
             Assert.assertEquals(Long.valueOf(500L), blockHeights.get(downloadPlan.get(0).second));
 
-            Assert.assertEquals(1, downloadPlan.getSize());
+            Assert.assertEquals(1, downloadPlan.getCount());
         }
     }
 
@@ -156,7 +156,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(Long.valueOf(61L), blockHeights.get(downloadPlan.get(9).first));
             Assert.assertEquals(Long.valueOf(500L), blockHeights.get(downloadPlan.get(9).second));
 
-            Assert.assertEquals(10, downloadPlan.getSize());
+            Assert.assertEquals(10, downloadPlan.getCount());
         }
     }
 
@@ -178,7 +178,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(blockHash, downloadPlan.get(0).first);
             Assert.assertNull(downloadPlan.get(0).second);
 
-            Assert.assertEquals(1, downloadPlan.getSize());
+            Assert.assertEquals(1, downloadPlan.getCount());
         }
     }
 }

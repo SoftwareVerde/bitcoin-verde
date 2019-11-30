@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -9,6 +11,7 @@ import com.softwareverde.json.Json;
 
 public class ImmutableContext implements Context, Const {
     protected Long _blockHeight;
+    protected MedianBlockTime _medianBlockTime;
     protected Transaction _transaction;
 
     protected Integer _transactionInputIndex;
@@ -21,13 +24,14 @@ public class ImmutableContext implements Context, Const {
 
     public ImmutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
-        _transaction = context.getTransaction().asConst();
+        _medianBlockTime = ConstUtil.asConstOrNull(context.getMedianBlockTime());
+        _transaction = ConstUtil.asConstOrNull(context.getTransaction());
         _transactionInputIndex = context.getTransactionInputIndex();
-        _transactionInput = context.getTransactionInput().asConst();
-        _transactionOutput = context.getTransactionOutput().asConst();
+        _transactionInput = ConstUtil.asConstOrNull(context.getTransactionInput());
+        _transactionOutput = ConstUtil.asConstOrNull(context.getTransactionOutput());
 
         final Script currentScript = context.getCurrentScript();
-        _currentScript = (currentScript != null ? currentScript.asConst() : null);
+        _currentScript = (currentScript != null ? ConstUtil.asConstOrNull(currentScript) : null);
         _currentScriptIndex = context.getScriptIndex();
         _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }
@@ -35,6 +39,11 @@ public class ImmutableContext implements Context, Const {
     @Override
     public Long getBlockHeight() {
         return _blockHeight;
+    }
+
+    @Override
+    public MedianBlockTime getMedianBlockTime() {
+        return _medianBlockTime;
     }
 
     @Override

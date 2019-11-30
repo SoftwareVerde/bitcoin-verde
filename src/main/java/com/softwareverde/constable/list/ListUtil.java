@@ -21,6 +21,6 @@ public class ListUtil {
     }
 
     public static <T> Integer binarySearch(final List<T> sortedList, final T needle, final Comparator<T> comparator) {
-        return ListUtil._binarySearch(sortedList, needle, comparator, 0, (sortedList.getSize() - 1));
+        return ListUtil._binarySearch(sortedList, needle, comparator, 0, (sortedList.getCount() - 1));
     }
 }

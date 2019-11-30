@@ -149,7 +149,7 @@ public class SpvTransactionValidator {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
         long total = 0L;
-        for (int i = 1; i < transactionOutputs.getSize(); ++i) {
+        for (int i = 1; i < transactionOutputs.getCount(); ++i) {
             final Long slpAmount = Util.coalesce(slpSendScript.getAmount(i));
             total += slpAmount;
         }

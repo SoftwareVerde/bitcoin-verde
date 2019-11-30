@@ -71,9 +71,9 @@ public class GpuSha256Tests {
         System.out.println("GPU Elapsed: "+ gpuElapsed + " (" + (((float) totalHashCount * 2F) / gpuElapsed * 1000) + " h/s)");
         System.out.println("Ratio: "+ ( ((float) cpuElapsed) / gpuElapsed ));
 
-        Assert.assertEquals(expectedValues.getSize(), values.getSize());
+        Assert.assertEquals(expectedValues.getCount(), values.getCount());
 
-        for (int i = 0; i < values.getSize(); ++i) {
+        for (int i = 0; i < values.getCount(); ++i) {
             final Sha256Hash expectedHash = expectedValues.get(i);
             final Sha256Hash hash = values.get(i);
 
