@@ -233,7 +233,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
-        final TransactionId cachedTransactionId = databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
+        final TransactionId cachedTransactionId = databaseManagerCache.getCachedTransactionId(transactionHash);
         if (cachedTransactionId != null) { return cachedTransactionId; }
 
         final java.util.List<Row> rows = databaseConnection.query(

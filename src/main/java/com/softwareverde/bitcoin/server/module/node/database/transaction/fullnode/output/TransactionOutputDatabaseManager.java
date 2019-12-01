@@ -244,7 +244,7 @@ public class TransactionOutputDatabaseManager {
         final Row transactionOutputRow;
         {
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT * FROM transaction_outputs WHERE transaction_id = ? AND transaction_output_index = ?")
+                new Query("SELECT * FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
                     .setParameter(transactionOutputId.getTransactionId())
                     .setParameter(transactionOutputId.getOutputIndex())
             );
@@ -273,7 +273,7 @@ public class TransactionOutputDatabaseManager {
         return mutableTransactionOutput;
     }
 
-    protected Boolean _wasTransactionOutputSpentInAnyChain(final TransactionOutputId transactionOutputId) throws DatabaseException {
+    protected Boolean _wasTransactionOutputSpentOnAnyChain(final TransactionOutputId transactionOutputId) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
 
         final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputId);
@@ -497,7 +497,7 @@ public class TransactionOutputDatabaseManager {
     }
 
     public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        return _wasTransactionOutputSpentInAnyChain(transactionOutputId);
+        return _wasTransactionOutputSpentOnAnyChain(transactionOutputId);
     }
 
     public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {

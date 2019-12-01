@@ -342,7 +342,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 return false;
             }
 
-            for (int i = 0; i < transactionInputs.getSize(); ++i) {
+            for (int i = 0; i < transactionInputs.getCount(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
                 final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
