@@ -622,7 +622,7 @@ public class TransactionOutputDatabaseManager {
             keyMap.put(lockingScriptId, lockingScript);
         }
 
-        return DatabaseUtil.sortMappedRows(rows, lockingScriptIds, keyMap);
+        return DatabaseUtil.sortMappedRows(lockingScriptIds, keyMap);
     }
 
     public TransactionOutputId getTransactionOutputId(final LockingScriptId lockingScriptId) throws DatabaseException {
