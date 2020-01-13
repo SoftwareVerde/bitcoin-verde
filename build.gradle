@@ -50,11 +50,11 @@ dependencies {
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.0.6'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.3'
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.4'
 
     // Server
-    serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.1.0'
-    serverImplementation(group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.0.1') {
+    serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.2.0'
+    serverImplementation(group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.0.2') {
         exclude group: 'org.apache.logging.log4j',  module: '*'
         exclude group: 'ch.qos.logback',            module: '*'
         exclude group: 'org.springframework.boot',  module: '*'
