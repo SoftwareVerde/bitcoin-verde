@@ -177,6 +177,10 @@ public class SlpTransactionDatabaseManager {
         _databaseManager = databaseManager;
     }
 
+    /**
+     * Returns the cached SLP validity of the TransactionId.
+     *  This function does run validation on the transaction and only queries its cached value.
+     */
     public Boolean getSlpTransactionValidationResult(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
