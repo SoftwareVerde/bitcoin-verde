@@ -148,3 +148,12 @@ resolving bugs preferrably be accepted along with a test proving their existence
 Feel free to contact Software Verde, LLC at any appropriate softwareverde.com email address.
 Generic enquiries may be directed to bitcoin-verde@softwareverde.com
 
+
+## Running on macOS Catalina
+
+If the embedded database fails to start due to being unable to find the SSL lib, consider
+executing the following commands and trying again:
+
+    sudo ln -s /usr/lib/libssl.dylib /usr/local/opt/openssl/lib/libssl.1.0.0.dylib
+    sudo ln -s /usr/lib/libcrypto.dylib /usr/local/opt/openssl/lib/libcrypto.1.0.0.dylib
+
