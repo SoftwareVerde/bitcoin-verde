@@ -121,7 +121,7 @@ public class RepairModule {
     }
 
     public void run() {
-        Logger.DEFAULT_LOG_LEVEL = LogLevel.ON;
+        Logger.setLogLevel(LogLevel.ON);
 
         final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();

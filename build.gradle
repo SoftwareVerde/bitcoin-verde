@@ -43,31 +43,18 @@ dependencies {
     // Library
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
+    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.62'
     implementation  group: 'org.mariadb.jdbc',          name: 'mariadb-java-client',    version: '2.4.1'
 
-    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.0.2'
+    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.1.0'
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.0.6'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.4'
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.5'
 
     // Server
     serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.2.0'
-    serverImplementation(group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.0.2') {
-        exclude group: 'org.apache.logging.log4j',  module: '*'
-        exclude group: 'ch.qos.logback',            module: '*'
-        exclude group: 'org.springframework.boot',  module: '*'
-        exclude group: 'javax.annotations',         module: '*'
-        exclude group: 'javax.enterprise',          module: '*'
-        exclude group: 'javax.inject',              module: '*'
-        exclude group: 'org.apache.maven',          module: '*'
-        exclude group: 'org.hamcrest',              module: '*'
-        exclude group: 'org.slf4j',                 module: '*'
-        // exclude group: 'org.springframework',       module: '*'
-        // exclude group: 'commons-io',                module: '*'
-        // exclude group: 'org.apache.commons',        module: '*'
-    }
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.1.1'
     serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '3.4.1') {
         exclude group: 'io.micrometer',             module: '*'
         exclude group: 'org.javassist ',            module: '*'
