@@ -100,7 +100,7 @@ CREATE TABLE transactions (
     lock_time BIGINT UNSIGNED NOT NULL,
     output_count INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_hash_uq (hash)
+    UNIQUE KEY transaction_hash_uq (hash, output_count)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE block_transactions (
