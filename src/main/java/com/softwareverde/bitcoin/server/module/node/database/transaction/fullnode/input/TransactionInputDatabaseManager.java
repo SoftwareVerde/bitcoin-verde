@@ -206,6 +206,7 @@ public class TransactionInputDatabaseManager {
             }
             transactionOutputIdentifiers = mutableList;
         }
+        // Choke point...
         final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getTransactionOutputIds(transactionOutputIdentifiers);
         if (previousTransactionOutputsMap == null) { return null; }
 
@@ -260,6 +261,7 @@ public class TransactionInputDatabaseManager {
         txInputPrepareInsertQueryTimer.stop();
 
         insertTxInputTimer.start();
+        // Choke point...
         final Long firstTransactionInputId = databaseConnection.executeSql(batchedInsertQuery);
         if (firstTransactionInputId == null) {
             Logger.warn("Error storing TransactionInputs. Error running batch insert.");
