@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.util.Container;
 import org.bouncycastle.math.ec.ECAlgorithms;
 import org.bouncycastle.math.ec.ECCurve;
@@ -24,7 +25,7 @@ public class PublicKey extends ImmutableByteArray implements Const {
     /**
      * Determine the public key used from a signed message.
      *  This algorithm operation is described in sec1-v2, section 4.1.6: https://www.secg.org/sec1-v2.pdf
-     *  If provided, `recoveryIndex` is set to the used j-index of the algorithm.
+     *  If provided, `recoveryIndex` is used to seed the recoveryIndex, and its value is updated to the j-index used by the algorithm.
      */
     public static PublicKey fromSignature(final Signature signature, final Sha256Hash messagePreImage, final Container<Integer> recoveryIndex) {
         final ECCurve curve = Secp256k1.CURVE_DOMAIN.getCurve();
@@ -33,8 +34,19 @@ public class PublicKey extends ImmutableByteArray implements Const {
         final BigInteger s = new BigInteger(1, signature.getS().getBytes());
         final BigInteger curveP = new BigInteger(1, Secp256k1.CURVE_P.getBytes());
 
+        final int startIndex;
+        {
+            final boolean useRecoveryIndex = ( (recoveryIndex != null) && (recoveryIndex.value >= 0) && (recoveryIndex.value < 4) );
+            if (useRecoveryIndex) {
+                startIndex = recoveryIndex.value;
+            }
+            else {
+                startIndex = 0;
+            }
+        }
+
         // 1. For j from 0 to h do the following.
-        for (int j = 0; j < 4; ++j) {
+        for (int j = startIndex; j < 4; ++j) {
             //   1.1 Let x = r + jn
             final BigInteger i = BigInteger.valueOf(j / 2L);
             final BigInteger x = r.add(i.multiply(n));
@@ -48,8 +60,10 @@ public class PublicKey extends ImmutableByteArray implements Const {
 
             final byte[] compressedPoint = new byte[32 + 1];
             {
+                final boolean yCoordinateIsEven = ((j & 0x01) == 0x00);
+
                 final byte[] xPointBytes = x.toByteArray();
-                compressedPoint[0] = (byte) (((j & 0x01) == 0x00) ? 0x02 : 0x03);
+                compressedPoint[0] = (byte) (yCoordinateIsEven ? 0x02 : 0x03);
                 ByteUtil.setBytes(compressedPoint, ByteUtil.getTailBytes(xPointBytes, 32), 1);
             }
 

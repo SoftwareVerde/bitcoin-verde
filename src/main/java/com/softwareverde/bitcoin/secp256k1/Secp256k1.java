@@ -1,13 +1,20 @@
 package com.softwareverde.bitcoin.secp256k1;
 
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
 import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -19,6 +26,7 @@ import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.Security;
 
 public class Secp256k1 {
@@ -94,7 +102,7 @@ public class Secp256k1 {
      * Signs the message with the provided PrivateKey.
      *  The `message` variable is not hashed internally; therefore `message` should likely be a hash of the full message.
      */
-    public static Signature sign(final PrivateKey privateKey, final byte[] message) {
+    public static Secp256k1Signature sign(final PrivateKey privateKey, final byte[] message) {
         final ECPrivateKeyParameters privateKeyParameters;
         {
             final BigInteger privateKeyBigInteger = new BigInteger(1, privateKey.getBytes());
@@ -130,6 +138,42 @@ public class Secp256k1 {
         }
 
         return new Secp256k1Signature(rBytes, sBytes);
+    }
+
+    public static BitcoinMessageSignature signBitcoinMessage(final PrivateKey privateKey, final String message, final Boolean useCompressedAddress) {
+        final String preamble = "Bitcoin Signed Message:\n";
+
+        final PublicKey publicKey = privateKey.getPublicKey();
+
+        final byte[] preambleBytes = preamble.getBytes(StandardCharsets.UTF_8);
+        final byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendByte((byte) (preambleBytes.length & 0xFF));
+        byteArrayBuilder.appendBytes(preambleBytes);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(messageBytes.length));
+        byteArrayBuilder.appendBytes(messageBytes);
+
+        final Sha256Hash preImage = BitcoinUtil.sha256(BitcoinUtil.sha256(MutableByteArray.wrap(byteArrayBuilder.build())));
+
+        final Secp256k1Signature signature = Secp256k1.sign(privateKey, preImage.getBytes());
+
+        boolean signatureSuccessful = false;
+        final Container<Integer> recoveryId = new Container<Integer>(-1);
+        for (int i = 0; i < 4; ++i) {
+            if (recoveryId.value >= 4) { break; } // PublicKey::fromSignature may also update the recoveryId...
+            recoveryId.value = Math.max(i, (recoveryId.value + 1));
+
+            final PublicKey publicKeyUsedForSigning = PublicKey.fromSignature(signature, preImage, recoveryId);
+            if (publicKeyUsedForSigning == null) { continue; }
+
+            if (Util.areEqual(publicKey, publicKeyUsedForSigning)) {
+                signatureSuccessful = true;
+                break;
+            }
+        }
+        if (! signatureSuccessful) { return null; }
+
+        return BitcoinMessageSignature.fromSignature(signature, recoveryId.value, useCompressedAddress);
     }
 
     public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {

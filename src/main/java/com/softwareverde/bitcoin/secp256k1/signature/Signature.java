@@ -5,7 +5,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 
 public interface Signature extends Const {
     enum Type {
-        SCHNORR, SECP256K1
+        SCHNORR, SECP256K1, BITCOIN_MESSAGE
     }
 
     Type getType();
