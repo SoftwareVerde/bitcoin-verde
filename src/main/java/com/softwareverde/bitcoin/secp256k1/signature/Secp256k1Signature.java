@@ -179,7 +179,7 @@ public class Secp256k1Signature extends SignatureCore {
     }
 
     @Override
-    public Signature asCanonical() {
+    public Secp256k1Signature asCanonical() {
         if (_isCanonical()) { return this; }
 
         final BigInteger r = new BigInteger(1, _r.getBytes());

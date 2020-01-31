@@ -5,7 +5,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 
 public interface Signature extends Const {
     enum Type {
-        SCHNORR, SECP256K1
+        SCHNORR, SECP256K1, BITCOIN_MESSAGE
     }
 
     Type getType();
@@ -15,6 +15,10 @@ public interface Signature extends Const {
     ByteArray encode();
     Boolean isCanonical();
     Signature asCanonical();
+
+    /**
+     * Empty signatures are a special kind of signature for Script execution that are created by inflating from an empty byte array.
+     */
     Boolean isEmpty();
 }
 

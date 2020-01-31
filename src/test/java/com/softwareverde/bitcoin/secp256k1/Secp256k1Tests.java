@@ -1,8 +1,11 @@
 package com.softwareverde.bitcoin.secp256k1;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -70,5 +73,36 @@ public class Secp256k1Tests {
 
         // Assert
         Assert.assertTrue(signatureIsValid);
+    }
+
+    @Test
+    public void should_sign_and_verify_bitcoin_message() {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final PrivateKey privateKey = PrivateKey.fromHexString("948AB5DBDBF277DD81C6754DCBDE3A9E9BB61D0AA146F94D7B802C34D811E571");
+        final String message = "Milo the dog.";
+        final Boolean useCompressedAddress = true;
+
+        final BitcoinMessageSignature signature = Secp256k1.signBitcoinMessage(privateKey, message, useCompressedAddress);
+
+        final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey));
+        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+
+        Assert.assertTrue(isValid);
+    }
+
+    @Test
+    public void should_verify_valid_bitcoin_message() {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final String addressString = "1HZwkjkeaoZfTSaJxDw6aKkxp45agDiEzN";
+        final String signatureString = "HGkIGRLabV27C6uO6ePz+rm3Gcbc6urV7KkTWUgjbfcG/nU+qL7kVWi9QFg1rG+0n1UzA0glRNUoqaiRF/Iu85A=";
+        final String message = "Mary had a little lamb.";
+
+        final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
+        final Address address = addressInflater.fromBase58Check(addressString);
+        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+
+        Assert.assertTrue(isValid);
     }
 }

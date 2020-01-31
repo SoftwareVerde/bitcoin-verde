@@ -55,7 +55,7 @@ public class SchnorrSignature extends SignatureCore {
     }
 
     @Override
-    public Signature asCanonical() {
+    public SchnorrSignature asCanonical() {
         return this;
     }
 
