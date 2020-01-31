@@ -83,4 +83,18 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
     public static void setBytes(final MutableByteArray destination, final ByteArray source) {
         ByteUtil.setBytes(destination, source, 0);
     }
+
+    public static byte[] getTailBytes(final byte[] bytes, final Integer byteCount) {
+        return ByteUtil.getTailBytes(MutableByteArray.wrap(bytes), byteCount);
+    }
+
+    public static byte[] getTailBytes(final ByteArray byteArray, final Integer byteCount) {
+        final int byteArrayByteCount = byteArray.getByteCount();
+        final byte[] bytes = new byte[byteCount];
+        for (int i = 0; i < bytes.length; ++i) {
+            if (i >= byteArrayByteCount) { break; }
+            bytes[bytes.length - i - 1] = byteArray.getByte(byteArrayByteCount - i - 1);
+        }
+        return bytes;
+    }
 }
