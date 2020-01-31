@@ -18,19 +18,24 @@ public class BitcoinMessageSignature extends SignatureCore {
 
         final ByteArray r = MutableByteArray.wrap(bytes.getBytes(1, 32));
         final ByteArray s = MutableByteArray.wrap(bytes.getBytes(33, 32));
-        return new BitcoinMessageSignature(headerByte, r, s);
+        return new BitcoinMessageSignature(headerInteger, r, s);
+    }
+
+    public static BitcoinMessageSignature fromBase64(final String base64) {
+        final ByteArray bytes = MutableByteArray.wrap(Base64Util.base64StringToByteArray(base64));
+        return BitcoinMessageSignature.decode(bytes);
     }
 
     public static BitcoinMessageSignature fromSignature(final Signature signature, final Integer recoveryId, final Boolean isCompressed) {
         final int headerInteger = (recoveryId + 27 + (isCompressed ? 4 : 0));
-        return new BitcoinMessageSignature((byte) headerInteger, signature.getR(), signature.getS());
+        return new BitcoinMessageSignature(headerInteger, signature.getR(), signature.getS());
     }
 
-    protected final byte _headerByte;
+    protected final Integer _headerByte;
     protected final ByteArray _r;
     protected final ByteArray _s;
 
-    protected BitcoinMessageSignature(final byte headerByte, final ByteArray r, final ByteArray s) {
+    protected BitcoinMessageSignature(final Integer headerByte, final ByteArray r, final ByteArray s) {
         _headerByte = headerByte;
         _r = ConstUtil.asConstOrNull(r);
         _s = ConstUtil.asConstOrNull(s);
@@ -38,7 +43,7 @@ public class BitcoinMessageSignature extends SignatureCore {
 
     protected ByteArray _encode() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendByte(_headerByte);
+        byteArrayBuilder.appendByte(_headerByte.byteValue());
         byteArrayBuilder.appendBytes(_r);
         byteArrayBuilder.appendBytes(_s);
         return MutableByteArray.wrap(byteArrayBuilder.build());
@@ -77,6 +82,14 @@ public class BitcoinMessageSignature extends SignatureCore {
     @Override
     public Boolean isEmpty() {
         return false;
+    }
+
+    public Boolean isCompressedAddress() {
+        return (_headerByte >= 31);
+    }
+
+    public Integer getRecoveryId() {
+        return (_headerByte - (27 + (_headerByte >= 31 ? 4 : 0)));
     }
 
     public String toBase64() {

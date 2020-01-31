@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.secp256k1;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
@@ -89,6 +91,18 @@ public class Secp256k1 {
         }
     }
 
+    protected static Sha256Hash _getBitcoinMessagePreImage(final String message) {
+        final String preamble = "Bitcoin Signed Message:\n";
+        final byte[] preambleBytes = preamble.getBytes(StandardCharsets.UTF_8);
+        final byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendByte((byte) (preambleBytes.length & 0xFF));
+        byteArrayBuilder.appendBytes(preambleBytes);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(messageBytes.length));
+        byteArrayBuilder.appendBytes(messageBytes);
+        return BitcoinUtil.sha256(BitcoinUtil.sha256(MutableByteArray.wrap(byteArrayBuilder.build())));
+    }
+
     public static Boolean verifySignature(final Signature signature, final PublicKey publicKey, final byte[] message) {
         if (NativeSecp256k1.isEnabled()) {
             return _verifySignatureViaJni(signature, publicKey, message);
@@ -141,20 +155,8 @@ public class Secp256k1 {
     }
 
     public static BitcoinMessageSignature signBitcoinMessage(final PrivateKey privateKey, final String message, final Boolean useCompressedAddress) {
-        final String preamble = "Bitcoin Signed Message:\n";
-
         final PublicKey publicKey = privateKey.getPublicKey();
-
-        final byte[] preambleBytes = preamble.getBytes(StandardCharsets.UTF_8);
-        final byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendByte((byte) (preambleBytes.length & 0xFF));
-        byteArrayBuilder.appendBytes(preambleBytes);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(messageBytes.length));
-        byteArrayBuilder.appendBytes(messageBytes);
-
-        final Sha256Hash preImage = BitcoinUtil.sha256(BitcoinUtil.sha256(MutableByteArray.wrap(byteArrayBuilder.build())));
-
+        final Sha256Hash preImage = _getBitcoinMessagePreImage(message);
         final Secp256k1Signature signature = Secp256k1.sign(privateKey, preImage.getBytes());
 
         boolean signatureSuccessful = false;
@@ -174,6 +176,22 @@ public class Secp256k1 {
         if (! signatureSuccessful) { return null; }
 
         return BitcoinMessageSignature.fromSignature(signature, recoveryId.value, useCompressedAddress);
+    }
+
+    public static Boolean verifyBitcoinMessage(final String message, final Address address, final BitcoinMessageSignature signature) {
+        final AddressInflater addressInflater = new AddressInflater();
+        final Container<Integer> recoveryId = new Container<Integer>();
+
+        final Sha256Hash preImage = _getBitcoinMessagePreImage(message);
+        final Boolean isCompressedAddress = signature.isCompressedAddress();
+        recoveryId.value = signature.getRecoveryId();
+
+        final PublicKey publicKeyUsedForSigning = PublicKey.fromSignature(signature, preImage, recoveryId);
+        if (publicKeyUsedForSigning == null) { return false; }
+        if (! Util.areEqual(signature.getRecoveryId(), recoveryId.value)) { return false; } // The provided recoveryId was incorrect.
+
+        final Address publicKeyAddress = (isCompressedAddress ? addressInflater.compressedFromPublicKey(publicKeyUsedForSigning) : addressInflater.fromPublicKey(publicKeyUsedForSigning));
+        return Util.areEqual(address, publicKeyAddress);
     }
 
     public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {
