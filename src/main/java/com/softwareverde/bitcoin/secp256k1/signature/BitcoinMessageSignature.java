@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.secp256k1.signature;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Base64Util;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BitcoinMessageSignature extends SignatureCore {
@@ -28,7 +28,9 @@ public class BitcoinMessageSignature extends SignatureCore {
 
     public static BitcoinMessageSignature fromSignature(final Signature signature, final Integer recoveryId, final Boolean isCompressed) {
         final int headerInteger = (recoveryId + 27 + (isCompressed ? 4 : 0));
-        return new BitcoinMessageSignature(headerInteger, signature.getR(), signature.getS());
+        final ByteArray r = MutableByteArray.wrap(ByteUtil.getTailBytes(signature.getR(), 32));
+        final ByteArray s = MutableByteArray.wrap(ByteUtil.getTailBytes(signature.getS(), 32));
+        return new BitcoinMessageSignature(headerInteger, r, s);
     }
 
     protected final Integer _headerByte;

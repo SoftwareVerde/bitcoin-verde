@@ -15,6 +15,10 @@ public interface Signature extends Const {
     ByteArray encode();
     Boolean isCanonical();
     Signature asCanonical();
+
+    /**
+     * Empty signatures are a special kind of signature for Script execution that are created by inflating from an empty byte array.
+     */
     Boolean isEmpty();
 }
 

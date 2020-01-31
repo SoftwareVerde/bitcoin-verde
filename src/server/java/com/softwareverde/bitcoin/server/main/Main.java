@@ -139,12 +139,19 @@ public class Main {
         _printError("");
 
         _printError("\tModule: SIGNATURE");
-        _printError("\tArguments: <Key File> <Message>");
-        _printError("\tDescription: Signs the provided message with the private key within the provided file.  The signed pre-image hash is a double sha256 hash of the message.");
+        _printError("\tArguments: SIGN <Key File> <Message> <Use Compressed Address>");
+        _printError("\tArguments: VERIFY <Address> <Signature> <Message>");
+        _printError("\tDescription: Signs a message with a private key within a file, or verifies a signature against the provided address.");
         _printError("\tArgument Description: <Key File>");
         _printError("\t\tThe path and filename of the file containing the private key to sign in either ASCII-Hex format or Seed Phrase format.");
         _printError("\tArgument Description: <Message>");
-        _printError("\t\tThe message to be signed.");
+        _printError("\t\tThe message to be signed when executing in SIGN mode, or the signed message when executing in VERIFY mode.");
+        _printError("\tArgument Description: <Use Compressed Address>");
+        _printError("\t\tWhether or not the address signing the message should be the compressed or uncompressed address.");
+        _printError("\tArgument Description: <Address>");
+        _printError("\t\tThe address used to sign the message in Base-58 format.");
+        _printError("\tArgument Description: <Signature>");
+        _printError("\t\tThe signature to verify against the address and message in Base-64 format.");
         _printError("\t----------------");
         _printError("");
 
@@ -409,18 +416,36 @@ public class Main {
                 Logger.setLog(SystemLog.getInstance());
                 Logger.DEFAULT_LOG_LEVEL = LogLevel.WARN;
 
-                if (_arguments.length != 3) {
+                if (_arguments.length != 5) {
                     _printUsage();
                     BitcoinUtil.exitFailure();
                     break;
                 }
 
-                final String keyFileName = _arguments[1];
-                final String message = _arguments[2];
+                final String action = _arguments[1];
+                if (Util.areEqual("SIGN", action.toUpperCase())) {
+                    final String keyFileName = _arguments[2];
+                    final String message = _arguments[3];
+                    final Boolean useCompressedAddress = Util.parseBool(_arguments[4]);
 
-                SignatureModule.execute(keyFileName, message);
-                Logger.flush();
-            } break;
+                    SignatureModule.executeSign(keyFileName, message, useCompressedAddress);
+                    Logger.flush();
+                    break;
+                }
+                else if (Util.areEqual("VERIFY", action.toUpperCase())) {
+                    final String address = _arguments[2];
+                    final String signature = _arguments[3];
+                    final String message = _arguments[4];
+
+                    SignatureModule.executeVerify(address, signature, message);
+                    Logger.flush();
+                    break;
+                }
+
+                _printUsage();
+                BitcoinUtil.exitFailure();
+                break;
+            }
 
             case "MINER": {
                 if (_arguments.length != 5) {
