@@ -89,7 +89,7 @@ ALTER TABLE blocks ADD CONSTRAINT blocks_blockchain_segments_fk FOREIGN KEY (blo
 CREATE TABLE transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash CHAR(64) NOT NULL,
-    disk_offset BIGINT UNSIGNED NOT NULL,
+    byte_count INT NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_hash_uq (hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
@@ -98,6 +98,7 @@ CREATE TABLE block_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     block_id INT UNSIGNED NOT NULL,
     transaction_id INT UNSIGNED NOT NULL,
+    disk_offset BIGINT UNSIGNED NOT NULL,
     sort_order INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_transactions_uq (block_id, transaction_id),

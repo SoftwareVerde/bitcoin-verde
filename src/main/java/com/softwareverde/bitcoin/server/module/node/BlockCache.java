@@ -10,13 +10,17 @@ import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.ByteBuffer;
 
 import java.io.File;
+import java.io.RandomAccessFile;
 
 public class BlockCache {
     protected final BlockInflaters _blockInflaters;
     protected final String _cachedBlockDirectory;
     protected final Integer _blocksPerCacheDirectory = 2016; // About 2 weeks...
+
+    protected final ByteBuffer _byteBuffer = new ByteBuffer();
 
     protected String _getCachedBlockDirectory(final Long blockHeight) {
         final String cachedBlockDirectory = _cachedBlockDirectory;
@@ -83,6 +87,45 @@ public class BlockCache {
 
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         return blockInflater.fromBytes(blockBytes);
+    }
+
+    public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
+        if (_cachedBlockDirectory == null) { return null; }
+
+        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        if (blockPath == null) { return null; }
+
+        if (! IoUtil.fileExists(blockPath)) { return null; }
+
+        try {
+            final MutableByteArray byteArray = new MutableByteArray(byteCount);
+
+            try (final RandomAccessFile file = new RandomAccessFile(new File(blockPath), "r")) {
+                file.seek(diskOffset);
+
+                final byte[] buffer;
+                synchronized (_byteBuffer) {
+                    buffer = _byteBuffer.getRecycledBuffer();
+                }
+
+                int totalBytesRead = 0;
+                while (totalBytesRead < byteCount) {
+                    final int byteCountRead = file.read(buffer);
+                    if (byteCountRead < 0) { break; }
+
+                    byteArray.setBytes(totalBytesRead, buffer);
+                    totalBytesRead += byteCountRead;
+                }
+
+                if (totalBytesRead < byteCount) { return null; }
+            }
+
+            return byteArray;
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
     }
 
     public String getCachedBlockDirectory() {
