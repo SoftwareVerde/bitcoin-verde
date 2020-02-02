@@ -108,34 +108,36 @@ CREATE TABLE block_transactions (
 
 CREATE TABLE unconfirmed_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    hash CHAR(64) NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
     version INT UNSIGNED NOT NULL,
     lock_time BIGINT UNSIGNED NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY unconfirmed_transaction_hash_uq (hash)
+    UNIQUE KEY unconfirmed_transaction_hash_uq (hash),
+    FOREIGN KEY unconfirmed_transaction_transaction_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unconfirmed_transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_id INT UNSIGNED NOT NULL,
+    unconfirmed_transaction_id INT UNSIGNED NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
     locking_script BLOB NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
+    UNIQUE KEY transaction_output_tx_id_index_uq (unconfirmed_transaction_id, `index`),
+    FOREIGN KEY transaction_outputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unconfirmed_transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_id INT UNSIGNED NOT NULL,
+    unconfirmed_transaction_id INT UNSIGNED NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
     previous_transaction_hash CHAR(64) NOT NULL,
     previous_transaction_output_index INT UNSIGNED NOT NULL,
     sequence_number INT UNSIGNED NOT NULL,
     unlocking_script BLOB NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
+    FOREIGN KEY transaction_inputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE hosts (

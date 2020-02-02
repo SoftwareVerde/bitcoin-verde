@@ -7,34 +7,65 @@ import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.*;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.query.ValueExtractor;
-import com.softwareverde.database.query.parameter.InClauseParameter;
-import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
 
-public class NonIndexingFullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
-    protected final FullNodeDatabaseManager _databaseManager;
+import java.util.HashMap;
+
+public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeTransactionDatabaseManagerCore {
     protected final MasterInflater _masterInflater;
     protected final BlockCache _blockCache;
 
-    public NonIndexingFullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockCache blockCache, final MasterInflater masterInflater) {
-        _databaseManager = databaseManager;
-        _masterInflater = masterInflater;
-        _blockCache = blockCache;
+    protected void _storeUnconfirmedTransaction(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM unconfirmed_transactions WHERE transaction_id = ?")
+                .setParameter(transactionId)
+        );
+        if (! rows.isEmpty()) { return; }
+
+        final Long version = transaction.getVersion();
+        final LockTime lockTime = transaction.getLockTime();
+        final Long timestamp = _systemTime.getCurrentTimeInSeconds();
+
+        final Long unconfirmedTransactionId = databaseConnection.executeSql(
+            new Query("INSERT INTO unconfirmed_transactions (transaction_id, version, lock_time, timestamp) VALUES (?, ?, ?, ?)")
+                .setParameter(transactionId)
+                .setParameter(version)
+                .setParameter(lockTime.getValue())
+                .setParameter(timestamp)
+        );
+
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
+        }
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
+        }
     }
 
-    @Override
-    public Transaction getTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+    protected Transaction _getTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         { // Attempt to load the Transaction from a Block on disk...
@@ -58,80 +89,228 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore implements FullNo
         }
 
         { // Attempt to load the Transaction from the Unconfirmed Transactions table...
-            // TODO
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id, version, lock_time FROM unconfirmed_transactions WHERE transaction_id = ?")
+                    .setParameter(transactionId)
+            );
+            if (! rows.isEmpty()) {
+                final Row row = rows.get(0);
+                final UnconfirmedTransactionId unconfirmedTransactionId = UnconfirmedTransactionId.wrap(row.getLong("id"));
+                final Long version = row.getLong("version");
+                final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+
+                final MutableTransaction transaction = new MutableTransaction();
+                transaction.setVersion(version);
+                transaction.setLockTime(lockTime);
+
+                final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
+                final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+                for (final TransactionInputId transactionInputId : transactionInputIds) {
+                    final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+                    transaction.addTransactionInput(transactionInput);
+                }
+
+                final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+                final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+                for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+                    final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+                    transaction.addTransactionOutput(transactionOutput);
+                }
+
+                return transaction;
+            }
         }
 
         return null;
     }
 
+    public NonIndexingFullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockCache blockCache, final MasterInflater masterInflater) {
+        super(databaseManager);
+
+        _masterInflater = masterInflater;
+        _blockCache = blockCache;
+    }
+
+    @Override
+    public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
+        return _getTransaction(transactionId);
+    }
+
+    @Override
+    public Transaction getTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+        return _getTransaction(transactionId);
+    }
+
     @Override
     public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
-        return null;
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+            final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
+
+            final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
+            if (previousTransactionId == null) { return false; }
+
+            final Transaction previousTransaction = _getTransaction(previousTransactionId);
+            if (previousTransaction == null) { return false; }
+
+            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
+            if (previousOutputIndex >= previousTransactionOutputs.getCount()) { return false; }
+        }
+
+        return true;
     }
 
     @Override
     public void addToUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
+        final Transaction transaction = _getTransaction(transactionId);
+        if (transaction == null) {
+            throw new DatabaseException("Unable to load transaction: " + transactionId);
+        }
 
+        _storeUnconfirmedTransaction(transactionId, transaction);
     }
 
     @Override
     public void addToUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
+        final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionIds.getCount());
 
+        for (final TransactionId transactionId : transactionIds) {
+            final Transaction transaction = _getTransaction(transactionId);
+            if (transaction == null) {
+                throw new DatabaseException("Unable to load transaction: " + transactionId);
+            }
+
+            transactions.add(transaction);
+        }
+
+        for (int i = 0; i < transactions.getCount(); ++i) {
+            final TransactionId transactionId = transactionIds.get(i);
+            final Transaction transaction = transactions.get(i);
+
+            _storeUnconfirmedTransaction(transactionId, transaction);
+        }
     }
 
     @Override
     public void removeFromUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
-
+        super.removeFromUnconfirmedTransactions(transactionId);
     }
 
     @Override
     public void removeFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
-
+        super.removeFromUnconfirmedTransactions(transactionIds);
     }
 
     @Override
     public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
-        return null;
+        return super.isUnconfirmedTransaction(transactionId);
     }
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException {
-        return null;
+        return super.getUnconfirmedTransactionIds();
     }
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<TransactionId> transactionIds) throws DatabaseException {
-        return null;
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query(
+                "SELECT " +
+                    "unconfirmed_transactions.transaction_id " +
+                "FROM " +
+                    "unconfirmed_transaction_inputs " +
+                    "INNER JOIN unconfirmed_transactions " +
+                        "ON unconfirmed_transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
+                "WHERE " +
+                    "unconfirmed_transaction_inputs.previous_transaction_output_id IN (" +
+                        "SELECT previous_transaction_output_id FROM unconfirmed_transaction_inputs WHERE transaction_id IN (?)" +
+                    ")" +
+                "GROUP BY unconfirmed_transactions.transaction_id"
+            ).setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
     }
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
-        return null;
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query(
+                "SELECT " +
+                    "unconfirmed_transactions.transaction_id " +
+                "FROM " +
+                    "unconfirmed_transaction_outputs " +
+                    "INNER JOIN unconfirmed_transaction_inputs " +
+                        "ON unconfirmed_transaction_outputs.id = unconfirmed_transaction_inputs.previous_transaction_output_id " +
+                    "INNER JOIN unconfirmed_transactions " +
+                        "ON unconfirmed_transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
+                "WHERE " +
+                        "unconfirmed_transaction_outputs.transaction_id IN (?) " +
+                "GROUP BY unconfirmed_transactions.transaction_id"
+            ).setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
     }
 
     @Override
     public Integer getUnconfirmedTransactionCount() throws DatabaseException {
-        return null;
+        return super.getUnconfirmedTransactionCount();
     }
 
     @Override
     public Long calculateTransactionFee(final Transaction transaction) throws DatabaseException {
-        return null;
+        // TODO: Optimize.
+
+        long totalInputAmount = 0L;
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+            final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
+            if (previousTransactionId == null) { return null; }
+
+            final Transaction previousTransaction = _getTransaction(previousTransactionId);
+            if (previousTransaction == null) { return null; }
+
+            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
+            final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
+            if (previousTransactionOutputIndex >= previousTransactionOutputs.getCount()) { return null; }
+
+            final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
+            totalInputAmount += previousTransactionOutput.getAmount();
+        }
+
+        final Long totalOutputValue = transaction.getTotalOutputValue();
+
+        return (totalInputAmount - totalOutputValue);
     }
 
     @Override
     public void updateTransaction(final Transaction transaction) throws DatabaseException {
-
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void deleteTransaction(final TransactionId transactionId) throws DatabaseException {
-
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public SlpTokenId getSlpTokenId(final Sha256Hash transactionHash) throws DatabaseException {
-        return null;
+        return null; // TODO: Possible to keep SLP validation...
     }
 
     @Override
@@ -140,14 +319,11 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore implements FullNo
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE hash = ?")
-                .setParameter(transactionHash)
-        );
-        if (! rows.isEmpty()) {
-            final Row row = rows.get(0);
-            final Long transactionId = row.getLong("id");
-            return TransactionId.wrap(transactionId);
+        { // Check if the Transaction already exists...
+            final TransactionId transactionId = _getTransactionId(transactionHash);
+            if (transactionId != null) {
+                return transactionId;
+            }
         }
 
         final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
@@ -180,50 +356,60 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore implements FullNo
         databaseConnection.executeSql(batchedInsertQuery);
 
         final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
-        query.setInClauseParameters(transactions, new ValueExtractor<Transaction>() {
-            @Override
-            public InClauseParameter extractValues(final Transaction transaction) {
-                final Sha256Hash transactionHash = transaction.getHash();
-                return new InClauseParameter(new TypedParameter(transactionHash.toString()));
-            }
-        });
+        query.setInClauseParameters(transactions, ValueExtractor.HASHABLE);
 
+        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(transactions.getCount());
         final java.util.List<Row> rows = databaseConnection.query(query);
+        if (rows.size() != transactions.getCount()) { return null; }
+
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
             final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+            transactionHashMap.put(transactionHash, transactionId);
         }
 
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactions.getCount());
+        for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
 
+            final TransactionId transactionId = transactionHashMap.get(transactionHash);
+            transactionIds.add(transactionId);
+        }
+        return transactionIds.build();
     }
 
     @Override
     public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
-        return null;
+        return _getTransactionId(transactionHash);
     }
 
     @Override
     public Sha256Hash getTransactionHash(final TransactionId transactionId) throws DatabaseException {
-        return null;
-    }
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-    @Override
-    public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
-        return null;
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash FROM transactions WHERE id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return Sha256Hash.fromHexString(row.getString("hash"));
     }
 
     @Override
     public BlockId getBlockId(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
-        return null;
+        return super.getBlockId(blockchainSegmentId, transactionId);
     }
 
     @Override
     public List<BlockId> getBlockIds(final TransactionId transactionId) throws DatabaseException {
-        return null;
+        return super.getBlockIds(transactionId);
     }
 
     @Override
     public List<BlockId> getBlockIds(final Sha256Hash transactionHash) throws DatabaseException {
-        return null;
+        return super.getBlockIds(transactionHash);
     }
 }

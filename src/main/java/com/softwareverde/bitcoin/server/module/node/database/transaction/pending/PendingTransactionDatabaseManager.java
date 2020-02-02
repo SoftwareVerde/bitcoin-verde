@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransaction;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
@@ -18,7 +19,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
@@ -116,9 +116,10 @@ public class PendingTransactionDatabaseManager {
         final Long minSecondsBetweenDownloadAttempts = 5L;
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_transactions_inventory.node_id, pending_transactions.id AS pending_transaction_id FROM pending_transactions LEFT OUTER JOIN pending_transaction_data ON pending_transactions.id = pending_transaction_data.pending_transaction_id INNER JOIN node_transactions_inventory ON node_transactions_inventory.pending_transaction_id = pending_transactions.id WHERE (pending_transaction_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND node_transactions_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") ORDER BY pending_transactions.priority ASC, pending_transactions.id ASC LIMIT 1024")
+            new Query("SELECT node_transactions_inventory.node_id, pending_transactions.id AS pending_transaction_id FROM pending_transactions LEFT OUTER JOIN pending_transaction_data ON pending_transactions.id = pending_transaction_data.pending_transaction_id INNER JOIN node_transactions_inventory ON node_transactions_inventory.pending_transaction_id = pending_transactions.id WHERE (pending_transaction_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND node_transactions_inventory.node_id IN (?) ORDER BY pending_transactions.priority ASC, pending_transactions.id ASC LIMIT 1024")
                 .setParameter(currentTimestamp)
                 .setParameter(minSecondsBetweenDownloadAttempts)
+                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
         );
 
         final HashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new HashMap<NodeId, MutableList<PendingTransactionId>>();
@@ -226,7 +227,8 @@ public class PendingTransactionDatabaseManager {
         if (pendingTransactionIds.isEmpty()) { return; }
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM pending_transactions WHERE id IN (" + DatabaseUtil.createInClause(pendingTransactionIds) + ")")
+            new Query("DELETE FROM pending_transactions WHERE id IN (?)")
+                .setInClauseParameters(pendingTransactionIds, ValueExtractor.IDENTIFIER)
         );
     }
 
