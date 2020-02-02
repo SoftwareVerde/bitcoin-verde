@@ -218,7 +218,7 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         final LockingScript lockingScript = transactionOutput.getLockingScript();
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
+        databaseConnection.executeSql(
             new Query("UPDATE FROM unconfirmed_transaction_outputs SET unconfirmed_transaction_id = ?, `index` = ?, amount = ?, locking_script = ? WHERE id = ?")
                 .setParameter(unconfirmedTransactionId)
                 .setParameter(index)
@@ -230,51 +230,87 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
 
     @Override
     public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
+    }
+
+    public Boolean isTransactionOutputSpent(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                .setParameter(transactionOutputIdentifier.getTransactionHash())
+                .setParameter(transactionOutputIdentifier.getOutputIndex())
+        );
+
+        return (rows.isEmpty());
     }
 
     @Override
     public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        // TODO
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        databaseConnection.executeSql(
+            new Query("DELETE FROM unconfirmed_transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
     }
 
     @Override
     public TransactionId getTransactionId(final LockingScriptId lockingScriptId) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public List<LockingScriptId> getLockingScriptsWithUnprocessedTypes(final Integer maxCount) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void setLockingScriptType(final LockingScriptId lockingScriptId, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void setLockingScriptTypes(final List<LockingScriptId> lockingScriptIds, final List<ScriptType> scriptTypes, final List<AddressId> addressIds, final List<TransactionId> slpTransactionIds) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public LockingScript getLockingScript(final LockingScriptId lockingScriptId) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptIds) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public TransactionOutputId getTransactionOutputId(final LockingScriptId lockingScriptId) throws DatabaseException {
-        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public TransactionId getTransactionId(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        // TODO
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final UnconfirmedTransactionId unconfirmedTransactionId;
+        {
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id, unconfirmed_transaction_id FROM unconfirmed_transaction_outputs WHERE id = ?")
+                    .setParameter(transactionOutputId)
+            );
+            if (rows.isEmpty()) { return null; }
+
+            final Row row = rows.get(0);
+            unconfirmedTransactionId = UnconfirmedTransactionId.wrap(row.getLong("unconfirmed_transaction_id"));
+        }
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, transaction_id FROM unconfirmed_transactions WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return TransactionId.wrap(row.getLong("transaction_id"));
     }
 }

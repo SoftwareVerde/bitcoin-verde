@@ -106,6 +106,14 @@ CREATE TABLE block_transactions (
     FOREIGN KEY block_transactions_fk2 (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
+CREATE TABLE unspent_transaction_outputs (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    transaction_hash CHAR(64) NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY transaction_outputs_uq (transaction_hash, `index`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE unconfirmed_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
@@ -115,14 +123,6 @@ CREATE TABLE unconfirmed_transactions (
     PRIMARY KEY (id),
     UNIQUE KEY unconfirmed_transaction_hash_uq (hash),
     FOREIGN KEY unconfirmed_transaction_transaction_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
-
-CREATE TABLE unspent_transaction_outputs (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_hash CHAR(64) NOT NULL,
-    `index` INT UNSIGNED NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY transaction_outputs_uq (transaction_hash, `index`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unconfirmed_transaction_outputs (
