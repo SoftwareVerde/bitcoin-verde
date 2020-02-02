@@ -45,6 +45,7 @@ public class NonIndexingTransactionInputDatabaseManager extends TransactionInput
     @Override
     public TransactionInputId getTransactionInputId(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
+        if (unconfirmedTransactionId == null) { return null; }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
@@ -62,14 +63,15 @@ public class NonIndexingTransactionInputDatabaseManager extends TransactionInput
     @Override
     public TransactionInputId insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
+        if (unconfirmedTransactionId == null) { return null; }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Integer index;
         {
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT COUNT(*) AS `index` FROM unconfirmed_transaction_inputs WHERE transaction_id = ?")
-                    .setParameter(transactionId)
+                new Query("SELECT COUNT(*) AS `index` FROM unconfirmed_transaction_inputs WHERE unconfirmed_transaction_id = ?")
+                    .setParameter(unconfirmedTransactionId)
             );
             final Row row = rows.get(0);
             index = row.getInteger("index");
@@ -96,6 +98,7 @@ public class NonIndexingTransactionInputDatabaseManager extends TransactionInput
             final Sha256Hash transactionHash = transaction.getHash();
             final TransactionId transactionId = transactionIds.get(transactionHash);
             final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
+            if (unconfirmedTransactionId == null) { return null; }
 
             int index = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
