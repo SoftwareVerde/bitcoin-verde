@@ -11,6 +11,7 @@ import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 
 public class ExplorerModule {
     protected final HttpServer _apiServer = new HttpServer();
@@ -63,6 +64,7 @@ public class ExplorerModule {
             final DirectoryServlet indexServlet = new DirectoryServlet(servedDirectory);
             indexServlet.setShouldServeDirectories(true);
             indexServlet.setIndexFile("index.html");
+            indexServlet.setCacheEnabled(TimeUnit.DAYS.toSeconds(1L));
 
             final Endpoint endpoint = new Endpoint(indexServlet);
             endpoint.setPath("/");
