@@ -145,15 +145,18 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
                 { // Add extra TransactionOutput json fields...
                     final String addressString;
+                    final String cashAddressString;
                     {
                         final LockingScript lockingScript = transactionOutput.getLockingScript();
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
                         addressString = (address != null ? address.toBase58CheckEncoded() : null);
+                        cashAddressString = (address != null ? address.toBase32CheckEncoded(true) : null);
                     }
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
                     transactionOutputJson.put("address", addressString);
+                    transactionOutputJson.put("cashAddress", cashAddressString);
                 }
 
                 transactionOutputIndex += 1;

@@ -4,6 +4,23 @@ $(document).ready(function() {
     const searchInput = $("#search");
     const loadingImage = $("#search-loading-image");
 
+    let currentObject = null;
+    let currentObjectType = null;
+    const renderObject = function(object, objectType) {
+        if ( (objectType == Constants.BLOCK) || (objectType == Constants.BLOCK_HEADER) ) {
+            Ui.renderBlock(object);
+        }
+        else if (objectType == Constants.ADDRESS) {
+            Ui.renderAddress(object);
+        }
+        else if (objectType == Constants.TRANSACTION) {
+            Ui.renderTransaction(object);
+        }
+        else {
+            Console.log("Unknown ObjectType: " + objectType);
+        }
+    };
+
     searchInput.on("focus", function() {
         searchInput.select();
     });
@@ -30,18 +47,10 @@ $(document).ready(function() {
             const object = data.object;
 
             if (wasSuccess) {
-                if ( (objectType == Constants.BLOCK) || (objectType == Constants.BLOCK_HEADER) ) {
-                    Ui.renderBlock(object);
-                }
-                else if (objectType == Constants.ADDRESS) {
-                    Ui.renderAddress(object);
-                }
-                else if (objectType == Constants.TRANSACTION) {
-                    Ui.renderTransaction(object);
-                }
-                else {
-                    Console.log("Unknown ObjectType: " + objectType);
-                }
+                currentObject = object;
+                currentObjectType = objectType;
+
+                renderObject(object, objectType);
             }
             else {
                console.log(errorMessage);
@@ -134,12 +143,23 @@ $(document).ready(function() {
         });
     });
 
-    $("#cash-address-format-toggle").toggleClass("off", ((! Cookies.get("cashAddressIsEnabled")) ? false : true));
-    $("#cash-address-format-toggle").on("change", function(event, isOn) {
-        const cashAddressIsEnabled = isOn;
+    Ui.displayCashAddressFormat = (Cookies.get("cashAddressIsEnabled") != "false");
+    $("#cash-address-format-toggle").toggleClass("off", (Ui.displayCashAddressFormat ? false : true));
 
-        Cookies.set("cashAddressIsEnabled", cashAddressIsEnabled);
-        Ui.displayCashAddress = cashAddressIsEnabled;
+    $("#cash-address-format-toggle").on("change", function(event, isToggledOn) {
+        Ui.displayCashAddressFormat = isToggledOn;
+        Cookies.set("cashAddressIsEnabled", (Ui.displayCashAddressFormat ? "true" : "false"));
+
+        if ( (currentObject != null) && (currentObjectType != null) ) {
+            const originalScrollOffset = window.scrollY;
+
+            renderObject(currentObject, currentObjectType);
+
+            window.setTimeout(function() {
+                window.scrollTo({
+                     top: originalScrollOffset
+                });
+            }, 0);
+        }
     });
 });
-
