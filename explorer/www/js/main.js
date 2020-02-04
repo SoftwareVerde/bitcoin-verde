@@ -133,5 +133,13 @@ $(document).ready(function() {
             }
         });
     });
+
+    $("#cash-address-format-toggle").toggleClass("off", ((! Cookies.get("cashAddressIsEnabled")) ? false : true));
+    $("#cash-address-format-toggle").on("change", function(event, isOn) {
+        const cashAddressIsEnabled = isOn;
+
+        Cookies.set("cashAddressIsEnabled", cashAddressIsEnabled);
+        Ui.displayCashAddress = cashAddressIsEnabled;
+    });
 });
 

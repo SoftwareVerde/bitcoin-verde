@@ -668,6 +668,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final Json addressJson = new Json();
+        addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
         addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
         addressJson.put("balance", queryAddressHandler.getBalance(address));
 
