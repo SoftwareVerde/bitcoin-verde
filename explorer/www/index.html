@@ -5,6 +5,7 @@
         <link rel="stylesheet" href="/css/bree-serif.css" />
         <link rel="stylesheet" href="/css/blocks.css" />
         <link rel="stylesheet" href="/css/main.css" />
+        <link rel="stylesheet" href="/css/toggle.css" />
         <link rel="stylesheet" href="/css/font-awesome.css" />
 
         <link rel="icon" href="/img/favicon.png">
@@ -16,6 +17,7 @@
         <script src="/js/hash-resizer.js"></script>
         <script src="/js/core.js"></script>
         <script src="/js/main.js"></script>
+        <script src="/js/toggle.js"></script>
 
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -38,6 +40,13 @@
             </div>
             <div class="search">
                 <input id="search" />
+                <div id="address-format-toggle" class="toggle">
+                    <div class="toggle-bar"><div class="toggle-knob"></div></div>
+                    <div class="toggle-label">
+                        <span>CashAddr</span>
+                        <span>Legacy</span>
+                    </div>
+                </div>
                 <img id="search-loading-image" class="loading" src="/img/loading.gif" />
             </div>
         </div>
