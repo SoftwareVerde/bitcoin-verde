@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.block.validator.BatchedBlockHeaders;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
@@ -203,7 +203,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            final BatchedBlockHeaders batchedBlockHeaders = new BatchedBlockHeaders(blockHeaders.getSize());
+            final BatchedBlockHeaders batchedBlockHeaders = new BatchedBlockHeaders(blockHeaders.getCount());
 
             final BlockId firstBlockHeaderId = blockIds.get(0);
 
@@ -224,7 +224,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            final BlockId lastBlockId = blockIds.get(blockIds.getSize() - 1);
+            final BlockId lastBlockId = blockIds.get(blockIds.getCount() - 1);
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(lastBlockId);
             _blockHeight = Math.max(blockHeight, _blockHeight);
 
@@ -239,7 +239,7 @@ public class BlockHeaderDownloader extends SleepyService {
         storeHeadersTimer.start();
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.debug("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
+        Logger.debug("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getCount());
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager);
@@ -261,7 +261,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 _lastBlockHeader = blockHeader;
             }
 
-            _blockHeaderCount += blockHeaders.getSize();
+            _blockHeaderCount += blockHeaders.getCount();
             _timer.stop();
             final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
             _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );

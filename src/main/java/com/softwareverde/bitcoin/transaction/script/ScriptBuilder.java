@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.*;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -52,7 +53,7 @@ public class ScriptBuilder {
     public static LockingScript payToScriptHash(final Script payToScript) {
         final ScriptBuilder scriptBuilder = new ScriptBuilder();
         scriptBuilder.pushOperation(CryptographicOperation.SHA_256_THEN_RIPEMD_160);
-        scriptBuilder.pushOperation(PushOperation.pushBytes(BitcoinUtil.ripemd160(BitcoinUtil.sha256(payToScript.getBytes()))));
+        scriptBuilder.pushOperation(PushOperation.pushBytes(HashUtil.ripemd160(HashUtil.sha256(payToScript.getBytes()))));
         scriptBuilder.pushOperation(ComparisonOperation.IS_EQUAL);
         return scriptBuilder.buildLockingScript();
     }

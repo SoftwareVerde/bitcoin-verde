@@ -178,7 +178,7 @@ public class NodeManager<NODE extends Node> {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
                 final List<NODE> inactiveNodes = _getInactiveNodes();
-                if (inactiveNodes.getSize() > 0) {
+                if (inactiveNodes.getCount() > 0) {
                     final NODE inactiveNode = inactiveNodes.get(0);
                     _removeNode(inactiveNode);
                     continue;
@@ -202,7 +202,7 @@ public class NodeManager<NODE extends Node> {
         for (final NODE node : _nodes.values()) {
             node.broadcastNodeAddresses(nodeIpAddresses);
 
-            Logger.debug("Broadcasting " + nodeIpAddresses.getSize() + " new Nodes to existing Node (" + node + ")");
+            Logger.debug("Broadcasting " + nodeIpAddresses.getCount() + " new Nodes to existing Node (" + node + ")");
         }
     }
 
@@ -323,7 +323,7 @@ public class NodeManager<NODE extends Node> {
 
                 final List<NodeIpAddress> unseenNodeAddresses;
                 {
-                    final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<NodeIpAddress>(nodeIpAddresses.getSize());
+                    final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<NodeIpAddress>(nodeIpAddresses.getCount());
                     for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
                         final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
                         if (haveAlreadySeenNode) { continue; }
@@ -465,7 +465,7 @@ public class NodeManager<NODE extends Node> {
     protected NODE _selectWorstActiveNode() {
         final List<NODE> activeNodes = _getActiveNodes();
 
-        final Integer activeNodeCount = activeNodes.getSize();
+        final Integer activeNodeCount = activeNodes.getCount();
         if (activeNodeCount == 0) { return null; }
 
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
@@ -477,7 +477,7 @@ public class NodeManager<NODE extends Node> {
         }
         nodeHealthList.sort(MutableNodeHealth.HEALTH_ASCENDING_COMPARATOR);
 
-        for (int i = 0; i < nodeHealthList.getSize(); ++i) {
+        for (int i = 0; i < nodeHealthList.getCount(); ++i) {
             final NodeHealth worstNodeHealth = nodeHealthList.get(i);
             final NODE worstNode = _nodes.get(worstNodeHealth.getNodeId());
             if (worstNode != null) { // _nodes may have been updated while the health was sorted, so it is possible that the worst node is no longer connected...
@@ -520,7 +520,7 @@ public class NodeManager<NODE extends Node> {
     protected List<NODE> _selectBestNodes(final Integer requestedNodeCount) {
         final List<NODE> activeNodes = _getActiveNodes();
 
-        final Integer activeNodeCount = activeNodes.getSize();
+        final Integer activeNodeCount = activeNodes.getCount();
         if (activeNodeCount == 0) { return null; }
 
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
@@ -544,8 +544,8 @@ public class NodeManager<NODE extends Node> {
 
         final MutableList<NODE> selectedNodes = new MutableList<NODE>(nodeCount);
         for (int i = 0; i < nodeCount; ++i) {
-            final int index = (nodeHealthList.getSize() - i - 1);
-            if ( (index < 0) || (index >= nodeHealthList.getSize()) ) { continue; }
+            final int index = (nodeHealthList.getCount() - i - 1);
+            if ( (index < 0) || (index >= nodeHealthList.getCount()) ) { continue; }
 
             final NodeHealth bestNodeHealth = nodeHealthList.get(index);
             final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
@@ -570,7 +570,7 @@ public class NodeManager<NODE extends Node> {
             }
         }
 
-        Logger.debug("Idle Node Count: " + idleNodes.getSize() + " / " + _nodes.size());
+        Logger.debug("Idle Node Count: " + idleNodes.getCount() + " / " + _nodes.size());
 
         for (final NODE idleNode : idleNodes) {
             // final NodeId nodeId = idleNode.getId();
@@ -804,7 +804,7 @@ public class NodeManager<NODE extends Node> {
 
     public Integer getActiveNodeCount() {
         final List<NODE> nodes = _getActiveNodes();
-        return nodes.getSize();
+        return nodes.getCount();
     }
 
     public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {

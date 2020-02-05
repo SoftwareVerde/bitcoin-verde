@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output;
 
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -280,7 +280,7 @@ public class TransactionOutputDatabaseManager {
     protected void _insertLockingScripts(final List<TransactionOutputId> transactionOutputIds, final List<LockingScript> lockingScripts) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        if (! Util.areEqual(transactionOutputIds.getSize(), lockingScripts.getSize())) {
+        if (! Util.areEqual(transactionOutputIds.getCount(), lockingScripts.getCount())) {
             throw new DatabaseException("Attempted to insert LockingScripts without matching TransactionOutputIds.");
         }
 
@@ -290,7 +290,7 @@ public class TransactionOutputDatabaseManager {
         // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
         // final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
-        for (int i = 0; i < transactionOutputIds.getSize(); ++i) {
+        for (int i = 0; i < transactionOutputIds.getCount(); ++i) {
             final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
             final LockingScript lockingScript = lockingScripts.get(i);
 
@@ -378,13 +378,13 @@ public class TransactionOutputDatabaseManager {
     public List<TransactionOutputId> insertTransactionOutputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) {
-            Logger.warn("Error storing TransactionOutputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
+        if (! Util.areEqual(transactionIds.size(), transactions.getCount())) {
+            Logger.warn("Error storing TransactionOutputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getCount());
             return null;
         }
         if (transactions.isEmpty()) { return new MutableList<TransactionOutputId>(0); }
 
-        final Integer transactionCount = transactions.getSize();
+        final Integer transactionCount = transactions.getCount();
 
         final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)");
 
@@ -402,7 +402,7 @@ public class TransactionOutputDatabaseManager {
 
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
-            final ImmutableListBuilder<Integer> unspentTransactionOutputIndicesListBuilder = new ImmutableListBuilder<Integer>(transactionOutputs.getSize());
+            final ImmutableListBuilder<Integer> unspentTransactionOutputIndicesListBuilder = new ImmutableListBuilder<Integer>(transactionOutputs.getCount());
 
             for (final TransactionOutput transactionOutput : transactionOutputs) {
                 final Integer transactionOutputIndex = transactionOutput.getIndex();
@@ -426,7 +426,7 @@ public class TransactionOutputDatabaseManager {
             return null;
         }
 
-        final Integer transactionOutputCount = lockingScripts.getSize();
+        final Integer transactionOutputCount = lockingScripts.getCount();
 
         final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(transactionOutputCount);
         for (int i = 0; i < transactionOutputCount; ++i) {
@@ -613,8 +613,8 @@ public class TransactionOutputDatabaseManager {
     public void setLockingScriptTypes(final List<LockingScriptId> lockingScriptIds, final List<ScriptType> scriptTypes, final List<AddressId> addressIds, final List<TransactionId> slpTransactionIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Integer lockingScriptCount = lockingScriptIds.getSize();
-        if ( (! Util.areEqual(lockingScriptCount, scriptTypes.getSize())) || (! Util.areEqual(lockingScriptCount, addressIds.getSize())) || (! Util.areEqual(lockingScriptCount, slpTransactionIds.getSize())) )  {
+        final Integer lockingScriptCount = lockingScriptIds.getCount();
+        if ( (! Util.areEqual(lockingScriptCount, scriptTypes.getCount())) || (! Util.areEqual(lockingScriptCount, addressIds.getCount())) || (! Util.areEqual(lockingScriptCount, slpTransactionIds.getCount())) )  {
             throw new DatabaseException("Attempting to update LockingScriptTypes with mismatching Ids.");
         }
         if (lockingScriptIds.isEmpty()) { return; }
@@ -647,7 +647,7 @@ public class TransactionOutputDatabaseManager {
     public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final int scriptCount = lockingScriptIds.getSize();
+        final int scriptCount = lockingScriptIds.getCount();
         final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<LockingScriptId, LockingScript>(scriptCount);
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, script FROM locking_scripts WHERE id IN (" + DatabaseUtil.createInClause(lockingScriptIds, keyMap) + ")")

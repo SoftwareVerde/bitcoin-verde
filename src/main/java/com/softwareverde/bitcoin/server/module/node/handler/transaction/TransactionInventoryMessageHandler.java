@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
@@ -39,7 +39,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
 
             final List<Sha256Hash> unseenTransactionHashes;
             {
-                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionHashes.getSize());
+                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionHashes.getCount());
                 for (final Sha256Hash transactionHash : transactionHashes) {
                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                     if (transactionId == null) {

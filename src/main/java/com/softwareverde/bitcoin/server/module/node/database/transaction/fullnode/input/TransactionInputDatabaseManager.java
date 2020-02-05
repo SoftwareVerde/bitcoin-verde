@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input;
 
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -135,12 +135,12 @@ public class TransactionInputDatabaseManager {
     protected void _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        if (! Util.areEqual(transactionInputIds.getSize(), unlockingScripts.getSize())) {
-            throw new DatabaseException("TransactionInputDatabaseManager::_insertUnlockingScripts -- transactionInputIds.getSize must equal unlockingScripts.getSize");
+        if (! Util.areEqual(transactionInputIds.getCount(), unlockingScripts.getCount())) {
+            throw new DatabaseException("TransactionInputDatabaseManager::_insertUnlockingScripts -- transactionInputIds.getCount must equal unlockingScripts.getCount");
         }
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)");
-        for (int i = 0; i < transactionInputIds.getSize(); ++i) {
+        for (int i = 0; i < transactionInputIds.getCount(); ++i) {
             final TransactionInputId transactionInputId = transactionInputIds.get(i);
             final UnlockingScript unlockingScript = unlockingScripts.get(i);
             final ByteArray unlockingScriptByteArray = unlockingScript.getBytes();
@@ -170,8 +170,8 @@ public class TransactionInputDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
-        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) {
-            Logger.warn("Error storing TransactionInputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
+        if (! Util.areEqual(transactionIds.size(), transactions.getCount())) {
+            Logger.warn("Error storing TransactionInputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getCount());
             return null;
         }
         if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
@@ -184,7 +184,7 @@ public class TransactionInputDatabaseManager {
         final MilliTimer markOutputsAsSpentTimer = new MilliTimer();
         double totalFindPreviousTxOutputTime = 0D;
 
-        final int transactionCount = transactions.getSize();
+        final int transactionCount = transactions.getCount();
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, sequence_number) VALUES (?, ?, ?)");
 

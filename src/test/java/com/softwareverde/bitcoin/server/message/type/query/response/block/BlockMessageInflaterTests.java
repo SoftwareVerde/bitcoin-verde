@@ -40,14 +40,14 @@ public class BlockMessageInflaterTests {
         Assert.assertEquals(2083236893L, block.getNonce().longValue());
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(1, transactions.getSize());
+        Assert.assertEquals(1, transactions.getCount());
 
         final Transaction transaction = transactions.get(0);
         Assert.assertEquals(1, transaction.getVersion().intValue());
         Assert.assertEquals(0L, transaction.getLockTime().getValue().longValue());
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        Assert.assertEquals(1, transactionInputs.getSize());
+        Assert.assertEquals(1, transactionInputs.getCount());
         final TransactionInput transactionInput = transactionInputs.get(0);
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), transactionInput.getPreviousOutputTransactionHash().getBytes());
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getPreviousOutputIndex().intValue());
@@ -55,7 +55,7 @@ public class BlockMessageInflaterTests {
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getSequenceNumber().getValue().intValue());
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        Assert.assertEquals(1, transactionOutputs.getSize());
+        Assert.assertEquals(1, transactionOutputs.getCount());
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
         Assert.assertEquals(5000000000L, transactionOutput.getAmount().longValue());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("4104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC"), transactionOutput.getLockingScript().getBytes().getBytes());

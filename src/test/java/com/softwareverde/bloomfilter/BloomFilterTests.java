@@ -3,12 +3,12 @@ package com.softwareverde.bloomfilter;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -17,7 +17,7 @@ import org.junit.Test;
 public class BloomFilterTests {
 
     protected static Sha256Hash createSha256(final int i) {
-        return MutableSha256Hash.wrap(BitcoinUtil.sha256(ByteUtil.integerToBytes(i)));
+        return MutableSha256Hash.wrap(HashUtil.sha256(ByteUtil.integerToBytes(i)));
     }
 
     @Test

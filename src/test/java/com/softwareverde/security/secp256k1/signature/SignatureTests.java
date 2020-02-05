@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.secp256k1.signature;
+package com.softwareverde.security.secp256k1.signature;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.constable.bytearray.ByteArray;

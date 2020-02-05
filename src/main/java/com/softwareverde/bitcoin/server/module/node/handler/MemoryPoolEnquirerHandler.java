@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -27,7 +27,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance((long) transactionIds.getSize(), 0.01D);
+            final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance((long) transactionIds.getCount(), 0.01D);
 
             for (final TransactionId transactionId : transactionIds) {
                 final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);

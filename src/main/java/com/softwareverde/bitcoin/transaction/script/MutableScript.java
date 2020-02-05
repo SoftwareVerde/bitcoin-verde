@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-import com.softwareverde.bitcoin.hash.ripemd160.MutableRipemd160Hash;
-import com.softwareverde.bitcoin.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.security.hash.ripemd160.MutableRipemd160Hash;
+import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
@@ -10,6 +10,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.Util;
 
 public class MutableScript implements Script {
@@ -120,7 +121,7 @@ public class MutableScript implements Script {
     public Ripemd160Hash getHash() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
         final ByteArray bytes = scriptDeflater.toBytes(this);
-        final byte[] hashBytes = BitcoinUtil.ripemd160(BitcoinUtil.sha256(bytes.getBytes()));
+        final byte[] hashBytes = HashUtil.ripemd160(HashUtil.sha256(bytes.getBytes()));
         return MutableRipemd160Hash.wrap(hashBytes);
     }
 

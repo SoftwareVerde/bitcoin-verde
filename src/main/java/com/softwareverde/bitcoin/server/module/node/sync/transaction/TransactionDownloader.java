@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
@@ -130,7 +130,7 @@ public class TransactionDownloader extends SleepyService {
             final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
             final List<NodeId> nodeIds;
             {
-                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<NodeId>(nodes.getSize());
+                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<NodeId>(nodes.getCount());
                 for (final BitcoinNode node : nodes) {
                     final NodeId nodeId = nodeDatabaseManager.getNodeId(node);
                     if (nodeId != null) {
@@ -147,7 +147,7 @@ public class TransactionDownloader extends SleepyService {
             for (final NodeId nodeId : downloadPlan.keySet()) {
                 if (_currentTransactionDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
                 final List<PendingTransactionId> pendingTransactionIds = downloadPlan.get(nodeId);
-                final MutableList<Sha256Hash> pendingTransactionHashes = new MutableList<Sha256Hash>(pendingTransactionIds.getSize());
+                final MutableList<Sha256Hash> pendingTransactionHashes = new MutableList<Sha256Hash>(pendingTransactionIds.getCount());
                 for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                     final Sha256Hash transactionHash = pendingTransactionDatabaseManager.getPendingTransactionHash(pendingTransactionId);
                     if (transactionHash == null) { continue; }

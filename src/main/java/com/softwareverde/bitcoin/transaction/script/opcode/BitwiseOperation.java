@@ -55,7 +55,7 @@ public class BitwiseOperation extends SubTypedOperation {
                 for (int i = 0; i < byteCount; ++i) {
                     final byte b = byteValue.getByte(i);
                     final byte newB = (byte) ~b;
-                    byteValue.set(i, newB);
+                    byteValue.setByte(i, newB);
                 }
                 stack.push(Value.fromBytes(byteValue.unwrap()));
 
@@ -80,7 +80,7 @@ public class BitwiseOperation extends SubTypedOperation {
                     final byte b0 = byteValue0.getByte(i);
                     final byte b1 = byteValue1.getByte(i);
                     final byte newB = (byte) (b0 & b1);
-                    byteValue0.set(i, newB);
+                    byteValue0.setByte(i, newB);
                 }
                 stack.push(Value.fromBytes(byteValue0.unwrap()));
 
@@ -105,7 +105,7 @@ public class BitwiseOperation extends SubTypedOperation {
                     final byte b0 = byteValue0.getByte(i);
                     final byte b1 = byteValue1.getByte(i);
                     final byte newB = (byte) (b0 | b1);
-                    byteValue0.set(i, newB);
+                    byteValue0.setByte(i, newB);
                 }
                 stack.push(Value.fromBytes(byteValue0.unwrap()));
 
@@ -130,7 +130,7 @@ public class BitwiseOperation extends SubTypedOperation {
                     final byte b0 = byteValue0.getByte(i);
                     final byte b1 = byteValue1.getByte(i);
                     final byte newB = (byte) (b0 ^ b1);
-                    byteValue0.set(i, newB);
+                    byteValue0.setByte(i, newB);
                 }
                 stack.push(Value.fromBytes(byteValue0.unwrap()));
 

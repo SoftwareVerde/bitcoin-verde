@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;

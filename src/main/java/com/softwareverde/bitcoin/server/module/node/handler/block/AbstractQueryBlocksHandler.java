@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.handler.block;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -47,7 +47,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             }
 
             if (addedBlockHash.equals(desiredBlockHash)) { break; }
-            if (returnedBlockIds.getSize() >= maxCount) { break; }
+            if (returnedBlockIds.getCount() >= maxCount) { break; }
 
             nextBlockId = blockDatabaseManager.getChildBlockId(blockchainSegmentId, nextBlockId);
             if (nextBlockId == null) { break; }

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-import com.softwareverde.bitcoin.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;

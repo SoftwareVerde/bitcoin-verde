@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -323,7 +323,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getSize());
+            final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getCount());
             for (final TransactionId transactionId : unconfirmedTransactionIds) {
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 unconfirmedTransactionsListBuilder.add(transaction);
@@ -344,7 +344,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getSize());
+            final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getCount());
             for (final TransactionId transactionId : unconfirmedTransactionIds) {
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 if (transaction == null) {

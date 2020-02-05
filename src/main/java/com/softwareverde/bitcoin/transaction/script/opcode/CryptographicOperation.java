@@ -2,10 +2,6 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.*;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.secp256k1.Schnorr;
-import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -20,11 +16,17 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.secp256k1.Schnorr;
+import com.softwareverde.security.secp256k1.Secp256k1;
+import com.softwareverde.security.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.signature.Signature;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -107,7 +109,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final Signature signature = scriptSignature.getSignature();
             if (signature != null) {
                 // Check for negative-encoded DER signatures...
-                if (signature.getType() == Signature.Type.SECP256K1) { // Bip66 only applies to DER encoded signatures...
+                if (signature.getType() == Signature.Type.ECDSA) { // Bip66 only applies to DER encoded signatures...
                     if (Bip66.isEnabled(context.getBlockHeight())) { // Enforce non-negative R and S encoding for DER encoded signatures...
                         final ByteArray signatureR = signature.getR();
                         if (signatureR.getByteCount() == 0) { return false; }
@@ -306,7 +308,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final boolean signatureVerificationCountMustEqualPublicKeyIndexCount;
         final boolean shouldReverseSignatureOrder;
         if ( (! HF20191115.isEnabled(medianBlockTime)) || (Util.areEqual(checkBitsValue, Value.ZERO)) ) {
-            allowedSignatureType = Signature.Type.SECP256K1;
+            allowedSignatureType = Signature.Type.ECDSA;
             abortIfAnySignaturesFail = false;
             signatureVerificationCountMustEqualPublicKeyIndexCount = false;
             shouldReverseSignatureOrder = false;
@@ -506,7 +508,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signatureIsCanonicallyEncoded) { return false; }
         }
 
-        final byte[] messageHash = BitcoinUtil.sha256(messageValue.getBytes());
+        final MutableSha256Hash messageHash = HashUtil.sha256(messageValue);
 
         final Boolean signatureIsValid;
         if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
@@ -521,10 +523,10 @@ public class CryptographicOperation extends SubTypedOperation {
             final Signature signature = scriptSignature.getSignature();
 
             if (signature.getType() == Signature.Type.SCHNORR) {
-                signatureIsValid = Schnorr.verifySignature(signature, publicKey, messageHash);
+                signatureIsValid = Schnorr.verifySignature(signature, publicKey, messageHash.unwrap());
             }
             else {
-                signatureIsValid = Secp256k1.verifySignature(signature, publicKey, messageHash);
+                signatureIsValid = Secp256k1.verifySignature(signature, publicKey, messageHash.unwrap());
             }
         }
         else {
@@ -550,7 +552,7 @@ public class CryptographicOperation extends SubTypedOperation {
         switch (_opcode) {
             case RIPEMD_160: {
                 final Value input = stack.pop();
-                final byte[] bytes = BitcoinUtil.ripemd160(input.getBytes());
+                final Ripemd160Hash bytes = HashUtil.ripemd160(input);
                 stack.push(Value.fromBytes(bytes));
 
                 return (! stack.didOverflow());
@@ -558,7 +560,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case SHA_1: {
                 final Value input = stack.pop();
-                final byte[] bytes = BitcoinUtil.sha1(input.getBytes());
+                final ByteArray bytes = HashUtil.sha1(input);
                 stack.push(Value.fromBytes(bytes));
 
                 return (! stack.didOverflow());
@@ -566,7 +568,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case SHA_256: {
                 final Value input = stack.pop();
-                final byte[] bytes = BitcoinUtil.sha256(input.getBytes());
+                final ByteArray bytes = HashUtil.sha256(input);
                 stack.push(Value.fromBytes(bytes));
 
                 return (! stack.didOverflow());
@@ -574,7 +576,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case SHA_256_THEN_RIPEMD_160: {
                 final Value input = stack.pop();
-                final byte[] bytes = BitcoinUtil.ripemd160(BitcoinUtil.sha256(input.getBytes()));
+                final Ripemd160Hash bytes = HashUtil.ripemd160(HashUtil.sha256(input));
                 stack.push(Value.fromBytes(bytes));
 
                 return (! stack.didOverflow());
@@ -582,7 +584,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case DOUBLE_SHA_256: {
                 final Value input = stack.pop();
-                final byte[] bytes = BitcoinUtil.sha256(BitcoinUtil.sha256(input.getBytes()));
+                final MutableSha256Hash bytes = HashUtil.doubleSha256(input);
                 stack.push(Value.fromBytes(bytes));
 
                 return (! stack.didOverflow());

@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -14,7 +16,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
 
     private final Integer _exponent;
-    private final byte[] _significand = new byte[3];
+    private final ByteArray _significand;
 
     private ByteArray _cachedBytes = null;
 
@@ -38,30 +40,29 @@ public class ImmutableDifficulty implements Difficulty, Const {
     }
 
     protected ByteArray _encode() {
-        final byte[] bytes = new byte[4];
-        bytes[0] = (byte) (_exponent + 3);
+        final MutableByteArray bytes = new MutableByteArray(4);
+        bytes.setByte(0, (byte) (_exponent + 3));
         ByteUtil.setBytes(bytes, _significand, 1);
-        return MutableByteArray.wrap(bytes);
+        return bytes;
     }
 
-    public ImmutableDifficulty(final byte[] significand, final Integer exponent) {
+    public ImmutableDifficulty(final ByteArray significand, final Integer exponent) {
         _exponent = exponent;
 
-        final int copyCount = Math.min(_significand.length, significand.length);
-        for (int i = 0; i < copyCount; ++i) {
-            _significand[(_significand.length - i) - 1] = significand[(significand.length - i) - 1];
-        }
+        final byte[] significandBytes = new byte[3];
+        ByteUtil.setBytes(MutableByteArray.wrap(significandBytes), significand);
+        _significand = new ImmutableByteArray(significandBytes);
     }
 
     public ImmutableDifficulty(final Difficulty difficulty) {
         _exponent = difficulty.getExponent();
-        ByteUtil.setBytes(_significand, difficulty.getSignificand());
+        _significand = ConstUtil.asConstOrNull(difficulty.getSignificand());
     }
 
     protected MutableByteArray _convertToBytes() {
-        final byte[] bytes = new byte[32];
-        ByteUtil.setBytes(bytes, _significand, (32 - _exponent - _significand.length));
-        return MutableByteArray.wrap(bytes);
+        final MutableByteArray bytes = new MutableByteArray(32);
+        ByteUtil.setBytes(bytes, _significand, (32 - _exponent - _significand.getByteCount()));
+        return bytes;
     }
 
     @Override
@@ -78,7 +79,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public Integer getExponent() { return _exponent; }
 
     @Override
-    public byte[] getSignificand() { return ByteUtil.copyBytes(_significand); }
+    public ByteArray getSignificand() { return _significand; }
 
     @Override
     public Boolean isSatisfiedBy(final Sha256Hash hash) {
@@ -143,7 +144,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
         final MutableByteArray workByteArray = new MutableByteArray(32);
         for (int i = 0; i < workBytes.length; ++i) {
             final byte b = workBytes[workBytes.length - i - 1];
-            workByteArray.set(workByteArray.getByteCount() - i - 1, b);
+            workByteArray.setByte(workByteArray.getByteCount() - i - 1, b);
         }
 
         return BlockWork.fromByteArray(workByteArray);

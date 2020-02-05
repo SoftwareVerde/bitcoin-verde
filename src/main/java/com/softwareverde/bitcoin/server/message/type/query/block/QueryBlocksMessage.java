@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.query.block;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -30,7 +30,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
      * NOTE: Block Hashes should be added in descending order by block height (i.e. head Block first)...
      */
     public void addBlockHash(final Sha256Hash blockHeaderHash) {
-        if (_blockHeaderHashes.getSize() >= MAX_BLOCK_HASH_COUNT) { return; }
+        if (_blockHeaderHashes.getCount() >= MAX_BLOCK_HASH_COUNT) { return; }
         if (blockHeaderHash == null) { return; }
 
         _blockHeaderHashes.add(blockHeaderHash.asConst());
@@ -57,7 +57,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final int blockHeaderCount = _blockHeaderHashes.getSize();
+        final int blockHeaderCount = _blockHeaderHashes.getCount();
         final int blockHeaderHashByteCount = 32;
 
         final byte[] versionBytes = ByteUtil.integerToBytes(_version);
@@ -65,7 +65,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
         final byte[] blockHeaderHashesBytes = new byte[blockHeaderHashByteCount * blockHeaderCount];
 
         for (int i = 0; i < blockHeaderCount; ++i) {
-            final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(_blockHeaderHashes.getSize() - i - 1);
+            final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(_blockHeaderHashes.getCount() - i - 1);
             final int startIndex = (blockHeaderHashByteCount * i);
             ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash.getBytes(), startIndex);
         }

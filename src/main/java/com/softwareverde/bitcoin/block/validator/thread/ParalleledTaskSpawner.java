@@ -23,7 +23,7 @@ public class ParalleledTaskSpawner<T, S> {
     }
 
     public void executeTasks(final List<T> items, final int maxThreadCount) {
-        final int totalItemCount = items.getSize();
+        final int totalItemCount = items.getCount();
         final int threadCount = Math.min(maxThreadCount, Math.max(1, (totalItemCount / maxThreadCount)));
         final int itemsPerThread = (totalItemCount / threadCount);
 
@@ -48,7 +48,7 @@ public class ParalleledTaskSpawner<T, S> {
     public List<S> waitForResults() {
         final ImmutableListBuilder<S> listBuilder = new ImmutableListBuilder<S>();
 
-        for (int i = 0; i < _validationTasks.getSize(); ++i) {
+        for (int i = 0; i < _validationTasks.getCount(); ++i) {
             final ValidationTask<T, S> validationTask = _validationTasks.get(i);
             final S result = validationTask.getResult();
             if (result == null) { return null; }
@@ -59,7 +59,7 @@ public class ParalleledTaskSpawner<T, S> {
     }
 
     public void abort() {
-        for (int i = 0; i < _validationTasks.getSize(); ++i) {
+        for (int i = 0; i < _validationTasks.getCount(); ++i) {
             final ValidationTask<T, S> validationTask = _validationTasks.get(i);
             validationTask.abort();
         }

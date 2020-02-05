@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.thin.transaction;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -52,7 +52,7 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
         }
 
         { // Transactions...
-            final Integer transactionCount = _transactions.getSize();
+            final Integer transactionCount = _transactions.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
             for (final Transaction transaction : _transactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));

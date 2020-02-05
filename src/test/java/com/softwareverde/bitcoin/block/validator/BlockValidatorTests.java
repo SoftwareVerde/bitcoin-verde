@@ -16,8 +16,9 @@ import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
@@ -412,7 +413,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 Assert.assertEquals((blockHeight - 1), blockHeaderDatabaseManager.getBlockHeight(blockId).longValue());
             }
 
-            final Difficulty expectedDifficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
+            final Difficulty expectedDifficulty = new ImmutableDifficulty(ByteArray.fromHexString("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
             final float expectedDifficultyRatio = 1.18F;
             // Original Block with the first difficulty adjustment: 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 (Block Height: 32256)
             //  blockData is a modified version of this block, so that its previous block hash fits the modified block above.

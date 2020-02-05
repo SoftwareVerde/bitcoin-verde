@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;

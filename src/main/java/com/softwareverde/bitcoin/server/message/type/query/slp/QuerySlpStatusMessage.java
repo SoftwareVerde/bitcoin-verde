@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.query.slp;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -21,7 +21,7 @@ public class QuerySlpStatusMessage extends BitcoinProtocolMessage {
     }
 
     public void addHash(final Sha256Hash slpTransactionHash) {
-        if (_transactionHashList.getSize() >= MAX_HASH_COUNT) { return; }
+        if (_transactionHashList.getCount() >= MAX_HASH_COUNT) { return; }
         _transactionHashList.add(slpTransactionHash);
     }
 
@@ -33,7 +33,7 @@ public class QuerySlpStatusMessage extends BitcoinProtocolMessage {
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionHashList.getSize()));
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionHashList.getCount()));
         for (final Sha256Hash hash : _transactionHashList) {
             byteArrayBuilder.appendBytes(hash.getBytes(), Endian.LITTLE);
         }

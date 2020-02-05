@@ -22,7 +22,7 @@ public class QueryAddressBlocksMessage extends BitcoinProtocolMessage {
     }
 
     public void addAddress(final Address address) {
-        if (_addresses.getSize() >= MAX_ADDRESS_COUNT) { return; }
+        if (_addresses.getCount() >= MAX_ADDRESS_COUNT) { return; }
         _addresses.add(address);
     }
 
@@ -34,7 +34,7 @@ public class QueryAddressBlocksMessage extends BitcoinProtocolMessage {
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_addresses.getSize()));
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_addresses.getCount()));
         for (final Address address : _addresses) {
             byteArrayBuilder.appendBytes(address.getBytes(), Endian.LITTLE);
         }
