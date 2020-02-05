@@ -11,8 +11,9 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -161,7 +162,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
         final Long timestamp = row.getLong("timestamp");
-        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty")));
+        final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString(row.getString("difficulty")));
         final Long nonce = row.getLong("nonce");
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();

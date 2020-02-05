@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.stratum.task;
 import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -75,7 +75,7 @@ public class ViaBtcStratumMineBlockTaskBuilder implements RelayedStratumMineBloc
         try {
             _prototypeBlockWriteLock.lock();
 
-            final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(stratumDifficulty));
+            final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString(stratumDifficulty));
             if (difficulty == null) { return; }
 
             _prototypeBlock.setDifficulty(difficulty);

@@ -28,7 +28,7 @@ public class SlpScriptBuilder {
         for (int i = 0; i < byteCount; ++i) {
             int index = (byteCount - i - 1);
             final byte b = longBytes.getByte(index);
-            fixedLengthBytes.set(index, b);
+            fixedLengthBytes.setByte(index, b);
         }
         return fixedLengthBytes;
     }

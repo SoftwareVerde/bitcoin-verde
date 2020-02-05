@@ -168,7 +168,7 @@ public class StringOperation extends SubTypedOperation {
                     if (! minimallyEncodedByteArray.isEmpty()) {
                         final int lastIndex = (minimallyEncodedByteArray.getByteCount() - 1);
                         final byte lastByte = minimallyEncodedByteArray.getByte(lastIndex);
-                        minimallyEncodedByteArray.set(lastIndex, (byte) (lastByte & 0x7F));
+                        minimallyEncodedByteArray.setByte(lastIndex, (byte) (lastByte & 0x7F));
                     }
                 }
 
@@ -178,7 +178,7 @@ public class StringOperation extends SubTypedOperation {
                 if ( (isNegative) && (byteCount > 0) ) {
                     final int lastByteIndex = (byteCount - 1);
                     final byte lastByte = bytes.getByte(lastByteIndex);
-                    bytes.set(lastByteIndex, (byte) (lastByte | 0x80));
+                    bytes.setByte(lastByteIndex, (byte) (lastByte | 0x80));
                 }
 
                 final Value decodedValue = Value.fromBytes(bytes);

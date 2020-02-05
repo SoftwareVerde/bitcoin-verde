@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.request.header;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;

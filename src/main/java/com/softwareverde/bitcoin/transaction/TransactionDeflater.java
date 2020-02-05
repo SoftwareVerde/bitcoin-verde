@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction;
 import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -19,7 +20,8 @@ public class TransactionDeflater {
         ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(transaction.getVersion()));
 
         final byte[] lockTimeBytes = new byte[4];
-        ByteUtil.setBytes(lockTimeBytes, transaction.getLockTime().getBytes().getBytes());
+        final LockTime lockTime = transaction.getLockTime();
+        ByteUtil.setBytes(MutableByteArray.wrap(lockTimeBytes), lockTime.getBytes());
 
         headBytesBuilder.appendBytes(versionBytes, Endian.LITTLE);
 

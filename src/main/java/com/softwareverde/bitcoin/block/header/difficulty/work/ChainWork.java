@@ -15,7 +15,7 @@ public interface ChainWork extends Work {
         final byte[] bytes = bigInteger.toByteArray();
         final MutableChainWork mutableChainWork = new MutableChainWork();
         for (int i = 0; i < bytes.length; ++i) {
-            mutableChainWork.set((32 - i -1), (bytes[bytes.length - i - 1]));
+            mutableChainWork.setByte((32 - i -1), (bytes[bytes.length - i - 1]));
         }
         return mutableChainWork;
     }

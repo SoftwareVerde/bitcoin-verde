@@ -1,14 +1,15 @@
-package com.softwareverde.bitcoin.secp256k1;
+package com.softwareverde.security.secp256k1;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.security.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.StringUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -45,7 +46,7 @@ public class Secp256k1Tests {
             final PublicKey publicKey = privateKey.getPublicKey();
             final PublicKey compressedPublicKey = publicKey.compress();
             TestUtil.assertEqual(compressedPublicKey.getBytes(), publicKey.compress().getBytes());
-            final byte[] message = BitcoinUtil.sha256(StringUtil.stringToBytes("I am a little teapot." + i));
+            final byte[] message = HashUtil.sha256(StringUtil.stringToBytes("I am a little teapot." + i));
 
             // Action
             final Signature signature = Secp256k1.sign(privateKey, message);
@@ -65,7 +66,7 @@ public class Secp256k1Tests {
         // Setup
         final PrivateKey privateKey = PrivateKey.createNewKey();
         final PublicKey publicKey = privateKey.getPublicKey();
-        final byte[] message = BitcoinUtil.sha256(StringUtil.stringToBytes("I am a little teapot."));
+        final byte[] message = HashUtil.sha256(StringUtil.stringToBytes("I am a little teapot."));
 
         // Action
         final Signature signature = Secp256k1.sign(privateKey, message);
@@ -83,10 +84,10 @@ public class Secp256k1Tests {
         final String message = "Milo the dog.";
         final Boolean useCompressedAddress = true;
 
-        final BitcoinMessageSignature signature = Secp256k1.signBitcoinMessage(privateKey, message, useCompressedAddress);
+        final BitcoinMessageSignature signature = BitcoinUtil.signBitcoinMessage(privateKey, message, useCompressedAddress);
 
         final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey));
-        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+        final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
     }
@@ -101,7 +102,7 @@ public class Secp256k1Tests {
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
         final Address address = addressInflater.fromBase58Check(addressString);
-        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+        final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
     }

@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactio
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
@@ -518,7 +518,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             @Override
             public void onFailure() {
-                Logger.debug("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
+                Logger.debug("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getCount() - 1) +")");
 
                 if (callback != null) {
                     callback.onFailure(transactionHashes);

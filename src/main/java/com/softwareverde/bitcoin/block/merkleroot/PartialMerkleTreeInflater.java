@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -37,7 +37,7 @@ public class PartialMerkleTreeInflater {
 
         final MutableByteArray flags = MutableByteArray.wrap(byteArrayReader.readBytes(flagsByteCount));
         for (int i = 0; i < flagsByteCount; ++i) {
-            flags.set(i, ByteUtil.reverseBits(flags.getByte(i)));
+            flags.setByte(i, ByteUtil.reverseBits(flags.getByte(i)));
         }
 
         if (byteArrayReader.didOverflow()) { return null; }

@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeDeflater;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;

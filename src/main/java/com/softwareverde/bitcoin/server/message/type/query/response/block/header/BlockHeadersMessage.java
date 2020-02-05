@@ -23,7 +23,7 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
     }
 
     public void addBlockHeader(final BlockHeader blockHeader) {
-        if (_blockHeaders.getSize() >= RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return; }
+        if (_blockHeaders.getCount() >= RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return; }
         _blockHeaders.add(blockHeader);
     }
 
@@ -37,7 +37,7 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final int blockHeaderCount = _blockHeaders.getSize();
+        final int blockHeaderCount = _blockHeaders.getCount();
 
         final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
 
