@@ -1,12 +1,12 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output;
 
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.BatchedUpdateQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -34,6 +34,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -636,7 +637,8 @@ public class TransactionOutputDatabaseManager {
         }
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM address_processor_queue WHERE locking_script_id IN (" + DatabaseUtil.createInClause(lockingScriptIds) + ")")
+            new Query("DELETE FROM address_processor_queue WHERE locking_script_id IN (?)")
+                .setInClauseParameters(lockingScriptIds, ValueExtractor.IDENTIFIER)
         );
     }
 
@@ -648,19 +650,20 @@ public class TransactionOutputDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final int scriptCount = lockingScriptIds.getCount();
-        final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<LockingScriptId, LockingScript>(scriptCount);
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, script FROM locking_scripts WHERE id IN (" + DatabaseUtil.createInClause(lockingScriptIds, keyMap) + ")")
+            new Query("SELECT id, script FROM locking_scripts WHERE id IN (?)")
+                .setInClauseParameters(lockingScriptIds, ValueExtractor.IDENTIFIER)
         );
         if (rows.size() != scriptCount) { return null; }
 
+        final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<LockingScriptId, LockingScript>(scriptCount);
         for (final Row row : rows) {
             final LockingScriptId lockingScriptId = LockingScriptId.wrap(row.getLong("id"));
             final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("script")));
             keyMap.put(lockingScriptId, lockingScript);
         }
 
-        return DatabaseUtil.sortMappedRows(rows, lockingScriptIds, keyMap);
+        return DatabaseUtil.sortMappedRows(lockingScriptIds, keyMap);
     }
 
     public TransactionOutputId getTransactionOutputId(final LockingScriptId lockingScriptId) throws DatabaseException {

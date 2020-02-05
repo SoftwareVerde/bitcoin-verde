@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -315,7 +316,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (transactionIds.isEmpty()) { return; }
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")")
+            new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id IN (?)")
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
     }
 
@@ -384,17 +386,19 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final Integer affectedRowCount = databaseConnection.getRowsAffectedCount();
 
-        final List<Long> transactionIdRange;
+        final List<TransactionId> transactionIdRange;
         {
-            final ImmutableListBuilder<Long> rowIds = new ImmutableListBuilder<Long>(affectedRowCount);
+            final ImmutableListBuilder<TransactionId> rowIds = new ImmutableListBuilder<TransactionId>(affectedRowCount);
             for (int i = 0; i < affectedRowCount; ++i) {
-                rowIds.add(firstTransactionId + i);
+                final long transactionIdLong = (firstTransactionId + i);
+                rowIds.add(TransactionId.wrap(transactionIdLong));
             }
             transactionIdRange = rowIds.build();
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
+            new Query("SELECT id, hash FROM transactions WHERE id IN (?)")
+                .setInClauseParameters(transactionIdRange, ValueExtractor.IDENTIFIER)
         );
         if (! Util.areEqual(rows.size(), affectedRowCount)) {
             Logger.warn("Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
@@ -579,7 +583,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final int falsePositiveCount;
             { // Of the "possibly seen" transactions, prove they've actually been seen...
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(possiblySeenTransactionHashes) + ")")
+                    new Query("SELECT id, hash FROM transactions WHERE hash IN (?)")
+                        .setInClauseParameters(possiblySeenTransactionHashes, ValueExtractor.SHA256_HASH)
                 );
                 for (final Row row : rows) {
                     final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
@@ -789,10 +794,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
                 "WHERE " +
                     "transaction_inputs.previous_transaction_output_id IN (" +
-                        "SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")" +
+                        "SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id IN (?)" +
                     ")" +
                 "GROUP BY unconfirmed_transactions.transaction_id"
             )
+            .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
@@ -819,9 +825,10 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     "INNER JOIN unconfirmed_transactions " +
                         "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
                 "WHERE " +
-                        "transaction_outputs.transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") " +
+                        "transaction_outputs.transaction_id IN (?) " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
             )
+            .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
