@@ -50,8 +50,8 @@ public class ImmutableDifficulty implements Difficulty, Const {
         _exponent = exponent;
 
         final byte[] significandBytes = new byte[3];
-        ByteUtil.setBytes(MutableByteArray.wrap(significandBytes), significand);
-        _significand = new ImmutableByteArray(significandBytes);
+        ByteUtil.setTailBytes(MutableByteArray.wrap(significandBytes), significand);
+        _significand = ImmutableByteArray.copyOf(significandBytes);
     }
 
     public ImmutableDifficulty(final Difficulty difficulty) {
