@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.address;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -22,7 +23,7 @@ public class Address extends ImmutableByteArray {
         byteArrayBuilder.appendBytes(bytes);
         final byte[] versionPayload = byteArrayBuilder.build();
 
-        final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(versionPayload));
+        final byte[] fullChecksum = HashUtil.doubleSha256(versionPayload);
         return ByteUtil.copyBytes(fullChecksum, 0, CHECKSUM_BYTE_COUNT);
     }
 

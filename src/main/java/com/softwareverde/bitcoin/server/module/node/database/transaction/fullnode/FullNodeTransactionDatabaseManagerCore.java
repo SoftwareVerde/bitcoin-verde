@@ -2,8 +2,6 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -37,9 +35,10 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -178,7 +177,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        if (transactionInputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+        if (transactionInputs.getCount() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
             }
@@ -201,7 +200,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Sha256Hash transactionHash = transaction.getHash();
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        if (transactionOutputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+        if (transactionOutputs.getCount() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                 transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
             }
@@ -363,7 +362,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         if (transactions.isEmpty()) { return new HashMap<Sha256Hash, TransactionId>(0); }
 
-        final Integer transactionCount = transactions.getSize();
+        final Integer transactionCount = transactions.getCount();
 
         final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactionCount);
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
@@ -386,18 +385,19 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final Integer affectedRowCount = databaseConnection.getRowsAffectedCount();
 
-        final List<Long> transactionIdRange;
+        final List<TransactionId> transactionIdRange;
         {
-            final ImmutableListBuilder<Long> rowIds = new ImmutableListBuilder<Long>(affectedRowCount);
+            final ImmutableListBuilder<TransactionId> rowIds = new ImmutableListBuilder<TransactionId>(affectedRowCount);
             for (int i = 0; i < affectedRowCount; ++i) {
-                rowIds.add(firstTransactionId + i);
+                final long transactionIdLong = (firstTransactionId + i);
+                rowIds.add(TransactionId.wrap(transactionIdLong));
             }
             transactionIdRange = rowIds.build();
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, hash FROM transactions WHERE id IN (?)")
-                .setInClauseParameters(transactionIdRange, ValueExtractor.LONG)
+                .setInClauseParameters(transactionIdRange, ValueExtractor.IDENTIFIER)
         );
         if (! Util.areEqual(rows.size(), affectedRowCount)) {
             Logger.warn("Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
@@ -493,7 +493,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         if (shouldUpdateUnspentOutputCache) {
-            for (int i = 0; i < transactionOutputIds.getSize(); ++i) {
+            for (int i = 0; i < transactionOutputIds.getCount(); ++i) {
                 final Integer transactionOutputIndex = i;
                 final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
 
@@ -549,7 +549,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
 
-        final int transactionCount = transactions.getSize();
+        final int transactionCount = transactions.getCount();
 
         final MilliTimer selectTransactionHashesTimer = new MilliTimer();
         final MilliTimer txHashMapTimer = new MilliTimer();
@@ -578,7 +578,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
             transactionHashes = transactionHashesBuilder.build();
 
-            final int positivesCount = possiblySeenTransactionHashes.getSize();
+            final int positivesCount = possiblySeenTransactionHashes.getCount();
             final int falsePositiveCount;
             { // Of the "possibly seen" transactions, prove they've actually been seen...
                 final java.util.List<Row> rows = databaseConnection.query(
@@ -610,7 +610,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (newTransactionIds == null) { return null; }
 
         // final List<Transaction> newTransactions;
-        // if (newTransactionIds.size() < unseenTransactions.getSize()) {
+        // if (newTransactionIds.size() < unseenTransactions.getCount()) {
         //     // Some of the Transactions that were attempted to be inserted were already seen.
         //     // Attempting to store their Inputs/Outputs would fail due to duplicates, so they are ignored.
         //     // BloomFilters only give false positives, not false negatives, so this should never happen...
@@ -796,7 +796,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         "SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id IN (?)" +
                     ")" +
                 "GROUP BY unconfirmed_transactions.transaction_id"
-            ).setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+            )
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
@@ -825,7 +826,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 "WHERE " +
                         "transaction_outputs.transaction_id IN (?) " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
-            ).setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+            )
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());

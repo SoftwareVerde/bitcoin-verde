@@ -1,6 +1,6 @@
 package com.softwareverde.servlet.session;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class SessionId {
     public static SessionId wrap(final String sessionId) {

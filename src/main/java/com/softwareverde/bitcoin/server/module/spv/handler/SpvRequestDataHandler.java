@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.spv.handler;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;

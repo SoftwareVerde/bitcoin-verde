@@ -12,7 +12,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -668,6 +668,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final Json addressJson = new Json();
+        addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
         addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
         addressJson.put("balance", queryAddressHandler.getBalance(address));
 

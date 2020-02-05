@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.database.cache.conscientious;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;

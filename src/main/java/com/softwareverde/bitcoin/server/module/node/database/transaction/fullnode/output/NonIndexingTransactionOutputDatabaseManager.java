@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output;
 
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -23,6 +22,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.Map;
 

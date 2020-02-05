@@ -25,7 +25,7 @@ public class RequestDataMessage extends BitcoinProtocolMessage {
     }
 
     public void addInventoryItem(final InventoryItem inventoryItem) {
-        if (_inventoryItems.getSize() >= MAX_COUNT) { return; }
+        if (_inventoryItems.getCount() >= MAX_COUNT) { return; }
         _inventoryItems.add(inventoryItem);
     }
 
@@ -36,7 +36,7 @@ public class RequestDataMessage extends BitcoinProtocolMessage {
     @Override
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_inventoryItems.getSize()), Endian.BIG);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_inventoryItems.getCount()), Endian.BIG);
         for (final InventoryItem inventoryItem : _inventoryItems) {
             byteArrayBuilder.appendBytes(inventoryItem.getBytes(), Endian.BIG);
         }

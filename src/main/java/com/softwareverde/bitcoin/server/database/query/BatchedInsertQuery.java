@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.database.query;
 public class BatchedInsertQuery extends Query {
     protected static class BatchedInsertQueryWrapper extends com.softwareverde.database.query.BatchedInsertQuery {
         public BatchedInsertQueryWrapper(final Query query, final Boolean shouldConsumeQuery) {
-            super(query, shouldConsumeQuery);
+            super(query, shouldConsumeQuery, new ParameterFactory());
         }
     }
 

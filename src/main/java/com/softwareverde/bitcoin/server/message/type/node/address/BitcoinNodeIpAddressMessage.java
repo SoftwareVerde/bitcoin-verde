@@ -39,7 +39,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
     @Override
     protected ByteArray _getPayload() {
         final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
-        final int networkAddressCount = _nodeIpAddresses.getSize();
+        final int networkAddressCount = _nodeIpAddresses.getCount();
 
         final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(networkAddressCount);
         final byte[] networkAddressesBytes = new byte[networkAddressCount * networkAddressByteCount];

@@ -7,7 +7,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -321,7 +322,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18019902")), difficulty);
+            Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18019902")), difficulty);
         }
     }
 
@@ -355,7 +356,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18014735")), difficulty);
+            Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18014735")), difficulty);
         }
     }
 
@@ -391,7 +392,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
+            Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18101DCC")), difficulty);
         }
     }
 
@@ -525,7 +526,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805B42B")), difficulty);
+            Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("1805B42B")), difficulty);
         }
     }
 
@@ -666,7 +667,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805C8DF")), difficulty);
+            Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("1805C8DF")), difficulty);
         }
     }
 
@@ -795,7 +796,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1806AAB6")), difficulty);
+            Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("1806AAB6")), difficulty);
         }
     }
 
@@ -871,7 +872,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
             // Assert
-            final Difficulty expectedDifficulty = Difficulty.decode(HexUtil.hexStringToByteArray("18021D22"));
+            final Difficulty expectedDifficulty = Difficulty.decode(ByteArray.fromHexString("18021D22"));
             Assert.assertEquals(expectedDifficulty, difficulty);
         }
     }

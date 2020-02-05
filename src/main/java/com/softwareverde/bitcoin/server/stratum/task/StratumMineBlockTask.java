@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.ImmutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
@@ -18,6 +18,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.type.time.SystemTime;
@@ -58,7 +59,7 @@ public class StratumMineBlockTask {
                 byteArrayBuilder.clear();
             }
 
-            merkleRoot = BitcoinUtil.sha256(BitcoinUtil.sha256(concatenatedHashes));
+            merkleRoot = HashUtil.doubleSha256(concatenatedHashes);
         }
 
         return MutableMerkleRoot.wrap(ByteUtil.reverseEndian(merkleRoot));

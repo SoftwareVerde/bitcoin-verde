@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database.query;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.Work;
-import com.softwareverde.bitcoin.hash.Hash;
+import com.softwareverde.security.hash.Hash;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.constable.bytearray.ByteArray;

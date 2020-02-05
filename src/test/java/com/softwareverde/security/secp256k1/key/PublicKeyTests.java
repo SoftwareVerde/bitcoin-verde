@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.secp256k1.key;
+package com.softwareverde.security.secp256k1.key;
 
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import org.junit.Test;

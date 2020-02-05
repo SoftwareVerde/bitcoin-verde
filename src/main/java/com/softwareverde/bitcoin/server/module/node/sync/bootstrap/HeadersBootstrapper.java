@@ -64,7 +64,7 @@ public class HeadersBootstrapper {
                                 final int nextByte = inputStream.read();
                                 if (nextByte < 0) { break; }
 
-                                buffer.set(readByteCount, (byte) nextByte);
+                                buffer.setByte(readByteCount, (byte) nextByte);
                                 readByteCount += 1;
                             }
                             if (readByteCount != BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT) { break; }
@@ -73,7 +73,7 @@ public class HeadersBootstrapper {
                             if (blockHeader == null) { break; }
 
                             batchedHeaders.add(blockHeader);
-                            if (batchedHeaders.getSize() == batchSize) {
+                            if (batchedHeaders.getCount() == batchSize) {
                                 TransactionUtil.startTransaction(databaseConnection);
                                 final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(batchedHeaders);
                                 TransactionUtil.commitTransaction(databaseConnection);
@@ -81,7 +81,7 @@ public class HeadersBootstrapper {
                                 batchedHeaders.clear();
 
                                 if (blockIds == null) { break; }
-                                currentBlockHeight += blockIds.getSize();
+                                currentBlockHeight += blockIds.getCount();
                             }
 
                             _currentBlockHeight = currentBlockHeight;
@@ -95,7 +95,7 @@ public class HeadersBootstrapper {
                             batchedHeaders.clear();
 
                             if (blockIds != null) {
-                                _currentBlockHeight += blockIds.getSize();
+                                _currentBlockHeight += blockIds.getCount();
                             }
                         }
 

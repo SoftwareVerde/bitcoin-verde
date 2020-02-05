@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -30,6 +30,7 @@ import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.BitcoinReflectionUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -118,7 +119,7 @@ public class AbcScriptRunnerTests {
         }
 
         public Sha256Hash getHash() {
-            return Sha256Hash.copyOf(BitcoinUtil.sha256((amount + unlockingScriptString + lockingScriptString + flagsString + expectedResultString).getBytes()));
+            return Sha256Hash.copyOf(HashUtil.sha256((amount + unlockingScriptString + lockingScriptString + flagsString + expectedResultString).getBytes()));
         }
 
         @Override

@@ -1,8 +1,5 @@
 package com.softwareverde.bitcoin.util;
 
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
-
 public class ByteUtil extends com.softwareverde.util.ByteUtil {
     public static byte[] variableLengthIntegerToBytes(final long value) {
         final byte[] bytes = ByteUtil.longToBytes(value);
@@ -48,39 +45,5 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
         ByteUtil.setBytes(bytes, variableLengthIntegerBytes);
         ByteUtil.setBytes(bytes, variableLengthString.getBytes(), variableLengthIntegerBytes.length);
         return bytes;
-    }
-
-    public static Boolean areEqual(final ByteArray bytes0, final ByteArray bytes1) {
-        final int byteCount0 = bytes0.getByteCount();
-        if (byteCount0 != bytes1.getByteCount()) { return false; }
-
-        for (int i = 0; i < byteCount0; ++i) {
-            final byte b0 = bytes0.getByte(i);
-            final byte b1 = bytes1.getByte(i);
-            if (b0 != b1) { return false; }
-        }
-        return true;
-    }
-
-    public static void clearByteArray(final MutableByteArray bytes) {
-        for (int i = 0; i < bytes.getByteCount(); i += 1) {
-            bytes.set(i, (byte) 0x00);
-        }
-    }
-
-    public static byte reverseBits(final byte b) {
-        return (byte) (Integer.reverse(b) >>> 24);
-    }
-
-    public static void setBytes(final MutableByteArray destination, final ByteArray source, final Integer destinationOffset) {
-        for (int i = 0; i < source.getByteCount(); ++i) {
-            final int writeIndex = (i + destinationOffset);
-            if (writeIndex >= destination.getByteCount()) { break; }
-            destination.set(writeIndex, source.getByte(i));
-        }
-    }
-
-    public static void setBytes(final MutableByteArray destination, final ByteArray source) {
-        ByteUtil.setBytes(destination, source, 0);
     }
 }

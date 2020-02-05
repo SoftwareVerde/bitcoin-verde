@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.hash;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import org.junit.Assert;
 import org.junit.Test;
 

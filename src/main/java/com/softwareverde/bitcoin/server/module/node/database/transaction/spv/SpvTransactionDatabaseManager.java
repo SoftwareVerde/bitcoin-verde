@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -108,7 +108,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
      * Returns a map of newly inserted Transactions and their Ids.  If a transaction already existed, its Hash/Id pair are not returned within the map.
      */
     protected Map<Sha256Hash, TransactionId> _storeTransactions(final List<Transaction> transactions) throws DatabaseException {
-        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(transactions.getSize());
+        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
@@ -210,7 +210,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
-            final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getSize());
+            final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getCount());
             for (final Transaction transaction : transactions) {
                 transactionIds.add(_storeTransaction(transaction));
             }

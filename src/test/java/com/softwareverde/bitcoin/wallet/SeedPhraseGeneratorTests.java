@@ -280,7 +280,7 @@ public class SeedPhraseGeneratorTests {
         final List<String> errors = _seedPhraseGenerator.validateSeedPhrase("abcd efgh ijkl mnop");
 
         // Assert
-        Assert.assertEquals(4, errors.getSize());
+        Assert.assertEquals(4, errors.getCount());
         Assert.assertTrue(errors.get(0).contains("abcd"));
     }
 
@@ -290,7 +290,7 @@ public class SeedPhraseGeneratorTests {
         final List<String> errors = _seedPhraseGenerator.validateSeedPhrase("scissors invite lock maple supreme raw rapid void congress muscle digital elegant little brisk hair mango congress unfold");
 
         // Assert
-        Assert.assertEquals(1, errors.getSize());
+        Assert.assertEquals(1, errors.getCount());
         Assert.assertTrue(errors.get(0).contains("checksum"));
     }
 }

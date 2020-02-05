@@ -11,8 +11,10 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -161,7 +163,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
         final Long timestamp = row.getLong("timestamp");
-        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty")));
+        final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString(row.getString("difficulty")));
         final Long nonce = row.getLong("nonce");
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
@@ -325,8 +327,9 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         databaseConnection.executeSql(
-            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
+            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (?)")
                 .setParameter(blockchainSegmentId)
+                .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
 
         for (final BlockId blockId : blockIds) {
@@ -683,7 +686,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     public List<Sha256Hash> getBlockHashes(final List<BlockId> blockIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
+            new Query("SELECT id, hash FROM blocks WHERE id IN (?)")
+                .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
 
         final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<BlockId, Sha256Hash>(rows.size());

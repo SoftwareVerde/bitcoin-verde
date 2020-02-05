@@ -1,10 +1,11 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.security.secp256k1.Secp256k1;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.wallet.SeedPhraseGenerator;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -42,7 +43,7 @@ public class SignatureModule {
         return PrivateKey.fromBytes(privateKeyBytes);
     }
 
-    public static void execute(final String keyFileName, final String message) {
+    public static void executeSign(final String keyFileName, final String message, final Boolean useCompressedAddress) {
         final String keyFileContents;
         {
             final byte[] bytes = IoUtil.getFileContents(keyFileName);
@@ -65,20 +66,39 @@ public class SignatureModule {
             return;
         }
 
-        final byte[] preImageHash = BitcoinUtil.sha256(BitcoinUtil.sha256(message.getBytes()));
-        final Signature signature = Secp256k1.sign(privateKey, preImageHash);
-        final PublicKey publicKey = privateKey.getPublicKey();
-
-        if (message.contains("\n")) {
-            System.out.print("Message:\n==========\n");
-            System.out.println(message);
-            System.out.print("==========\n");
-        }
-        else {
-            System.out.println("Message     : " + message);
+        final BitcoinMessageSignature signature = BitcoinUtil.signBitcoinMessage(privateKey, message, useCompressedAddress);
+        if (signature == null) {
+            Logger.error("Unable to sign message.");
+            return;
         }
 
-        System.out.println("Public Key  : " + publicKey);
-        System.out.println("Signature   : " + signature);
+        final AddressInflater addressInflater = new AddressInflater();
+
+        System.out.println("Address:    " + (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey)).toBase58CheckEncoded());
+        System.out.println("Signature:  " + signature.toBase64());
+        System.out.println("Message:    " + message);
+    }
+
+    public static void executeVerify(final String addressStringBase58Check, final String signatureStringBase64, final String message) {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureStringBase64);
+        if (signature == null) {
+            Logger.error("Invalid signature.");
+            return;
+        }
+
+        final Address address = addressInflater.fromBase58Check(addressStringBase58Check);
+        if (address == null) {
+            Logger.error("Invalid address.");
+            return;
+        }
+
+        final Boolean signatureIsValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
+        System.out.println("Address:    " + address.toBase58CheckEncoded());
+        System.out.println("Signature:  " + signature.toBase64());
+        System.out.println("Message:    " + message);
+        System.out.println("------------");
+        System.out.println("Is Valid:   " + (signatureIsValid ? "1" : "0"));
     }
 }

@@ -183,7 +183,8 @@ class Ui {
             return false;
         });
 
-        $(".address", transactionInputUi).text(transactionInput.address || "[CUSTOM SCRIPT]");
+        const addressString = ((Ui.displayCashAddressFormat ? transactionInput.cashAddress : transactionInput.address) || transactionInput.address);
+        $(".address", transactionInputUi).text(addressString || "[CUSTOM SCRIPT]");
         if (transactionInput.address) {
             Ui.makeHashCopyable($(".address", transactionInputUi));
         }
@@ -230,7 +231,8 @@ class Ui {
             return false;
         });
 
-        $(".address", transactionOutputUi).text(transactionOutput.address || "[CUSTOM SCRIPT]");
+        const addressString = ((Ui.displayCashAddressFormat ? transactionOutput.cashAddress : transactionOutput.address) || transactionOutput.address);
+        $(".address", transactionOutputUi).text(addressString || "[CUSTOM SCRIPT]");
         if (transactionOutput.address) {
             Ui.makeHashCopyable($(".address", transactionOutputUi));
         }
@@ -528,7 +530,7 @@ class Ui {
         const addressTemplate = $("> .address", templates);
         const addressUi = addressTemplate.clone();
 
-        const addressString = (addressObject.base58CheckEncoded || "");
+        const addressString = ((Ui.displayCashAddressFormat ? addressObject.base32CheckEncoded : addressObject.base58CheckEncoded) || addressObject.base58CheckEncoded || "");
         const addressBalance = (addressObject.balance || 0);
         const addressTransactions = addressObject.transactions;
 
@@ -561,6 +563,7 @@ class Ui {
         return addressUi;
     }
 }
+Ui.displayCashAddressFormat = true;
 
 class DateUtil {
     static getTimeZoneAbbreviation() {
@@ -609,4 +612,3 @@ class DateUtil {
         textNode.attr("y", ((height + Math.min(height, bb.height)) / 2));
     }
 */
-

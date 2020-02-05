@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.request.header;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -28,7 +28,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     public Integer getVersion() { return _version; }
 
     public void addBlockHeaderHash(final Sha256Hash blockHeaderHash) {
-        if (_blockHeaderHashes.getSize() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
+        if (_blockHeaderHashes.getCount() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
 
@@ -50,7 +50,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final int blockHeaderCount = _blockHeaderHashes.getSize();
+        final int blockHeaderCount = _blockHeaderHashes.getCount();
         final int blockHeaderHashByteCount = 32;
 
         final byte[] versionBytes = ByteUtil.integerToBytes(_version);

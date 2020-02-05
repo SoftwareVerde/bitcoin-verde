@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
