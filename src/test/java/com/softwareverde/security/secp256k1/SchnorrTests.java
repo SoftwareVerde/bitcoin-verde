@@ -1,12 +1,13 @@
-package com.softwareverde.bitcoin.secp256k1;
+package com.softwareverde.security.secp256k1;
 
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
-import com.softwareverde.bitcoin.secp256k1.signature.SchnorrSignature;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.security.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.signature.SchnorrSignature;
+import com.softwareverde.security.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -21,7 +22,7 @@ public class SchnorrTests {
         Assert.assertEquals("030B4C866585DD868A9D62348A9CD008D6A312937048FFF31670E7E920CFC7A744", publicKey.toString());
 
         final String message = "Very deterministic message";
-        final MutableByteArray messageHash = MutableByteArray.wrap(BitcoinUtil.sha256(BitcoinUtil.sha256(message.getBytes())));
+        final MutableByteArray messageHash = MutableByteArray.wrap(HashUtil.doubleSha256(message.getBytes()));
 
         Assert.assertEquals("5255683DA567900BFD3E786ED8836A4E7763C221BF1AC20ECE2A5171B9199E8A", messageHash.toString());
 

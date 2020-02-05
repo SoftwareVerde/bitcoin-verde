@@ -2,12 +2,10 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.security.secp256k1.Secp256k1;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.wallet.SeedPhraseGenerator;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -68,7 +66,7 @@ public class SignatureModule {
             return;
         }
 
-        final BitcoinMessageSignature signature = Secp256k1.signBitcoinMessage(privateKey, message, useCompressedAddress);
+        final BitcoinMessageSignature signature = BitcoinUtil.signBitcoinMessage(privateKey, message, useCompressedAddress);
         if (signature == null) {
             Logger.error("Unable to sign message.");
             return;
@@ -96,7 +94,7 @@ public class SignatureModule {
             return;
         }
 
-        final Boolean signatureIsValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+        final Boolean signatureIsValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
         System.out.println("Address:    " + address.toBase58CheckEncoded());
         System.out.println("Signature:  " + signature.toBase64());
         System.out.println("Message:    " + message);

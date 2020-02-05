@@ -4,6 +4,7 @@ import com.softwareverde.async.lock.IndexLock;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.util.HashUtil;
 
 public class MutableBloomFilter implements BloomFilter {
     protected static final Double LN_2 = Math.log(2);
@@ -121,7 +122,7 @@ public class MutableBloomFilter implements BloomFilter {
         final Long bitCount = (byteCount * 8L);
 
         for (int i = 0; i < _hashFunctionCount; ++i) {
-            final Long hash = BitcoinUtil.murmurHash(_nonce, i, item);
+            final Long hash = HashUtil.murmurHash(_nonce, i, item);
             final Long index = (hash % bitCount);
 
             final int byteIndex = _getByteIndex(index);
@@ -157,7 +158,7 @@ public class MutableBloomFilter implements BloomFilter {
 
             try {
                 _indexLock.lock(lockIndex);
-                _bytes.set(i, (byte) 0x00);
+                _bytes.setByte(i, (byte) 0x00);
             }
             finally {
                 _indexLock.unlock(lockIndex);

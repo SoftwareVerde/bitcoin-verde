@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync.block.pending;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 
 public class PendingBlock {

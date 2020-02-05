@@ -1,13 +1,14 @@
 package com.softwareverde.bitcoin.secp256k1.signature;
 
-import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.secp256k1.signature.Secp256k1Signature;
+import com.softwareverde.security.secp256k1.signature.Signature;
 import com.softwareverde.util.Base64Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
-public class BitcoinMessageSignature extends SignatureCore {
+public class BitcoinMessageSignature {
     public static BitcoinMessageSignature decode(final ByteArray bytes) {
         if (bytes.getByteCount() != 65) { return null; }
 
@@ -28,62 +29,29 @@ public class BitcoinMessageSignature extends SignatureCore {
 
     public static BitcoinMessageSignature fromSignature(final Signature signature, final Integer recoveryId, final Boolean isCompressed) {
         final int headerInteger = (recoveryId + 27 + (isCompressed ? 4 : 0));
-        final ByteArray r = MutableByteArray.wrap(ByteUtil.getTailBytes(signature.getR(), 32));
-        final ByteArray s = MutableByteArray.wrap(ByteUtil.getTailBytes(signature.getS(), 32));
+        final ByteArray r = ByteUtil.getTailBytes(signature.getR(), 32);
+        final ByteArray s = ByteUtil.getTailBytes(signature.getS(), 32);
         return new BitcoinMessageSignature(headerInteger, r, s);
     }
 
     protected final Integer _headerByte;
-    protected final ByteArray _r;
-    protected final ByteArray _s;
+    protected final Secp256k1Signature _signature;
 
     protected BitcoinMessageSignature(final Integer headerByte, final ByteArray r, final ByteArray s) {
         _headerByte = headerByte;
-        _r = ConstUtil.asConstOrNull(r);
-        _s = ConstUtil.asConstOrNull(s);
+        _signature = new Secp256k1Signature(r, s);
     }
 
     protected ByteArray _encode() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte(_headerByte.byteValue());
-        byteArrayBuilder.appendBytes(_r);
-        byteArrayBuilder.appendBytes(_s);
+        byteArrayBuilder.appendBytes(_signature.getR());
+        byteArrayBuilder.appendBytes(_signature.getS());
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
-    @Override
-    public Type getType() {
-        return Type.BITCOIN_MESSAGE;
-    }
-
-    @Override
-    public ByteArray getR() {
-        return _r;
-    }
-
-    @Override
-    public ByteArray getS() {
-        return _s;
-    }
-
-    @Override
-    public ByteArray encode() {
-        return _encode();
-    }
-
-    @Override
-    public Boolean isCanonical() {
-        return true;
-    }
-
-    @Override
-    public BitcoinMessageSignature asCanonical() {
-        return this;
-    }
-
-    @Override
-    public Boolean isEmpty() {
-        return false;
+    public Secp256k1Signature getSignature() {
+        return _signature;
     }
 
     public Boolean isCompressedAddress() {
@@ -97,5 +65,9 @@ public class BitcoinMessageSignature extends SignatureCore {
     public String toBase64() {
         final ByteArray encodedByteArray = _encode();
         return Base64Util.toBase64String(encodedByteArray.getBytes());
+    }
+
+    public ByteArray encode() {
+        return _encode();
     }
 }

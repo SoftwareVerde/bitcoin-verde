@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -51,20 +51,20 @@ public class Value extends ImmutableByteArray implements Const {
             // Start encoding after the first non-zero byte...
             if (b != 0x00) {
                 final int copiedByteCount = (bytes.getByteCount() - i);
-                final byte[] copiedBytes = bytes.getBytes(i, copiedByteCount);
+                final ByteArray copiedBytes = MutableByteArray.wrap(bytes.getBytes(i, copiedByteCount));
                 final MutableByteArray byteArray;
 
                 final boolean signBitIsSet = ( (b & 0x80) != 0x00 );
                 if (signBitIsSet) {
                     // The sign-bit is set, so the returned value must have an extra byte...
                     byteArray = new MutableByteArray( copiedByteCount + 1);
-                    ByteUtil.setBytes(byteArray.unwrap(), copiedBytes, 1);
-                    byteArray.set(0, signByte);
+                    ByteUtil.setBytes(byteArray, copiedBytes, 1);
+                    byteArray.setByte(0, signByte);
                 }
                 else {
                     // The sign bit isn't set, so the returned value can just set the signed bit...
-                    byteArray = MutableByteArray.wrap(copiedBytes);
-                    byteArray.set(0, (byte) (byteArray.getByte(0) | signByte));
+                    byteArray = new MutableByteArray(copiedBytes);
+                    byteArray.setByte(0, (byte) (byteArray.getByte(0) | signByte));
                 }
 
                 return Value.fromBytes(ByteUtil.reverseEndian(byteArray.unwrap()));

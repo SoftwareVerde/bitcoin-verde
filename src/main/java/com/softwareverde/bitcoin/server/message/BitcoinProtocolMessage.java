@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.server.message;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -24,11 +24,11 @@ public abstract class BitcoinProtocolMessage implements ProtocolMessage {
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
     public static ByteArray calculateChecksum(final ByteArray payload) {
-        final ByteArray fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(payload));
+        final ByteArray fullChecksum = HashUtil.doubleSha256(payload);
         final MutableByteArray checksum = new MutableByteArray(4);
 
         for (int i = 0; i< CHECKSUM_BYTE_COUNT; ++i) {
-            checksum.set(i, fullChecksum.getByte(i));
+            checksum.setByte(i, fullChecksum.getByte(i));
         }
 
         return checksum;

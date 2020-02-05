@@ -1,18 +1,19 @@
 package com.softwareverde.bitcoin.server.database.cache.utxo;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.security.util.HashUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class NativeUnspentTransactionOutputCacheTests {
 
     protected Sha256Hash sha256(final Long value) {
-        return MutableSha256Hash.wrap(BitcoinUtil.sha256(ByteUtil.longToBytes(value)));
+        return MutableSha256Hash.wrap(HashUtil.sha256(ByteUtil.longToBytes(value)));
     }
 
     @Test

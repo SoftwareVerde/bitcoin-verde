@@ -1,14 +1,18 @@
 package com.softwareverde.bitcoin.server.module.stratum.api;
 
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.DateUtil;
-import com.softwareverde.util.HashUtil;
+import com.softwareverde.util.StringUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -18,7 +22,9 @@ public class Account implements Jsonable {
     private static final Map<Long, Account> _cachedAccounts = new ConcurrentHashMap<Long, Account>();
 
     public static String hashPassword(final String rawPassword) {
-        return HashUtil.sha256(HashUtil.sha256(rawPassword));
+        final ByteArray passwordBytes = MutableByteArray.wrap(StringUtil.stringToBytes(rawPassword));
+        final Sha256Hash hashedPassword = HashUtil.doubleSha256(passwordBytes);
+        return hashedPassword.toString();
     }
 
     /**

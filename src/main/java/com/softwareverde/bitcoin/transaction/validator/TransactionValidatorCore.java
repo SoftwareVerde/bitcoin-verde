@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -342,7 +342,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 return false;
             }
 
-            for (int i = 0; i < transactionInputs.getSize(); ++i) {
+            for (int i = 0; i < transactionInputs.getCount(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
                 final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();

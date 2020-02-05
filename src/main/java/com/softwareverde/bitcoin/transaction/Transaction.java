@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.CoinbaseTransactionInputInflater;

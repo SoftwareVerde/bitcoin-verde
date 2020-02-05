@@ -1,11 +1,12 @@
 package com.softwareverde.bitcoin.address;
 
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -13,7 +14,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class AddressInflater {
     protected byte[] _hashPublicKey(final PublicKey publicKey) {
-        return BitcoinUtil.ripemd160(BitcoinUtil.sha256(publicKey.getBytes()));
+        return HashUtil.ripemd160(HashUtil.sha256(publicKey.getBytes()));
     }
 
     /**
@@ -39,7 +40,7 @@ public class AddressInflater {
             }
             else {
                 final MutableByteArray b = new MutableByteArray(1);
-                b.set(0, versionByte1);
+                b.setByte(0, versionByte1);
 
                 int writeBitIndex = 3;
                 for (int hashReadBit = 0; hashReadBit < (hash.getByteCount() * 8); ++hashReadBit) {
@@ -48,7 +49,7 @@ public class AddressInflater {
 
                     if ((writeBitIndex % 5) == 0) {
                         checksumPayload.appendByte(b.getByte(0));
-                        b.set(0, (byte) 0x00);
+                        b.setByte(0, (byte) 0x00);
                     }
                 }
                 if ((writeBitIndex % 5) != 0) {
@@ -126,7 +127,7 @@ public class AddressInflater {
 
         final MutableByteArray checksumByteArray = new MutableByteArray(5);
         for (int i = 0; i < 5; ++i) {
-            checksumByteArray.set(i, checksumBytes[i + 3]);
+            checksumByteArray.setByte(i, checksumBytes[i + 3]);
         }
         return checksumByteArray;
     }

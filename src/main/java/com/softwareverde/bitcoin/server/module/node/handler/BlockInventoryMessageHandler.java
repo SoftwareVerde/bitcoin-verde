@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -41,7 +41,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-            final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getSize());
+            final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getCount());
             Sha256Hash previousBlockHash = null;
             for (final Sha256Hash blockHash : blockHashes) {
                 final Boolean blockExists = blockDatabaseManager.hasTransactions(blockHash);

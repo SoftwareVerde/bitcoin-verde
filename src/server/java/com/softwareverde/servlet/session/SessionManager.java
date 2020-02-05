@@ -1,6 +1,6 @@
 package com.softwareverde.servlet.session;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.http.server.servlet.request.Request;

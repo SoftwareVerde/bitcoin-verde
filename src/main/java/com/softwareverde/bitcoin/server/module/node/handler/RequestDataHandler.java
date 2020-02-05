@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
@@ -51,7 +51,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 
-            final HashSet<InventoryItem> processedDataHashes = new HashSet<InventoryItem>(dataHashes.getSize());
+            final HashSet<InventoryItem> processedDataHashes = new HashSet<InventoryItem>(dataHashes.getCount());
 
             for (final InventoryItem inventoryItem : dataHashes) {
                 { // Avoid duplicate inventoryItems... This was encountered during the initial block download of an Android SPV wallet.
