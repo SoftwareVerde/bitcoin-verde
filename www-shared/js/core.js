@@ -255,6 +255,9 @@ class Ui {
     }
 
     static renderBlock(block) {
+        Ui.currentObject = block;
+        Ui.currentObjectType = Constants.BLOCK;
+
         const loadingImage = $("#search-loading-image");
 
         const blockUi = Ui.inflateBlock(block);
@@ -277,6 +280,9 @@ class Ui {
     }
 
     static renderAddress(addressObject) {
+        Ui.currentObject = addressObject;
+        Ui.currentObjectType = Constants.ADDRESS;
+
         const main = $("#main");
         main.empty();
 
@@ -348,6 +354,9 @@ class Ui {
     }
 
     static renderTransaction(transaction) {
+        Ui.currentObject = transaction;
+        Ui.currentObjectType = Constants.TRANSACTION;
+
         const transactionUi = Ui.inflateTransaction(transaction);
         transactionUi.hide();
         const main = $("#main");
@@ -564,6 +573,8 @@ class Ui {
     }
 }
 Ui.displayCashAddressFormat = true;
+Ui.currentObject = null;
+Ui.currentObjectType = null;
 
 class DateUtil {
     static getTimeZoneAbbreviation() {
