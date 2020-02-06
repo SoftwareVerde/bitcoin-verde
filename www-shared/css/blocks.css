@@ -363,10 +363,19 @@
     border: none;
 }
 
+.transaction.collapsed > .hash {
+    margin-bottom: 0;
+    padding: 0;
+    padding-left: 1em;
+}
 .transaction.collapsed .hash .value {
     font-size: 1em;
 }
 
+.transaction.collapsed .io {
+    padding-top: 0;
+    margin-top: 1em;
+}
 .transaction.collapsed .io img.tx-arrow {
     display: none;
 }
