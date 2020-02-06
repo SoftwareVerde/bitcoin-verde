@@ -1,5 +1,5 @@
 .block {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: #FFFFFF;
 }
 
 .transaction,
@@ -19,9 +19,62 @@
     transition: all 500ms ease;
     box-sizing: border-box;
     height: 3.5em;
+    flex-grow: 1;
+    flex-basis: 50%;
+}
+#main > .block .block-header > div:nth-child(2n+3) {
+    padding-left: 15%;
+    text-align: left;
+}
+#main > .block .block-header > div:nth-child(2n+4) {
+    padding-right: 15%;
+    text-align: right;
 }
 
-#main > .block .block-header > div.difficulty,
+#main > .block .block-header > div.height {
+    font-size: 2em;
+    text-align: center;
+    height: auto;
+    margin-bottom: 0.25em;
+    flex-grow: 2;
+    flex-basis: 100%;
+}
+#main > .block .block-header > div.height > label {
+    color: #303030;
+}
+#main > .block .block-header > div.height > .value {
+    display: inline-block;
+    margin-left: 0.25em;
+}
+#main > .block .block-header > div.hash {
+    margin-bottom: 1em;
+    flex-grow: 2;
+    flex-basis: 100%;
+}
+#main > .block .block-header > div.hash > label {
+    display: none;
+}
+#main > .block .block-header > div.hash > .value {
+    font-size: 2em;
+    margin: auto;
+}
+#main > .block .block-header > div.difficulty > .mask {
+    display: none;
+}
+#main > .block .block-header > div.difficulty > .ratio > label {
+    display: none !important;
+}
+#main > .block .block-header > div.byte-count { }
+#main > .block .block-header > div.previous-block-hash {
+    flex-grow: 2;
+    flex-basis: 100%;
+    padding: 0;
+    text-align: center;
+}
+#main > .block .block-header > div.previous-block-hash > .value {
+    margin: auto;
+}
+
 #main > .block .block-header > div.double {
     height: calc(7em + 0.5em);
 }
@@ -30,7 +83,7 @@
 .transaction .io .transaction-outputs::before,
 .transaction::before,
 .block::before {
-    content: 'Block';
+    /* content: 'Block'; */
     color: #404040;
     font-weight: bold;
     font-size: 1.0em;
@@ -158,7 +211,17 @@
 .block .block-header {
     box-sizing: border-box;
     overflow: auto;
-    margin-top: 0.25em;
+    margin: auto;
+    margin-top: 1em;
+    background-color: #FFFFFF;
+    padding: 1em;
+}
+
+.block .block-header {
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .transaction .hash > label,
@@ -178,13 +241,19 @@
     display: inline-block;
     box-sizing: border-box;
     font-size: 0.75em;
+    color: #AAAAAA;
 }
 
 .transaction > div > div .value,
 .block .block-header div .value {
-    display: table; /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
+    display: block;
     box-sizing: border-box;
     margin-top: 0.25em;
+}
+
+.value.fixed {
+    /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
+    display: table !important;
 }
 
 .block .block-header div.timestamp .value::after {
@@ -251,7 +320,7 @@
 }
 
 .block .block-header div.transaction-count {
-    display: none;
+    /* display: none; */
 }
 
 .transaction .io .unlocking-script > div > .value,
@@ -557,6 +626,12 @@
         width: auto;
         float: none !important;
         overflow-x: hidden;
+    }
+
+    #main > .block .block-header > div:nth-child(n+3) {
+        flex-basis: 100%;
+        padding: 0px;
+        text-align: left;
     }
 }
 
