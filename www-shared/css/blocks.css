@@ -603,6 +603,10 @@
         transform: rotateZ(90deg);
     }
 
+    .transaction.collapsed .io img.tx-arrow {
+        display: block;
+    }
+
     .transaction .io .transaction-inputs,
     .transaction .io .transaction-outputs {
         float: none;
