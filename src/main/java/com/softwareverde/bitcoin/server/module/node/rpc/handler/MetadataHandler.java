@@ -146,7 +146,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 transactionInputJson.put("address", addressString);
                 transactionInputJson.put("cashAddress", cashAddressString);
 
-                if (hasSlpData && isSlpValid) {
+                if (hasSlpData && Util.coalesce(isSlpValid, false)) {
                     final TransactionId previousTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
                     final Transaction previousTransaction = transactionDatabaseManager.getTransaction(previousTransactionId);
                     final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
@@ -189,7 +189,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     transactionOutputJson.put("address", addressString);
                     transactionOutputJson.put("cashAddress", cashAddressString);
 
-                    if (hasSlpData && isSlpValid) {
+                    if (hasSlpData && Util.coalesce(isSlpValid, false)) {
                         final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
                         if (isSlpOutput) {
                             final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
