@@ -153,8 +153,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
                     final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
                     if (isSlpOutput) {
-                        final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, previousOutputIndex);
-                        final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(transaction, previousOutputIndex);
+                        final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
+                        final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(previousTransaction, previousOutputIndex);
 
                         final Json slpOutputJson = new Json(false);
                         slpOutputJson.put("tokenAmount", slpTokenAmount);
