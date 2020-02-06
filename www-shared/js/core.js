@@ -171,10 +171,28 @@ class Ui {
         element.toggleClass("copyable", true);
     }
 
-    static inflateTransactionInput(transactionInput) {
+    static inflateTransactionInput(transactionInput, transaction) {
         const templates = $("#templates");
         const transactionInputTemplate = $("> .transaction-input", templates);
         const transactionInputUi = transactionInputTemplate.clone();
+
+        if (transactionInput.slp) {
+            const slpData = transactionInput.slp;
+            if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
+                transactionInputUi.toggleClass("slp", true);
+
+                const tokenAmountUi = $(".token-amount", transactionInputUi);
+                if (slpData.isBaton) {
+                    tokenAmountUi.text("BATON");
+                }
+                else {
+                    const decimalCount = ((transaction && transaction.slp) ? transaction.slp.decimalCount : 0);
+                    const multiplier = (Math.pow(10, decimalCount) * 1.0);
+                    const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
+                    tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+            }
+        }
 
         $("div.label", transactionInputUi).on("click", function() {
             $("> div:not(:first-child)", transactionInputUi).slideToggle(250, function() {
@@ -219,10 +237,28 @@ class Ui {
         return transactionInputUi;
     }
 
-    static inflateTransactionOutput(transactionOutput) {
+    static inflateTransactionOutput(transactionOutput, transaction) {
         const templates = $("#templates");
         const transactionOutputTemplate = $("> .transaction-output", templates);
         const transactionOutputUi = transactionOutputTemplate.clone();
+
+        if (transactionOutput.slp) {
+            const slpData = transactionOutput.slp;
+            if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
+                transactionOutputUi.toggleClass("slp", true);
+
+                const tokenAmountUi = $(".token-amount", transactionOutputUi);
+                if (slpData.isBaton) {
+                    tokenAmountUi.text("BATON");
+                }
+                else {
+                    const decimalCount = ((transaction && transaction.slp) ? transaction.slp.decimalCount : 0);
+                    const multiplier = (Math.pow(10, decimalCount) * 1.0);
+                    const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
+                    tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+            }
+        }
 
         $("div.label", transactionOutputUi).on("click", function() {
             $("> div:not(:first-child)", transactionOutputUi).slideToggle(250, function() {
@@ -520,14 +556,14 @@ class Ui {
         const transactionInputs = (transaction.inputs || [ ]);
         for (let i = 0; i < transactionInputs.length; i += 1) {
             const transactionInput = transactionInputs[i];
-            const transactionInputUi = Ui.inflateTransactionInput(transactionInput);
+            const transactionInputUi = Ui.inflateTransactionInput(transactionInput, transaction);
             $(".io .transaction-inputs", transactionUi).append(transactionInputUi);
         }
 
         const transactionOutputs = (transaction.outputs || [ ]);
         for (let i = 0; i < transactionOutputs.length; i += 1) {
             const transactionOutput = transactionOutputs[i];
-            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput);
+            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput, transaction);
             $(".io .transaction-outputs", transactionUi).append(transactionOutputUi);
         }
 

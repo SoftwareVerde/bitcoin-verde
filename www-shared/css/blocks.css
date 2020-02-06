@@ -196,7 +196,6 @@
 
 .transaction .io .transaction-input > .label .address,
 .transaction .io .transaction-output > .label .address {
-    float: left;
     color: #262626;
     font-size: 1.0em;
 }
@@ -204,7 +203,27 @@
 .transaction .io .transaction-input > .label .amount,
 .transaction .io .transaction-output > .label .amount {
     float: right;
-    color: #505050
+    color: #505050;
+    font-weight: bold;
+    padding-right: 0.5em;
+}
+
+.transaction .io .transaction-input > .label .token-amount,
+.transaction .io .transaction-output > .label .token-amount {
+    background-color: #1AB325;
+    border: solid 1px #0F6115;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    clear: both;
+    float: right;
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 5px;
+    display: none;
+}
+.transaction .io .transaction-input.slp > .label .token-amount,
+.transaction .io .transaction-output.slp > .label .token-amount {
+    display: block;
 }
 
 .transaction > div,
@@ -440,8 +459,23 @@
 }
 .transaction .slp.floating-property.invalid {
     border-color: #962727;
-    background-color: #F7931D;
+    background-color: #FF3030;
     cursor: not-allowed;
+}
+.slp.floating-property.invalid::after {
+    content: '\2215';
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: absolute;
+    font-size: 150px;
+    line-height: 95px;
+    color: rgba(0, 0, 0, 0.5);
+    transform: rotate(22deg);
+}
+.transaction .slp.floating-property > label {
+    color: #303030;
 }
 
 .transaction > .lock-time.floating-property {
