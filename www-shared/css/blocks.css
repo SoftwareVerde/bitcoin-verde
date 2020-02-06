@@ -225,6 +225,10 @@
 .transaction .io .transaction-output.slp > .label .token-amount {
     display: block;
 }
+.transaction .io .transaction-input > .label .token-amount > .token-name,
+.transaction .io .transaction-output > .label .token-amount > .token-name {
+    padding-left: 0.25em;
+}
 
 .transaction > div,
 .block .block-header {
@@ -440,6 +444,9 @@
 .transaction .slp.floating-property .value {
     margin-top: 0;
     font-size: 250%;
+    position: absolute;
+    left: 0;
+    right: 0;
 }
 .transaction .slp.floating-property.oversized label {
     float: left;

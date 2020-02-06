@@ -181,7 +181,7 @@ class Ui {
             if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
                 transactionInputUi.toggleClass("slp", true);
 
-                const tokenAmountUi = $(".token-amount", transactionInputUi);
+                const tokenAmountUi = $(".token-amount > span:first", transactionInputUi);
                 if (slpData.isBaton) {
                     tokenAmountUi.text("BATON");
                 }
@@ -190,6 +190,11 @@ class Ui {
                     const multiplier = (Math.pow(10, decimalCount) * 1.0);
                     const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
                     tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+
+                const tokenNameUi = $(".token-amount > span.token-name", transactionInputUi);
+                if (transaction && transaction.slp) {
+                    tokenNameUi.text(transaction.slp.tokenAbbreviation);
                 }
             }
         }
@@ -247,7 +252,7 @@ class Ui {
             if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
                 transactionOutputUi.toggleClass("slp", true);
 
-                const tokenAmountUi = $(".token-amount", transactionOutputUi);
+                const tokenAmountUi = $(".token-amount > span:first", transactionOutputUi);
                 if (slpData.isBaton) {
                     tokenAmountUi.text("BATON");
                 }
@@ -256,6 +261,11 @@ class Ui {
                     const multiplier = (Math.pow(10, decimalCount) * 1.0);
                     const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
                     tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+
+                const tokenNameUi = $(".token-amount > span.token-name", transactionOutputUi);
+                if (transaction && transaction.slp) {
+                    tokenNameUi.text(transaction.slp.tokenAbbreviation);
                 }
             }
         }
@@ -461,7 +471,7 @@ class Ui {
         });
 
         transactionUi.on("click", function() {
-            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .slp", transactionUi);
+            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .floating-property", transactionUi);
             const elements = $(".block-hashes", transactionUi);
             elements.each(function() {
                 const element = $(this);
