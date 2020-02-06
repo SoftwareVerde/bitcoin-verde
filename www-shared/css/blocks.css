@@ -113,6 +113,7 @@
     width: calc(100% - 0.5em);
     position: relative;
     padding-bottom: 0.5em;
+    margin-bottom: 0.5em;
 }
 
 .transaction .io .transaction-inputs,
@@ -235,7 +236,6 @@
     box-sizing: border-box;
     overflow: auto;
     margin: auto;
-    margin-top: 1em;
     background-color: #FFFFFF;
     padding: 1em;
 }
@@ -423,8 +423,8 @@
 }
 
 .transaction .floating-property {
-    width: 75px;
-    height: 75px;
+    width: 90px;
+    height: 90px;
     border-radius: 5em;
     padding: 0.5em;
     border: solid 1px #F0F0F0;
@@ -433,6 +433,7 @@
     float: right;
     background-color: #FAFAFA;
     position: relative;
+    box-sizing: border-box;
 }
 .transaction .floating-property label {
     font-weight: normal;
@@ -454,10 +455,13 @@
     width: 100%;
 }
 .transaction .slp.floating-property.oversized .value {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     font-size: 150%;
-    transform: translateY(-47%);
-    padding-top: 100%;
-    overflow: visible;
+    line-height: 90px;
 }
 .transaction .slp.floating-property {
     border-color: #0F6115;
