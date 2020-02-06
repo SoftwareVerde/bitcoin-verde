@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.slp.SlpUtil;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -69,6 +70,19 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         final ByteArray transactionData = transactionDeflater.toBytes(transaction);
         transactionJson.put("byteCount", transactionData.getByteCount());
 
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+        final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionId);
+        final Boolean hasSlpData = (slpTokenId != null);
+        final Boolean isSlpValid;
+        if (hasSlpData) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+        }
+        else {
+            isSlpValid = null;
+        }
+
         Long transactionFee = 0L;
 
         { // Include Block hashes which include this transaction...
@@ -84,9 +98,9 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         { // Process TransactionInputs...
             Integer transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                 final TransactionOutputId previousTransactionOutputId;
                 {
-                    final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                     if (previousOutputTransactionHash != null) {
                         final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
                         previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
@@ -132,6 +146,23 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 transactionInputJson.put("address", addressString);
                 transactionInputJson.put("cashAddress", cashAddressString);
 
+                if (hasSlpData && isSlpValid) {
+                    final TransactionId previousTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
+                    final Transaction previousTransaction = transactionDatabaseManager.getTransaction(previousTransactionId);
+                    final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
+
+                    final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
+                    if (isSlpOutput) {
+                        final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, previousOutputIndex);
+                        final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(transaction, previousOutputIndex);
+
+                        final Json slpOutputJson = new Json(false);
+                        slpOutputJson.put("tokenAmount", slpTokenAmount);
+                        slpOutputJson.put("isBaton",isSlpBatonOutput);
+                        transactionInputJson.put("slp", slpOutputJson);
+                    }
+                }
+
                 transactionInputIndex += 1;
             }
         }
@@ -157,6 +188,19 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
                     transactionOutputJson.put("address", addressString);
                     transactionOutputJson.put("cashAddress", cashAddressString);
+
+                    if (hasSlpData && isSlpValid) {
+                        final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
+                        if (isSlpOutput) {
+                            final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
+                            final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(transaction, transactionOutputIndex);
+
+                            final Json slpOutputJson = new Json(false);
+                            slpOutputJson.put("tokenAmount", slpTokenAmount);
+                            slpOutputJson.put("isBaton",isSlpBatonOutput);
+                            transactionOutputJson.put("slp", slpOutputJson);
+                        }
+                    }
                 }
 
                 transactionOutputIndex += 1;
@@ -166,20 +210,13 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         transactionJson.put("fee", transactionFee);
 
         final Json slpJson;
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionId);
-        final Boolean hasSlpData = (slpTokenId != null);
         if (hasSlpData) {
             final SlpGenesisScript slpGenesisScript = slpTransactionDatabaseManager.getSlpGenesisScript(slpTokenId);
             if (slpGenesisScript != null) {
                 slpJson = slpGenesisScript.toJson();
 
-                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                final Boolean isValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
-
                 slpJson.put("tokenId", slpTokenId);
-                slpJson.put("isValid", isValid);
+                slpJson.put("isValid", isSlpValid);
             }
             else {
                 slpJson = null;
