@@ -127,11 +127,11 @@
     margin-left: calc(5% - 1.5em);
 }
 .transaction .io img.tx-arrow {
-    width: 2em;
+    width: 1.75em;
     opacity: 0.75;
     position: absolute;
-    top: calc(50% - 0.5em);
-    left: 50%;
+    top: calc(50% + 0.875em);
+    left: calc(50% - 0.25em);
     transform: translate(-50%, -50%);
 }
 

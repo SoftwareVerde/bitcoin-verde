@@ -51,7 +51,7 @@ dependencies {
     api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.1.0'
     api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v1.1.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.6'
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v4.0.7'
 
     // Server
     serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.2.0'
