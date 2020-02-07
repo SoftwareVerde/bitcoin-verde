@@ -495,6 +495,7 @@
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    position: relative;
 }
 .transaction .slp-genesis > div {
     flex-basis: 50%;
@@ -514,6 +515,14 @@
 }
 .transaction .slp-genesis > div.token-id > .value {
     margin: auto;
+}
+.transaction .slp-genesis > div.token-name object,
+.transaction .slp-genesis > div.token-name img {
+    height: 32px;
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    border-radius: 4px;
 }
 .transaction .slp-genesis > div:nth-child(2) {
     margin-top: 0.5em;

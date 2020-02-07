@@ -549,6 +549,7 @@ class Ui {
             transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
 
             $(".token-name .value", slpGenesisContainer).text(transaction.slp.tokenName);
+            $(".token-name img", slpGenesisContainer).attr("src", "//raw.githubusercontent.com/kosinusbch/slp-token-icons/master/32/" + transaction.slp.tokenId.toLowerCase() + ".png");
             $(".token-abbreviation .value", slpGenesisContainer).text(transaction.slp.tokenAbbreviation);
             $(".document-url .value", slpGenesisContainer).text(transaction.slp.documentUrl);
 
