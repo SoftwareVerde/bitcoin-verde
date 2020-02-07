@@ -1,5 +1,5 @@
 .block {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: #FFFFFF;
 }
 
 .transaction,
@@ -19,9 +19,61 @@
     transition: all 500ms ease;
     box-sizing: border-box;
     height: 3.5em;
+    flex-basis: 50%;
+}
+#main > .block .block-header > div:nth-child(2n+3) {
+    padding-left: 15%;
+    text-align: left;
+}
+#main > .block .block-header > div:nth-child(2n+4) {
+    padding-right: 15%;
+    text-align: right;
 }
 
-#main > .block .block-header > div.difficulty,
+#main > .block .block-header > div.height {
+    font-size: 2em;
+    text-align: center;
+    height: auto;
+    margin-bottom: 0.25em;
+    flex-grow: 2;
+    flex-basis: 100%;
+}
+#main > .block .block-header > div.height > label {
+    color: #303030;
+}
+#main > .block .block-header > div.height > .value {
+    display: inline-block;
+    margin-left: 0.25em;
+}
+#main > .block .block-header > div.hash {
+    margin-bottom: 1em;
+    flex-grow: 2;
+    flex-basis: 100%;
+}
+#main > .block .block-header > div.hash > label {
+    display: none;
+}
+#main > .block .block-header > div.hash > .value {
+    font-size: 2em;
+    margin: auto;
+}
+#main > .block .block-header > div.difficulty > .mask {
+    display: none;
+}
+#main > .block .block-header > div.difficulty > .ratio > label {
+    display: none !important;
+}
+#main > .block .block-header > div.byte-count { }
+#main > .block .block-header > div.previous-block-hash {
+    flex-grow: 2;
+    flex-basis: 100%;
+    padding: 0;
+    text-align: center;
+}
+#main > .block .block-header > div.previous-block-hash > .value {
+    margin: auto;
+}
+
 #main > .block .block-header > div.double {
     height: calc(7em + 0.5em);
 }
@@ -30,7 +82,7 @@
 .transaction .io .transaction-outputs::before,
 .transaction::before,
 .block::before {
-    content: 'Block';
+    /* content: 'Block'; */
     color: #404040;
     font-weight: bold;
     font-size: 1.0em;
@@ -60,6 +112,7 @@
     width: calc(100% - 0.5em);
     position: relative;
     padding-bottom: 0.5em;
+    margin-bottom: 0.5em;
 }
 
 .transaction .io .transaction-inputs,
@@ -74,11 +127,11 @@
     margin-left: calc(5% - 1.5em);
 }
 .transaction .io img.tx-arrow {
-    width: 2em;
+    width: 1.75em;
     opacity: 0.75;
     position: absolute;
-    top: calc(50% - 0.5em);
-    left: 50%;
+    top: calc(50% + 0.875em);
+    left: calc(50% - 0.25em);
     transform: translate(-50%, -50%);
 }
 
@@ -143,7 +196,6 @@
 
 .transaction .io .transaction-input > .label .address,
 .transaction .io .transaction-output > .label .address {
-    float: left;
     color: #262626;
     font-size: 1.0em;
 }
@@ -151,14 +203,58 @@
 .transaction .io .transaction-input > .label .amount,
 .transaction .io .transaction-output > .label .amount {
     float: right;
-    color: #505050
+    color: #505050;
+    font-weight: bold;
+    padding-right: 0.5em;
+}
+
+.transaction .io .transaction-input > .label .token-amount,
+.transaction .io .transaction-output > .label .token-amount {
+    background-color: #1AB325;
+    border: solid 1px #0F6115;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    clear: both;
+    float: right;
+    color: #FFFFFF;
+    font-weight: bold;
+    border-radius: 5px;
+    display: none;
+}
+.transaction .io .transaction-input.slp > .label .token-amount,
+.transaction .io .transaction-output.slp > .label .token-amount {
+    display: block;
+}
+.transaction .io .transaction-input > .label .token-amount > .token-name,
+.transaction .io .transaction-output > .label .token-amount > .token-name {
+    padding-left: 0.25em;
 }
 
 .transaction > div,
 .block .block-header {
     box-sizing: border-box;
     overflow: auto;
-    margin-top: 0.25em;
+    margin: auto;
+    background-color: #FFFFFF;
+    padding: 1em;
+}
+
+#announcements .transaction > div:not(.hash) {
+    display: none;
+}
+#announcements .transaction > div.hash,
+#announcements .block .block-header {
+    padding: 0;
+    margin-top: 0.5em;
+    box-shadow: none;
+    display: block;
+}
+
+.block .block-header {
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .transaction .hash > label,
@@ -178,13 +274,19 @@
     display: inline-block;
     box-sizing: border-box;
     font-size: 0.75em;
+    color: #AAAAAA;
 }
 
 .transaction > div > div .value,
 .block .block-header div .value {
-    display: table; /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
+    display: block;
     box-sizing: border-box;
     margin-top: 0.25em;
+}
+
+.value.fixed {
+    /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
+    display: table !important;
 }
 
 .block .block-header div.timestamp .value::after {
@@ -251,7 +353,7 @@
 }
 
 .block .block-header div.transaction-count {
-    display: none;
+    /* display: none; */
 }
 
 .transaction .io .unlocking-script > div > .value,
@@ -280,13 +382,22 @@
 .transaction.collapsed {
     padding-bottom: 0px;
     cursor: pointer;
-    border: none;
+    border: solid 1px #EEEEEE;
 }
 
+.transaction.collapsed > .hash {
+    margin-bottom: 0;
+    padding: 0;
+    padding-left: 1em;
+}
 .transaction.collapsed .hash .value {
     font-size: 1em;
 }
 
+.transaction.collapsed .io {
+    padding-top: 0;
+    margin-top: 1em;
+}
 .transaction.collapsed .io img.tx-arrow {
     display: none;
 }
@@ -311,8 +422,8 @@
 }
 
 .transaction .floating-property {
-    width: 75px;
-    height: 75px;
+    width: 90px;
+    height: 90px;
     border-radius: 5em;
     padding: 0.5em;
     border: solid 1px #F0F0F0;
@@ -321,6 +432,7 @@
     float: right;
     background-color: #FAFAFA;
     position: relative;
+    box-sizing: border-box;
 }
 .transaction .floating-property label {
     font-weight: normal;
@@ -330,7 +442,13 @@
     font-size: 150%;
 }
 .transaction .slp.floating-property .value {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     margin-top: 0;
+    line-height: 90px;
     font-size: 250%;
 }
 .transaction .slp.floating-property.oversized label {
@@ -339,9 +457,6 @@
 }
 .transaction .slp.floating-property.oversized .value {
     font-size: 150%;
-    transform: translateY(-47%);
-    padding-top: 100%;
-    overflow: visible;
 }
 .transaction .slp.floating-property {
     border-color: #0F6115;
@@ -351,8 +466,75 @@
 }
 .transaction .slp.floating-property.invalid {
     border-color: #962727;
-    background-color: #F7931D;
+    background-color: #FF3030;
     cursor: not-allowed;
+}
+.slp.floating-property.invalid::after {
+    content: '\2215';
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: absolute;
+    font-size: 150px;
+    line-height: 95px;
+    color: rgba(0, 0, 0, 0.5);
+    transform: rotate(22deg);
+}
+.transaction .slp.floating-property > label {
+    color: #303030;
+}
+
+.transaction.collapsed .slp-genesis {
+    display: none;
+}
+.transaction .slp-genesis {
+    background-color: #F9F9F9;
+    border: solid 1px #ECECEC;
+    margin-bottom: 1em;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: relative;
+}
+.transaction .slp-genesis > div {
+    flex-basis: 50%;
+    flex-grow: 1;
+    box-sizing: border-box;
+}
+.transaction .slp-genesis > div.token-name > label,
+.transaction .slp-genesis > div.token-id > label {
+    display: none;
+}
+.transaction .slp-genesis > div.token-name,
+.transaction .slp-genesis > div.token-id {
+    flex-grow: 2;
+    flex-basis: 100%;
+    text-align: center;
+    font-size: 133%;
+}
+.transaction .slp-genesis > div.token-id > .value {
+    margin: auto;
+}
+.transaction .slp-genesis > div.token-name object,
+.transaction .slp-genesis > div.token-name img {
+    height: 32px;
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    border-radius: 4px;
+}
+.transaction .slp-genesis > div:nth-child(2) {
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+}
+.transaction .slp-genesis > div:nth-child(2n+3) {
+    padding-left: 15%;
+    text-align: left;
+}
+.transaction .slp-genesis > div:nth-child(2n+4) {
+    padding-right: 15%;
+    text-align: right;
 }
 
 .transaction > .lock-time.floating-property {
@@ -465,6 +647,11 @@
     display: none;
 }
 
+.block > .block-header div.merkle-root:nth-child(2n) .value.fixed,
+.transaction .slp-genesis > div.document-hash:nth-child(2n) .value.fixed {
+    margin-left: auto;
+}
+
 @media only screen and (max-width: 1100px) {
     .block,
     .transaction {
@@ -514,6 +701,10 @@
         transform: rotateZ(90deg);
     }
 
+    .transaction.collapsed .io img.tx-arrow {
+        display: inline-block;
+    }
+
     .transaction .io .transaction-inputs,
     .transaction .io .transaction-outputs {
         float: none;
@@ -557,6 +748,12 @@
         width: auto;
         float: none !important;
         overflow-x: hidden;
+    }
+
+    #main > .block .block-header > div:nth-child(n+3) {
+        flex-basis: 100%;
+        padding: 0px;
+        text-align: left;
     }
 }
 

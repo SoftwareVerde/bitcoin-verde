@@ -4,8 +4,6 @@ $(document).ready(function() {
     const searchInput = $("#search");
     const loadingImage = $("#search-loading-image");
 
-    let currentObject = null;
-    let currentObjectType = null;
     const renderObject = function(object, objectType) {
         if ( (objectType == Constants.BLOCK) || (objectType == Constants.BLOCK_HEADER) ) {
             Ui.renderBlock(object);
@@ -47,9 +45,6 @@ $(document).ready(function() {
             const object = data.object;
 
             if (wasSuccess) {
-                currentObject = object;
-                currentObjectType = objectType;
-
                 renderObject(object, objectType);
             }
             else {
@@ -150,10 +145,10 @@ $(document).ready(function() {
         Ui.displayCashAddressFormat = isToggledOn;
         Cookies.set("cashAddressIsEnabled", (Ui.displayCashAddressFormat ? "true" : "false"));
 
-        if ( (currentObject != null) && (currentObjectType != null) ) {
+        if ( (Ui.currentObject != null) && (Ui.currentObjectType != null) ) {
             const originalScrollOffset = window.scrollY;
 
-            renderObject(currentObject, currentObjectType);
+            renderObject(Ui.currentObject, Ui.currentObjectType);
 
             window.setTimeout(function() {
                 window.scrollTo({
