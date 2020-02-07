@@ -19,7 +19,6 @@
     transition: all 500ms ease;
     box-sizing: border-box;
     height: 3.5em;
-    flex-grow: 1;
     flex-basis: 50%;
 }
 #main > .block .block-header > div:nth-child(2n+3) {
@@ -484,6 +483,52 @@
 }
 .transaction .slp.floating-property > label {
     color: #303030;
+}
+
+.transaction.collapsed .slp-genesis {
+    display: none;
+}
+.transaction .slp-genesis {
+    background-color: #F9F9F9;
+    border: solid 1px #ECECEC;
+    margin-bottom: 1em;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.transaction .slp-genesis > div {
+    flex-basis: 50%;
+    flex-grow: 1;
+    box-sizing: border-box;
+}
+.transaction .slp-genesis > div.token-name > label,
+.transaction .slp-genesis > div.token-id > label {
+    display: none;
+}
+.transaction .slp-genesis > div.token-name,
+.transaction .slp-genesis > div.token-id {
+    flex-grow: 2;
+    flex-basis: 100%;
+    text-align: center;
+    font-size: 133%;
+}
+.transaction .slp-genesis > div.token-id > .value {
+    margin: auto;
+}
+.transaction .slp-genesis > div:nth-child(2) {
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+}
+.transaction .slp-genesis > div:nth-child(2n+3) {
+    padding-left: 15%;
+    text-align: left;
+}
+.transaction .slp-genesis > div.document-hash:nth-child(2n) .value.fixed {
+    margin-left: auto;
+}
+.transaction .slp-genesis > div:nth-child(2n+4) {
+    padding-right: 15%;
+    text-align: right;
 }
 
 .transaction > .lock-time.floating-property {

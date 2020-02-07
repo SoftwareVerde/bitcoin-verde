@@ -517,6 +517,7 @@ class Ui {
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
 
+        const slpGenesisContainer = $(".slp-genesis", transactionUi);
         const slpAttributeContainer = $(".slp", transactionUi);
         if (transaction.slp) {
             const slpAttributeValue = $(".slp .value", transactionUi);
@@ -539,9 +540,31 @@ class Ui {
             else {
                 slpAttributeContainer.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
             }
+
+            const transactionLink = $(".token-id .value", slpGenesisContainer);
+            transactionLink.text(transaction.slp.tokenId);
+            Ui.makeHashCopyable(transactionLink);
+            transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
+
+            $(".token-name .value", slpGenesisContainer).text(transaction.slp.tokenName);
+            $(".token-abbreviation .value", slpGenesisContainer).text(transaction.slp.tokenAbbreviation);
+            $(".document-url .value", slpGenesisContainer).text(transaction.slp.documentUrl);
+
+            const documentHashLink = $(".document-hash .value", slpGenesisContainer);
+            if (transaction.slp.documentHash) {
+                documentHashLink.text(transaction.slp.documentHash);
+                Ui.makeHashCopyable(documentHashLink);
+            }
+            else {
+                documentHashLink.text("-");
+            }
+
+            $(".token-count .value", slpGenesisContainer).text((transaction.slp.tokenCount || 0).toLocaleString());
+            $(".decimal-count .value", slpGenesisContainer).text(transaction.slp.decimalCount);
         }
         else {
             slpAttributeContainer.remove();
+            slpGenesisContainer.remove();
         }
 
         const blocks = (transaction.blocks || []);
