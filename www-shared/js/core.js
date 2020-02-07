@@ -171,10 +171,33 @@ class Ui {
         element.toggleClass("copyable", true);
     }
 
-    static inflateTransactionInput(transactionInput) {
+    static inflateTransactionInput(transactionInput, transaction) {
         const templates = $("#templates");
         const transactionInputTemplate = $("> .transaction-input", templates);
         const transactionInputUi = transactionInputTemplate.clone();
+
+        if (transactionInput.slp) {
+            const slpData = transactionInput.slp;
+            if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
+                transactionInputUi.toggleClass("slp", true);
+
+                const tokenAmountUi = $(".token-amount > span:first", transactionInputUi);
+                if (slpData.isBaton) {
+                    tokenAmountUi.text("BATON");
+                }
+                else {
+                    const decimalCount = ((transaction && transaction.slp) ? transaction.slp.decimalCount : 0);
+                    const multiplier = (Math.pow(10, decimalCount) * 1.0);
+                    const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
+                    tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+
+                const tokenNameUi = $(".token-amount > span.token-name", transactionInputUi);
+                if (transaction && transaction.slp) {
+                    tokenNameUi.text(transaction.slp.tokenAbbreviation);
+                }
+            }
+        }
 
         $("div.label", transactionInputUi).on("click", function() {
             $("> div:not(:first-child)", transactionInputUi).slideToggle(250, function() {
@@ -219,10 +242,33 @@ class Ui {
         return transactionInputUi;
     }
 
-    static inflateTransactionOutput(transactionOutput) {
+    static inflateTransactionOutput(transactionOutput, transaction) {
         const templates = $("#templates");
         const transactionOutputTemplate = $("> .transaction-output", templates);
         const transactionOutputUi = transactionOutputTemplate.clone();
+
+        if (transactionOutput.slp) {
+            const slpData = transactionOutput.slp;
+            if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
+                transactionOutputUi.toggleClass("slp", true);
+
+                const tokenAmountUi = $(".token-amount > span:first", transactionOutputUi);
+                if (slpData.isBaton) {
+                    tokenAmountUi.text("BATON");
+                }
+                else {
+                    const decimalCount = ((transaction && transaction.slp) ? transaction.slp.decimalCount : 0);
+                    const multiplier = (Math.pow(10, decimalCount) * 1.0);
+                    const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
+                    tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+
+                const tokenNameUi = $(".token-amount > span.token-name", transactionOutputUi);
+                if (transaction && transaction.slp) {
+                    tokenNameUi.text(transaction.slp.tokenAbbreviation);
+                }
+            }
+        }
 
         $("div.label", transactionOutputUi).on("click", function() {
             $("> div:not(:first-child)", transactionOutputUi).slideToggle(250, function() {
@@ -255,6 +301,9 @@ class Ui {
     }
 
     static renderBlock(block) {
+        Ui.currentObject = block;
+        Ui.currentObjectType = Constants.BLOCK;
+
         const loadingImage = $("#search-loading-image");
 
         const blockUi = Ui.inflateBlock(block);
@@ -277,6 +326,9 @@ class Ui {
     }
 
     static renderAddress(addressObject) {
+        Ui.currentObject = addressObject;
+        Ui.currentObjectType = Constants.ADDRESS;
+
         const main = $("#main");
         main.empty();
 
@@ -348,6 +400,9 @@ class Ui {
     }
 
     static renderTransaction(transaction) {
+        Ui.currentObject = transaction;
+        Ui.currentObjectType = Constants.TRANSACTION;
+
         const transactionUi = Ui.inflateTransaction(transaction);
         transactionUi.hide();
         const main = $("#main");
@@ -375,9 +430,11 @@ class Ui {
         previousBlockHashElement.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
         $(".block-header .timestamp .value", blockUi).text(DateUtil.formatDateIso(block.timestamp.value));
+        $(".block-header .time-diff .value", blockUi).text(DateUtil.formatTimeSince(block.timestamp.value, " ago"));
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
         $(".block-header .reward .value", blockUi).text((block.reward ? (block.reward / Constants.SATOSHIS_PER_BITCOIN) : "-").toLocaleString());
-        $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
+        $(".block-header .byte-count .value.kilobytes", blockUi).text(((block.byteCount >= 0 ? (block.byteCount / 1000.0).toFixed(2) : null) || "-").toLocaleString());
+        $(".block-header .byte-count .value:not(.kilobytes)", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || (block.transactions ? block.transactions.length : null ) || "-").toLocaleString());
 
         const loadingElement = Ui._getLoadingElement();
@@ -416,7 +473,7 @@ class Ui {
         });
 
         transactionUi.on("click", function() {
-            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .slp", transactionUi);
+            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .floating-property", transactionUi);
             const elements = $(".block-hashes", transactionUi);
             elements.each(function() {
                 const element = $(this);
@@ -462,6 +519,7 @@ class Ui {
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
 
+        const slpGenesisContainer = $(".slp-genesis", transactionUi);
         const slpAttributeContainer = $(".slp", transactionUi);
         if (transaction.slp) {
             const slpAttributeValue = $(".slp .value", transactionUi);
@@ -484,9 +542,31 @@ class Ui {
             else {
                 slpAttributeContainer.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
             }
+
+            const transactionLink = $(".token-id .value", slpGenesisContainer);
+            transactionLink.text(transaction.slp.tokenId);
+            Ui.makeHashCopyable(transactionLink);
+            transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
+
+            $(".token-name .value", slpGenesisContainer).text(transaction.slp.tokenName);
+            $(".token-abbreviation .value", slpGenesisContainer).text(transaction.slp.tokenAbbreviation);
+            $(".document-url .value", slpGenesisContainer).text(transaction.slp.documentUrl);
+
+            const documentHashLink = $(".document-hash .value", slpGenesisContainer);
+            if (transaction.slp.documentHash) {
+                documentHashLink.text(transaction.slp.documentHash);
+                Ui.makeHashCopyable(documentHashLink);
+            }
+            else {
+                documentHashLink.text("-");
+            }
+
+            $(".token-count .value", slpGenesisContainer).text((transaction.slp.tokenCount || 0).toLocaleString());
+            $(".decimal-count .value", slpGenesisContainer).text(transaction.slp.decimalCount);
         }
         else {
             slpAttributeContainer.remove();
+            slpGenesisContainer.remove();
         }
 
         const blocks = (transaction.blocks || []);
@@ -511,14 +591,14 @@ class Ui {
         const transactionInputs = (transaction.inputs || [ ]);
         for (let i = 0; i < transactionInputs.length; i += 1) {
             const transactionInput = transactionInputs[i];
-            const transactionInputUi = Ui.inflateTransactionInput(transactionInput);
+            const transactionInputUi = Ui.inflateTransactionInput(transactionInput, transaction);
             $(".io .transaction-inputs", transactionUi).append(transactionInputUi);
         }
 
         const transactionOutputs = (transaction.outputs || [ ]);
         for (let i = 0; i < transactionOutputs.length; i += 1) {
             const transactionOutput = transactionOutputs[i];
-            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput);
+            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput, transaction);
             $(".io .transaction-outputs", transactionUi).append(transactionOutputUi);
         }
 
@@ -564,6 +644,8 @@ class Ui {
     }
 }
 Ui.displayCashAddressFormat = true;
+Ui.currentObject = null;
+Ui.currentObjectType = null;
 
 class DateUtil {
     static getTimeZoneAbbreviation() {
@@ -589,6 +671,50 @@ class DateUtil {
             date = newDate;
         }
         return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth() + 1) + "-" + DateUtil.padLeft(date.getDate()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
+    }
+
+    static formatTimeSince(date, trailLabel) {
+        trailLabel = (trailLabel || "");
+
+        if ( (typeof date == "number") || (typeof date == "string") ) {
+            const newDate = new Date(0);
+            newDate.setUTCSeconds(date);
+            date = newDate;
+        }
+
+        const currentDate = new Date();
+        const duration = (currentDate - date);
+
+        const days = Math.floor(duration / 86400000);
+        const hours = Math.floor((duration % 86400000) / 3600000);
+        const minutes = Math.round(((duration % 86400000) % 3600000) / 60000);
+        const years = Math.floor(days / 365.25);
+
+        if (years > 0) {
+            return (years + " years" + trailLabel);
+        }
+        if (days > 29) {
+            return (Math.floor(days / 30) + " months" + trailLabel);
+        }
+        if (days > 1) {
+            return (days + " days" + trailLabel);
+        }
+        if (days == 1) {
+            return (days + " day, " + hours + " hours" + trailLabel);
+        }
+
+        let separator = "";
+        let string = "";
+        if (hours > 0) {
+            string += (hours + " hr" + (hours > 1 ? "s" : "") + trailLabel);
+            separator = ", ";
+        }
+        if (minutes > 0) {
+            return (string + separator + minutes + " min" + (minutes > 1 ? "s" : "") + trailLabel);
+        }
+        else {
+            return "now";
+        }
     }
 }
 
