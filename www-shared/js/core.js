@@ -430,9 +430,11 @@ class Ui {
         previousBlockHashElement.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
         $(".block-header .timestamp .value", blockUi).text(DateUtil.formatDateIso(block.timestamp.value));
+        $(".block-header .time-diff .value", blockUi).text(DateUtil.formatTimeSince(block.timestamp.value, " ago"));
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
         $(".block-header .reward .value", blockUi).text((block.reward ? (block.reward / Constants.SATOSHIS_PER_BITCOIN) : "-").toLocaleString());
-        $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
+        $(".block-header .byte-count .value.kilobytes", blockUi).text(((block.byteCount >= 0 ? (block.byteCount / 1000.0).toFixed(2) : null) || "-").toLocaleString());
+        $(".block-header .byte-count .value:not(.kilobytes)", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || (block.transactions ? block.transactions.length : null ) || "-").toLocaleString());
 
         const loadingElement = Ui._getLoadingElement();
@@ -669,6 +671,50 @@ class DateUtil {
             date = newDate;
         }
         return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth() + 1) + "-" + DateUtil.padLeft(date.getDate()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
+    }
+
+    static formatTimeSince(date, trailLabel) {
+        trailLabel = (trailLabel || "");
+
+        if ( (typeof date == "number") || (typeof date == "string") ) {
+            const newDate = new Date(0);
+            newDate.setUTCSeconds(date);
+            date = newDate;
+        }
+
+        const currentDate = new Date();
+        const duration = (currentDate - date);
+
+        const days = Math.floor(duration / 86400000);
+        const hours = Math.floor((duration % 86400000) / 3600000);
+        const minutes = Math.round(((duration % 86400000) % 3600000) / 60000);
+        const years = Math.floor(days / 365.25);
+
+        if (years > 0) {
+            return (years + " years" + trailLabel);
+        }
+        if (days > 29) {
+            return (Math.floor(days / 30) + " months" + trailLabel);
+        }
+        if (days > 1) {
+            return (days + " days" + trailLabel);
+        }
+        if (days == 1) {
+            return (days + " day, " + hours + " hours" + trailLabel);
+        }
+
+        let separator = "";
+        let string = "";
+        if (hours > 0) {
+            string += (hours + " hr" + (hours > 1 ? "s" : "") + trailLabel);
+            separator = ", ";
+        }
+        if (minutes > 0) {
+            return (string + separator + minutes + " min" + (minutes > 1 ? "s" : "") + trailLabel);
+        }
+        else {
+            return "now";
+        }
     }
 }
 

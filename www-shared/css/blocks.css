@@ -382,7 +382,7 @@
 .transaction.collapsed {
     padding-bottom: 0px;
     cursor: pointer;
-    border: none;
+    border: solid 1px #EEEEEE;
 }
 
 .transaction.collapsed > .hash {
@@ -523,9 +523,6 @@
     padding-left: 15%;
     text-align: left;
 }
-.transaction .slp-genesis > div.document-hash:nth-child(2n) .value.fixed {
-    margin-left: auto;
-}
 .transaction .slp-genesis > div:nth-child(2n+4) {
     padding-right: 15%;
     text-align: right;
@@ -639,6 +636,11 @@
 
 .recent-transactions .transaction > .hash > label {
     display: none;
+}
+
+.block > .block-header div.merkle-root:nth-child(2n) .value.fixed,
+.transaction .slp-genesis > div.document-hash:nth-child(2n) .value.fixed {
+    margin-left: auto;
 }
 
 @media only screen and (max-width: 1100px) {
