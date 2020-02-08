@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -15,12 +15,17 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -31,30 +36,32 @@ import java.util.TreeSet;
 public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
-    protected void _associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
+    protected void _associateTransactionToBlock(final TransactionId transactionId, final Long diskOffset, final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
             final Integer currentTransactionCount = _getTransactionCount(blockId);
             databaseConnection.executeSql(
-                new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
+                new Query("INSERT INTO block_transactions (block_id, transaction_id, disk_offset, sort_order) VALUES (?, ?, ?, ?)")
                     .setParameter(blockId)
                     .setParameter(transactionId)
+                    .setParameter(diskOffset)
                     .setParameter(currentTransactionCount)
             );
         }
     }
 
 
-    protected void _associateTransactionsToBlock(final List<TransactionId> transactionIds, final BlockId blockId) throws DatabaseException {
+    protected void _associateTransactionsToBlock(final List<TransactionId> transactionIds, final List<Long> diskOffsets, final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
-            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
+            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, disk_offset, sort_order) VALUES (?, ?, ?, ?)");
             int sortOrder = 0;
             for (final TransactionId transactionId : transactionIds) {
                 batchedInsertQuery.setParameter(blockId);
                 batchedInsertQuery.setParameter(transactionId);
+                batchedInsertQuery.setParameter(diskOffsets.get(sortOrder));
                 batchedInsertQuery.setParameter(sortOrder);
                 sortOrder += 1;
             }
@@ -63,8 +70,20 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         }
     }
 
-    protected void _storeBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
+    protected void _storeBlockTransactions(final BlockId blockId, final Block block) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
+        final List<Transaction> transactions = block.getTransactions();
+
+        long diskOffset = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
+        diskOffset += ByteUtil.variableLengthIntegerToBytes(transactions.getCount()).length;
+
+        final MutableList<Long> diskOffsets = new MutableList<Long>(transactions.getCount());
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        for (final Transaction transaction : transactions) {
+            diskOffsets.add(diskOffset);
+            diskOffset += transactionDeflater.getByteCount(transaction);
+        }
 
         final MilliTimer storeBlockTimer = new MilliTimer();
         final MilliTimer associateTransactionsTimer = new MilliTimer();
@@ -75,7 +94,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             if (transactionIds == null) { throw new DatabaseException("Unable to store block transactions."); }
 
             associateTransactionsTimer.start();
-            _associateTransactionsToBlock(transactionIds, blockId);
+            _associateTransactionsToBlock(transactionIds, diskOffsets, blockId);
             associateTransactionsTimer.stop();
             Logger.info("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
         }
@@ -213,7 +232,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             blockId = existingBlockId;
         }
 
-        _storeBlockTransactions(blockId, block.getTransactions());
+        _storeBlockTransactions(blockId, block);
 
         return blockId;
     }
@@ -228,7 +247,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             return false;
         }
 
-        _storeBlockTransactions(blockId, block.getTransactions());
+        _storeBlockTransactions(blockId, block);
 
         return true;
     }
@@ -249,7 +268,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
 
-        _storeBlockTransactions(blockId, block.getTransactions());
+        _storeBlockTransactions(blockId, block);
         return blockId;
     }
 

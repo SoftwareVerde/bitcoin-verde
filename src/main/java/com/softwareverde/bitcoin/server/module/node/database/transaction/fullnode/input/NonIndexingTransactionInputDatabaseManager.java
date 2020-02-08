@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.UnconfirmedTransactionId;
@@ -14,6 +15,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -150,17 +152,46 @@ public class NonIndexingTransactionInputDatabaseManager extends TransactionInput
 
     @Override
     public TransactionOutputId findPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
-        throw new UnsupportedOperationException();
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+        return transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
     }
 
     @Override
     public TransactionOutputId getPreviousTransactionOutputId(final TransactionInputId transactionInputId) throws DatabaseException {
-        throw new UnsupportedOperationException();
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, previous_transaction_hash, previous_transaction_output_index FROM unconfirmed_transaction_inputs WHERE id = ?")
+                .setParameter(transactionInputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("previous_transaction_hash"));
+        final Integer previousTransactionOutputIndex = row.getInteger("previous_transaction_output_index");
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+        return transactionOutputDatabaseManager.findTransactionOutput(new TransactionOutputIdentifier(previousTransactionHash, previousTransactionOutputIndex));
     }
 
     @Override
     public List<TransactionInputId> getTransactionInputIds(final TransactionId transactionId) throws DatabaseException {
-        throw new UnsupportedOperationException();
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+        if (transactionHash == null) { return null; }
+
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT unconfirmed_transaction_inputs.id FROM unconfirmed_transactions INNER JOIN unconfirmed_transaction_inputs ON unconfirmed_transactions.id = unconfirmed_transaction_inputs.unconfirmed_transaction_id WHERE unconfirmed_transactions.transaction_id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
+            transactionInputIds.add(transactionInputId);
+        }
+        return transactionInputIds;
     }
 
     @Override

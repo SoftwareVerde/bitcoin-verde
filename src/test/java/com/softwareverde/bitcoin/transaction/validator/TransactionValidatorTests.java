@@ -6,9 +6,12 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -61,8 +64,8 @@ public class TransactionValidatorTests extends IntegrationTest {
             super(databaseManager);
         }
 
-        public void associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
-            _associateTransactionToBlock(transactionId, blockId);
+        public void associateTransactionToBlock(final TransactionId transactionId, final Long diskOffset, final BlockId blockId) throws DatabaseException {
+            _associateTransactionToBlock(transactionId, diskOffset, blockId);
         }
     }
 
@@ -119,6 +122,10 @@ public class TransactionValidatorTests extends IntegrationTest {
         return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
     }
 
+    public static Long calculateStartingDiskOffset(final Integer totalTransactionCount) {
+        return (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT.longValue() + ByteUtil.variableLengthIntegerToBytes(totalTransactionCount).length);
+    }
+
     @Before
     public void setup() {
         _resetDatabase();
@@ -144,7 +151,7 @@ public class TransactionValidatorTests extends IntegrationTest {
                 final Transaction previousTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E7FCF39EE6B86F1595C55B16B60BF4F297988CB9519F5D42597E7FB721E591C6010000008B483045022100AC572B43E78089851202CFD9386750B08AFC175318C537F04EB364BF5A0070D402203F0E829D4BAEA982FEAF987CB9F14C85097D2FBE89FBA3F283F6925B3214A97E0141048922FA4DC891F9BB39F315635C03E60E019FF9EC1559C8B581324B4C3B7589A57550F9B0B80BC72D0F959FDDF6CA65F07223C37A8499076BD7027AE5C325FAC5FFFFFFFF0140420F00000000001976A914C4EB47ECFDCF609A1848EE79ACC2FA49D3CAAD7088AC00000000"));
                 TransactionTestUtil.createRequiredTransactionInputs(databaseManager, blockchainSegmentId, previousTransaction);
                 final TransactionId transactionId = transactionDatabaseManager.storeTransaction(previousTransaction);
-                blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+                blockDatabaseManager.associateTransactionToBlock(transactionId, TransactionValidatorTests.calculateStartingDiskOffset(1), storedBlock.blockId);
             }
 
             final byte[] transactionBytes = HexUtil.hexStringToByteArray("01000000010B6072B386D4A773235237F64C1126AC3B240C84B917A3909BA1C43DED5F51F4000000008C493046022100BB1AD26DF930A51CCE110CF44F7A48C3C561FD977500B1AE5D6B6FD13D0B3F4A022100C5B42951ACEDFF14ABBA2736FD574BDB465F3E6F8DA12E2C5303954ACA7F78F3014104A7135BFE824C97ECC01EC7D7E336185C81E2AA2C41AB175407C09484CE9694B44953FCB751206564A9C24DD094D42FDBFDD5AAD3E063CE6AF4CFAAEA4EA14FBBFFFFFFFF0140420F00000000001976A91439AA3D569E06A1D7926DC4BE1193C99BF2EB9EE088AC00000000");
@@ -187,7 +194,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             }
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-            blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+            blockDatabaseManager.associateTransactionToBlock(transactionId, TransactionValidatorTests.calculateStartingDiskOffset(1), storedBlock.blockId);
 
             // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
             final Transaction unsignedTransaction = _createTransactionContaining(
@@ -238,7 +245,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             }
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-            blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+            blockDatabaseManager.associateTransactionToBlock(transactionId, TransactionValidatorTests.calculateStartingDiskOffset(1), storedBlock.blockId);
 
             // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
             final Transaction unsignedTransaction = _createTransactionContaining(
@@ -288,7 +295,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             }
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-            blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+            blockDatabaseManager.associateTransactionToBlock(transactionId, TransactionValidatorTests.calculateStartingDiskOffset(1), storedBlock.blockId);
 
             // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
             final Transaction unsignedTransaction = _createTransactionContaining(
@@ -338,7 +345,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             }
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-            blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+            blockDatabaseManager.associateTransactionToBlock(transactionId, TransactionValidatorTests.calculateStartingDiskOffset(1), storedBlock.blockId);
 
             // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
             final MutableTransaction unsignedTransaction = _createTransactionContaining(

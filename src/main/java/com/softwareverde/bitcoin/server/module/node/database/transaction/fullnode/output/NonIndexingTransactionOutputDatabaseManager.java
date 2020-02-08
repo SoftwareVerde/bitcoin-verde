@@ -230,7 +230,13 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
 
     @Override
     public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        throw new UnsupportedOperationException();
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM unspent_transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+
+        return (rows.isEmpty());
     }
 
     public Boolean isTransactionOutputSpent(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {

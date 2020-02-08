@@ -121,7 +121,7 @@ CREATE TABLE unconfirmed_transactions (
     lock_time BIGINT UNSIGNED NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY unconfirmed_transaction_hash_uq (hash),
+    UNIQUE KEY unconfirmed_transaction_txid_uq (transaction_id),
     FOREIGN KEY unconfirmed_transaction_transaction_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
@@ -200,4 +200,4 @@ CREATE TABLE node_transactions_inventory (
     FOREIGN KEY node_transactions_tx_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (2, UNIX_TIMESTAMP());

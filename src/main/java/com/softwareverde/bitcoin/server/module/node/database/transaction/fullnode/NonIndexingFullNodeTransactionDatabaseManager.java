@@ -19,17 +19,23 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.query.parameter.InClauseParameter;
+import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 
-public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeTransactionDatabaseManagerCore {
+public class NonIndexingFullNodeTransactionDatabaseManager extends FullNodeTransactionDatabaseManagerCore {
     protected final MasterInflater _masterInflater;
     protected final BlockCache _blockCache;
 
@@ -90,7 +96,7 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
 
         { // Attempt to load the Transaction from the Unconfirmed Transactions table...
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id, version, lock_time FROM unconfirmed_transactions WHERE transaction_id = ?")
+                new Query("SELECT id, hash, version, lock_time FROM unconfirmed_transactions WHERE transaction_id = ?")
                     .setParameter(transactionId)
             );
             if (! rows.isEmpty()) {
@@ -98,6 +104,7 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
                 final UnconfirmedTransactionId unconfirmedTransactionId = UnconfirmedTransactionId.wrap(row.getLong("id"));
                 final Long version = row.getLong("version");
                 final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
 
                 final MutableTransaction transaction = new MutableTransaction();
                 transaction.setVersion(version);
@@ -105,6 +112,8 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
 
                 final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
                 final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+                if (transactionInputIds.isEmpty()) { return null; }
+
                 for (final TransactionInputId transactionInputId : transactionInputIds) {
                     final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
                     transaction.addTransactionInput(transactionInput);
@@ -112,10 +121,14 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
 
                 final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+                if (transactionOutputIds.isEmpty()) { return null; }
+
                 for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
                     final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
                     transaction.addTransactionOutput(transactionOutput);
                 }
+
+                if (! Util.areEqual(transactionHash, transaction.getHash())) { return null; }
 
                 return transaction;
             }
@@ -124,7 +137,7 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
         return null;
     }
 
-    public NonIndexingFullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockCache blockCache, final MasterInflater masterInflater) {
+    public NonIndexingFullNodeTransactionDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockCache blockCache, final MasterInflater masterInflater) {
         super(databaseManager);
 
         _masterInflater = masterInflater;
@@ -213,23 +226,62 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<TransactionId> transactionIds) throws DatabaseException {
+        if (transactionIds.isEmpty()) { return new MutableList<TransactionId>(0); }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query(
+        // TODO: Optimize...
+        final HashSet<TransactionOutputIdentifier> transactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>();
+        for (final TransactionId transactionId : transactionIds) {
+            final Transaction transaction = _getTransaction(transactionId);
+            if (transaction == null) {
+                Logger.error("Unable to find Transaction: " + transactionId);
+            }
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                transactionOutputIdentifiers.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
+            }
+        }
+
+        final java.util.List<Row> rows;
+        {
+            final Query query = new Query(
                 "SELECT " +
                     "unconfirmed_transactions.transaction_id " +
                 "FROM " +
                     "unconfirmed_transaction_inputs " +
                     "INNER JOIN unconfirmed_transactions " +
-                        "ON unconfirmed_transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
+                        "ON unconfirmed_transaction_inputs.unconfirmed_transaction_id = unconfirmed_transactions.id " +
                 "WHERE " +
-                    "unconfirmed_transaction_inputs.previous_transaction_output_id IN (" +
-                        "SELECT previous_transaction_output_id FROM unconfirmed_transaction_inputs WHERE transaction_id IN (?)" +
-                    ")" +
+                    "(unconfirmed_transaction_inputs.previous_transaction_hash, unconfirmed_transaction_inputs.previous_transaction_output_index) IN (?) " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
-            ).setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
-        );
+            );
+
+//            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
+//                final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
+//                final Integer previousTransactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+//
+//                query.setInClauseParameters(
+//                    new InClauseParameter(
+//                        new TypedParameter(previousTransactionHash.toString()),
+//                        new TypedParameter(previousTransactionOutputIndex)
+//                    )
+//                );
+//            }
+            query.setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
+                @Override
+                public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
+                    final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
+                    final Integer previousTransactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+
+                    return new InClauseParameter(
+                        (previousTransactionHash != null ? new TypedParameter(previousTransactionHash.toString()) : TypedParameter.NULL),
+                        (previousTransactionOutputIndex != null ? new TypedParameter(previousTransactionOutputIndex) : TypedParameter.NULL)
+                    );
+                }
+            });
+
+            rows = databaseConnection.query(query);
+        }
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
         for (final Row row : rows) {
@@ -256,7 +308,8 @@ public class NonIndexingFullNodeTransactionDatabaseManagerCore extends FullNodeT
                 "WHERE " +
                         "unconfirmed_transaction_outputs.transaction_id IN (?) " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
-            ).setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+            )
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.block;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -43,6 +44,7 @@ public class BlockDownloader extends SleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Map<Sha256Hash, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
+    protected final BlockCache _blockCache;
 
     protected Runnable _newBlockAvailableCallback = null;
 
@@ -53,6 +55,14 @@ public class BlockDownloader extends SleepyService {
         final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
         pendingBlockDatabaseManager.storeBlock(block);
+        if (_blockCache != null) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(block.getHash());
+            if (blockId != null) {
+                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                _blockCache.cacheBlock(block, blockHeight);
+            }
+        }
     }
 
     protected void _markPendingBlockIdsAsFailed(final Set<Sha256Hash> pendingBlockHashes) {
@@ -246,9 +256,10 @@ public class BlockDownloader extends SleepyService {
         }
     }
 
-    public BlockDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
+    public BlockDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final BlockCache blockCache) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseManagerFactory = databaseManagerFactory;
+        _blockCache = blockCache;
 
         _blockDownloadedCallback = new BitcoinNodeManager.DownloadBlockCallback() {
             @Override

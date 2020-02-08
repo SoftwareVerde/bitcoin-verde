@@ -22,7 +22,7 @@ public interface ValueExtractor<T> extends com.softwareverde.database.query.Valu
     ValueExtractor<TransactionOutputIdentifier> TRANSACTION_OUTPUT_IDENTIFIER = new ValueExtractor<TransactionOutputIdentifier>() {
         @Override
         public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
-            final TypedParameter typedParameter0 = (transactionOutputIdentifier != null ? new TypedParameter(transactionOutputIdentifier.getTransactionHash().getBytes()) : TypedParameter.NULL);
+            final TypedParameter typedParameter0 = (transactionOutputIdentifier != null ? new TypedParameter(transactionOutputIdentifier.getTransactionHash().toString()) : TypedParameter.NULL);
             final TypedParameter typedParameter1 = (transactionOutputIdentifier != null ? new TypedParameter(transactionOutputIdentifier.getOutputIndex()) : TypedParameter.NULL);
             return new InClauseParameter(typedParameter0, typedParameter1);
         }
