@@ -45,6 +45,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
     protected final NetworkTime _networkTime;
+    protected final BlockCache _blockCache;
 
     protected final BlockInflaters _blockInflaters;
     protected final BlockValidatorFactory _blockValidatorFactory;
@@ -60,7 +61,7 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
         this(
             databaseManagerFactory,
             masterDatabaseManagerCache,
@@ -68,11 +69,12 @@ public class BlockProcessor {
             transactionValidatorFactory,
             networkTime,
             medianBlockTime,
-            orphanedTransactionsCache
+            orphanedTransactionsCache,
+            blockCache
         );
     }
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
         this(
             databaseManagerFactory,
             masterDatabaseManagerCache,
@@ -81,11 +83,12 @@ public class BlockProcessor {
             transactionValidatorFactory,
             networkTime,
             medianBlockTime,
-            orphanedTransactionsCache
+            orphanedTransactionsCache,
+            blockCache
         );
     }
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
         _databaseManagerFactory = databaseManagerFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
         _blockInflaters = blockInflaters;
@@ -98,6 +101,7 @@ public class BlockProcessor {
         _startTime = System.currentTimeMillis();
 
         _orphanedTransactionsCache = orphanedTransactionsCache;
+        _blockCache = blockCache;
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
@@ -176,12 +180,17 @@ public class BlockProcessor {
                 }
             }
 
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+
             final NanoTimer storeBlockTimer = new NanoTimer();
             final NanoTimer blockValidationTimer = new NanoTimer();
             TransactionUtil.startTransaction(databaseConnection);
             {
                 storeBlockTimer.start();
                 final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
+                if (_blockCache != null) {
+                    _blockCache.cacheBlock(block, blockHeight);
+                }
                 storeBlockTimer.stop();
 
                 if (! transactionsStoredSuccessfully) {
@@ -222,8 +231,6 @@ public class BlockProcessor {
             TransactionUtil.commitTransaction(databaseConnection);
             _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
             _masterDatabaseManagerCache.commit();
-
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
             final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final Integer byteCount = blockDeflater.getByteCount(block);

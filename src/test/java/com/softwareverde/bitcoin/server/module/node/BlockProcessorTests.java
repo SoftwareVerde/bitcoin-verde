@@ -82,7 +82,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
             final BlockProcessor blockProcessor;
             {
-                blockProcessor = new BlockProcessor(databaseManagerFactory, masterDatabaseManagerCache, masterInflater, transactionValidatorFactory, mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
+                blockProcessor = new BlockProcessor(databaseManagerFactory, masterDatabaseManagerCache, masterInflater, transactionValidatorFactory, mutableNetworkTime, medianBlockTime, orphanedTransactionsCache, null);
                 blockProcessor.setMaxThreadCount(2);
                 blockProcessor.setTrustedBlockHeight(0L);
             }

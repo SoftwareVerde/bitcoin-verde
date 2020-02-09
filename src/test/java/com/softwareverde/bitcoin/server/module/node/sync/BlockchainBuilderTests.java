@@ -87,7 +87,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseCache);
 
                 final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-                final BlockProcessor blockProcessor = new BlockProcessor(databaseManagerFactory, masterCache, transactionValidatorFactory, networkTime, medianBlockTime, orphanedTransactionsCache);
+                final BlockProcessor blockProcessor = new BlockProcessor(databaseManagerFactory, masterCache, transactionValidatorFactory, networkTime, medianBlockTime, orphanedTransactionsCache, null);
                 final SleepyService.StatusMonitor blockDownloaderStatusMonitor = new SleepyService.StatusMonitor() {
                     @Override
                     public SleepyService.Status getStatus() {
