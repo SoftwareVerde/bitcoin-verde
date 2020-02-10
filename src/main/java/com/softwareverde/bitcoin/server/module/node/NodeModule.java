@@ -8,9 +8,6 @@ import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.NonIndexingFullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.NonIndexingFullNodeDatabaseManagerFactory;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
@@ -18,17 +15,12 @@ import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
-import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.module.CacheWarmer;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -39,8 +31,6 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.*;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
@@ -83,6 +73,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -92,9 +83,6 @@ import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
-    protected final Boolean _indexingMode = false;
-    protected final Boolean _shouldWarmUpCache = true;
-
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final BlockCache _blockCache;
@@ -128,15 +116,6 @@ public class NodeModule {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
-    protected void _warmUpCache() {
-        Logger.info("[Warming Cache]");
-        final CacheWarmer cacheWarmer = new CacheWarmer();
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        final Database database = _environment.getDatabase();
-        final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
-        cacheWarmer.warmUpCache(masterDatabaseManagerCache, databaseConnectionFactory);
-    }
-
     protected void _connectToAdditionalNodes() {
         final SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
         final HashSet<String> seedNodeHosts = new HashSet<String>(seedNodes.length);
@@ -156,7 +135,7 @@ public class NodeModule {
         requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
         try (final DatabaseConnection databaseConnection = database.newConnection()) {
-            final DatabaseManager databaseManager = (_indexingMode ? new FullNodeDatabaseManager(databaseConnection) : new NonIndexingFullNodeDatabaseManager(databaseConnection, _blockCache, _masterInflater));
+            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, _blockCache, _masterInflater);
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
@@ -232,11 +211,6 @@ public class NodeModule {
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
 
-        if (_bitcoinProperties.isTransactionBloomFilterEnabled()) {
-            Logger.info("[Saving Tx Bloom Filter]");
-            FullNodeTransactionDatabaseManagerCore.saveBloomFilter(_transactionBloomFilterFilename);
-        }
-
         Logger.info("[Shutting Down Thread Server]");
         _mainThreadPool.stop();
         _rpcThreadPool.stop();
@@ -255,11 +229,6 @@ public class NodeModule {
             Logger.debug(exception);
         }
 
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        if (masterDatabaseManagerCache != null) {
-            masterDatabaseManagerCache.close();
-        }
-
         try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }
 
         Logger.flush();
@@ -275,13 +244,8 @@ public class NodeModule {
         _masterInflater = new CoreInflater();
 
         { // Initialize the BlockCache...
-            if ( (! _indexingMode) || (bitcoinProperties.isBlockCacheEnabled()) ) {
-                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-                _blockCache = new BlockCache(blockCacheDirectory, _masterInflater);
-            }
-            else {
-                _blockCache = null;
-            }
+            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+            _blockCache = new BlockCache(blockCacheDirectory, _masterInflater);
         }
 
         _bitcoinProperties = bitcoinProperties;
@@ -312,11 +276,8 @@ public class NodeModule {
             }
         });
 
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
-
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = (_indexingMode ? new FullNodeDatabaseManagerFactory(databaseConnectionPool, readOnlyDatabaseManagerCache) : new NonIndexingFullNodeDatabaseManagerFactory(databaseConnectionPool, readOnlyDatabaseManagerCache, _blockCache, _masterInflater));
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater);
 
         _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
 
@@ -359,7 +320,7 @@ public class NodeModule {
             blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
         }
 
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
+        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
 
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
@@ -481,13 +442,13 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseManagerFactory, masterDatabaseManagerCache, _masterInflater, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache, _blockCache);
+            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache, _blockCache);
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
 
         { // Initialize the BlockDownloader...
-            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, (_indexingMode ? null : _blockCache));
+            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, _blockCache);
         }
 
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
@@ -502,9 +463,9 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
-        if ( (! _indexingMode) || (bitcoinProperties.isTrimBlocksEnabled()) ) {
+        if (true) {
             _slpTransactionProcessor = null;
-            _addressProcessor = (_indexingMode ? new AddressProcessor(databaseManagerFactory) : new DisabledAddressProcessor());
+            _addressProcessor = new DisabledAddressProcessor();
         }
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
@@ -519,9 +480,6 @@ public class NodeModule {
             });
         }
 
-        final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-        final BlockTrimmer blockTrimmer = new BlockTrimmer(databaseManagerFactory);
-
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
@@ -533,20 +491,6 @@ public class NodeModule {
                     }
 
                     _addressProcessor.wakeUp();
-
-                    if (bitcoinProperties.isTrimBlocksEnabled()) {
-                        final Integer keepBlockCount = 144; // NOTE: Keeping the last days of blocks protects any non-malicious chain re-organization from failing...
-                        if (blockHeight > keepBlockCount) {
-                            try {
-                                blockTrimmer.trimBlock(blockHash, keepBlockCount);
-                                masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseCache);
-                            }
-                            catch (final Exception exception) {
-                                Logger.warn("Error trimming Block: " + blockHash);
-                                Logger.warn(exception);
-                            }
-                        }
-                    }
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
@@ -815,25 +759,10 @@ public class NodeModule {
     public void loop() {
         final Runtime runtime = Runtime.getRuntime();
 
-        if (_shouldWarmUpCache) {
-            _warmUpCache();
-        }
-
-        if (_bitcoinProperties.isTransactionBloomFilterEnabled()) {
-            Logger.info("[Loading Tx Bloom Filter]");
-            final Database database = _environment.getDatabase();
-            try (final DatabaseConnection databaseConnection = database.newConnection()) {
-                FullNodeTransactionDatabaseManagerCore.initializeBloomFilter(_transactionBloomFilterFilename, databaseConnection);
-            }
-            catch (final DatabaseException exception) {
-                Logger.warn(exception);
-            }
-        }
-
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
             final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = (_indexingMode ? new FullNodeDatabaseManagerFactory(databaseConnectionPool) : new NonIndexingFullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater));
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater);
             final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
             headersBootstrapper.run();
         }
@@ -931,18 +860,17 @@ public class NodeModule {
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
             try { Thread.sleep(5000); } catch (final Exception exception) { break; }
 
-            Logger.debug("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
-            Logger.debug("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
-            Logger.debug("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
-
-            final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            Logger.debug("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
-            Logger.debug("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
-            Logger.debug("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
-
-            Logger.flush();
-
-            try { Thread.sleep(5000); } catch (final Exception exception) { break; }
+            // Logger.debug("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
+            // Logger.debug("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
+            //
+            // final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+            // Logger.debug("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
+            // Logger.debug("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
+            // Logger.debug("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
+            //
+            // Logger.flush();
+            //
+            // try { Thread.sleep(5000); } catch (final Exception exception) { break; }
 
             Logger.flush();
         }

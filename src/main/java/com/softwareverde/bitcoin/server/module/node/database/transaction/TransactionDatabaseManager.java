@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -17,4 +19,5 @@ public interface TransactionDatabaseManager {
     BlockId getBlockId(BlockchainSegmentId blockchainSegmentId, TransactionId transactionId) throws DatabaseException;
     List<BlockId> getBlockIds(TransactionId transactionId) throws DatabaseException;
     List<BlockId> getBlockIds(Sha256Hash transactionHash) throws DatabaseException;
+    TransactionOutput getTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 }

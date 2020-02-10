@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.FullNodeAddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
@@ -13,47 +13,38 @@ import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullN
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.Util;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final BlockCache _blockCache;
+    protected final MasterInflater _masterInflater;
 
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
     protected FullNodePendingBlockDatabaseManager _pendingBlockDatabaseManager;
-    protected FullNodeAddressDatabaseManager _addressDatabaseManager;
+    protected AddressDatabaseManager _addressDatabaseManager;
     protected FullNodeTransactionDatabaseManager _transactionDatabaseManager;
-    protected TransactionInputDatabaseManager _transactionInputDatabaseManager;
-    protected TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
+    protected UnconfirmedTransactionInputDatabaseManager _unconfirmedTransactionInputDatabaseManager;
+    protected UnconfirmedTransactionOutputDatabaseManager _unconfirmedTransactionOutputDatabaseManager;
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final BlockCache blockCache, final MasterInflater masterInflater) {
         _databaseConnection = databaseConnection;
-        _databaseManagerCache = new DisabledDatabaseManagerCache();
-    }
-
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = Util.coalesce(databaseManagerCache, new DisabledDatabaseManagerCache());
+        _blockCache = blockCache;
+        _masterInflater = masterInflater;
     }
 
     @Override
     public DatabaseConnection getDatabaseConnection() {
         return _databaseConnection;
-    }
-
-    @Override
-    public DatabaseManagerCache getDatabaseManagerCache() {
-        return _databaseManagerCache;
     }
 
     @Override
@@ -104,34 +95,34 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeTransactionDatabaseManager getTransactionDatabaseManager() {
         if (_transactionDatabaseManager == null) {
-            _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this);
+            _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockCache, _masterInflater);
         }
 
         return _transactionDatabaseManager;
     }
 
-    public FullNodeAddressDatabaseManager getAddressDatabaseManager() {
+    public AddressDatabaseManager getAddressDatabaseManager() {
         if (_addressDatabaseManager == null) {
-            _addressDatabaseManager = new FullNodeAddressDatabaseManager(this);
+            // _addressDatabaseManager = new AddressDatabaseManager(this);
         }
 
         return _addressDatabaseManager;
     }
 
-    public TransactionInputDatabaseManager getTransactionInputDatabaseManager() {
-        if (_transactionInputDatabaseManager == null) {
-            _transactionInputDatabaseManager = new TransactionInputDatabaseManager(this);
+    public UnconfirmedTransactionInputDatabaseManager getUnconfirmedTransactionInputDatabaseManager() {
+        if (_unconfirmedTransactionInputDatabaseManager == null) {
+            _unconfirmedTransactionInputDatabaseManager = new UnconfirmedTransactionInputDatabaseManager(this);
         }
 
-        return _transactionInputDatabaseManager;
+        return _unconfirmedTransactionInputDatabaseManager;
     }
 
-    public TransactionOutputDatabaseManager getTransactionOutputDatabaseManager() {
-        if (_transactionOutputDatabaseManager == null) {
-            _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(this);
+    public UnconfirmedTransactionOutputDatabaseManager getUnconfirmedTransactionOutputDatabaseManager() {
+        if (_unconfirmedTransactionOutputDatabaseManager == null) {
+            _unconfirmedTransactionOutputDatabaseManager = new UnconfirmedTransactionOutputDatabaseManager(this);
         }
 
-        return _transactionOutputDatabaseManager;
+        return _unconfirmedTransactionOutputDatabaseManager;
     }
 
     public PendingTransactionDatabaseManager getPendingTransactionDatabaseManager() {
@@ -144,7 +135,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     public SlpTransactionDatabaseManager getSlpTransactionDatabaseManager() {
         if (_slpTransactionDatabaseManager == null) {
-            _slpTransactionDatabaseManager = new SlpTransactionDatabaseManager(this);
+            // _slpTransactionDatabaseManager = new SlpTransactionDatabaseManager(this);
         }
 
         return _slpTransactionDatabaseManager;

@@ -13,7 +13,6 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -22,7 +21,6 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -63,7 +61,6 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
@@ -99,26 +96,27 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             Integer transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final TransactionOutputId previousTransactionOutputId;
-                {
-                    if (previousOutputTransactionHash != null) {
-                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
-                        previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
-
-                        if (previousTransactionOutputId == null) {
-                            Logger.warn("Error calculating fee for Transaction: " + transactionHashString);
-                        }
-                    }
-                    else {
-                        previousTransactionOutputId = null;
-                    }
-                }
-
-                if (previousTransactionOutputId == null) {
-                    transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
-                }
-
-                final TransactionOutput previousTransactionOutput = ( previousTransactionOutputId != null ? transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId) : null );
+//                final TransactionOutputId previousTransactionOutputId;
+//                {
+//                    if (previousOutputTransactionHash != null) {
+//                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+//                        previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+//
+//                        if (previousTransactionOutputId == null) {
+//                            Logger.warn("Error calculating fee for Transaction: " + transactionHashString);
+//                        }
+//                    }
+//                    else {
+//                        previousTransactionOutputId = null;
+//                    }
+//                }
+//
+//                if (previousTransactionOutputId == null) {
+//                    transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
+//                }
+//
+//                final TransactionOutput previousTransactionOutput = ( previousTransactionOutputId != null ? transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId) : null );
+                final TransactionOutput previousTransactionOutput = null;
                 final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
 
                 if (transactionFee != null) {

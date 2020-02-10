@@ -3,13 +3,10 @@ package com.softwareverde.bitcoin.block.validator.thread;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.NonIndexingTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -61,37 +58,27 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
 
     protected static TransactionOutput _getTransactionOutput(final FullNodeDatabaseManager databaseManager, final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions) {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
-
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex);
-//            if (transactionOutputDatabaseManager instanceof NonIndexingTransactionOutputDatabaseManager) { // TODO: Better encapsulate this...
-//                final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-//                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionOutputIdentifier.getTransactionHash());
-//                if (transactionId == null) { return null; }
-//
-//                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-//                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-//
-//                final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-//                if (outputIndex >= transactionOutputs.getCount()) { return null; }
-//
-//                return transactionOutputs.get(outputIndex);
-//            }
-//            else {
-                final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
-                if (transactionOutputId != null) {
-                    return transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+            final Transaction transactionContainingOutput = queuedTransactions.get(outputTransactionHash);
+            if (transactionContainingOutput != null) {
+                final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
+                final boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getCount());
+                if (transactionOutputIndexIsValid) {
+                    return transactionOutputs.get(transactionOutputIndex);
                 }
-                else {
-                    final Transaction transactionContainingOutput = queuedTransactions.get(outputTransactionHash);
-                    if (transactionContainingOutput != null) {
-                        final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
-                        final boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getCount());
-                        if (transactionOutputIndexIsValid) {
-                            return transactionOutputs.get(transactionOutputIndex);
-                        }
-                    }
-//                }
+            }
+            else {
+                final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionOutputIdentifier.getTransactionHash());
+                if (transactionId == null) { return null; }
+
+                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+
+                final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+                if (outputIndex >= transactionOutputs.getCount()) { return null; }
+
+                return transactionOutputs.get(outputIndex);
             }
         }
         catch (final DatabaseException exception) {

@@ -7,13 +7,10 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.*;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -32,6 +29,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
@@ -52,7 +50,6 @@ public class BlockProcessor {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
-    protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
     protected Integer _maxThreadCount = 4;
@@ -61,10 +58,9 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
         this(
             databaseManagerFactory,
-            masterDatabaseManagerCache,
             new CoreInflater(),
             transactionValidatorFactory,
             networkTime,
@@ -74,10 +70,9 @@ public class BlockProcessor {
         );
     }
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
         this(
             databaseManagerFactory,
-            masterDatabaseManagerCache,
             blockInflaters,
             new BlockValidatorFactoryCore(),
             transactionValidatorFactory,
@@ -88,9 +83,8 @@ public class BlockProcessor {
         );
     }
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
+    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
         _databaseManagerFactory = databaseManagerFactory;
-        _masterDatabaseManagerCache = masterDatabaseManagerCache;
         _blockInflaters = blockInflaters;
         _transactionValidatorFactory = transactionValidatorFactory;
         _blockValidatorFactory = blockValidatorFactory;
@@ -113,10 +107,7 @@ public class BlockProcessor {
     }
 
     protected Long _processBlock(final Block block) throws DatabaseException {
-        try (
-            final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
-            final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager(localDatabaseManagerCache)
-        ) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final Sha256Hash blockHash = block.getHash();
             _processedBlockCount += 1;
@@ -175,8 +166,6 @@ public class BlockProcessor {
                         storeBlockHeaderTimer.stop();
                     }
                     TransactionUtil.commitTransaction(databaseConnection);
-                    _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
-                    _masterDatabaseManagerCache.commit();
                 }
             }
 
@@ -206,7 +195,7 @@ public class BlockProcessor {
                 { // NOTE: The DatabaseConnectionFactoryWrapper should not be closed.
                     final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
                     final ReadUncommittedDatabaseConnectionFactoryWrapper readUncommittedDatabaseConnectionFactoryWrapper = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-                    final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory.newDatabaseManagerFactory(readUncommittedDatabaseConnectionFactoryWrapper, localDatabaseManagerCache);
+                    final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory.newDatabaseManagerFactory(readUncommittedDatabaseConnectionFactoryWrapper);
 
                     final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
@@ -229,8 +218,6 @@ public class BlockProcessor {
                 }
             }
             TransactionUtil.commitTransaction(databaseConnection);
-            _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
-            _masterDatabaseManagerCache.commit();
 
             final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final Integer byteCount = blockDeflater.getByteCount(block);
@@ -355,9 +342,6 @@ public class BlockProcessor {
             // final Long now = System.currentTimeMillis();
             _averageBlocksPerSecond.value = averageBlocksPerSecond; // ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
             _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
-
-            _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
-            _masterDatabaseManagerCache.commit();
 
             return blockHeight;
         }

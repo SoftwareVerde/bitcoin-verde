@@ -1,12 +1,12 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
     Transaction getTransaction(TransactionId transactionId, Boolean shouldUpdateUnspentOutputCache) throws DatabaseException;
@@ -26,8 +26,6 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
 
     Integer getUnconfirmedTransactionCount() throws DatabaseException;
     Long calculateTransactionFee(Transaction transaction) throws DatabaseException;
-    void updateTransaction(Transaction transaction) throws DatabaseException;
-    void deleteTransaction(TransactionId transactionId) throws DatabaseException;
 
     SlpTokenId getSlpTokenId(Sha256Hash transactionHash) throws DatabaseException;
 }

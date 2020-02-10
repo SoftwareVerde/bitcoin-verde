@@ -17,7 +17,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -28,10 +27,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
-
-import java.util.HashMap;
-import java.util.Set;
-import java.util.TreeSet;
 
 public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
@@ -321,56 +316,5 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     @Override
     public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
         return _getTransactionCount(blockId);
-    }
-
-    public void repairBlock(final Block block) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-        final Sha256Hash blockHash = block.getHash();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        if (blockId == null) {
-            Logger.warn("Block not found: " + blockHash);
-            return;
-        }
-
-        blockHeaderDatabaseManager.updateBlockHeader(blockId, block);
-
-        final Set<Sha256Hash> updatedTransactions = new TreeSet<Sha256Hash>();
-        { // Remove transactions that do not exist in the updated block, and update ones that do not exist...
-            final HashMap<Sha256Hash, Transaction> existingTransactionHashes = new HashMap<Sha256Hash, Transaction>(block.getTransactionCount());
-            for (final Transaction transaction : block.getTransactions()) {
-                existingTransactionHashes.put(transaction.getHash(), transaction);
-            }
-
-            final List<TransactionId> transactionIds = _getTransactionIds(blockId);
-
-            for (final TransactionId transactionId : transactionIds) {
-                final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-
-                final boolean transactionExistsInUpdatedBlock = existingTransactionHashes.containsKey(transactionHash);
-
-                if (transactionExistsInUpdatedBlock) {
-                    final Transaction transaction = existingTransactionHashes.get(transactionHash);
-                    Logger.info("Updating Transaction: " + transactionHash + " Id: " + transactionId);
-                    transactionDatabaseManager.updateTransaction(transaction);
-                    updatedTransactions.add(transactionHash);
-                }
-                else {
-                    Logger.info("Deleting Transaction: " + transactionHash + " Id: " + transactionId);
-                    transactionDatabaseManager.deleteTransaction(transactionId);
-                }
-            }
-        }
-
-        for (final Transaction transaction : block.getTransactions()) {
-            final Sha256Hash transactionHash = transaction.getHash();
-            final boolean transactionHasBeenProcessed = updatedTransactions.contains(transactionHash);
-            if (transactionHasBeenProcessed) { continue; }
-
-            Logger.info("Inserting Transaction: " + transactionHash);
-            final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
-            if (transactionId == null) { throw new DatabaseException("Error inserting Transaction."); }
-        }
     }
 }

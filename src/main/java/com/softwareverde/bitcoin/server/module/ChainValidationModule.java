@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -8,16 +9,13 @@ import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -32,6 +30,7 @@ import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnec
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -67,13 +66,18 @@ public class ChainValidationModule {
         final Database database = _environment.getDatabase();
         // final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
-        Sha256Hash nextBlockHash = _startingBlockHash;
-        try (
-            final DatabaseConnection databaseConnection = database.newConnection();
-            final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache(); // new LocalDatabaseManagerCache(masterDatabaseManagerCache)
-        ) {
+        final MasterInflater masterInflater = new CoreInflater();
+        final BlockCache blockCache;
 
-            final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
+        { // Initialize the BlockCache...
+            final String blockCacheDirectory = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+            blockCache = new BlockCache(blockCacheDirectory, masterInflater);
+        }
+
+        Sha256Hash nextBlockHash = _startingBlockHash;
+        try (final DatabaseConnection databaseConnection = database.newConnection();) {
+
+            final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, blockCache, masterInflater);
 
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -84,7 +88,7 @@ public class ChainValidationModule {
 
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
             final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, blockCache, masterInflater);
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
 
             final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
@@ -170,11 +174,6 @@ public class ChainValidationModule {
         catch (final DatabaseException exception) {
             Logger.error("Last validated block: " + nextBlockHash, exception);
             BitcoinUtil.exitFailure();
-        }
-
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        if (masterDatabaseManagerCache != null) {
-            masterDatabaseManagerCache.close();
         }
 
         System.exit(0);

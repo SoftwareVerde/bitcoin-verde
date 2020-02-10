@@ -55,7 +55,7 @@ dependencies {
 
     // Server
     serverImplementation group: 'com.github.softwareverde',     name: 'http-servlet',           version: 'v3.2.0'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.1.5'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v2.1.6'
     serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '3.4.1') {
         exclude group: 'io.micrometer',             module: '*'
         exclude group: 'org.javassist ',            module: '*'

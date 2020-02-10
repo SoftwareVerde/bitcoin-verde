@@ -4,7 +4,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.FullNodeAddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
@@ -190,7 +190,7 @@ public class AddressProcessorTests extends IntegrationTest {
             }
 
             // Assert
-            final FullNodeAddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
             final List<TransactionId> slpTransactionIds = addressDatabaseManager.getSlpTransactionIds(SlpTokenId.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"));
             Assert.assertEquals(14, slpTransactionIds.getCount());
 

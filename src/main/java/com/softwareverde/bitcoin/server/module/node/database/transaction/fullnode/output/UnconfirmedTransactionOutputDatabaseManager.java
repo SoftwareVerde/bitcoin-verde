@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output;
 
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -9,12 +8,10 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.UnconfirmedTransactionId;
-import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -26,7 +23,9 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.Map;
 
-public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutputDatabaseManager {
+public class UnconfirmedTransactionOutputDatabaseManager {
+    protected final FullNodeDatabaseManager _databaseManager;
+
     protected UnconfirmedTransactionId _getUnconfirmedTransactionId(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
@@ -39,7 +38,7 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         return UnconfirmedTransactionId.wrap(row.getLong("id"));
     }
 
-    protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+    protected UnconfirmedTransactionOutputId _insertUnconfirmedTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
         if (unconfirmedTransactionId == null) { return null; }
 
@@ -66,25 +65,22 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
                 .setParameter(lockingScript.getBytes())
         );
 
-        return TransactionOutputId.wrap(transactionOutputId);
+        return UnconfirmedTransactionOutputId.wrap(transactionOutputId);
     }
 
-    public NonIndexingTransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager) {
-        super(databaseManager);
+    public UnconfirmedTransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
     }
 
-    @Override
-    public TransactionOutputId insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        return _insertTransactionOutput(transactionId, transactionOutput);
+    public UnconfirmedTransactionOutputId insertUnconfirmedTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        return _insertUnconfirmedTransactionOutput(transactionId, transactionOutput);
     }
 
-    @Override
-    public TransactionOutputId insertTransactionOutput(final TransactionId transactionId, final Sha256Hash transactionHash, final TransactionOutput transactionOutput) throws DatabaseException {
-        return _insertTransactionOutput(transactionId, transactionOutput);
+    public UnconfirmedTransactionOutputId insertUnconfirmedTransactionOutput(final TransactionId transactionId, final Sha256Hash transactionHash, final TransactionOutput transactionOutput) throws DatabaseException {
+        return _insertUnconfirmedTransactionOutput(transactionId, transactionOutput);
     }
 
-    @Override
-    public List<TransactionOutputId> insertTransactionOutputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+    public List<UnconfirmedTransactionOutputId> insertUnconfirmedTransactionOutputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unconfirmed_transaction_outputs (unconfirmed_transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)");
@@ -109,16 +105,15 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         }
 
         final Long firstInsertId = databaseConnection.executeSql(batchedInsertQuery);
-        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(transactions.getCount());
+        final MutableList<UnconfirmedTransactionOutputId> transactionOutputIds = new MutableList<UnconfirmedTransactionOutputId>(transactions.getCount());
         for (int i = 0; i < transactions.getCount(); ++i) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(firstInsertId + i);
+            final UnconfirmedTransactionOutputId transactionOutputId = UnconfirmedTransactionOutputId.wrap(firstInsertId + i);
             transactionOutputIds.add(transactionOutputId);
         }
         return transactionOutputIds;
     }
 
-    @Override
-    public TransactionOutputId findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    public UnconfirmedTransactionOutputId findUnconfirmedTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionOutputIdentifier.getTransactionHash());
         if (transactionId == null) { return null; }
@@ -134,11 +129,10 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return TransactionOutputId.wrap(row.getLong("id"));
+        return UnconfirmedTransactionOutputId.wrap(row.getLong("id"));
     }
 
-    @Override
-    public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
+    public TransactionOutput getUnconfirmedTransactionOutput(final UnconfirmedTransactionOutputId transactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT * FROM unconfirmed_transaction_outputs WHERE id = ?")
@@ -158,8 +152,7 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         return transactionOutput;
     }
 
-    @Override
-    public TransactionOutput getTransactionOutput(final TransactionId transactionId, final Integer outputIndex) throws DatabaseException {
+    public TransactionOutput getUnconfirmedTransactionOutput(final TransactionId transactionId, final Integer outputIndex) throws DatabaseException {
         final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -182,18 +175,7 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         return transactionOutput;
     }
 
-    @Override
-    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId, final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        // Nothing.
-    }
-
-    @Override
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds, final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        // Nothing.
-    }
-
-    @Override
-    public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
+    public List<UnconfirmedTransactionOutputId> getUnconfirmedTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
         final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -202,41 +184,12 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
                 .setParameter(unconfirmedTransactionId)
         );
 
-        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(rows.size());
+        final MutableList<UnconfirmedTransactionOutputId> transactionOutputIds = new MutableList<UnconfirmedTransactionOutputId>(rows.size());
         for (final Row row : rows) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+            final UnconfirmedTransactionOutputId transactionOutputId =  UnconfirmedTransactionOutputId.wrap(row.getLong("id"));
             transactionOutputIds.add(transactionOutputId);
         }
         return transactionOutputIds;
-    }
-
-    @Override
-    public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
-        final Integer index = transactionOutput.getIndex();
-        final Long amount = transactionOutput.getAmount();
-        final LockingScript lockingScript = transactionOutput.getLockingScript();
-
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        databaseConnection.executeSql(
-            new Query("UPDATE FROM unconfirmed_transaction_outputs SET unconfirmed_transaction_id = ?, `index` = ?, amount = ?, locking_script = ? WHERE id = ?")
-                .setParameter(unconfirmedTransactionId)
-                .setParameter(index)
-                .setParameter(amount)
-                .setParameter(lockingScript.getBytes())
-                .setParameter(transactionOutputId)
-        );
-    }
-
-    @Override
-    public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM unspent_transaction_outputs WHERE id = ?")
-                .setParameter(transactionOutputId)
-        );
-
-        return (rows.isEmpty());
     }
 
     public Boolean isTransactionOutputSpent(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
@@ -250,69 +203,21 @@ public class NonIndexingTransactionOutputDatabaseManager extends TransactionOutp
         return (rows.isEmpty());
     }
 
-    @Override
-    public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
+    public void deleteTransactionOutput(final UnconfirmedTransactionOutputId unconfirmedTransactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         databaseConnection.executeSql(
             new Query("DELETE FROM unconfirmed_transaction_outputs WHERE id = ?")
-                .setParameter(transactionOutputId)
+                .setParameter(unconfirmedTransactionOutputId)
         );
     }
 
-    @Override
-    public TransactionId getTransactionId(final LockingScriptId lockingScriptId) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<LockingScriptId> getLockingScriptsWithUnprocessedTypes(final Integer maxCount) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setLockingScriptType(final LockingScriptId lockingScriptId, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setLockingScriptTypes(final List<LockingScriptId> lockingScriptIds, final List<ScriptType> scriptTypes, final List<AddressId> addressIds, final List<TransactionId> slpTransactionIds) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public LockingScript getLockingScript(final LockingScriptId lockingScriptId) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptIds) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TransactionOutputId getTransactionOutputId(final LockingScriptId lockingScriptId) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TransactionId getTransactionId(final TransactionOutputId transactionOutputId) throws DatabaseException {
+    public TransactionId getTransactionId(final UnconfirmedTransactionOutputId unconfirmedTransactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final UnconfirmedTransactionId unconfirmedTransactionId;
-        {
-            final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id, unconfirmed_transaction_id FROM unconfirmed_transaction_outputs WHERE id = ?")
-                    .setParameter(transactionOutputId)
-            );
-            if (rows.isEmpty()) { return null; }
-
-            final Row row = rows.get(0);
-            unconfirmedTransactionId = UnconfirmedTransactionId.wrap(row.getLong("unconfirmed_transaction_id"));
-        }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_id FROM unconfirmed_transactions WHERE id = ?")
-                .setParameter(transactionOutputId)
+            new Query("SELECT unconfirmed_transactions.transaction_id FROM unconfirmed_transaction_outputs INNER JOIN unconfirmed_transactions ON unconfirmed_transactions.id = unconfirmed_transaction_outputs.unconfirmed_transaction_id WHERE unconfirmed_transaction_outputs.id = ?")
+                .setParameter(unconfirmedTransactionOutputId)
         );
         if (rows.isEmpty()) { return null; }
 

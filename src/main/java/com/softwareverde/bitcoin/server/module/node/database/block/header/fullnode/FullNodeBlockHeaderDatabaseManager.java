@@ -11,27 +11,24 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.HexUtil;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -76,10 +73,6 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
     protected Long _getBlockHeight(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-
-        final Long cachedBlockHeight = databaseManagerCache.getCachedBlockHeight(blockId);
-        if (cachedBlockHeight != null) { return cachedBlockHeight; }
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, block_height FROM blocks WHERE id = ?")
@@ -89,9 +82,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Long blockHeight = row.getLong("block_height");
-        databaseManagerCache.cacheBlockHeight(blockId, blockHeight);
-        return blockHeight;
+        return row.getLong("block_height");
     }
 
     protected Long _getBlockTimestamp(final BlockId blockId) throws DatabaseException {
@@ -311,40 +302,26 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
     protected void _setBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id = ?")
                 .setParameter(blockchainSegmentId)
                 .setParameter(blockId)
         );
-
-        databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
     }
 
     protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (?)")
                 .setParameter(blockchainSegmentId)
                 .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
         );
-
-        for (final BlockId blockId : blockIds) {
-            databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
-        }
     }
 
     protected BlockchainSegmentId _getBlockchainSegmentId(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
-
-        { // Attempt to find BlockchainSegmentId from cache...
-            final BlockchainSegmentId cachedBlockchainSegmentId = databaseManagerCache.getCachedBlockchainSegmentId(blockId);
-            if (cachedBlockchainSegmentId != null) { return cachedBlockchainSegmentId; }
-        }
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, blockchain_segment_id FROM blocks WHERE id = ?")
@@ -353,11 +330,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (rows.isEmpty()) { return null; }
         final Row row = rows.get(0);
 
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
-
-        databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
-
-        return blockchainSegmentId;
+        return BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
     }
 
     protected BlockId _getBlockIdAtBlockHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
