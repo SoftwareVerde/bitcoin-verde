@@ -19,5 +19,4 @@ public interface TransactionDatabaseManager {
     BlockId getBlockId(BlockchainSegmentId blockchainSegmentId, TransactionId transactionId) throws DatabaseException;
     List<BlockId> getBlockIds(TransactionId transactionId) throws DatabaseException;
     List<BlockId> getBlockIds(Sha256Hash transactionHash) throws DatabaseException;
-    TransactionOutput getTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 }

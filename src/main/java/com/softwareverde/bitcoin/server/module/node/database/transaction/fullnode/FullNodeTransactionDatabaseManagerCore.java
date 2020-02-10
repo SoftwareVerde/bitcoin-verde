@@ -656,4 +656,21 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         return transactionOutputs.get(outputIndex);
     }
+
+    @Override
+    public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
+        final TransactionId transactionId = _getTransactionId(transactionHash);
+        if (transactionId == null) { return null; }
+
+        final Transaction transaction = _getTransaction(transactionId);
+        if (transaction == null) { return null; }
+
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        if (outputIndex >= transactionOutputs.getCount()) { return null; }
+
+        return transactionOutputs.get(outputIndex);
+    }
 }

@@ -179,10 +179,6 @@ public class TransactionValidatorCore implements TransactionValidator {
         return true;
     }
 
-    protected Boolean _isTransactionOutputUnspent(final BlockchainSegmentId blockchainSegmentId, final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return true; // MAJOR TODO
-    }
-
     public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _databaseManager = databaseManager;
         _networkTime = networkTime;
@@ -307,16 +303,16 @@ public class TransactionValidatorCore implements TransactionValidator {
                 }
 
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                final Boolean transactionOutputIsUnspent = _isTransactionOutputUnspent(blockchainSegmentId, transactionOutputIdentifierBeingSpent);
-                if (! transactionOutputIsUnspent) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
-                        _logInvalidTransaction(transaction, context);
-                    }
-                    return false;
-                }
+//                final Boolean transactionOutputIsUnspent = _isTransactionOutputUnspent(blockchainSegmentId, transactionOutputIdentifierBeingSpent);
+//                if (! transactionOutputIsUnspent) {
+//                    if (_shouldLogInvalidTransactions) {
+//                        Logger.debug("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+//                        _logInvalidTransaction(transaction, context);
+//                    }
+//                    return false;
+//                }
 
-                final TransactionOutput transactionOutputBeingSpent = transactionDatabaseManager.getTransactionOutput(transactionOutputIdentifierBeingSpent);
+                final TransactionOutput transactionOutputBeingSpent = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                 if (transactionOutputBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         Logger.debug("Transaction output does not exist: " + transactionOutputIdentifierBeingSpent);
