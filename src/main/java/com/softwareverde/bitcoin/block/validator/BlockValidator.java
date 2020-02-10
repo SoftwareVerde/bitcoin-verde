@@ -10,6 +10,9 @@ import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
 import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetCore;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactory;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactoryCore;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -88,7 +91,8 @@ public class BlockValidator {
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
+                final UnspentTransactionOutputSetFactory unspentTransactionOutputSetFactory = new UnspentTransactionOutputSetFactoryCore(block);
+                return new TransactionValidationTaskHandler(_transactionValidatorFactory, unspentTransactionOutputSetFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         });
 

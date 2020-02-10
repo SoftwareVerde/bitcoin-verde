@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -34,9 +33,9 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.NanoTimer;
 
 public class TransactionValidatorCore implements TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
@@ -44,6 +43,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     protected final FullNodeDatabaseManager _databaseManager;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
 
     protected Boolean _shouldLogInvalidTransactions = true;
 
@@ -179,19 +179,20 @@ public class TransactionValidatorCore implements TransactionValidator {
         return true;
     }
 
-    public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
+        Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
+    }
+
+    public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputSet unspentTransactionOutputSet, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _databaseManager = databaseManager;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
     }
 
     @Override
     public void setLoggingEnabled(final Boolean shouldLogInvalidTransactions) {
         _shouldLogInvalidTransactions = shouldLogInvalidTransactions;
-    }
-
-    protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
-        Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
     @Override
@@ -303,16 +304,18 @@ public class TransactionValidatorCore implements TransactionValidator {
                 }
 
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-//                final Boolean transactionOutputIsUnspent = _isTransactionOutputUnspent(blockchainSegmentId, transactionOutputIdentifierBeingSpent);
-//                if (! transactionOutputIsUnspent) {
-//                    if (_shouldLogInvalidTransactions) {
-//                        Logger.debug("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
-//                        _logInvalidTransaction(transaction, context);
-//                    }
-//                    return false;
-//                }
 
-                final TransactionOutput transactionOutputBeingSpent = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+                final TransactionOutput transactionOutputBeingSpent;
+                {
+                    final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
+                    if (unspentTransactionOutputSet != null) {
+                        transactionOutputBeingSpent = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+                    }
+                    else {
+                        transactionOutputBeingSpent = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+                    }
+                }
+
                 if (transactionOutputBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         Logger.debug("Transaction output does not exist: " + transactionOutputIdentifierBeingSpent);

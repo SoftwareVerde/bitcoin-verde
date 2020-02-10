@@ -236,7 +236,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
     }
 
-    protected Transaction _getTransaction(final TransactionId transactionId) throws DatabaseException {
+    protected Transaction _getTransaction(final TransactionId transactionId, final Boolean allowFromUnconfirmedTransactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         { // Attempt to load the Transaction from a Block on disk...
@@ -259,7 +259,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        { // Attempt to load the Transaction from the Unconfirmed Transactions table...
+        if (allowFromUnconfirmedTransactions) { // Attempt to load the Transaction from the Unconfirmed Transactions table...
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT id, hash, version, lock_time FROM unconfirmed_transactions WHERE transaction_id = ?")
                     .setParameter(transactionId)
@@ -309,11 +309,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
-        return _getTransaction(transactionId);
-    }
-
-    public Transaction getTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
-        return _getTransaction(transactionId);
+        return _getTransaction(transactionId, true);
     }
 
     public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
@@ -324,7 +320,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
             if (previousTransactionId == null) { return false; }
 
-            final Transaction previousTransaction = _getTransaction(previousTransactionId);
+            final Transaction previousTransaction = _getTransaction(previousTransactionId, true);
             if (previousTransaction == null) { return false; }
 
             final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
@@ -335,7 +331,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     public void addToUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
-        final Transaction transaction = _getTransaction(transactionId);
+        final Transaction transaction = _getTransaction(transactionId, true);
         if (transaction == null) {
             throw new DatabaseException("Unable to load transaction: " + transactionId);
         }
@@ -347,7 +343,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionIds.getCount());
 
         for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = _getTransaction(transactionId);
+            final Transaction transaction = _getTransaction(transactionId, true);
             if (transaction == null) {
                 throw new DatabaseException("Unable to load transaction: " + transactionId);
             }
@@ -404,7 +400,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         // TODO: Optimize...
         final HashSet<TransactionOutputIdentifier> transactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>();
         for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = _getTransaction(transactionId);
+            final Transaction transaction = _getTransaction(transactionId, true);
             if (transaction == null) {
                 Logger.error("Unable to find Transaction: " + transactionId);
             }
@@ -438,18 +434,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 //                    )
 //                );
 //            }
-            query.setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
-                @Override
-                public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
-                    final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
-                    final Integer previousTransactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-
-                    return new InClauseParameter(
-                        (previousTransactionHash != null ? new TypedParameter(previousTransactionHash.toString()) : TypedParameter.NULL),
-                        (previousTransactionOutputIndex != null ? new TypedParameter(previousTransactionOutputIndex) : TypedParameter.NULL)
-                    );
-                }
-            });
+            query.setInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
             rows = databaseConnection.query(query);
         }
@@ -510,7 +495,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
             if (previousTransactionId == null) { return null; }
 
-            final Transaction previousTransaction = _getTransaction(previousTransactionId);
+            final Transaction previousTransaction = _getTransaction(previousTransactionId, true);
             if (previousTransaction == null) { return null; }
 
             final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
@@ -648,7 +633,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final Transaction transaction = _getTransaction(transactionId);
+        final Transaction transaction = _getTransaction(transactionId, true);
         if (transaction == null) { return null; }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
@@ -662,15 +647,50 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        { // Ensure the output is in the UTXO set...
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                    .setParameter(transactionHash)
+                    .setParameter(outputIndex)
+            );
+            if (rows.isEmpty()) { return null; }
+        }
+
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final Transaction transaction = _getTransaction(transactionId);
+        final Transaction transaction = _getTransaction(transactionId, true);
         if (transaction == null) { return null; }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         if (outputIndex >= transactionOutputs.getCount()) { return null; }
 
         return transactionOutputs.get(outputIndex);
+    }
+
+    @Override
+    public void markTransactionOutputsAsUnspent(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)");
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : unspentTransactionOutputIdentifiers) {
+            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+            query.setParameter(transactionHash);
+            query.setParameter(outputIndex);
+        }
+
+        databaseConnection.executeSql(query);
+    }
+
+    @Override
+    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+            .setInClauseParameters(spentTransactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+        );
     }
 }

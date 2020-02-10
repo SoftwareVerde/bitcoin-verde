@@ -21,6 +21,9 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
@@ -265,7 +268,7 @@ public class BlockProcessor {
                     Logger.trace("Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
-                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
+                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, _networkTime, _medianBlockTime);
                     transactionValidator.setLoggingEnabled(false);
 
                     final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
@@ -291,18 +294,43 @@ public class BlockProcessor {
                     Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
                 }
                 else {
-                    // Remove any transactions in the memory pool that were included in this block...
+                    { // Update the UTXO set...
+                        final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+                        final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+                        final List<Transaction> transactions = block.getTransactions();
+                        for (final Transaction transaction : transactions) {
+                            final Sha256Hash transactionHash = transaction.getHash();
+                            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                            for (final TransactionInput transactionInput : transactionInputs) {
+                                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                                spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                            }
+                            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                            for (int outputIndex = 0; outputIndex < transactionOutputs.getCount(); ++outputIndex) {
+                                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                                unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                            }
+                        }
+                        // NOTE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
+                        transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
+                        transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+                    }
+
                     final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(blockId));
                     transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
-                    transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
 
-                    // Remove any transactions in the memory pool that are now considered double-spends...
-                    final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(transactionIds));
-                    while (! transactionsToRemove.isEmpty()) {
-                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
-                        final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
-                        transactionsToRemove.clear();
-                        transactionsToRemove.addAll(chainedInvalidTransactions);
+                    { // Remove any transactions in the memory pool that were included in this block...
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
+                    }
+
+                    { // Remove any transactions in the memory pool that are now considered double-spends...
+                        final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(transactionIds));
+                        while (! transactionsToRemove.isEmpty()) {
+                            transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
+                            final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
+                            transactionsToRemove.clear();
+                            transactionsToRemove.addAll(chainedInvalidTransactions);
+                        }
                     }
                 }
             }
