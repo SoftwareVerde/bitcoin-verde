@@ -59,7 +59,7 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
             transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
             transaction.addTransactionInput(transactionInput);
         }
-        transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey)));
+        transaction.addTransactionOutput(_createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey)));
 
         final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
         signatureContext.setShouldSignInputScript(0, true, transactionOutput);

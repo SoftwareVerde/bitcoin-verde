@@ -89,7 +89,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
                 //  This transaction will create an output that can be spent by our private key.
                 spendableCoinbase = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 blockWithSpendableCoinbase.addTransaction(spendableCoinbase);
@@ -109,7 +109,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             {
                 final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createTransactionInputThatSpendsTransaction(spendableCoinbase),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 // Sign the transaction..
@@ -125,7 +125,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             {
                 final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createTransactionInputThatSpendsTransaction(spendableCoinbase),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 // Sign the transaction..

@@ -79,12 +79,12 @@ public class SearchApi extends ExplorerApiEndpoint {
                     final AddressInflater addressInflater = new AddressInflater();
                     final Address address;
                     {
-                        final Address base58Address = addressInflater.fromBase58Check(queryParam);
+                        final Address base58Address = addressInflater.uncompressedFromBase58Check(queryParam);
                         if (base58Address != null) {
                             address = base58Address;
                         }
                         else {
-                            address = addressInflater.fromBase32Check(queryParam);
+                            address = addressInflater.uncompressedFromBase32Check(queryParam);
                         }
                     }
 

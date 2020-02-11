@@ -96,7 +96,7 @@ public class BitcoinUtil {
         if (publicKeyUsedForSigning == null) { return false; }
         if (! Util.areEqual(bitcoinMessageSignature.getRecoveryId(), recoveryId.value)) { return false; } // The provided recoveryId was incorrect.
 
-        final Address publicKeyAddress = (isCompressedAddress ? addressInflater.compressedFromPublicKey(publicKeyUsedForSigning) : addressInflater.fromPublicKey(publicKeyUsedForSigning));
+        final Address publicKeyAddress = (isCompressedAddress ? addressInflater.compressedFromPublicKey(publicKeyUsedForSigning) : addressInflater.uncompressedFromPublicKey(publicKeyUsedForSigning));
         return Util.areEqual(address, publicKeyAddress);
     }
 

@@ -235,7 +235,7 @@ public class Wallet {
         final PublicKey decompressedPublicKey = publicKey.decompress();
 
         final AddressInflater addressInflater = new AddressInflater();
-        final Address decompressedAddress = addressInflater.fromPrivateKey(constPrivateKey);
+        final Address decompressedAddress = addressInflater.uncompressedFromPrivateKey(constPrivateKey);
         final Address compressedAddress = addressInflater.compressedFromPrivateKey(constPrivateKey);
 
         _privateKeys.put(compressedPublicKey.asConst(), constPrivateKey);
@@ -386,7 +386,7 @@ public class Wallet {
 
         final AddressInflater addressInflater = new AddressInflater();
         final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
-        final Address address = addressInflater.fromPublicKey(publicKey);
+        final Address address = addressInflater.uncompressedFromPublicKey(publicKey);
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
@@ -924,7 +924,7 @@ public class Wallet {
             bloomFilter.addItem(publicKey.compress());
 
             // Add receiving matchers...
-            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey));
+            bloomFilter.addItem(addressInflater.uncompressedFromPrivateKey(privateKey));
             bloomFilter.addItem(addressInflater.compressedFromPrivateKey(privateKey));
         }
 
@@ -1147,7 +1147,7 @@ public class Wallet {
 
         final AddressInflater addressInflater = new AddressInflater();
         final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
-        final Address address = addressInflater.fromPublicKey(publicKey);
+        final Address address = addressInflater.uncompressedFromPublicKey(publicKey);
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
