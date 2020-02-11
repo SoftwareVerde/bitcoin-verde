@@ -180,6 +180,14 @@ public class AddressInflater {
     }
 
     public Address fromBase32Check(final String base32String) {
+        return _fromBase32Check(base32String, false);
+    }
+
+    public Address compressedFromBase32Check(final String base32String) {
+        return _fromBase32Check(base32String, true);
+    }
+
+    public Address _fromBase32Check(final String base32String, final Boolean isCompressed) {
         { // Check for mixed-casing...
             boolean hasUpperCase = false;
             boolean hasLowerCase = false;
@@ -236,14 +244,24 @@ public class AddressInflater {
         final ByteArray calculatedChecksum = AddressInflater.calculateBase32Checksum(checksumPayload);
         if (! Util.areEqual(calculatedChecksum, checksum)) { return null; }
 
-        if (addressType == 0x08) { // P2SH
+        if (addressType == PayToScriptHashAddress.BASE_32_PREFIX) { // P2SH
             return new PayToScriptHashAddress(hash.getBytes());
         }
 
-        if (addressType == 0x00) { // P2PKH
-            return new Address(hash.getBytes());
+        if (addressType == Address.BASE_32_PREFIX) { // P2PKH
+            if (isCompressed) {
+                return new CompressedAddress(hash.getBytes());
+            }
+            else {
+                return new Address(hash.getBytes());
+            }
         }
 
-        return new Address(hash.getBytes());
+        if (isCompressed) {
+            return new CompressedAddress(hash.getBytes());
+        }
+        else {
+            return new Address(hash.getBytes());
+        }
     }
 }
