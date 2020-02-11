@@ -47,8 +47,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected final MasterInflater _masterInflater;
     protected final BlockCache _blockCache;
 
-    // TODO: Inserting a transaction requires a write lock...
-
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
      */
@@ -672,7 +670,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public List<TransactionOutput> getUnspentTransactionOutputs(final Iterable<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+    public List<TransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+        if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<TransactionOutput>(0); }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Container<Integer> transactionOutputIdentifierCount = new Container<Integer>(0);
@@ -748,9 +748,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public void markTransactionOutputsAsUnspent(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers) throws DatabaseException {
+        if (unspentTransactionOutputIdentifiers.isEmpty()) { return; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)");
+        final Query query = new BatchedInsertQuery("INSERT IGNORE INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)"); // INSERT IGNORE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
         for (final TransactionOutputIdentifier transactionOutputIdentifier : unspentTransactionOutputIdentifiers) {
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
             final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -763,6 +765,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
+        if (spentTransactionOutputIdentifiers.isEmpty()) { return; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")

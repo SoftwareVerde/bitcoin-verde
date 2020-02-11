@@ -85,7 +85,9 @@ public class BitcoinVerdeDatabase implements Database {
                     embeddedMysqlDatabase.setShutdownCallback(onShutdownCallback);
                 }
 
-                return new BitcoinVerdeDatabase(embeddedMysqlDatabase);
+                final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(databaseProperties);
+                final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties, maintenanceCredentials);
+                return new BitcoinVerdeDatabase(embeddedMysqlDatabase, maintenanceDatabaseConnectionFactory);
             }
             else {
                 // Connect to the remote database...
@@ -115,7 +117,7 @@ public class BitcoinVerdeDatabase implements Database {
                     databaseInitializer.initializeDatabase(maintenanceDatabaseConnection);
                 }
 
-                return new BitcoinVerdeDatabase(new MysqlDatabase(databaseProperties, credentials));
+                return new BitcoinVerdeDatabase(new MysqlDatabase(databaseProperties, credentials), maintenanceDatabaseConnectionFactory);
             }
         }
         catch (final DatabaseException exception) {
@@ -125,15 +127,33 @@ public class BitcoinVerdeDatabase implements Database {
         return null;
     }
 
-    protected final MysqlDatabase _core;
+    public static DatabaseConnectionFactory getMaintenanceDatabaseConnectionFactory(final DatabaseProperties databaseProperties) {
 
-    protected BitcoinVerdeDatabase(final MysqlDatabase core) {
+        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer();
+        final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(databaseProperties);
+        final MysqlDatabaseConnectionFactory databaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties, maintenanceCredentials);
+        return new MysqlDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
+    }
+
+    protected final MysqlDatabase _core;
+    protected final MysqlDatabaseConnectionFactory _maintenanceDatabaseConnectionFactory;
+
+    protected BitcoinVerdeDatabase(final MysqlDatabase core, final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory) {
         _core = core;
+        _maintenanceDatabaseConnectionFactory = maintenanceDatabaseConnectionFactory;
     }
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
         return new MysqlDatabaseConnectionWrapper(_core.newConnection());
+    }
+
+    @Override
+    public DatabaseConnection getMaintenanceConnection() throws DatabaseException {
+        if (_maintenanceDatabaseConnectionFactory == null) { return null; }
+
+        final MysqlDatabaseConnection databaseConnection = _maintenanceDatabaseConnectionFactory.newConnection();
+        return new MysqlDatabaseConnectionWrapper(databaseConnection);
     }
 
     @Override

@@ -220,7 +220,6 @@ public class BlockProcessor {
                     return null;
                 }
             }
-            TransactionUtil.commitTransaction(databaseConnection);
 
             final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final Integer byteCount = blockDeflater.getByteCount(block);
@@ -334,6 +333,8 @@ public class BlockProcessor {
                     }
                 }
             }
+
+            TransactionUtil.commitTransaction(databaseConnection);
 
             final Integer blockTransactionCount = block.getTransactions().getCount();
 

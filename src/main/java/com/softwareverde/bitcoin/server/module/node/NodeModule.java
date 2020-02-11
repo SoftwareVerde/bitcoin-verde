@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -24,6 +25,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -54,6 +56,9 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -83,6 +88,8 @@ import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
+    protected final Boolean _rebuildUtxoSet = false;
+
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final BlockCache _blockCache;
@@ -757,7 +764,67 @@ public class NodeModule {
     }
 
     public void loop() {
-        final Runtime runtime = Runtime.getRuntime();
+
+        if (_rebuildUtxoSet) {
+            final Database database = _environment.getDatabase();
+            try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
+                maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
+            }
+            catch (final DatabaseException exception) {
+                Logger.error(exception);
+                return;
+            }
+
+            final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater);
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                long blockHeight = 1; // inclusive
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+
+                while (blockHeight <= maxBlockHeight) {
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
+                    final Block block = blockDatabaseManager.getBlock(blockId);
+                    final List<Transaction> transactions = block.getTransactions();
+
+                    final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+                    final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+                    for (int i = 0; i < transactions.getCount(); ++i) {
+                        final Transaction transaction = transactions.get(i);
+                        final Sha256Hash transactionHash = transaction.getHash();
+
+                        if (i > 0) {
+                            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                                spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                            }
+                        }
+
+                        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                        for (int outputIndex = 0; outputIndex < transactionOutputs.getCount(); ++outputIndex) {
+                            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                            unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                        }
+                    }
+
+                    transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
+                    transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+
+                    System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent");
+                    blockHeight += 1L;
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.error(exception);
+                return;
+            }
+        }
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
