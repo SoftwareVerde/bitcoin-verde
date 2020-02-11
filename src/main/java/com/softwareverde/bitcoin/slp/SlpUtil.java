@@ -42,12 +42,12 @@ public class SlpUtil {
                 final Boolean isGenesisReceiver = Util.areEqual(transactionOutputIndex, SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
                 if (isGenesisReceiver) { return true; }
 
-                // Check for the output being the generator...
+                // Check for the output being the baton...
                 final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
                 if (slpGenesisScript == null) { return false; }
 
-                final Boolean isGenerator = Util.areEqual(transactionOutputIndex, slpGenesisScript.getGeneratorOutputIndex());
-                if (isGenerator) { return true; }
+                final Boolean isBaton = Util.areEqual(transactionOutputIndex, slpGenesisScript.getBatonOutputIndex());
+                if (isBaton) { return true; }
             } break;
 
             case MINT: {
@@ -55,12 +55,12 @@ public class SlpUtil {
                 final Boolean isMintReceiver = Util.areEqual(transactionOutputIndex, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
                 if (isMintReceiver) { return true; }
 
-                // Check for the output being the generator...
+                // Check for the output being the baton...
                 final SlpMintScript slpMintScript = slpScriptInflater.mintScriptFromScript(lockingScript);
                 if (slpMintScript == null) { return false; }
 
-                final Boolean isGenerator = Util.areEqual(transactionOutputIndex, slpMintScript.getGeneratorOutputIndex());
-                if (isGenerator) { return true; }
+                final Boolean isBaton = Util.areEqual(transactionOutputIndex, slpMintScript.getBatonOutputIndex());
+                if (isBaton) { return true; }
             } break;
 
             case SEND: {
@@ -136,14 +136,14 @@ public class SlpUtil {
                 final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
                 if (slpGenesisScript == null) { return false; }
 
-                return Util.areEqual(slpGenesisScript.getGeneratorOutputIndex(), transactionOutputIndex);
+                return Util.areEqual(slpGenesisScript.getBatonOutputIndex(), transactionOutputIndex);
             }
 
             case MINT: {
                 final SlpMintScript slpMintScript = slpScriptInflater.mintScriptFromScript(lockingScript);
                 if (slpMintScript == null) { return false; }
 
-                return Util.areEqual(slpMintScript.getGeneratorOutputIndex(), transactionOutputIndex);
+                return Util.areEqual(slpMintScript.getBatonOutputIndex(), transactionOutputIndex);
             }
         }
 

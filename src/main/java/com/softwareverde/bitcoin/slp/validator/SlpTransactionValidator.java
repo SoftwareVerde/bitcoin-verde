@@ -173,7 +173,7 @@ public class SlpTransactionValidator {
                 if (! Util.areEqual(slpTokenId, SlpTokenId.wrap(previousTransactionHash))) { continue; }
 
                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) previousTransactionSlpScript;
-                if (Util.areEqual(previousTransactionOutputIndex, slpGenesisScript.getGeneratorOutputIndex())) {
+                if (Util.areEqual(previousTransactionOutputIndex, slpGenesisScript.getBatonOutputIndex())) {
                     hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
                     break;
@@ -183,7 +183,7 @@ public class SlpTransactionValidator {
                 final SlpMintScript previousSlpMintScript = (SlpMintScript) previousTransactionSlpScript;
                 if (! Util.areEqual(slpTokenId, previousSlpMintScript.getTokenId())) { continue; }
 
-                if (Util.areEqual(previousTransactionOutputIndex, previousSlpMintScript.getGeneratorOutputIndex())) {
+                if (Util.areEqual(previousTransactionOutputIndex, previousSlpMintScript.getBatonOutputIndex())) {
                     hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
                     break;

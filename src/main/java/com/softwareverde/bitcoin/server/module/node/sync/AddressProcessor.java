@@ -113,10 +113,10 @@ public class AddressProcessor extends SleepyService {
                                         switch (slpScript.getType()) {
                                             case GENESIS: {
                                                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) slpScript;
-                                                final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
+                                                final Integer batonOutputIndex = slpGenesisScript.getBatonOutputIndex();
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getCount())) {
+                                                if ( (batonOutputIndex != null) && (batonOutputIndex >= transactionOutputIds.getCount())) {
                                                     slpTransactionIsValid = false;
                                                 }
                                                 else {
@@ -125,9 +125,9 @@ public class AddressProcessor extends SleepyService {
                                                         ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
                                                     }
 
-                                                    if (generatorOutputIndex != null) {
+                                                    if (batonOutputIndex != null) {
                                                         // Mark the Mint Baton Output as an SLP Output...
-                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
+                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(batonOutputIndex);
                                                         ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
                                                     }
                                                 }
@@ -135,10 +135,10 @@ public class AddressProcessor extends SleepyService {
 
                                             case MINT: {
                                                 final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
-                                                final Integer generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
+                                                final Integer batonOutputIndex = slpMintScript.getBatonOutputIndex();
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getCount())) {
+                                                if ( (batonOutputIndex != null) && (batonOutputIndex >= transactionOutputIds.getCount())) {
                                                     slpTransactionIsValid = false;
                                                 }
                                                 else {
@@ -147,9 +147,9 @@ public class AddressProcessor extends SleepyService {
                                                         ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
                                                     }
 
-                                                    if (generatorOutputIndex != null) {
+                                                    if (batonOutputIndex != null) {
                                                         // Mark the Mint Baton Output as an SLP Output...
-                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
+                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(batonOutputIndex);
                                                         ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
                                                     }
                                                 }

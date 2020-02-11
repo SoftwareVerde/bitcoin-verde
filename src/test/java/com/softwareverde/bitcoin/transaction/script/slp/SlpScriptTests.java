@@ -31,7 +31,7 @@ public class SlpScriptTests {
         slpGenesisScript.setDocumentUrl("https://simpleledger.cash/");
         slpGenesisScript.setDocumentHash(null);
         slpGenesisScript.setDecimalCount(8);
-        slpGenesisScript.setGeneratorOutputIndex(null);
+        slpGenesisScript.setBatonOutputIndex(null);
         slpGenesisScript.setTokenCount(21000000L * Transaction.SATOSHIS_PER_BITCOIN);
 
         // Action
@@ -49,7 +49,7 @@ public class SlpScriptTests {
         final MutableSlpGenesisScript slpGenesisScript = new MutableSlpGenesisScript();
         slpGenesisScript.setTokenName("Bitcoin Cash");
         slpGenesisScript.setTokenCount(0xFFFFFFFFFFFFFFFFL);
-        slpGenesisScript.setGeneratorOutputIndex(null);
+        slpGenesisScript.setBatonOutputIndex(null);
         slpGenesisScript.setTokenAbbreviation("BCH");
         slpGenesisScript.setDocumentUrl(null);
         slpGenesisScript.setDocumentHash(null);

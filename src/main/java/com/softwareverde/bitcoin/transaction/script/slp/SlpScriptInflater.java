@@ -109,14 +109,14 @@ public class SlpScriptInflater {
         if ( (decimalCount < 0) || (decimalCount > 9) ) { return null; }
         slpGenesisScript.setDecimalCount(decimalCount);
 
-        final Value generatorOutputIndexValue = ((PushOperation) operations.get(9)).getValue();
-        final int generatorOutputByteCount = generatorOutputIndexValue.getByteCount();
-        if (generatorOutputByteCount > 1) { return null; }
-        final Integer generatorOutputIndex = (generatorOutputByteCount == 0 ? null : ByteUtil.bytesToInteger(generatorOutputIndexValue.getBytes()));
-        if (generatorOutputByteCount == 1) {
-            if (generatorOutputIndex < 2) { return null; }
+        final Value batonOutputIndexValue = ((PushOperation) operations.get(9)).getValue();
+        final int batonOutputByteCount = batonOutputIndexValue.getByteCount();
+        if (batonOutputByteCount > 1) { return null; }
+        final Integer batonOutputIndex = (batonOutputByteCount == 0 ? null : ByteUtil.bytesToInteger(batonOutputIndexValue.getBytes()));
+        if (batonOutputByteCount == 1) {
+            if (batonOutputIndex < 2) { return null; }
         }
-        slpGenesisScript.setGeneratorOutputIndex(generatorOutputIndex);
+        slpGenesisScript.setBatonOutputIndex(batonOutputIndex);
 
         final Value totalTokenCountValue = ((PushOperation) operations.get(10)).getValue();
         if (totalTokenCountValue.getByteCount() != 8) { return null; }
@@ -135,13 +135,13 @@ public class SlpScriptInflater {
         final List<Operation> operations = lockingScript.getOperations();
         if (operations.getCount() != 7) { return null; }
 
-        final Value generatorOutputIndexValue = ((PushOperation) operations.get(5)).getValue();
-        if (generatorOutputIndexValue.getByteCount() > 1) { return null; }
-        final Integer generatorOutputIndex = ByteUtil.bytesToInteger(generatorOutputIndexValue.getBytes());
-        if (generatorOutputIndexValue.getByteCount() == 1) {
-            if (generatorOutputIndex < 2) { return null; }
+        final Value batonOutputIndexValue = ((PushOperation) operations.get(5)).getValue();
+        if (batonOutputIndexValue.getByteCount() > 1) { return null; }
+        final Integer batonOutputIndex = ByteUtil.bytesToInteger(batonOutputIndexValue.getBytes());
+        if (batonOutputIndexValue.getByteCount() == 1) {
+            if (batonOutputIndex < 2) { return null; }
         }
-        slpMintScript.setGeneratorOutputIndex(generatorOutputIndex);
+        slpMintScript.setBatonOutputIndex(batonOutputIndex);
 
         final Value totalTokenCountValue = ((PushOperation) operations.get(6)).getValue();
         if (totalTokenCountValue.getByteCount() != 8) { return null; }
