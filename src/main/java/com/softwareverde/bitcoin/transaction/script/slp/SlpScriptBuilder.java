@@ -16,7 +16,9 @@ import com.softwareverde.util.Util;
 public class SlpScriptBuilder {
     // All SLP integer values are unsigned and use big-endian encoding.
     protected static ByteArray longToBytes(final Long value) {
-        if (value == 0L) { return new MutableByteArray(0); }
+        // if (value == 0L) { return new MutableByteArray(0); }
+        if (value == 0L) { return new MutableByteArray(1); } // SLP uses non-minimally encoded values for zero.
+
         final MutableByteArray longBytes = MutableByteArray.wrap(ByteUtil.longToBytes(value));
         final int trimByteCount = (Long.numberOfLeadingZeros(value) / 8);
         return MutableByteArray.wrap(longBytes.getBytes(trimByteCount, (8 - trimByteCount)));
@@ -40,13 +42,16 @@ public class SlpScriptBuilder {
         //  PUSH_DATA_SHORT                     (0x4D),
         //  PUSH_DATA_INTEGER                   (0x4E)
 
+        final ByteArray EMPTY_BYTE_ARRAY = new MutableByteArray(0);
+
         final ByteArray tokenAbbreviationBytes = MutableByteArray.wrap(StringUtil.stringToBytes(slpGenesisScript.getTokenAbbreviation()));
         final ByteArray tokenFullNameBytes = MutableByteArray.wrap(StringUtil.stringToBytes(slpGenesisScript.getTokenName()));
-        final ByteArray documentUrlBytes = MutableByteArray.wrap(StringUtil.stringToBytes(slpGenesisScript.getDocumentUrl()));
-        final ByteArray documentHashBytes = Util.coalesce(slpGenesisScript.getDocumentHash(), new MutableByteArray(0));
+        final ByteArray documentUrlBytes = MutableByteArray.wrap(StringUtil.stringToBytes(Util.coalesce(slpGenesisScript.getDocumentUrl(), "")));
+        final ByteArray documentHashBytes = Util.coalesce(slpGenesisScript.getDocumentHash(), EMPTY_BYTE_ARRAY);
 
+        final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
         final ByteArray tokenDecimalBytes = SlpScriptBuilder.longToBytes(Util.coalesce(slpGenesisScript.getDecimalCount()).longValue());
-        final ByteArray generatorOutputIndexBytes = SlpScriptBuilder.longToBytes(Util.coalesce(slpGenesisScript.getGeneratorOutputIndex()).longValue());
+        final ByteArray generatorOutputIndexBytes = (generatorOutputIndex == null ? EMPTY_BYTE_ARRAY : SlpScriptBuilder.longToBytes(generatorOutputIndex.longValue()));
         final ByteArray totalCountCountBytes = SlpScriptBuilder.longToFixedBytes(Util.coalesce(slpGenesisScript.getTokenCount()), 8);
 
         final MutableLockingScript lockingScript = new MutableLockingScript();

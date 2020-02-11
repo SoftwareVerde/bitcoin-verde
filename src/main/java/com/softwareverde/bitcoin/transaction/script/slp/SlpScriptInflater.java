@@ -97,7 +97,7 @@ public class SlpScriptInflater {
         slpGenesisScript.setTokenName(StringUtil.bytesToString(tokenNameValue.getBytes()));
 
         final Value tokenDocumentUrlValue = ((PushOperation) operations.get(6)).getValue();
-        slpGenesisScript.setDocumentUrl(StringUtil.bytesToString(tokenDocumentUrlValue.getBytes()));
+        slpGenesisScript.setDocumentUrl(tokenDocumentUrlValue.getByteCount() > 0 ? StringUtil.bytesToString(tokenDocumentUrlValue.getBytes()) : null);
 
         final Value tokenDocumentHashValue = ((PushOperation) operations.get(7)).getValue();
         if ( (tokenDocumentHashValue.getByteCount() != 0) && (tokenDocumentHashValue.getByteCount() != Sha256Hash.BYTE_COUNT) ) { return null; }
@@ -110,9 +110,10 @@ public class SlpScriptInflater {
         slpGenesisScript.setDecimalCount(decimalCount);
 
         final Value generatorOutputIndexValue = ((PushOperation) operations.get(9)).getValue();
-        if (generatorOutputIndexValue.getByteCount() > 1) { return null; }
-        final Integer generatorOutputIndex = ByteUtil.bytesToInteger(generatorOutputIndexValue.getBytes());
-        if (generatorOutputIndexValue.getByteCount() == 1) {
+        final int generatorOutputByteCount = generatorOutputIndexValue.getByteCount();
+        if (generatorOutputByteCount > 1) { return null; }
+        final Integer generatorOutputIndex = (generatorOutputByteCount == 0 ? null : ByteUtil.bytesToInteger(generatorOutputIndexValue.getBytes()));
+        if (generatorOutputByteCount == 1) {
             if (generatorOutputIndex < 2) { return null; }
         }
         slpGenesisScript.setGeneratorOutputIndex(generatorOutputIndex);
