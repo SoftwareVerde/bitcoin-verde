@@ -632,6 +632,9 @@ public class Wallet {
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 if (! _isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) { continue; }
 
+                final SlpTokenId outputTokenId = _getSlpTokenId(transactionOutputIdentifier);
+                if (! Util.areEqual(slpTokenId, outputTokenId)) { continue; }
+
                 final Long tokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
                 if (tokenAmount == null) { continue; }
                 if (tokenAmount < 1L) { continue; }
