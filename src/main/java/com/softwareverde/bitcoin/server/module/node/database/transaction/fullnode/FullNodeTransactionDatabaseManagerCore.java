@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -29,10 +30,10 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
-import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -668,6 +669,81 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (outputIndex >= transactionOutputs.getCount()) { return null; }
 
         return transactionOutputs.get(outputIndex);
+    }
+
+    @Override
+    public List<TransactionOutput> getUnspentTransactionOutputs(final Iterable<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final Container<Integer> transactionOutputIdentifierCount = new Container<Integer>(0);
+        final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers;
+        { // Only return outputs that are in the UTXO set...
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                    .setInClauseParameters(
+                        transactionOutputIdentifiers,
+                        new ValueExtractor<TransactionOutputIdentifier>() {
+                            @Override
+                            public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
+                                transactionOutputIdentifierCount.value += 1;
+                                return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
+                            }
+                        }
+                    )
+            );
+
+            unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>();
+            for (final Row row : rows) {
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
+                final Integer outputIndex = row.getInteger("index");
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+            }
+        }
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT blocks.hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.hash IN (?) GROUP BY transactions.hash")
+                .setInClauseParameters(unspentTransactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
+                    @Override
+                    public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
+                        return ValueExtractor.SHA256_HASH.extractValues(transactionOutputIdentifier.getTransactionHash());
+                    }
+                })
+        );
+
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(rows.size());
+        for (final Row row : rows) {
+            final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("block_hash"));
+            final Long blockHeight = row.getLong("block_height");
+            final Long diskOffset = row.getLong("disk_offset");
+            final Integer byteCount = row.getInteger("byte_count");
+
+            final ByteArray transactionData = _blockCache.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+            if (transactionData == null) { return null; }
+
+            final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+            final Transaction transaction = ConstUtil.asConstOrNull(transactionInflater.fromBytes(transactionData)); // To ensure Transaction::getGash is constant-time...
+            if (transaction == null) { return null; }
+
+            transactions.put(transaction.getHash(), transaction);
+        }
+
+        final ImmutableListBuilder<TransactionOutput> transactionOutputsBuilder = new ImmutableListBuilder<TransactionOutput>(transactionOutputIdentifierCount.value);
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
+            if (! unspentTransactionOutputIdentifiers.contains(transactionOutputIdentifier)) {
+                transactionOutputsBuilder.add(null);
+                continue;
+            }
+
+            final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+            final Transaction transaction = transactions.get(transactionOutputIdentifier.getTransactionHash());
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
+            transactionOutputsBuilder.add(transactionOutput);
+        }
+
+        return transactionOutputsBuilder.build();
     }
 
     @Override
