@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.*;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -23,7 +24,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.security.secp256k1.Schnorr;
-import com.softwareverde.security.secp256k1.Secp256k1;
 import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.security.secp256k1.signature.Signature;
 import com.softwareverde.security.util.HashUtil;
@@ -526,7 +526,7 @@ public class CryptographicOperation extends SubTypedOperation {
                 signatureIsValid = Schnorr.verifySignature(signature, publicKey, messageHash.unwrap());
             }
             else {
-                signatureIsValid = Secp256k1.verifySignature(signature, publicKey, messageHash.unwrap());
+                signatureIsValid = Secp256k1.verifySignature(signature, publicKey, messageHash);
             }
         }
         else {

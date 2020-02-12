@@ -3,12 +3,12 @@ package com.softwareverde.security.secp256k1;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
+import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
+import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.security.secp256k1.signature.Signature;
-import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.StringUtil;
 import org.junit.Assert;
@@ -51,7 +51,7 @@ public class Secp256k1Tests {
             // Action
             final Signature signature = Secp256k1.sign(privateKey, message);
             long start = System.currentTimeMillis();
-            final Boolean signatureIsValid = NativeSecp256k1.verify(message, signature.encode().getBytes(), publicKey.getBytes());
+            final Boolean signatureIsValid = NativeSecp256k1.verifySignature(message, signature.encode().getBytes(), publicKey.getBytes());
             elapsed += System.currentTimeMillis() - start;
 
             // Assert
@@ -84,10 +84,10 @@ public class Secp256k1Tests {
         final String message = "Milo the dog.";
         final Boolean useCompressedAddress = true;
 
-        final BitcoinMessageSignature signature = BitcoinUtil.signBitcoinMessage(privateKey, message, useCompressedAddress);
+        final BitcoinMessageSignature signature = Secp256k1.signBitcoinMessage(privateKey, message, useCompressedAddress);
 
         final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey));
-        final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
+        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
     }
@@ -102,7 +102,7 @@ public class Secp256k1Tests {
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
         final Address address = addressInflater.fromBase58Check(addressString);
-        final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
+        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
     }
