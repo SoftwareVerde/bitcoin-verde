@@ -604,10 +604,19 @@ public class Wallet {
             long totalAmount = 0L;
             for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputIdentifiersToSpend) {
                 // final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
-                final Long transactionOutputTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
-                if (transactionOutputTokenAmount == null) { return null; }
+                final SlpTokenId outputTokenId = _getSlpTokenId(transactionOutputIdentifier);
+                if (! Util.areEqual(slpTokenId, outputTokenId)) {
+                    if (_isSlpTransactionAndIsValid(transactionOutputIdentifier.getTransactionHash(), shouldIncludeNotYetValidatedTransactions)) {
+                        Logger.warn("Attempt to spend SLP output (" + transactionOutputIdentifier.getTransactionHash() + ":" + transactionOutputIdentifier.getOutputIndex() + ") in a transaction with a different token type.  Is: " + outputTokenId + ", expected: " + slpTokenId);
+                        return null;
+                    }
+                }
+                if (_isSlpTransactionAndIsValid(transactionOutputIdentifier.getTransactionHash(), shouldIncludeNotYetValidatedTransactions)) {
+                    final Long transactionOutputTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
+                    if (transactionOutputTokenAmount == null) { return null; }
 
-                totalAmount += transactionOutputTokenAmount;
+                    totalAmount += transactionOutputTokenAmount;
+                }
 
                 configuration.transactionOutputIdentifiersToSpend.add(transactionOutputIdentifier);
             }
