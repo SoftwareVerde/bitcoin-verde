@@ -603,18 +603,19 @@ public class Wallet {
         { // Calculate the total SLP Token amount selected by the required TransactionOutputs...
             long totalAmount = 0L;
             for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputIdentifiersToSpend) {
-                // final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
                 final SlpTokenId outputTokenId = _getSlpTokenId(transactionOutputIdentifier);
-                if (! Util.areEqual(slpTokenId, outputTokenId)) {
-                    if (_isSlpTransactionAndIsValid(transactionOutputIdentifier.getTransactionHash(), shouldIncludeNotYetValidatedTransactions)) {
-                        Logger.warn("Attempt to spend SLP output (" + transactionOutputIdentifier.getTransactionHash() + ":" + transactionOutputIdentifier.getOutputIndex() + ") in a transaction with a different token type.  Is: " + outputTokenId + ", expected: " + slpTokenId);
-                        return null;
-                    }
+                final Boolean isValidSlpTransaction = _isSlpTransactionAndIsValid(transactionOutputIdentifier.getTransactionHash(), shouldIncludeNotYetValidatedTransactions);
+                if (isValidSlpTransaction == null) {
+                    Logger.error("Unable to add required output " + transactionOutputIdentifier.getTransactionHash() + ":" + transactionOutputIdentifier.getOutputIndex() + " as the transaction is not available.");
+                    return null;
                 }
-                if (_isSlpTransactionAndIsValid(transactionOutputIdentifier.getTransactionHash(), shouldIncludeNotYetValidatedTransactions)) {
-                    final Long transactionOutputTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
-                    if (transactionOutputTokenAmount == null) { return null; }
+                final Boolean isSlpOutput = _isSlpTokenOutput(transactionOutputIdentifier);
+                if (isValidSlpTransaction && isSlpOutput) {
+                    if (! Util.areEqual(slpTokenId, outputTokenId)) {
+                        Logger.warn("Required output " + transactionOutputIdentifier.getTransactionHash() + ":" + transactionOutputIdentifier.getOutputIndex() + " has a different token type (" + outputTokenId + ") than the transaction being created (" + slpTokenId + ").  These tokens will be burned.");
+                    }
 
+                    final Long transactionOutputTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
                     totalAmount += transactionOutputTokenAmount;
                 }
 
