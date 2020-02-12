@@ -988,7 +988,6 @@ public class Wallet {
         _addTransaction(transaction, true);
     }
 
-
     public synchronized void addTransaction(final Transaction transaction, final List<Integer> validOutputIndexes) {
         _addTransaction(transaction, true);
         _markTransactionOutputsAsSpent(transaction, validOutputIndexes);
