@@ -49,7 +49,6 @@ public class ChainValidationModule {
 
         final MutableNetworkTime mutableNetworkTime = new MutableNetworkTime();
         final MutableMedianBlockTime medianBlockTime;
-        final MutableMedianBlockTime medianBlockHeaderTime;
         { // Initialize MedianBlockTime...
             final MasterInflater masterInflater = new CoreInflater();
             final Database database = _environment.getDatabase();
@@ -57,18 +56,15 @@ public class ChainValidationModule {
             final DatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(database.newConnectionFactory(), null, masterInflater);
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
-                MutableMedianBlockTime newMedianBlockHeaderTime = null;
                 try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                     newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
-                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.initializeMedianBlockHeaderTime();
                 }
                 catch (final DatabaseException exception) {
                     Logger.error(exception);
                     BitcoinUtil.exitFailure();
                 }
                 medianBlockTime = newMedianBlockTime;
-                medianBlockHeaderTime = newMedianBlockHeaderTime;
             }
         }
 

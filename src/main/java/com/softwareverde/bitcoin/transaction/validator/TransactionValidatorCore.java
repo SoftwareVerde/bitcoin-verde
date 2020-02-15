@@ -44,6 +44,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final BlockOutputs _blockOutputs;
 
     protected Boolean _shouldLogInvalidTransactions = true;
 
@@ -183,11 +184,12 @@ public class TransactionValidatorCore implements TransactionValidator {
         Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
-    public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputSet unspentTransactionOutputSet, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _databaseManager = databaseManager;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
         _unspentTransactionOutputSet = unspentTransactionOutputSet;
+        _blockOutputs = blockOutputs;
     }
 
     @Override
@@ -307,13 +309,24 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final TransactionOutput transactionOutputBeingSpent;
                 {
+                    TransactionOutput transactionOutput = null;
                     final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
                     if (unspentTransactionOutputSet != null) {
-                        transactionOutputBeingSpent = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+                        transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                     }
-                    else {
-                        transactionOutputBeingSpent = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+
+                    final BlockOutputs blockOutputs = _blockOutputs;
+                    if (blockOutputs != null) {
+                        if (transactionOutput == null) {
+                            transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifierBeingSpent);
+                        }
                     }
+
+                    if (transactionOutput == null) {
+                        transactionOutput = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+                    }
+
+                    transactionOutputBeingSpent = transactionOutput;
                 }
 
                 if (transactionOutputBeingSpent == null) {

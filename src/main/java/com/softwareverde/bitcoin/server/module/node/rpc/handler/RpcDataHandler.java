@@ -457,7 +457,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager);
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null);
 
             final Container<BlockchainSegmentId> blockchainSegmentIdContainer = new Container<BlockchainSegmentId>();
 

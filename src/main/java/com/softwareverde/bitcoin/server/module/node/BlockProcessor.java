@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
@@ -54,6 +55,7 @@ public class BlockProcessor {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
+    protected final MutableUnspentTransactionOutputSet _unspentTransactionOutputSet;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
     protected Integer _maxThreadCount = 4;
@@ -68,6 +70,7 @@ public class BlockProcessor {
         final BlockValidatorFactory blockValidatorFactory,
         final TransactionValidatorFactory transactionValidatorFactory,
         final MutableMedianBlockTime medianBlockTime,
+        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet,
         final OrphanedTransactionsCache orphanedTransactionsCache,
         final BlockCache blockCache
     ) {
@@ -76,6 +79,7 @@ public class BlockProcessor {
         _transactionValidatorFactory = transactionValidatorFactory;
         _blockValidatorFactory = blockValidatorFactory;
 
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
         _medianBlockTime = medianBlockTime;
 
         _startTime = System.currentTimeMillis();
@@ -208,6 +212,7 @@ public class BlockProcessor {
             final Integer byteCount = blockDeflater.getByteCount(block);
             blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
 
+            _unspentTransactionOutputSet.addBlock(block);
             _medianBlockTime.addBlock(block);
 
             final BlockchainSegmentId newHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -250,7 +255,7 @@ public class BlockProcessor {
                     Logger.trace("Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
-                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager);
+                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null);
                     transactionValidator.setLoggingEnabled(false);
 
                     final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();

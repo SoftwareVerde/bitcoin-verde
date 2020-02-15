@@ -59,6 +59,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -441,7 +442,8 @@ public class NodeModule {
             _transactionDownloader = new TransactionDownloader(databaseManagerFactory, _bitcoinNodeManager);
         }
 
-        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(null, _mutableNetworkTime, medianBlockTime);
+        final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = null; // TODO
+        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(mutableUnspentTransactionOutputSet, _mutableNetworkTime, medianBlockTime);
         final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
 
         { // Initialize the TransactionProcessor...
@@ -450,7 +452,7 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, transactionValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockCache);
+            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, transactionValidatorFactory, medianBlockTime, mutableUnspentTransactionOutputSet, orphanedTransactionsCache, _blockCache);
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }

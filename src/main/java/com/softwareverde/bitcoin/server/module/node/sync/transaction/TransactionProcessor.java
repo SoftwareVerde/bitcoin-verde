@@ -67,7 +67,7 @@ public class TransactionProcessor extends SleepyService {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager);
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null);
 
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {

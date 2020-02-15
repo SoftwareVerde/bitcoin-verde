@@ -15,7 +15,7 @@ public class TransactionValidatorFactory {
         _medianBlockTime = medianBlockTime;
     }
 
-    public TransactionValidator newTransactionValidator(final FullNodeDatabaseManager databaseManager) {
-        return new TransactionValidatorCore(databaseManager, _unspentTransactionOutputSet, _networkTime, _medianBlockTime);
+    public TransactionValidator newTransactionValidator(final FullNodeDatabaseManager databaseManager, final BlockOutputs blockOutputs) {
+        return new TransactionValidatorCore(databaseManager, _unspentTransactionOutputSet, blockOutputs, _networkTime, _medianBlockTime);
     }
 }

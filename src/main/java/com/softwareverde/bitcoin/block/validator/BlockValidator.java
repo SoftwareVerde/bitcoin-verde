@@ -21,9 +21,8 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactory;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactoryCore;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
@@ -75,6 +74,7 @@ public class BlockValidator {
             transactions = listBuilder.build();
         }
 
+        final BlockOutputs blockOutputs = BlockOutputs.fromBlock(block);
         final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
         threadPool.setThreadPriority(currentThread.getPriority());
 
@@ -90,8 +90,7 @@ public class BlockValidator {
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                final UnspentTransactionOutputSetFactory unspentTransactionOutputSetFactory = new UnspentTransactionOutputSetFactoryCore(block);
-                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
+                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, blockOutputs, _networkTime, _medianBlockTime);
             }
         });
 
