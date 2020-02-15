@@ -5,7 +5,17 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.network.time.NetworkTime;
 
 public class TransactionValidatorFactory {
-    public TransactionValidator newTransactionValidator(final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputSet unspentTransactionOutputSet, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
-        return new TransactionValidatorCore(databaseManager, unspentTransactionOutputSet, networkTime, medianBlockTime);
+    final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    final NetworkTime _networkTime;
+    final MedianBlockTime _medianBlockTime;
+
+    public TransactionValidatorFactory(final UnspentTransactionOutputSet unspentTransactionOutputSet, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
+        _networkTime = networkTime;
+        _medianBlockTime = medianBlockTime;
+    }
+
+    public TransactionValidator newTransactionValidator(final FullNodeDatabaseManager databaseManager) {
+        return new TransactionValidatorCore(databaseManager, _unspentTransactionOutputSet, _networkTime, _medianBlockTime);
     }
 }

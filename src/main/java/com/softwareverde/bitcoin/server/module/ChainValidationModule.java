@@ -17,6 +17,8 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -41,9 +43,37 @@ public class ChainValidationModule {
     protected final Sha256Hash _startingBlockHash;
     protected final BlockCache _blockCache;
 
-    public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash, final BlockValidatorFactory blockValidatorFactory) {
+    public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
+
+        final MutableNetworkTime mutableNetworkTime = new MutableNetworkTime();
+        final MutableMedianBlockTime medianBlockTime;
+        final MutableMedianBlockTime medianBlockHeaderTime;
+        { // Initialize MedianBlockTime...
+            final MasterInflater masterInflater = new CoreInflater();
+            final Database database = _environment.getDatabase();
+
+            final DatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(database.newConnectionFactory(), null, masterInflater);
+            {
+                MutableMedianBlockTime newMedianBlockTime = null;
+                MutableMedianBlockTime newMedianBlockHeaderTime = null;
+                try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
+                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.initializeMedianBlockHeaderTime();
+                }
+                catch (final DatabaseException exception) {
+                    Logger.error(exception);
+                    BitcoinUtil.exitFailure();
+                }
+                medianBlockTime = newMedianBlockTime;
+                medianBlockHeaderTime = newMedianBlockHeaderTime;
+            }
+        }
+
+        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(null, mutableNetworkTime, medianBlockTime);
+        final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, mutableNetworkTime, medianBlockTime);
         _blockValidatorFactory = blockValidatorFactory;
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
@@ -89,9 +119,8 @@ public class ChainValidationModule {
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
             final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
             final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, blockCache, masterInflater);
-            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
 
-            final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
+            final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory);
             blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(true);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);

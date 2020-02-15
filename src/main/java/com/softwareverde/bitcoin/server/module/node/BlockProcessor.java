@@ -1,10 +1,12 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.validator.*;
+import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
@@ -31,7 +33,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
@@ -45,7 +46,7 @@ public class BlockProcessor {
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
-    protected final NetworkTime _networkTime;
+
     protected final BlockCache _blockCache;
 
     protected final BlockInflaters _blockInflaters;
@@ -61,39 +62,21 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
-        this(
-            databaseManagerFactory,
-            new CoreInflater(),
-            transactionValidatorFactory,
-            networkTime,
-            medianBlockTime,
-            orphanedTransactionsCache,
-            blockCache
-        );
-    }
-
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
-        this(
-            databaseManagerFactory,
-            blockInflaters,
-            new BlockValidatorFactoryCore(),
-            transactionValidatorFactory,
-            networkTime,
-            medianBlockTime,
-            orphanedTransactionsCache,
-            blockCache
-        );
-    }
-
-    public BlockProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache, final BlockCache blockCache) {
+    public BlockProcessor(
+        final FullNodeDatabaseManagerFactory databaseManagerFactory,
+        final BlockInflaters blockInflaters,
+        final BlockValidatorFactory blockValidatorFactory,
+        final TransactionValidatorFactory transactionValidatorFactory,
+        final MutableMedianBlockTime medianBlockTime,
+        final OrphanedTransactionsCache orphanedTransactionsCache,
+        final BlockCache blockCache
+    ) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockInflaters = blockInflaters;
         _transactionValidatorFactory = transactionValidatorFactory;
         _blockValidatorFactory = blockValidatorFactory;
 
         _medianBlockTime = medianBlockTime;
-        _networkTime = networkTime;
 
         _startTime = System.currentTimeMillis();
 
@@ -158,7 +141,7 @@ public class BlockProcessor {
                             return null;
                         }
 
-                        final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
+                        final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager);
                         final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
                         if (! blockHeaderValidationResponse.isValid) {
                             Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
@@ -200,7 +183,7 @@ public class BlockProcessor {
                     final ReadUncommittedDatabaseConnectionFactoryWrapper readUncommittedDatabaseConnectionFactoryWrapper = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
                     final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory.newDatabaseManagerFactory(readUncommittedDatabaseConnectionFactoryWrapper);
 
-                    final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
+                    final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
                     blockValidator.setShouldLogValidBlocks(true);
@@ -267,7 +250,7 @@ public class BlockProcessor {
                     Logger.trace("Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
-                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, _networkTime, _medianBlockTime);
+                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager);
                     transactionValidator.setLoggingEnabled(false);
 
                     final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();

@@ -10,10 +10,6 @@ import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
 import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetCore;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactory;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactoryCore;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -26,6 +22,8 @@ import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactory;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSetFactoryCore;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
@@ -33,6 +31,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -44,7 +43,7 @@ public class BlockValidator {
     public static final Long DO_NOT_TRUST_BLOCKS = -1L;
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final BlockValidatorFactory _blockValidatorFactory;
+    protected final BlockHeaderValidatorFactory _blockHeaderValidatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final SystemTime _systemTime = new SystemTime();
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
@@ -92,7 +91,7 @@ public class BlockValidator {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
                 final UnspentTransactionOutputSetFactory unspentTransactionOutputSetFactory = new UnspentTransactionOutputSetFactoryCore(block);
-                return new TransactionValidationTaskHandler(_transactionValidatorFactory, unspentTransactionOutputSetFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
+                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         });
 
@@ -276,7 +275,7 @@ public class BlockValidator {
 
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-            final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
+            final BlockHeaderValidator blockHeaderValidator = _blockHeaderValidatorFactory.newBlockHeaderValidator(databaseManager);
             final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block, blockHeight);
             if (! blockHeaderValidationResponse.isValid) {
                 return BlockValidationResult.invalid(blockHeaderValidationResponse.errorMessage);
@@ -319,19 +318,9 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-        this(
-            databaseManagerFactory,
-            new BlockValidatorFactoryCore(),
-            transactionValidatorFactory,
-            networkTime,
-            medianBlockTime
-        );
-    }
-
-    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockHeaderValidatorFactory blockHeaderValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseManagerFactory = databaseManagerFactory;
-        _blockValidatorFactory = blockValidatorFactory;
+        _blockHeaderValidatorFactory = blockHeaderValidatorFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;

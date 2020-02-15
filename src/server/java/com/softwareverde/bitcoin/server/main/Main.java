@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
 import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.*;
@@ -277,9 +276,8 @@ public class Main {
 
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
                 final Environment environment = new Environment(database, databaseConnectionPool);
-                final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
 
-                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash, blockValidatorFactory);
+                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
                 chainValidationModule.run();
                 Logger.flush();
             } break;
