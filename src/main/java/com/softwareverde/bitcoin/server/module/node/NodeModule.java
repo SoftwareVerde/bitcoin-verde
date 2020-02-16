@@ -57,7 +57,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
@@ -442,7 +441,7 @@ public class NodeModule {
             _transactionDownloader = new TransactionDownloader(databaseManagerFactory, _bitcoinNodeManager);
         }
 
-        final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = null; // TODO
+        final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
         final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(mutableUnspentTransactionOutputSet, _mutableNetworkTime, medianBlockTime);
         final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
 
@@ -768,6 +767,11 @@ public class NodeModule {
     public void loop() {
 
         if (_rebuildUtxoSet) {
+            final MilliTimer timer = new MilliTimer();
+            timer.start();
+
+            long transactionCount = 0;
+
             final Database database = _environment.getDatabase();
             try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
                 maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
@@ -799,26 +803,26 @@ public class NodeModule {
                     final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
                     for (int i = 0; i < transactions.getCount(); ++i) {
                         final Transaction transaction = transactions.get(i);
-                        final Sha256Hash transactionHash = transaction.getHash();
 
-                        if (i > 0) {
+                        final boolean isCoinbase = (i == 0);
+                        if (! isCoinbase) {
                             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                                 spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                             }
                         }
 
-                        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-                        for (int outputIndex = 0; outputIndex < transactionOutputs.getCount(); ++outputIndex) {
-                            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                            unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                        }
+                        final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+                        unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
                     }
 
                     transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
                     transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
 
-                    System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent");
+                    transactionCount += transactionCount;
+                    timer.stop();
+
+                    System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + timer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / timer.getMillisecondsElapsed()) + " tps)");
                     blockHeight += 1L;
                 }
             }

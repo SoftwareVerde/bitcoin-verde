@@ -173,6 +173,10 @@ public class BlockProcessor {
                 storeBlockTimer.stop();
 
                 if (! transactionsStoredSuccessfully) {
+                    if (_blockCache != null) {
+                        _blockCache.removeBlock(blockHash, blockHeight);
+                    }
+
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return null;
@@ -180,6 +184,13 @@ public class BlockProcessor {
 
                 final int transactionCount = block.getTransactions().getCount();
                 Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+
+                final Boolean unspentTransactionOutputsExistForBlock = _unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block); // Ensure the the UTXOs for this block are pre-loaded into the cache...
+                if (! unspentTransactionOutputsExistForBlock) {
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
+                    return null;
+                }
 
                 final Boolean blockIsValid;
                 { // NOTE: The DatabaseConnectionFactoryWrapper should not be closed.
@@ -286,17 +297,14 @@ public class BlockProcessor {
                         final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
                         final List<Transaction> transactions = block.getTransactions();
                         for (final Transaction transaction : transactions) {
-                            final Sha256Hash transactionHash = transaction.getHash();
                             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                             for (final TransactionInput transactionInput : transactionInputs) {
                                 final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                                 spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                             }
-                            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-                            for (int outputIndex = 0; outputIndex < transactionOutputs.getCount(); ++outputIndex) {
-                                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                                unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                            }
+
+                            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+                            unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
                         }
                         // NOTE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
                         transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);

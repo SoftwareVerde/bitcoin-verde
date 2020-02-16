@@ -75,6 +75,18 @@ public class BlockCache {
         IoUtil.putFileContents(blockPath, byteArray.unwrap());
     }
 
+    public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
+        if (_cachedBlockDirectory == null) { return; }
+
+        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        if (blockPath == null) { return; }
+
+        if (! IoUtil.fileExists(blockPath)) { return; }
+
+        final File file = new File(blockPath);
+        file.delete();
+    }
+
     public Block getCachedBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_cachedBlockDirectory == null) { return null; }
 

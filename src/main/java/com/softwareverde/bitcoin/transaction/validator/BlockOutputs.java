@@ -32,7 +32,7 @@ public class BlockOutputs {
     }
 
     protected BlockOutputs(final Map<TransactionOutputIdentifier, TransactionOutput> transactionOutputs) {
-        _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>(0);
+        _transactionOutputs = transactionOutputs;
     }
 
     public BlockOutputs() {
@@ -40,6 +40,6 @@ public class BlockOutputs {
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return null;
+        return _transactionOutputs.get(transactionOutputIdentifier);
     }
 }

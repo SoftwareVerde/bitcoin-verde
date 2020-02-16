@@ -315,9 +315,9 @@ public class TransactionValidatorCore implements TransactionValidator {
                         transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                     }
 
-                    final BlockOutputs blockOutputs = _blockOutputs;
-                    if (blockOutputs != null) {
-                        if (transactionOutput == null) {
+                    if (transactionOutput == null) {
+                        final BlockOutputs blockOutputs = _blockOutputs;
+                        if (blockOutputs != null) {
                             transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifierBeingSpent);
                         }
                     }
