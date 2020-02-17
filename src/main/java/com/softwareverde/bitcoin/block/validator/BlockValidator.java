@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
@@ -52,7 +53,7 @@ public class BlockValidator {
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = DO_NOT_TRUST_BLOCKS;
 
-    protected BlockValidationResult _validateTransactions(final Block block, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
+    protected BlockValidationResult _validateTransactions(final Block block, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         final Thread currentThread = Thread.currentThread();
 
         final List<Transaction> transactions;
@@ -90,7 +91,7 @@ public class BlockValidator {
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, blockOutputs, _networkTime, _medianBlockTime);
+                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, unspentTransactionOutputSet, blockOutputs, _networkTime, _medianBlockTime);
             }
         });
 
@@ -244,7 +245,7 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidationResult _validateBlock(final BlockId blockId, final Block nullableBlock) {
+    public BlockValidationResult _validateBlock(final BlockId blockId, final Block nullableBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         if (blockId == null) { return BlockValidationResult.invalid("Invalid blockId."); }
 
         final Block block;
@@ -288,10 +289,10 @@ public class BlockValidator {
             return BlockValidationResult.invalid("An internal error occurred.");
         }
 
-        return _validateBlock(blockchainSegmentId, block, blockHeight);
+        return _validateBlock(blockchainSegmentId, block, blockHeight, unspentTransactionOutputSet);
     }
 
-    protected BlockValidationResult _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight) {
+    protected BlockValidationResult _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         if (! block.isValid()) {
             return BlockValidationResult.invalid("Block header is invalid.");
         }
@@ -301,7 +302,7 @@ public class BlockValidator {
             final NanoTimer validateBlockTimer = new NanoTimer();
             validateBlockTimer.start();
 
-            final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockchainSegmentId, blockHeight);
+            final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockchainSegmentId, blockHeight, unspentTransactionOutputSet);
             if (! transactionsValidationResult.isValid) { return transactionsValidationResult; }
 
             validateBlockTimer.stop();
@@ -340,19 +341,19 @@ public class BlockValidator {
      * Validates the provided block for mining.
      *  PrototypeBlock's are valid blocks, with the sole exception of their hash is not required to be valid.
      */
-    public BlockValidationResult validatePrototypeBlock(final BlockId blockId, final Block prototypeBlock) {
+    public BlockValidationResult validatePrototypeBlock(final BlockId blockId, final Block prototypeBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
         final Difficulty difficulty = prototypeBlock.getDifficulty();
         final PrototypeDifficulty prototypeDifficulty = new PrototypeDifficulty(difficulty);
         mutableBlock.setDifficulty(prototypeDifficulty);
-        return _validateBlock(blockId, mutableBlock);
+        return _validateBlock(blockId, mutableBlock, unspentTransactionOutputSet);
     }
 
-    public BlockValidationResult validateBlock(final BlockId blockId, final Block nullableBlock) {
-        return _validateBlock(blockId, nullableBlock);
+    public BlockValidationResult validateBlock(final BlockId blockId, final Block nullableBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
+        return _validateBlock(blockId, nullableBlock, unspentTransactionOutputSet);
     }
 
-    public BlockValidationResult validateBlockTransactions(final BlockId blockId, final Block nullableBlock) {
+    public BlockValidationResult validateBlockTransactions(final BlockId blockId, final Block nullableBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         final Block block;
         final Long blockHeight;
         final BlockchainSegmentId blockchainSegmentId;
@@ -387,7 +388,7 @@ public class BlockValidator {
             return BlockValidationResult.invalid("An internal error occurred.");
         }
 
-        return _validateBlock(blockchainSegmentId, block, blockHeight);
+        return _validateBlock(blockchainSegmentId, block, blockHeight, unspentTransactionOutputSet);
     }
 
     public void setShouldLogValidBlocks(final Boolean shouldLogValidBlocks) {

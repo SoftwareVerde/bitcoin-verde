@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
@@ -23,6 +22,8 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
+import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -30,7 +31,10 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 public class BlockchainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
@@ -47,14 +51,14 @@ public class BlockchainBuilder extends SleepyService {
     protected Boolean _hasGenesisBlock;
     protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
 
-    protected Boolean _processPendingBlock(final PendingBlock pendingBlock) {
+    protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final MutableUnspentTransactionOutputSet transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
 
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
-        final Block block = blockInflater.fromBytes(blockData);
+        final Block block = pendingBlock.inflateBlock(blockInflater);
 
         if (block != null) {
 
@@ -64,7 +68,7 @@ public class BlockchainBuilder extends SleepyService {
                 final Integer originalThreadPriority = currentThread.getPriority();
                 try {
                     currentThread.setPriority(Thread.MAX_PRIORITY);
-                    processedBlockHeight = _blockProcessor.processBlock(block);
+                    processedBlockHeight = _blockProcessor.processBlock(block, transactionOutputSet);
                 }
                 finally {
                     currentThread.setPriority(originalThreadPriority);
@@ -124,6 +128,36 @@ public class BlockchainBuilder extends SleepyService {
         return (blockId != null);
     }
 
+
+    protected void _asynchronouslyLoadNextPendingBlock(final Pin pin, final PendingBlockId nextPendingBlockId, final Container<PendingBlock> nextPendingBlock, final MutableUnspentTransactionOutputSet transactionOutputSet, final FullNodeDatabaseManager databaseManager) {
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+
+                    final MilliTimer milliTimer = new MilliTimer();
+                    milliTimer.start();
+                    nextPendingBlock.value = pendingBlockDatabaseManager.getPendingBlock(nextPendingBlockId);
+                    final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
+                    final Block nextBlock = nextPendingBlock.value.inflateBlock(blockInflater);
+                    transactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock);
+
+                    milliTimer.stop();
+                    Logger.debug("Pre-loaded next block in: " + milliTimer.getMillisecondsElapsed() + "ms.");
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug(exception);
+                    nextPendingBlock.value = null;
+                }
+                finally {
+                    pin.release();
+                }
+            }
+        });
+    }
+
+
     @Override
     protected void _onStart() { }
 
@@ -181,7 +215,7 @@ public class BlockchainBuilder extends SleepyService {
 
                 // Process the first available candidate block...
                 final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
-                final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
+                final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock, null);
                 if (! processCandidateBlockWasSuccessful) {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
@@ -196,14 +230,43 @@ public class BlockchainBuilder extends SleepyService {
 
                 // Process the any viable descendant blocks of the candidate block...
                 PendingBlock previousPendingBlock = candidatePendingBlock;
+                final Container<PendingBlock> nextPendingBlock = new Container<PendingBlock>();
+                final Container<MutableUnspentTransactionOutputSet> nextUnspentTransactionOutputSet = new Container<MutableUnspentTransactionOutputSet>();
                 while (! thread.isInterrupted()) {
                     final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
                     if (pendingBlockIds.isEmpty()) { break; }
 
-                    for (final PendingBlockId pendingBlockId : pendingBlockIds) {
-                        final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId); // NOTE: In the case of a fork, this effectively arbitrarily selects one and relies on the next iteration to process the neglected branch.
+                    for (int i = 0; i < pendingBlockIds.getCount(); ++i) {
+                        final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
+                        final PendingBlock pendingBlock = (nextPendingBlock.value != null ? nextPendingBlock.value : pendingBlockDatabaseManager.getPendingBlock(pendingBlockId)); // NOTE: In the case of a fork, this effectively arbitrarily selects one and relies on the next iteration to process the neglected branch.
+                        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = nextUnspentTransactionOutputSet.value;
+                        if (unspentTransactionOutputSet != null) {
+                            final Block block = previousPendingBlock.getInflatedBlock();
+                            unspentTransactionOutputSet.addBlock(block);
+                        }
 
-                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock);
+                        final Pin pin;
+                        if (pendingBlockIds.getCount() == 1) { // If this block is not a contentious block then preload the next block if it is also not contentious...
+                            final List<PendingBlockId> nextPendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(pendingBlock.getBlockHash());
+                            if (nextPendingBlockIds.getCount() == 1) {
+                                pin = new Pin();
+                                nextUnspentTransactionOutputSet.value = new MutableUnspentTransactionOutputSet();
+                                final PendingBlockId nextPendingBlockId = nextPendingBlockIds.get(0);
+                                _asynchronouslyLoadNextPendingBlock(pin, nextPendingBlockId, nextPendingBlock, nextUnspentTransactionOutputSet.value, databaseManager);
+                            }
+                            else {
+                                nextPendingBlock.value = null;
+                                nextUnspentTransactionOutputSet.value = null;
+                                pin = null;
+                            }
+                        }
+                        else {
+                            nextPendingBlock.value = null;
+                            nextUnspentTransactionOutputSet.value = null;
+                            pin = null;
+                        }
+
+                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputSet);
                         if (! processBlockWasSuccessful) {
                             TransactionUtil.startTransaction(databaseConnection);
                             pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
@@ -217,6 +280,10 @@ public class BlockchainBuilder extends SleepyService {
                         TransactionUtil.commitTransaction(databaseConnection);
 
                         previousPendingBlock = pendingBlock;
+
+                        if (pin != null) {
+                            pin.waitFor();
+                        }
                     }
                 }
             }

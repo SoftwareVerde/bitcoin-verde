@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -46,6 +47,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
 
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final Long _blockHeight;
+    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
     protected final BlockOutputs _blockOutputs;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
@@ -54,18 +56,19 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
 
     protected TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainSegmentId = blockchainSegmentId;
         _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
         _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
         _transactionValidatorFactory = transactionValidatorFactory;
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
         _blockOutputs = blockOutputs;
     }
 
     @Override
     public void init(final FullNodeDatabaseManager databaseManager) {
-        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _blockOutputs);
+        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _unspentTransactionOutputSet, _blockOutputs);
     }
 
     @Override

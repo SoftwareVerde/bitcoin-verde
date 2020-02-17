@@ -11,6 +11,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,7 +20,7 @@ import java.util.Map;
 public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputSet {
     protected Map<TransactionOutputIdentifier, TransactionOutput> _cachedTransactionOutputs;
 
-    public Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block) {
+    public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block) {
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = (transactions.getCount() - 1); // Exclude coinbase...
 
@@ -53,6 +54,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         requiredTransactionOutputs.removeAll(newOutputs); // New outputs created by this block are not added to this UTXO set.
 
+        boolean loadedAllOutputsSuccessfully = true;
         final Map<TransactionOutputIdentifier, TransactionOutput> cachedTransactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>(transactionCount);
         try {
             final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(requiredTransactionOutputs);
@@ -62,8 +64,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
                 final TransactionOutput transactionOutput = transactionOutputs.get(i);
                 if (transactionOutput == null) {
-                    Logger.debug("Could not load output from database: " + transactionOutputIdentifier);
-                    return false;
+                    // Logger.debug("Could not load output from database: " + transactionOutputIdentifier);
+                    loadedAllOutputsSuccessfully = false;
+                    continue; // Continue processing for pre-loading the UTXO set for pending blocks...
                 }
 
                 cachedTransactionOutputs.put(transactionOutputIdentifier, transactionOutput);
@@ -75,7 +78,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         }
 
         _cachedTransactionOutputs = cachedTransactionOutputs;
-        return true;
+        return loadedAllOutputsSuccessfully;
     }
 
     @Override
@@ -83,19 +86,37 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         return _cachedTransactionOutputs.get(transactionOutputIdentifier);
     }
 
-    public void addBlock(Block block) {
-        _cachedTransactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>(0);
+    public synchronized void addBlock(Block block) {
+        // _cachedTransactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>(0);
 
-//        final List<Transaction> transactions = block.getTransactions();
-//        for (final Transaction transaction : transactions) {
-//
-//            { // Remove the spent PreviousTransactionOutputs from the list of outputs to retrieve...
-//                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-//                for (final TransactionInput transactionInput : transactionInputs) {
-//                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-//                    _cachedTransactionOutputs.remove(transactionOutputIdentifier);
-//                }
-//            }
-//        }
+        if (_cachedTransactionOutputs == null) {
+            _cachedTransactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
+        }
+
+        final List<Transaction> transactions = block.getTransactions();
+
+        { // Add the new outputs created by the block...
+            for (final Transaction transaction : transactions) {
+                final Sha256Hash transactionHash = transaction.getHash();
+
+                int outputIndex = 0;
+                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                for (final TransactionOutput transactionOutput : transactionOutputs) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                    _cachedTransactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+                    outputIndex += 1;
+                }
+            }
+        }
+
+        { // Remove the spent PreviousTransactionOutputs from the list of outputs to retrieve...
+            for (final Transaction transaction : transactions) {
+                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                for (final TransactionInput transactionInput : transactionInputs) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                    _cachedTransactionOutputs.remove(transactionOutputIdentifier);
+                }
+            }
+        }
     }
 }

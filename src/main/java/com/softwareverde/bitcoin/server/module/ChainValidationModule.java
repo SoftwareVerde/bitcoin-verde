@@ -68,7 +68,7 @@ public class ChainValidationModule {
             }
         }
 
-        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(null, mutableNetworkTime, medianBlockTime);
+        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(mutableNetworkTime, medianBlockTime);
         final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, mutableNetworkTime, medianBlockTime);
         _blockValidatorFactory = blockValidatorFactory;
 
@@ -175,7 +175,7 @@ public class ChainValidationModule {
                 System.out.println("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
-                final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
+                final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block, null);
 
                 if (! blockValidationResult.isValid) {
                     Logger.error("Invalid block found: " + blockHash + "(" + blockValidationResult.errorMessage + ")");
