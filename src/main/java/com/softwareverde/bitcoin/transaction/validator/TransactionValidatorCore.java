@@ -118,6 +118,26 @@ public class TransactionValidatorCore implements TransactionValidator {
         return true;
     }
 
+    protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
+        if (unspentTransactionOutputSet != null) {
+            final TransactionOutput transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) { return transactionOutput; }
+        }
+
+        final BlockOutputs blockOutputs = _blockOutputs;
+        if (blockOutputs != null) {
+            final TransactionOutput transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) { return transactionOutput; }
+        }
+
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final TransactionOutput transactionOutput = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+        if (transactionOutput != null) { return transactionOutput; }
+
+        return null;
+    }
+
     protected Boolean _validateSequenceNumbers(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final Long blockHeight, final Boolean validateForMemoryPool) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
@@ -200,7 +220,6 @@ public class TransactionValidatorCore implements TransactionValidator {
     @Override
     public Boolean validateTransaction(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean validateForMemoryPool) {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final Sha256Hash transactionHash = transaction.getHash();
 
@@ -261,12 +280,6 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         final Long totalTransactionInputValue;
         try {
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            if (transactionId == null) {
-                Logger.debug("Could not find transaction: " + transactionHash);
-                return false;
-            }
-
             long totalInputValue = 0L;
 
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
@@ -281,18 +294,19 @@ public class TransactionValidatorCore implements TransactionValidator {
             for (int i = 0; i < transactionInputs.getCount(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
-                final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final TransactionId transactionOutputBeingSpentTransactionId = transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
-                if (transactionOutputBeingSpentTransactionId == null) {
-                    if (_shouldLogInvalidTransactions) {
-                        _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
-                    }
-                    return false;
-                }
-
                 { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
                     final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash()));
                     if (transactionOutputBeingSpentIsCoinbaseTransaction) {
+                        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+                        final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                        final TransactionId transactionOutputBeingSpentTransactionId = transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
+                        if (transactionOutputBeingSpentTransactionId == null) {
+                            if (_shouldLogInvalidTransactions) {
+                                _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
+                            }
+                            return false;
+                        }
+
                         final BlockId transactionOutputBeingSpentBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionOutputBeingSpentTransactionId);
                         final Long blockHeightOfTransactionOutputBeingSpent = blockHeaderDatabaseManager.getBlockHeight(transactionOutputBeingSpentBlockId);
                         final Long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
@@ -307,28 +321,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
 
-                final TransactionOutput transactionOutputBeingSpent;
-                {
-                    TransactionOutput transactionOutput = null;
-                    final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
-                    if (unspentTransactionOutputSet != null) {
-                        transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
-                    }
-
-                    if (transactionOutput == null) {
-                        final BlockOutputs blockOutputs = _blockOutputs;
-                        if (blockOutputs != null) {
-                            transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifierBeingSpent);
-                        }
-                    }
-
-                    if (transactionOutput == null) {
-                        transactionOutput = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
-                    }
-
-                    transactionOutputBeingSpent = transactionOutput;
-                }
-
+                final TransactionOutput transactionOutputBeingSpent = _getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                 if (transactionOutputBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         Logger.debug("Transaction output does not exist: " + transactionOutputIdentifierBeingSpent);

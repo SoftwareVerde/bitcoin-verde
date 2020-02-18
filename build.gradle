@@ -43,7 +43,7 @@ dependencies {
     // Library
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
+    implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.64'
     implementation  group: 'org.mariadb.jdbc',          name: 'mariadb-java-client',    version: '2.4.1'
 
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.1.0'

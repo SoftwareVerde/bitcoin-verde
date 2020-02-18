@@ -83,7 +83,7 @@ public class BlockValidator {
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
             @Override
             public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
-                return new TotalExpenditureTaskHandler(queuedTransactionOutputs);
+                return new TotalExpenditureTaskHandler(unspentTransactionOutputSet, blockOutputs);
             }
         });
 
