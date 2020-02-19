@@ -305,16 +305,23 @@ public class BlockProcessor {
                         final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
                         final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
                         final List<Transaction> transactions = block.getTransactions();
+
+                        boolean isCoinbaseTransaction = true;
                         for (final Transaction transaction : transactions) {
-                            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                            for (final TransactionInput transactionInput : transactionInputs) {
-                                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                                spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                            if (! isCoinbaseTransaction) {
+                                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                                for (final TransactionInput transactionInput : transactionInputs) {
+                                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                                    spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                                }
                             }
 
                             final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
                             unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
+
+                            isCoinbaseTransaction = false;
                         }
+
                         // NOTE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
                         transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
                         transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
