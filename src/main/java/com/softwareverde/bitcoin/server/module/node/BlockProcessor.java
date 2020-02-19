@@ -48,7 +48,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
-    protected final BlockCache _blockCache;
+    protected final BlockStore _blockStore;
 
     protected final BlockInflaters _blockInflaters;
     protected final BlockValidatorFactory _blockValidatorFactory;
@@ -72,7 +72,7 @@ public class BlockProcessor {
         final MutableMedianBlockTime medianBlockTime,
         // final MutableUnspentTransactionOutputSet unspentTransactionOutputSet,
         final OrphanedTransactionsCache orphanedTransactionsCache,
-        final BlockCache blockCache
+        final BlockStore blockStore
     ) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockInflaters = blockInflaters;
@@ -85,7 +85,7 @@ public class BlockProcessor {
         _startTime = System.currentTimeMillis();
 
         _orphanedTransactionsCache = orphanedTransactionsCache;
-        _blockCache = blockCache;
+        _blockStore = blockStore;
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
@@ -169,14 +169,14 @@ public class BlockProcessor {
             {
                 storeBlockTimer.start();
                 final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
-                if (_blockCache != null) {
-                    _blockCache.cacheBlock(block, blockHeight);
+                if (_blockStore != null) {
+                    _blockStore.storeBlock(block, blockHeight);
                 }
                 storeBlockTimer.stop();
 
                 if (! transactionsStoredSuccessfully) {
-                    if (_blockCache != null) {
-                        _blockCache.removeBlock(blockHash, blockHeight);
+                    if (_blockStore != null) {
+                        _blockStore.removeBlock(blockHash, blockHeight);
                     }
 
                     TransactionUtil.rollbackTransaction(databaseConnection);

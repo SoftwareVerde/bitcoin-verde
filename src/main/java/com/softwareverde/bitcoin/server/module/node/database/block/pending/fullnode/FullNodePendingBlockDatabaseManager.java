@@ -1,18 +1,17 @@
 package com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -31,7 +30,20 @@ import java.util.Map;
 public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManager _databaseManager;
-    protected final BlockDeflater _blockDeflater;
+    protected final PendingBlockStore _blockStore;
+
+    protected Sha256Hash _getPendingBlockHash(final PendingBlockId pendingBlockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash FROM pending_blocks WHERE id = ?")
+                .setParameter(pendingBlockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return Sha256Hash.fromHexString(row.getString("hash"));
+    }
 
     protected PendingBlockId _getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -112,23 +124,32 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         );
     }
 
-    protected void _insertPendingBlockData(final PendingBlockId pendingBlockId, final ByteArray blockData) throws DatabaseException {
+    protected void _insertPendingBlockData(final PendingBlockId pendingBlockId, final Block pendingBlock) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        _blockStore.storePendingBlock(pendingBlock);
+
         databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO pending_block_data (pending_block_id, data) VALUES (?, ?)")
+            new Query("UPDATE pending_blocks SET was_downloaded = 1 WHERE id = ?")
                 .setParameter(pendingBlockId)
-                .setParameter(blockData.getBytes())
         );
     }
 
     protected void _deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        // Load the block hash before the record is deleted...
+        final Sha256Hash blockHash = _getPendingBlockHash(pendingBlockId);
+
         databaseConnection.executeSql(
             new Query("DELETE FROM pending_blocks WHERE id = ?")
                 .setParameter(pendingBlockId)
         );
+
+        // Remove the block data only after the query succeeds...
+        if (blockHash != null) {
+            _blockStore.removePendingBlock(blockHash);
+        }
     }
 
     protected void _deletePendingBlocks(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
@@ -136,33 +157,47 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         if (pendingBlockIds.isEmpty()) { return; }
 
+        // Load the block hashes before the records are deleted...
+        final MutableList<Sha256Hash> pendingBlockHashes = new MutableList<Sha256Hash>(pendingBlockIds.getCount());
+        for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+            final Sha256Hash blockHash = _getPendingBlockHash(pendingBlockId);
+            if (blockHash != null) {
+                pendingBlockHashes.add(blockHash);
+            }
+        }
+
         databaseConnection.executeSql(
             new Query("DELETE FROM pending_blocks WHERE id IN (?)")
                 .setInClauseParameters(pendingBlockIds, ValueExtractor.IDENTIFIER)
         );
+
+        // Remove the block data only after the query succeeds...
+        for (final Sha256Hash blockHash : pendingBlockHashes) {
+            if (blockHash != null) {
+                _blockStore.removePendingBlock(blockHash);
+            }
+        }
     }
 
     protected Boolean _hasBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM pending_block_data WHERE pending_block_id = ?")
+            new Query("SELECT id, hash, was_downloaded FROM pending_blocks WHERE id = ?")
                 .setParameter(pendingBlockId)
         );
-        return (rows.size() > 0);
+        if (rows.isEmpty()) { return false; }
+
+        final Row row = rows.get(0);
+        final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Boolean wasDownloaded = row.getBoolean("was_downloaded");
+        if (! wasDownloaded) { return false; }
+
+        return _blockStore.doesPendingBlockExist(blockHash);
     }
 
     protected ByteArray _getBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, data FROM pending_block_data WHERE pending_block_id = ?")
-                .setParameter(pendingBlockId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return MutableByteArray.wrap(row.getBytes("data"));
+        return _getPendingBlockHash(pendingBlockId);
     }
 
     protected PendingBlock _getPendingBlock(final PendingBlockId pendingBlockId, final Boolean includeDataIfAvailable) throws DatabaseException {
@@ -177,10 +212,11 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final Row row = rows.get(0);
         final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
         final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(row.getString("previous_block_hash"));
+
         final ByteArray blockData;
         {
             if (includeDataIfAvailable) {
-                blockData = _getBlockData(pendingBlockId);
+                blockData = _blockStore.getPendingBlockData(blockHash);
             }
             else {
                 blockData = null;
@@ -190,14 +226,9 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         return new PendingBlock(blockHash, previousBlockHash, blockData);
     }
 
-    public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager) {
+    public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager, final PendingBlockStore blockStore) {
         _databaseManager = databaseManager;
-        _blockDeflater = new BlockDeflater();
-    }
-
-    public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager, final BlockDeflater blockDeflater) {
-        _databaseManager = databaseManager;
-        _blockDeflater = blockDeflater;
+        _blockStore = blockStore;
     }
 
     public PendingBlockId getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
@@ -327,7 +358,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                 }
             }
 
-            _insertPendingBlockData(pendingBlockId, _blockDeflater.toBytes(block));
+            _insertPendingBlockData(pendingBlockId, block);
             return pendingBlockId;
 
         }
@@ -344,7 +375,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             READ_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT blocks.block_height, pending_blocks.hash FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?) LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_block_data.id IS NULL) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
+                new Query("SELECT blocks.block_height, pending_blocks.hash FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?) LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_blocks.was_downloaded = 0) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
                     .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
             );
 
@@ -443,7 +474,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND (node_blocks_inventory.node_id IN (?)) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
+                new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_blocks.was_downloaded = 0) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND (node_blocks_inventory.node_id IN (?)) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
                     .setParameter(currentTimestamp)
                     .setParameter(minSecondsBetweenDownloadAttempts)
                     .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
@@ -470,12 +501,17 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             READ_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 1")
+                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE pending_blocks.was_downloaded = 1  GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 128")
             );
-            if (rows.isEmpty()) { return null; }
 
-            final Row row = rows.get(0);
-            return PendingBlockId.wrap(row.getLong("id"));
+            for (final Row row : rows) {
+                final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
+                if (_hasBlockData(pendingBlockId)) {
+                    return pendingBlockId;
+                }
+            }
+
+            return null;
 
         }
         finally {
@@ -565,7 +601,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE pending_blocks.failed_download_count > ? AND pending_block_data.id IS NULL")
+                new Query("SELECT pending_blocks.id FROM pending_blocks WHERE pending_blocks.failed_download_count > ? AND pending_blocks.was_downloaded = 0")
                     .setParameter(maxFailedDownloadCount)
             );
 
@@ -596,8 +632,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
             final java.util.List<Row> rows = databaseConnection.query(
                 // "Delete any pending_blocks that have not already been downloaded and do not have a connected node to download from..."
-                // new Query("SELECT pending_blocks.id FROM pending_blocks WHERE NOT EXISTS (SELECT * FROM pending_block_data WHERE pending_block_data.pending_block_id = pending_blocks.id) AND NOT EXISTS (SELECT * FROM node_blocks_inventory WHERE node_blocks_inventory.node_id IN () AND node_blocks_inventory.pending_block_id = pending_blocks.id)") // This query is easier to understand, but is likely to perform worse...
-                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON (node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?)) LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE node_blocks_inventory.id IS NULL AND pending_block_data.id IS NULL")
+                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON (node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?)) WHERE node_blocks_inventory.id IS NULL AND pending_blocks.was_downloaded = 0")
                     .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
             );
 

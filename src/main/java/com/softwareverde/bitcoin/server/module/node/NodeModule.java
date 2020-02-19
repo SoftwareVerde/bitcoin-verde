@@ -91,7 +91,7 @@ public class NodeModule {
 
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
-    protected final BlockCache _blockCache;
+    protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
@@ -141,7 +141,7 @@ public class NodeModule {
         requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
         try (final DatabaseConnection databaseConnection = database.newConnection()) {
-            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, _blockCache, _masterInflater);
+            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, _blockStore, _masterInflater);
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
@@ -250,8 +250,9 @@ public class NodeModule {
         _masterInflater = new CoreInflater();
 
         { // Initialize the BlockCache...
-            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-            _blockCache = new BlockCache(blockCacheDirectory, _masterInflater);
+            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
+            final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
+            _blockStore = new PendingBlockStore(blockCacheDirectory, pendingBlockCacheDirectory, _masterInflater);
         }
 
         _bitcoinProperties = bitcoinProperties;
@@ -283,7 +284,7 @@ public class NodeModule {
         });
 
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
 
         _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
 
@@ -353,7 +354,7 @@ public class NodeModule {
             }
         };
 
-        _requestDataHandler = new RequestDataHandler(databaseManagerFactory, _blockCache);
+        _requestDataHandler = new RequestDataHandler(databaseManagerFactory, _blockStore);
         final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(_requestDataHandler);
         { // Initialize the monitor with transactions from the memory pool...
             Logger.info("[Loading RequestDataHandlerMonitor]");
@@ -449,13 +450,13 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, transactionValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockCache);
+            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, transactionValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockStore);
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
 
         { // Initialize the BlockDownloader...
-            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, _blockCache);
+            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, _blockStore);
         }
 
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
@@ -492,8 +493,8 @@ public class NodeModule {
                 public void onNewBlock(final Long blockHeight, final Block block) {
                     final Sha256Hash blockHash = block.getHash();
 
-                    if (_blockCache != null) {
-                        _blockCache.cacheBlock(block, blockHeight);
+                    if (_blockStore != null) {
+                        _blockStore.storeBlock(block, blockHeight);
                     }
 
                     _addressProcessor.wakeUp();
@@ -659,7 +660,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
                 final BlockValidator blockValidator = blockValidatorFactory.newBlockValidator(databaseManagerFactory);
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, transactionValidatorFactory, _blockCache);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, transactionValidatorFactory, _blockStore);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
@@ -780,7 +781,7 @@ public class NodeModule {
             }
 
             final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 long blockHeight = 1; // inclusive
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
@@ -833,7 +834,7 @@ public class NodeModule {
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
             final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockCache, _masterInflater);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
             final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
             headersBootstrapper.run();
         }

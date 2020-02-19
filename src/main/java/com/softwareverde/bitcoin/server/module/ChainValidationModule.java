@@ -16,7 +16,7 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -41,16 +41,16 @@ public class ChainValidationModule {
     protected final Environment _environment;
     protected final BlockValidatorFactory _blockValidatorFactory;
     protected final Sha256Hash _startingBlockHash;
-    protected final BlockCache _blockCache;
+    protected final PendingBlockStore _blockStore;
 
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
+        final MasterInflater masterInflater = new CoreInflater();
         final MutableNetworkTime mutableNetworkTime = new MutableNetworkTime();
         final MutableMedianBlockTime medianBlockTime;
         { // Initialize MedianBlockTime...
-            final MasterInflater masterInflater = new CoreInflater();
             final Database database = _environment.getDatabase();
 
             final DatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(database.newConnectionFactory(), null, masterInflater);
@@ -76,11 +76,12 @@ public class ChainValidationModule {
 
         { // Initialize the BlockCache...
             if (bitcoinProperties.isBlockCacheEnabled()) {
-                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-                _blockCache = new BlockCache(blockCacheDirectory);
+                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
+                final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
+                _blockStore = new PendingBlockStore(blockCacheDirectory, pendingBlockCacheDirectory, masterInflater);
             }
             else {
-                _blockCache = null;
+                _blockStore = null;
             }
         }
     }
@@ -93,28 +94,19 @@ public class ChainValidationModule {
         // final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         final MasterInflater masterInflater = new CoreInflater();
-        final BlockCache blockCache;
-
-        { // Initialize the BlockCache...
-            final String blockCacheDirectory = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-            blockCache = new BlockCache(blockCacheDirectory, masterInflater);
-        }
 
         Sha256Hash nextBlockHash = _startingBlockHash;
         try (final DatabaseConnection databaseConnection = database.newConnection();) {
 
-            final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, blockCache, masterInflater);
+            final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, _blockStore, masterInflater);
 
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final NetworkTime networkTime = new MutableNetworkTime();
-            final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
-
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
             final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, blockCache, masterInflater);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _blockStore, masterInflater);
 
             final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory);
             blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
@@ -158,8 +150,8 @@ public class ChainValidationModule {
                 final Block block;
                 {
                     Block cachedBlock = null;
-                    if (_blockCache != null) {
-                        cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                    if (_blockStore != null) {
+                        cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
                     }
 
                     if (cachedBlock != null) {
@@ -182,8 +174,8 @@ public class ChainValidationModule {
                     break;
                 }
 
-                if ( (! blockIsCached) && (_blockCache != null) ) {
-                    _blockCache.cacheBlock(block, blockHeight);
+                if ( (! blockIsCached) && (_blockStore != null) ) {
+                    _blockStore.storeBlock(block, blockHeight);
                 }
 
                 nextBlockHash = null;

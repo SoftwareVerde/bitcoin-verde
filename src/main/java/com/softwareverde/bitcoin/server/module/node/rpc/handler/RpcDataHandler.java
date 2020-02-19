@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -49,16 +49,16 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final BlockValidator _blockValidator;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final BlockDownloader _blockDownloader;
-    protected final BlockCache _blockCache;
+    protected final BlockStore _blockStore;
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final TransactionValidatorFactory transactionValidatorFactory, final BlockCache blockCache) {
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final TransactionValidatorFactory transactionValidatorFactory, final BlockStore blockStore) {
         _databaseManagerFactory = databaseManagerFactory;
 
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
         _blockValidator = blockValidator;
         _transactionValidatorFactory = transactionValidatorFactory;
-        _blockCache = blockCache;
+        _blockStore = blockStore;
     }
 
     @Override
@@ -228,9 +228,9 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
             if (blockId == null) { return null; }
 
-            if (_blockCache != null) {
+            if (_blockStore != null) {
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
                 if (cachedBlock != null) {
                     return cachedBlock;
                 }
@@ -238,8 +238,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final Block block = blockDatabaseManager.getBlock(blockId);
 
-            if (_blockCache != null) {
-                _blockCache.cacheBlock(block, blockHeight);
+            if (_blockStore != null) {
+                _blockStore.storeBlock(block, blockHeight);
             }
 
             return block;
@@ -259,10 +259,10 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { return null; }
 
-            final Long blockHeight = (_blockCache != null ? blockHeaderDatabaseManager.getBlockHeight(blockId) : null);
+            final Long blockHeight = (_blockStore != null ? blockHeaderDatabaseManager.getBlockHeight(blockId) : null);
 
-            if (_blockCache != null) {
-                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+            if (_blockStore != null) {
+                final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
                 if (cachedBlock != null) {
                     return cachedBlock;
                 }
@@ -271,8 +271,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final Block block = blockDatabaseManager.getBlock(blockId);
             if (block == null) { return null; }
 
-            if (_blockCache != null) {
-                _blockCache.cacheBlock(block, blockHeight);
+            if (_blockStore != null) {
+                _blockStore.storeBlock(block, blockHeight);
             }
 
             return block;

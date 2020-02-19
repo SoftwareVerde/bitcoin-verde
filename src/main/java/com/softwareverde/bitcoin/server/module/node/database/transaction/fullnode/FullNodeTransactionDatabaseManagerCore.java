@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -45,7 +45,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
-    protected final BlockCache _blockCache;
+    protected final BlockStore _blockStore;
 
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
@@ -250,7 +250,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 final Long diskOffset = row.getLong("disk_offset");
                 final Integer byteCount = row.getInteger("byte_count");
 
-                final ByteArray transactionData = _blockCache.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+                final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
                 if (transactionData == null) { return null; }
 
                 final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
@@ -301,10 +301,10 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return null;
     }
 
-    public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockCache blockCache, final MasterInflater masterInflater) {
+    public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
         _databaseManager = databaseManager;
         _masterInflater = masterInflater;
-        _blockCache = blockCache;
+        _blockStore = blockStore;
     }
 
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
@@ -719,7 +719,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final Long diskOffset = row.getLong("disk_offset");
             final Integer byteCount = row.getInteger("byte_count");
 
-            final ByteArray transactionData = _blockCache.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+            final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
             if (transactionData == null) { return null; }
 
             final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();

@@ -1,69 +1,64 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.util.ByteBuffer;
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.ByteBuffer;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.io.File;
 import java.io.RandomAccessFile;
 
-public class BlockCache {
+public class BlockStore {
     protected final BlockInflaters _blockInflaters;
-    protected final String _cachedBlockDirectory;
-    protected final Integer _blocksPerCacheDirectory = 2016; // About 2 weeks...
+    protected final String _blockDataDirectory;
+    protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
 
     protected final ByteBuffer _byteBuffer = new ByteBuffer();
 
-    protected String _getCachedBlockDirectory(final Long blockHeight) {
-        final String cachedBlockDirectory = _cachedBlockDirectory;
-        if (cachedBlockDirectory == null) { return null; }
+    protected String _getBlockDataDirectory(final Long blockHeight) {
+        final String blockDataDirectory = _blockDataDirectory;
+        if (blockDataDirectory == null) { return null; }
 
-        final Long blockHeightDirectory = (blockHeight / _blocksPerCacheDirectory);
-        return (cachedBlockDirectory + "/" + blockHeightDirectory);
+        final Long blockHeightDirectory = (blockHeight / _blocksPerDirectoryCount);
+        return (blockDataDirectory + "/" + blockHeightDirectory);
     }
 
-    protected String _getCachedBlockPath(final Sha256Hash blockHash, final Long blockHeight) {
-        final String cachedBlockDirectory = _cachedBlockDirectory;
-        if (cachedBlockDirectory == null) { return null; }
+    protected String _getBlockDataPath(final Sha256Hash blockHash, final Long blockHeight) {
+        final String blockDataDirectory = _blockDataDirectory;
+        if (blockDataDirectory == null) { return null; }
 
-        final String blockHeightDirectory = _getCachedBlockDirectory(blockHeight);
+        final String blockHeightDirectory = _getBlockDataDirectory(blockHeight);
         return (blockHeightDirectory + "/" + blockHash);
     }
 
-    public BlockCache(final String cachedBlockDirectory) {
-        this(cachedBlockDirectory, new CoreInflater());
-    }
-
-    public BlockCache(final String cachedBlockDirectory, final BlockInflaters blockInflaters) {
+    public BlockStore(final String blockDataDirectory, final BlockInflaters blockInflaters) {
+        _blockDataDirectory = blockDataDirectory;
         _blockInflaters = blockInflaters;
-        _cachedBlockDirectory = cachedBlockDirectory;
     }
 
-    public void cacheBlock(final Block block, final Long blockHeight) {
-        if (_cachedBlockDirectory == null) { return; }
+    public void storeBlock(final Block block, final Long blockHeight) {
+        if (_blockDataDirectory == null) { return; }
 
         final Sha256Hash blockHash = block.getHash();
 
-        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
         if (blockPath == null) { return; }
 
         if (IoUtil.fileExists(blockPath)) { return; }
 
         { // Create the directory, if necessary...
-            final String cacheDirectory = _getCachedBlockDirectory(blockHeight);
-            final File directory = new File(cacheDirectory);
+            final String dataDirectory = _getBlockDataDirectory(blockHeight);
+            final File directory = new File(dataDirectory);
             if (! directory.exists()) {
                 final Boolean mkdirSuccessful = directory.mkdirs();
                 if (! mkdirSuccessful) {
-                    Logger.warn("Unable to create block cache directory: " + cacheDirectory);
+                    Logger.warn("Unable to create block data directory: " + dataDirectory);
                     return;
                 }
             }
@@ -76,9 +71,9 @@ public class BlockCache {
     }
 
     public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
-        if (_cachedBlockDirectory == null) { return; }
+        if (_blockDataDirectory == null) { return; }
 
-        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
         if (blockPath == null) { return; }
 
         if (! IoUtil.fileExists(blockPath)) { return; }
@@ -87,10 +82,10 @@ public class BlockCache {
         file.delete();
     }
 
-    public Block getCachedBlock(final Sha256Hash blockHash, final Long blockHeight) {
-        if (_cachedBlockDirectory == null) { return null; }
+    public Block getBlock(final Sha256Hash blockHash, final Long blockHeight) {
+        if (_blockDataDirectory == null) { return null; }
 
-        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
         if (blockPath == null) { return null; }
 
         if (! IoUtil.fileExists(blockPath)) { return null; }
@@ -102,9 +97,9 @@ public class BlockCache {
     }
 
     public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
-        if (_cachedBlockDirectory == null) { return null; }
+        if (_blockDataDirectory == null) { return null; }
 
-        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
         if (blockPath == null) { return null; }
 
         if (! IoUtil.fileExists(blockPath)) { return null; }
@@ -129,6 +124,10 @@ public class BlockCache {
                     totalBytesRead += byteCountRead;
                 }
 
+                synchronized (_byteBuffer) {
+                    _byteBuffer.returnRecycledBuffer(buffer);
+                }
+
                 if (totalBytesRead < byteCount) { return null; }
             }
 
@@ -140,7 +139,7 @@ public class BlockCache {
         }
     }
 
-    public String getCachedBlockDirectory() {
-        return _cachedBlockDirectory;
+    public String getBlockDataDirectory() {
+        return _blockDataDirectory;
     }
 }

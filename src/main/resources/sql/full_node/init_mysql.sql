@@ -6,20 +6,12 @@ CREATE TABLE pending_blocks (
     last_download_attempt_timestamp BIGINT UNSIGNED NULL,
     failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
     priority BIGINT NOT NULL,
+    was_downloaded TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY pending_blocks_uq (hash),
     INDEX pending_blocks_ix1 (priority) USING BTREE,
-    INDEX pending_blocks_ix2 (failed_download_count) USING BTREE,
+    INDEX pending_blocks_ix2 (was_downloaded, failed_download_count) USING BTREE,
     INDEX pending_blocks_ix3 (previous_block_hash) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
-
-CREATE TABLE pending_block_data (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    pending_block_id INT UNSIGNED NOT NULL,
-    data LONGBLOB NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY pending_block_data_uq (pending_block_id),
-    FOREIGN KEY pending_block_data_fk (pending_block_id) REFERENCES pending_blocks (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE pending_transactions (

@@ -13,7 +13,6 @@ public class DatabaseMaintainer {
     static {
         final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
         listBuilder.add("pending_blocks");
-        listBuilder.add("pending_block_data");
         listBuilder.add("pending_transactions");
         listBuilder.add("pending_transaction_data");
         listBuilder.add("pending_transactions_dependent_transactions");

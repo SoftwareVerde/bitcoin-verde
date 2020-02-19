@@ -2,7 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.BlockStore;
+import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -21,7 +22,7 @@ import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
-    protected final BlockCache _blockCache;
+    protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
 
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
@@ -36,9 +37,9 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final BlockCache blockCache, final MasterInflater masterInflater) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
         _databaseConnection = databaseConnection;
-        _blockCache = blockCache;
+        _blockStore = blockStore;
         _masterInflater = masterInflater;
     }
 
@@ -86,7 +87,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodePendingBlockDatabaseManager getPendingBlockDatabaseManager() {
         if (_pendingBlockDatabaseManager == null) {
-            _pendingBlockDatabaseManager = new FullNodePendingBlockDatabaseManager(this);
+            _pendingBlockDatabaseManager = new FullNodePendingBlockDatabaseManager(this, _blockStore);
         }
 
         return _pendingBlockDatabaseManager;
@@ -95,7 +96,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeTransactionDatabaseManager getTransactionDatabaseManager() {
         if (_transactionDatabaseManager == null) {
-            _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockCache, _masterInflater);
+            _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockStore, _masterInflater);
         }
 
         return _transactionDatabaseManager;
