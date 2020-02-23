@@ -125,7 +125,7 @@ public class BlockStore {
                 }
 
                 synchronized (_byteBuffer) {
-                    _byteBuffer.returnRecycledBuffer(buffer);
+                    _byteBuffer.recycleBuffer(buffer);
                 }
 
                 if (totalBytesRead < byteCount) { return null; }
