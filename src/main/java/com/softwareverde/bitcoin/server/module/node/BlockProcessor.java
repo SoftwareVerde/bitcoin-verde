@@ -388,6 +388,13 @@ public class BlockProcessor {
         }
     }
 
+    /**
+     * Stores and validates the provided Block.
+     * If the block fails to validates, the block and its transactions are not stored.
+     * If provided, the UnspentTransactionOutputSet must include every output spent by the block.
+     * If not provided, the UnspentTransactionOutputSet is loaded from the database at validation time.
+     * Returns the block height of the block if validation was successful, otherwise returns null.
+     */
     public Long processBlock(final Block block, final UnspentTransactionOutputSet preLoadedUnspentTransactionOutputSet) {
         try {
             final Long newBlockHeight = _processBlock(block, preLoadedUnspentTransactionOutputSet);

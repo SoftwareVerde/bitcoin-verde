@@ -32,7 +32,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -56,6 +55,11 @@ public class BlockchainBuilder extends SleepyService {
     protected Boolean _hasGenesisBlock;
     protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
 
+    /**
+     * Stores and validates the pending Block.
+     *  If not provided, the transactionOutputSet is loaded from the database.
+     *  Returns true if the pending block was valid and stored.
+     */
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final MutableUnspentTransactionOutputSet transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
@@ -65,41 +69,39 @@ public class BlockchainBuilder extends SleepyService {
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         final Block block = pendingBlock.inflateBlock(blockInflater);
 
-        if (block != null) {
-
-            final Long processedBlockHeight;
-            { // Maximize the Thread priority and process the block...
-                final Thread currentThread = Thread.currentThread();
-                final Integer originalThreadPriority = currentThread.getPriority();
-                try {
-                    currentThread.setPriority(Thread.MAX_PRIORITY);
-                    processedBlockHeight = _blockProcessor.processBlock(block, transactionOutputSet);
-                }
-                finally {
-                    currentThread.setPriority(originalThreadPriority);
-                }
-            }
-
-            final Boolean blockWasValid = (processedBlockHeight != null);
-
-            if (blockWasValid) {
-                final NewBlockProcessedCallback newBlockProcessedCallback = _newBlockProcessedCallback;
-                if (newBlockProcessedCallback != null) {
-                    _threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            newBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
-                        }
-                    });
-                }
-            }
-
-            return blockWasValid;
-        }
-        else {
+        if (block == null) {
             Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
             return false;
         }
+
+        final Long processedBlockHeight;
+        { // Maximize the Thread priority and process the block...
+            final Thread currentThread = Thread.currentThread();
+            final Integer originalThreadPriority = currentThread.getPriority();
+            try {
+                currentThread.setPriority(Thread.MAX_PRIORITY);
+                processedBlockHeight = _blockProcessor.processBlock(block, transactionOutputSet);
+            }
+            finally {
+                currentThread.setPriority(originalThreadPriority);
+            }
+        }
+
+        final Boolean blockWasValid = (processedBlockHeight != null);
+
+        if (blockWasValid) {
+            final NewBlockProcessedCallback newBlockProcessedCallback = _newBlockProcessedCallback;
+            if (newBlockProcessedCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        newBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
+                    }
+                });
+            }
+        }
+
+        return blockWasValid;
     }
 
     protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final FullNodeDatabaseManager databaseManager, final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
@@ -134,11 +136,18 @@ public class BlockchainBuilder extends SleepyService {
     }
 
 
+    /**
+     * Preloads the block, specified by the nextPendingBlockId, and the unspentOutputs it requires.
+     * When complete, the pin is released.
+     */
     protected void _asynchronouslyLoadNextPendingBlock(final Pin pin, final PendingBlockId nextPendingBlockId, final PreloadedPendingBlock preloadedPendingBlock, final FullNodeDatabaseManager databaseManager) {
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         _threadPool.execute(new Runnable() {
             @Override
             public void run() {
+                preloadedPendingBlock.pendingBlock = null;
+                preloadedPendingBlock.unspentTransactionOutputSet = null;
+
                 try {
                     final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
@@ -157,15 +166,16 @@ public class BlockchainBuilder extends SleepyService {
                         return;
                     }
 
-                    preloadedPendingBlock.unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock);
+                    final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+                    unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock);
+
+                    preloadedPendingBlock.unspentTransactionOutputSet = unspentTransactionOutputSet;
                     preloadedPendingBlock.pendingBlock = pendingBlock;
 
                     milliTimer.stop();
                     Logger.trace("Pre-loaded next block in: " + milliTimer.getMillisecondsElapsed() + "ms.");
                 }
                 catch (final DatabaseException exception) {
-                    preloadedPendingBlock.pendingBlock = null;
-                    preloadedPendingBlock.unspentTransactionOutputSet = null;
                     Logger.debug(exception);
                 }
                 finally {
@@ -261,44 +271,37 @@ public class BlockchainBuilder extends SleepyService {
                             unspentTransactionOutputSet.addBlock(block);
                         }
 
-                        final Pin pin;
-                        if (pendingBlockIds.getCount() == 1) { // If this block is not a contentious block then preload the next block if it is also not contentious...
-                            final List<PendingBlockId> nextPendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(pendingBlock.getBlockHash());
-                            if (nextPendingBlockIds.getCount() == 1) {
-                                pin = new Pin();
-                                preloadedPendingBlock.unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                                final PendingBlockId nextPendingBlockId = nextPendingBlockIds.get(0);
-                                _asynchronouslyLoadNextPendingBlock(pin, nextPendingBlockId, preloadedPendingBlock, databaseManager);
+                        final Pin preloadBlockPin;
+                        preloadedPendingBlock.pendingBlock = null;
+                        preloadedPendingBlock.unspentTransactionOutputSet = null;
+                        {
+                            Pin pin = null;
+                            if (pendingBlockIds.getCount() == 1) { // If this block is not a contentious block...
+                                final List<PendingBlockId> nextPendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(pendingBlock.getBlockHash());
+                                if (nextPendingBlockIds.getCount() == 1) { // If the next block is also not contentious...
+                                    pin = new Pin();
+                                    final PendingBlockId nextPendingBlockId = nextPendingBlockIds.get(0);
+                                    _asynchronouslyLoadNextPendingBlock(pin, nextPendingBlockId, preloadedPendingBlock, databaseManager);
+                                }
                             }
-                            else {
-                                preloadedPendingBlock.pendingBlock = null;
-                                preloadedPendingBlock.unspentTransactionOutputSet = null;
-                                pin = null;
-                            }
-                        }
-                        else {
-                            preloadedPendingBlock.pendingBlock = null;
-                            preloadedPendingBlock.unspentTransactionOutputSet = null;
-                            pin = null;
+                            preloadBlockPin = pin;
                         }
 
                         final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputSet);
-                        if (! processBlockWasSuccessful) {
-                            TransactionUtil.startTransaction(databaseConnection);
-                            pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
-                            TransactionUtil.commitTransaction(databaseConnection);
-                            Logger.debug("Deleted failed pending block.");
-                            break;
-                        }
 
                         TransactionUtil.startTransaction(databaseConnection);
                         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                         TransactionUtil.commitTransaction(databaseConnection);
 
+                        if (! processBlockWasSuccessful) {
+                            Logger.debug("Deleted failed pending block.");
+                            break;
+                        }
+
                         previousPendingBlock = pendingBlock;
 
-                        if (pin != null) {
-                            pin.waitFor();
+                        if (preloadBlockPin != null) {
+                            preloadBlockPin.waitFor();
                         }
                     }
                 }
