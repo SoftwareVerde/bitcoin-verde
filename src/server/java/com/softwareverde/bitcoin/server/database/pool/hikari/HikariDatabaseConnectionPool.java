@@ -40,6 +40,7 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
         _dataSource.setMaximumPoolSize(128); // NOTE: MySQL Default is 151.
         _dataSource.setAutoCommit(true);
+        _dataSource.setLeakDetectionThreshold(60 * 1000L);
 
         final String hostname = databaseProperties.getHostname();
         final Integer port = databaseProperties.getPort();
