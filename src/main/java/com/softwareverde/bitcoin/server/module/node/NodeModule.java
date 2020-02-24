@@ -467,7 +467,10 @@ public class NodeModule {
         }
 
         { // Initialize BlockchainBuilder...
-            _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
+            final BlockLoader blockLoader = new BlockLoader(3, databaseManagerFactory, _mainThreadPool, _masterInflater);
+            final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
+            blockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
+            _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, _masterInflater, blockProcessor, blockLoader, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
         if (true) {

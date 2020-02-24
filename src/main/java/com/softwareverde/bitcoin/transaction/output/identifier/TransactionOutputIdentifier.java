@@ -54,6 +54,8 @@ public class TransactionOutputIdentifier implements Const {
 
     @Override
     public boolean equals(final Object object) {
+        if (object == this) { return true; }
+
         if (! (object instanceof TransactionOutputIdentifier)) { return false; }
         final TransactionOutputIdentifier transactionOutputIdentifier = (TransactionOutputIdentifier) object;
 

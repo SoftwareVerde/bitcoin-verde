@@ -384,6 +384,7 @@ public class BlockProcessor {
             _averageBlocksPerSecond.value = averageBlocksPerSecond; // ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
             _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
+            Logger.debug("Block Height: " + blockHeight);
             return blockHeight;
         }
     }

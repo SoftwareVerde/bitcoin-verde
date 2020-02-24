@@ -20,6 +20,11 @@ import java.util.Map;
 public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputSet {
     protected Map<TransactionOutputIdentifier, TransactionOutput> _cachedTransactionOutputs;
 
+    /**
+     * Loads all outputs spent by the provided block.
+     *  Returns true if all of the outputs were found, and false if at least one output could not be found.
+     *  Outputs may not be found in the case of an invalid block, but also if its predecessor has not been validated yet.
+     */
     public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block) {
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = (transactions.getCount() - 1); // Exclude coinbase...
@@ -64,7 +69,6 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
                 final TransactionOutput transactionOutput = transactionOutputs.get(i);
                 if (transactionOutput == null) {
-                    // Logger.debug("Could not load output from database: " + transactionOutputIdentifier);
                     loadedAllOutputsSuccessfully = false;
                     continue; // Continue processing for pre-loading the UTXO set for pending blocks...
                 }
@@ -86,9 +90,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         return _cachedTransactionOutputs.get(transactionOutputIdentifier);
     }
 
-    public synchronized void addBlock(Block block) {
-        // _cachedTransactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>(0);
-
+    /**
+     * Adds new outputs created by the provided block and removes outputs spent by the block.
+     */
+    public synchronized void update(Block block) {
         if (_cachedTransactionOutputs == null) {
             _cachedTransactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
         }
