@@ -221,13 +221,25 @@ public class BlockLoader {
 
             { // Load the next n-blocks after the requested block, as long as they aren't contentious...
                 Sha256Hash nextBlockHash = blockHash;
-                final int newFutureCount = (_pendingBlockFutures.getMaxCount() - _pendingBlockFutures.getCount());
-                for (int i = 0; i < newFutureCount; ++i) {
+                final int allowedNewFutureCount = (_pendingBlockFutures.getMaxCount() - _pendingBlockFutures.getCount());
+                int newFutureCount = 0;
+                while (newFutureCount < allowedNewFutureCount) {
                     final List<PendingBlockId> nextPendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(nextBlockHash);
                     if (nextPendingBlockIds.getCount() != 1) { break; } // If the next block is contentious then abort.
 
                     final PendingBlockId nextPendingBlockId = nextPendingBlockIds.get(0);
                     nextBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(nextPendingBlockId);
+
+                    { // Skip if the block is already within the buffer...
+                        boolean futureExists = false;
+                        for (final PendingBlockFuture pendingBlockFuture : _pendingBlockFutures) {
+                            if (Util.areEqual(nextBlockHash, pendingBlockFuture.getBlockHash())) {
+                                futureExists = true;
+                                break;
+                            }
+                        }
+                        if (futureExists) { continue; }
+                    }
 
                     Logger.trace("Preloading Block: " + nextBlockHash);
                     final PendingBlockFuture nextBlockFuture = _asynchronouslyLoadNextPendingBlock(nextBlockHash, nextPendingBlockId);
@@ -240,6 +252,7 @@ public class BlockLoader {
                     }
 
                     _pendingBlockFutures.push(nextBlockFuture);
+                    newFutureCount += 1;
                 }
             }
         }
