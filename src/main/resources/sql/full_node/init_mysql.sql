@@ -57,11 +57,13 @@ CREATE TABLE blocks (
     difficulty CHAR(8) NOT NULL,
     nonce INT UNSIGNED NOT NULL,
     chain_work CHAR(64) NOT NULL,
+    transaction_count INT UNSIGNED,
     byte_count INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
     UNIQUE KEY block_hash_uq2 (blockchain_segment_id, block_height),
     FOREIGN KEY block_previous_block_id_fk (previous_block_id) REFERENCES blocks (id),
+    INDEX blocks_tx_count_ix (transaction_count) USING BTREE,
     INDEX blocks_height_ix (block_height) USING BTREE,
     INDEX blocks_work_ix (chain_work DESC) USING BTREE,
     INDEX blocks_work_ix2 (blockchain_segment_id, chain_work DESC) USING BTREE

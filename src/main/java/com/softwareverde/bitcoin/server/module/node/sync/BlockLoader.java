@@ -177,7 +177,7 @@ public class BlockLoader {
                     }
 
                     milliTimer.stop();
-                    Logger.trace("Pre-loaded block " + blockHash + " in: " + milliTimer.getMillisecondsElapsed() + "ms.");
+                    Logger.trace("Preloaded block " + blockHash + " in: " + milliTimer.getMillisecondsElapsed() + "ms.");
                 }
                 catch (final DatabaseException exception) {
                     Logger.debug(exception);
@@ -241,7 +241,6 @@ public class BlockLoader {
                         if (futureExists) { continue; }
                     }
 
-                    Logger.trace("Preloading Block: " + nextBlockHash);
                     final PendingBlockFuture nextBlockFuture = _asynchronouslyLoadNextPendingBlock(nextBlockHash, nextPendingBlockId);
 
                     { // Add the queued blocks as dependents for the pending block's output set.
@@ -265,7 +264,6 @@ public class BlockLoader {
         }
 
         requestedBlockFuture.waitFor();
-        Logger.trace("Waited for: " + requestedBlockFuture.getBlockHash());
         return requestedBlockFuture;
     }
 

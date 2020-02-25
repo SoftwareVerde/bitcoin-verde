@@ -214,14 +214,14 @@ public class BlockchainBuilder extends SleepyService {
                         final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
                         final UnspentTransactionOutputSet unspentTransactionOutputSet = preloadedPendingBlock.getUnspentTransactionOutputSet();
 
-                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputSet);
+                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputSet); // pendingBlock may be null; _processPendingBlock allows for this.
 
                         TransactionUtil.startTransaction(databaseConnection);
                         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                         TransactionUtil.commitTransaction(databaseConnection);
 
                         if (! processBlockWasSuccessful) {
-                            Logger.debug("Pending block failed during processing: " + pendingBlock.getBlockHash());
+                            Logger.debug("Pending block failed during processing: " + pendingBlockHash);
                             break;
                         }
 
