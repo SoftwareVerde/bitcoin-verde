@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -173,9 +174,9 @@ public class BlockValidator {
                 final TransactionInput transactionInput = transactionInputs.get(0);
                 final Sha256Hash previousTransactionOutputHash = transactionInput.getPreviousOutputTransactionHash();
                 final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
-                final Boolean previousTransactionOutputHashIsValid = Util.areEqual(Sha256Hash.EMPTY_HASH, previousTransactionOutputHash);
-                final Boolean previousTransactionOutputIndexIsValid = (previousTransactionOutputIndex == -1);
-                if ( (! previousTransactionOutputHashIsValid) || (! previousTransactionOutputIndexIsValid) ) {
+                final Boolean previousTransactionOutputHashIsValid = Util.areEqual(previousTransactionOutputHash, TransactionOutputIdentifier.COINBASE.getTransactionHash());
+                final Boolean previousTransactionOutputIndexIsValid = Util.areEqual(previousTransactionOutputIndex, TransactionOutputIdentifier.COINBASE.getOutputIndex());
+                if (! (previousTransactionOutputHashIsValid && previousTransactionOutputIndexIsValid)) {
                     totalExpenditureValidationTaskSpawner.abort();
                     transactionValidationTaskSpawner.abort();
                     return BlockValidationResult.invalid("Invalid coinbase transaction input. " + previousTransactionOutputHash + ":" + previousTransactionOutputIndex + "; " + "Block: " + block.getHash(), coinbaseTransaction);

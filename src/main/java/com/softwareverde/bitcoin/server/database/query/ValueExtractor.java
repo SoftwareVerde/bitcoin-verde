@@ -27,7 +27,7 @@ public interface ValueExtractor<T> extends com.softwareverde.database.query.Valu
             final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
             final Integer previousTransactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
 
-            final TypedParameter previousTransactionHashTypedParameter = (previousTransactionHash != null ? new TypedParameter(previousTransactionHash.toString()) : TypedParameter.NULL);
+            final TypedParameter previousTransactionHashTypedParameter = (previousTransactionHash != null ? new TypedParameter(previousTransactionHash.getBytes()) : TypedParameter.NULL);
             final TypedParameter previousTransactionOutputIndexTypedParameter = (previousTransactionOutputIndex != null ? new TypedParameter(previousTransactionOutputIndex) : TypedParameter.NULL);
 
             return new InClauseParameter(previousTransactionHashTypedParameter, previousTransactionOutputIndexTypedParameter);
@@ -45,7 +45,7 @@ public interface ValueExtractor<T> extends com.softwareverde.database.query.Valu
     ValueExtractor<Sha256Hash> SHA256_HASH = new ValueExtractor<Sha256Hash>() {
         @Override
         public InClauseParameter extractValues(final Sha256Hash sha256Hash) {
-            final TypedParameter typedParameter = (sha256Hash != null ? new TypedParameter(sha256Hash.toString()) : TypedParameter.NULL);
+            final TypedParameter typedParameter = (sha256Hash != null ? new TypedParameter(sha256Hash.getBytes()) : TypedParameter.NULL);
             return new InClauseParameter(typedParameter);
         }
     };

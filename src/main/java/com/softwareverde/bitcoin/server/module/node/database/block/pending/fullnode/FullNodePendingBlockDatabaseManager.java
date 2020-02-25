@@ -16,6 +16,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -42,7 +43,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     protected PendingBlockId _getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
@@ -99,7 +100,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                 .setParameter(priority)
         );
 
-        if (pendingBlockId == 0) {
+        if (pendingBlockId < 1) { // -1 may be returned if no insert occurred.
             // The insert was ignored, so return the existing row.  This logic is necessary to prevent a race condition due to PendingBlockDatabaseManager not locking...
             final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
             if (previousBlockHash != null) {
@@ -189,7 +190,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return false; }
 
         final Row row = rows.get(0);
-        final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
         final Boolean wasDownloaded = row.getBoolean("was_downloaded");
         if (! wasDownloaded) { return false; }
 
@@ -210,8 +211,8 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
-        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(row.getString("previous_block_hash"));
+        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
+        final Sha256Hash previousBlockHash = Sha256Hash.copyOf(row.getBytes("previous_block_hash"));
 
         final ByteArray blockData;
         {
@@ -360,7 +361,6 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
             _insertPendingBlockData(pendingBlockId, block);
             return pendingBlockId;
-
         }
         finally {
             WRITE_LOCK.unlock();
@@ -385,7 +385,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             Long tupleStartingBlockHeight = null; // The blockHeight of blockHashStartEnd.first...
             for (final Row row : rows) {
                 final Long blockHeight = row.getLong("block_height");
-                final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+                final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
                 boolean addTupleToDownloadPlan = false;
                 boolean createNewTuple = false;
@@ -532,7 +532,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            return Sha256Hash.fromHexString(row.getString("hash"));
+            return Sha256Hash.copyOf(row.getBytes("hash"));
 
         }
         finally {

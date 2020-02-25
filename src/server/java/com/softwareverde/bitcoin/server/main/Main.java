@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.*;

@@ -118,7 +118,7 @@ public class TransactionTestUtil {
                 }
 
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
+                    new Query("INSERT INTO block_transactions (block_id, transaction_id, `index`) VALUES (?, ?, ?)")
                         .setParameter(genesisBlockId)
                         .setParameter(transactionId)
                         .setParameter(sortOrder)

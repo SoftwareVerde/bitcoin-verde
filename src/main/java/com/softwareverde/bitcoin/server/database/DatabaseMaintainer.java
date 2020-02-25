@@ -23,7 +23,6 @@ public class DatabaseMaintainer {
         listBuilder.add("block_transactions");
         listBuilder.add("unconfirmed_transactions");
         listBuilder.add("transaction_outputs");
-        listBuilder.add("unspent_transaction_outputs");
         listBuilder.add("transaction_inputs");
         listBuilder.add("script_types");
         listBuilder.add("locking_scripts");

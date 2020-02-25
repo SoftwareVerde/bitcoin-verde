@@ -192,8 +192,10 @@ public class NodeModule {
             _slpTransactionProcessor.stop();
         }
 
-        Logger.info("[Stopping Addresses Processor]");
-        _addressProcessor.stop();
+        if (_addressProcessor != null) {
+            Logger.info("[Stopping Addresses Processor]");
+            _addressProcessor.stop();
+        }
 
         Logger.info("[Stopping Transaction Processor]");
         _transactionProcessor.stop();
@@ -480,14 +482,15 @@ public class NodeModule {
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
-            _addressProcessor = new AddressProcessor(databaseManagerFactory);
-            _addressProcessor.setOnSleepCallback(new Runnable() {
-                @Override
-                public void run() {
-                    Logger.trace("AddressProcessor: Callback");
-                    _slpTransactionProcessor.wakeUp();
-                }
-            });
+            if (_addressProcessor != null) {
+                _addressProcessor.setOnSleepCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        Logger.trace("AddressProcessor: Callback");
+                        _slpTransactionProcessor.wakeUp();
+                    }
+                });
+            }
         }
 
         { // Set the synchronization elements to cascade to each component...
@@ -500,7 +503,9 @@ public class NodeModule {
                         _blockStore.storeBlock(block, blockHeight);
                     }
 
-                    _addressProcessor.wakeUp();
+                    if (_addressProcessor != null) {
+                        _addressProcessor.wakeUp();
+                    }
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
@@ -621,7 +626,9 @@ public class NodeModule {
                 public void onNewTransactions(final List<Transaction> transactions) {
 
                     _transactionRelay.relayTransactions(transactions);
-                    _addressProcessor.wakeUp();
+                    if (_addressProcessor != null) {
+                        _addressProcessor.wakeUp();
+                    }
                 }
             });
         }
@@ -916,8 +923,10 @@ public class NodeModule {
         Logger.info("[Starting Transaction Processor]");
         _transactionProcessor.start();
 
-        Logger.info("[Started Address Processor]");
-        _addressProcessor.start();
+        if (_addressProcessor != null) {
+            Logger.info("[Starting Address Processor]");
+            _addressProcessor.start();
+        }
 
         if (_slpTransactionProcessor != null) {
             Logger.info("[Started SlpTransaction Processor]");

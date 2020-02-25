@@ -14,7 +14,9 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-public class TransactionOutputIdentifier implements Const {
+public class TransactionOutputIdentifier implements Const, Comparable<TransactionOutputIdentifier> {
+    public static final TransactionOutputIdentifier COINBASE = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
+
     public static TransactionOutputIdentifier fromTransactionInput(final TransactionInput transactionInput) {
         return new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
     }
@@ -83,5 +85,15 @@ public class TransactionOutputIdentifier implements Const {
         cOutPointBuilder.appendBytes(_transactionHash.getBytes(), Endian.LITTLE);
         cOutPointBuilder.appendBytes(ByteUtil.integerToBytes(_outputIndex), Endian.LITTLE);
         return MutableByteArray.wrap(cOutPointBuilder.build());
+    }
+
+    @Override
+    public int compareTo(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        final int hashComparison = _transactionHash.compareTo(transactionOutputIdentifier.getTransactionHash());
+        if (hashComparison != 0) {
+            return hashComparison;
+        }
+
+        return _outputIndex.compareTo(transactionOutputIdentifier.getOutputIndex());
     }
 }

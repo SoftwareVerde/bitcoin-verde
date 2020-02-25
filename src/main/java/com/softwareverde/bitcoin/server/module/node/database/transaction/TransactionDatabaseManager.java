@@ -10,11 +10,14 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.Map;
+
 public interface TransactionDatabaseManager {
     TransactionId storeTransaction(Transaction transaction) throws DatabaseException;
     List<TransactionId> storeTransactions(List<Transaction> transactions) throws DatabaseException;
     TransactionId getTransactionId(Sha256Hash transactionHash) throws DatabaseException;
     Sha256Hash getTransactionHash(TransactionId transactionId) throws DatabaseException;
+    Map<Sha256Hash, TransactionId> getTransactionIds(List<Sha256Hash> transactionHashes) throws DatabaseException;
     Transaction getTransaction(TransactionId transactionId) throws DatabaseException;
     BlockId getBlockId(BlockchainSegmentId blockchainSegmentId, TransactionId transactionId) throws DatabaseException;
     List<BlockId> getBlockIds(TransactionId transactionId) throws DatabaseException;

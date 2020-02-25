@@ -135,7 +135,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("previous_transaction_hash"));
+        final Sha256Hash previousTransactionHash = Sha256Hash.copyOf(row.getBytes("previous_transaction_hash"));
         final Integer previousTransactionOutputIndex = row.getInteger("previous_transaction_output_index");
         final SequenceNumber sequenceNumber = new ImmutableSequenceNumber(row.getLong("sequence_number"));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(row.getBytes("unlocking_script")));
@@ -157,7 +157,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("previous_transaction_hash"));
+        final Sha256Hash previousTransactionHash = Sha256Hash.copyOf(row.getBytes("previous_transaction_hash"));
         final Integer previousTransactionOutputIndex = row.getInteger("previous_transaction_output_index");
 
         final UnconfirmedTransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
@@ -193,7 +193,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash previousTransactionHash = Sha256Hash.fromHexString(row.getString("previous_transaction_hash"));
+        final Sha256Hash previousTransactionHash = Sha256Hash.copyOf(row.getBytes("previous_transaction_hash"));
 
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         return transactionDatabaseManager.getTransactionId(previousTransactionHash);

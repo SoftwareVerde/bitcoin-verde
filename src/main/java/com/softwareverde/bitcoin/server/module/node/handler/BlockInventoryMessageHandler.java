@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -15,6 +14,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
     public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
@@ -66,30 +66,15 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 previousBlockHash = blockHash;
             }
 
-            final int maxRetryCount = 3;
-            int retryCount = 0;
-            while (retryCount < maxRetryCount) {
-                try {
-                    TransactionUtil.startTransaction(databaseConnection);
-                    storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
-                    TransactionUtil.commitTransaction(databaseConnection);
-                    break;
-                }
-                catch (final DatabaseException databaseException) {
-                    Logger.debug("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
-                    try {
-                        Thread.sleep(50L);
-                    }
-                    catch (final InterruptedException exception) {
-                        final Thread currentThread = Thread.currentThread();
-                        currentThread.interrupt();
-                        break;
-                    }
-                }
-                finally {
-                    retryCount += 1;
-                }
+            try {
+                // TransactionUtil.startTransaction(databaseConnection);
+                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+                // TransactionUtil.commitTransaction(databaseConnection);
             }
+            catch (final DatabaseException databaseException) {
+                Logger.debug("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+            }
+
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);

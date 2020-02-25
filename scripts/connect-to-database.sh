@@ -9,8 +9,8 @@ HOST='127.0.0.1'
 QUERY="$1"
 
 if [ -z "${QUERY}" ]; then
-    mysql -u ${USER} -h ${HOST} -P${PORT} -p${PASSWORD} ${DATABASE}
+    mysql --binary-as-hex -u ${USER} -h ${HOST} -P${PORT} -p${PASSWORD} ${DATABASE}
 else
-    mysql -u ${USER} -h ${HOST} -P${PORT} -p${PASSWORD} ${DATABASE} -e "${QUERY}"
+    mysql --binary-as-hex -u ${USER} -h ${HOST} -P${PORT} -p${PASSWORD} ${DATABASE} -e "${QUERY}"
 fi
 

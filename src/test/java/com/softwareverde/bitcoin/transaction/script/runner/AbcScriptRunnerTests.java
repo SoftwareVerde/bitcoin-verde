@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -484,8 +485,8 @@ public class AbcScriptRunnerTests {
         { // TransactionInput...
             final MutableTransactionInput transactionInput = new MutableTransactionInput();
             transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-            transactionInput.setPreviousOutputIndex(-1);
-            transactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
+            transactionInput.setPreviousOutputTransactionHash(TransactionOutputIdentifier.COINBASE.getTransactionHash());
+            transactionInput.setPreviousOutputIndex(TransactionOutputIdentifier.COINBASE.getOutputIndex());
             { // Unlocking Script...
                 final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
                 mutableUnlockingScript.addOperation(PushOperation.PUSH_ZERO);

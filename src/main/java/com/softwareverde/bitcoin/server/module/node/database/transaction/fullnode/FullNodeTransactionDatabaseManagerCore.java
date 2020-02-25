@@ -196,7 +196,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(affectedRowCount);
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
             transactionHashMap.put(transactionHash, transactionId);
         }
 
@@ -245,7 +245,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             );
             if (! rows.isEmpty()) {
                 final Row row = rows.get(0);
-                final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("block_hash"));
+                final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
                 final Long blockHeight = row.getLong("block_height");
                 final Long diskOffset = row.getLong("disk_offset");
                 final Integer byteCount = row.getInteger("byte_count");
@@ -268,7 +268,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 final UnconfirmedTransactionId unconfirmedTransactionId = UnconfirmedTransactionId.wrap(row.getLong("id"));
                 final Long version = row.getLong("version");
                 final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
-                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
                 final MutableTransaction transaction = new MutableTransaction();
                 transaction.setVersion(version);
@@ -567,7 +567,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
             transactionHashMap.put(transactionHash, transactionId);
         }
@@ -586,6 +586,25 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return _getTransactionId(transactionHash);
     }
 
+    @Override
+    public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        if (transactionHashes.isEmpty()) { return new HashMap<Sha256Hash, TransactionId>(0); }
+
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash FROM transactions WHERE hash IN (?)")
+                .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
+        );
+
+        final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<Sha256Hash, TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+            transactionIds.put(transactionHash, transactionId);
+        }
+        return transactionIds;
+    }
+
     public Sha256Hash getTransactionHash(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -596,7 +615,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     public BlockId getBlockId(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
@@ -694,7 +713,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
             unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>();
             for (final Row row : rows) {
-                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
+                final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
                 final Integer outputIndex = row.getInteger("index");
 
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
@@ -714,7 +733,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(rows.size());
         for (final Row row : rows) {
-            final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("block_hash"));
+            final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
             final Long blockHeight = row.getLong("block_height");
             final Long diskOffset = row.getLong("disk_offset");
             final Integer byteCount = row.getInteger("byte_count");

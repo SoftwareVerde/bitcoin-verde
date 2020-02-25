@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Special thanks to Xavier Kràl for his contributions to developing this code. (2019-09-23)
+ * Special thanks to Xavier Kr&agrave;l for his contributions to developing this code. (2019-09-23)
  */
 
 public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
@@ -42,7 +42,7 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
         _dataSource.setConnectionTestQuery("SELECT 1");
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
-        _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(5));
+        _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(15));
         _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
         _dataSource.setMaximumPoolSize(128); // NOTE: MySQL Default is 151.
         _dataSource.setAutoCommit(true);

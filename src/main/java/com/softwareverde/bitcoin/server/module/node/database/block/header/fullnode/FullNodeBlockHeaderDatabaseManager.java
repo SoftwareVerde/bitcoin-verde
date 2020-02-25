@@ -21,7 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -128,8 +128,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         }
         else {
             final Row previousBlockRow = rows.get(0);
-            final String hashString = previousBlockRow.getString("hash");
-            return Sha256Hash.fromHexString(hashString);
+            return Sha256Hash.copyOf(previousBlockRow.getBytes("hash"));
         }
     }
 
@@ -152,9 +151,9 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
             previousBlockHash = _getBlockHash(previousBlockId);
         }
 
-        final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
+        final MerkleRoot merkleRoot = MutableMerkleRoot.copyOf(row.getBytes("merkle_root"));
         final Long timestamp = row.getLong("timestamp");
-        final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString(row.getString("difficulty")));
+        final Difficulty difficulty = Difficulty.decode(MutableByteArray.wrap(row.getBytes("difficulty")));
         final Long nonce = row.getLong("nonce");
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
@@ -167,7 +166,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         blockHeader.setNonce(nonce);
 
         { // Assert that the hashes match after inflation...
-            final Sha256Hash expectedHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash expectedHash = Sha256Hash.copyOf(row.getBytes("hash"));
             final Sha256Hash actualHash = blockHeader.getHash();
             if (! Util.areEqual(expectedHash, actualHash)) {
                 Logger.warn("Unable to inflate block: " + blockHeader.getHash());
@@ -210,7 +209,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return ChainWork.fromHexString(row.getString("chain_work"));
+        return ChainWork.wrap(row.getBytes("chain_work"));
     }
 
     protected BlockId _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
@@ -401,7 +400,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     protected BlockId _getHeadBlockHeaderId() throws DatabaseException {
@@ -666,7 +665,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<BlockId, Sha256Hash>(rows.size());
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
-            final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
             hashesMap.put(blockId, blockHash);
         }

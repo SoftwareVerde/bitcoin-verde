@@ -5,6 +5,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -234,9 +235,18 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
             batchedInsertQuery.setParameter(nodeId);
             batchedInsertQuery.setParameter(pendingBlockId);
         }
-        databaseConnection.executeSql(batchedInsertQuery);
 
-        return (databaseConnection.getRowsAffectedCount() > 0);
+        DatabaseException deadlockException = null;
+        for (int i = 0; i < 3; ++i) {
+            try {
+                databaseConnection.executeSql(batchedInsertQuery);
+                return (databaseConnection.getRowsAffectedCount() > 0);
+            }
+            catch (final DatabaseException exception) {
+                deadlockException = exception;
+            }
+        }
+        throw deadlockException;
     }
 
     @Override

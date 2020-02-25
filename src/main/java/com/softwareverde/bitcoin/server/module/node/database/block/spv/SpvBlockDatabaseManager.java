@@ -138,7 +138,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     public void storePartialMerkleTree(final BlockId blockId, final PartialMerkleTree partialMerkleTree) throws DatabaseException {

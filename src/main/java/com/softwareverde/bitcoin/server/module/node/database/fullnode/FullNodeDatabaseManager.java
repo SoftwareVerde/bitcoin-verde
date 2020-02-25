@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.BlockStore;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.AddressDatabaseManager;
@@ -25,6 +25,8 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
 
+    protected DatabaseConnectionFactory _databaseConnectionFactory = null;
+
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
@@ -41,6 +43,14 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _databaseConnection = databaseConnection;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
+    }
+
+    public void setDatabaseConnectionFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
+        _databaseConnectionFactory = databaseConnectionFactory;
+    }
+
+    public DatabaseConnectionFactory getDatabaseConnectionFactory() {
+        return _databaseConnectionFactory;
     }
 
     @Override
