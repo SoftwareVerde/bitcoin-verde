@@ -21,9 +21,9 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
 import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
-import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -210,7 +210,7 @@ public class BlockchainBuilder extends SleepyService {
                         final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
                         final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
 
-                        final BlockLoader.PreloadedPendingBlock preloadedPendingBlock = _blockLoader.getBlock(pendingBlockHash, pendingBlockId);
+                        final PreloadedPendingBlock preloadedPendingBlock = _blockLoader.getBlock(pendingBlockHash, pendingBlockId);
                         final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
                         final UnspentTransactionOutputSet unspentTransactionOutputSet = preloadedPendingBlock.getUnspentTransactionOutputSet();
 
