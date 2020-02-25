@@ -16,7 +16,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -194,7 +193,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final Boolean wasDownloaded = row.getBoolean("was_downloaded");
         if (! wasDownloaded) { return false; }
 
-        return _blockStore.doesPendingBlockExist(blockHash);
+        return _blockStore.pendingBlockExists(blockHash);
     }
 
     protected ByteArray _getBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {

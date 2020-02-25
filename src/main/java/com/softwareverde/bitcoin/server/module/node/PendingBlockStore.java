@@ -91,7 +91,7 @@ public class PendingBlockStore extends BlockStore {
         return MutableByteArray.wrap(IoUtil.getFileContents(blockPath));
     }
 
-    public Boolean doesPendingBlockExist(final Sha256Hash blockHash) {
+    public Boolean pendingBlockExists(final Sha256Hash blockHash) {
         if (_pendingBlockDataDirectory == null) { return false; }
 
         final String blockPath = _getPendingBlockDataPath(blockHash);

@@ -459,7 +459,7 @@ public class NodeModule {
         }
 
         { // Initialize the BlockDownloader...
-            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, _blockStore);
+            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, _blockStore, _masterInflater);
         }
 
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
