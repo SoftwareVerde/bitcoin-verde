@@ -686,7 +686,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             WRITE_LOCK.lock();
 
             databaseConnection.executeSql(
-                new Query("DELETE FROM pending_blocks WHERE EXISTS (SELECT * FROM blocks INNER JOIN block_transactions ON blocks.id = block_transactions.block_id WHERE pending_blocks.hash = blocks.hash)")
+                new Query("DELETE pending_blocks FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
             );
 
         }

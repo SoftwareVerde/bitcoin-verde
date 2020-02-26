@@ -159,7 +159,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id ORDER BY blocks.chain_work DESC LIMIT 1")
+            new Query("SELECT id, hash FROM blocks WHERE transaction_count > 0 ORDER BY chain_work DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
