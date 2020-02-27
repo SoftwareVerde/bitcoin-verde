@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -60,7 +60,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
@@ -69,7 +69,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         transactionJson.put("byteCount", transactionData.getByteCount());
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final SlpTokenId slpTokenId = addressDatabaseManager.getSlpTokenId(transactionId);
+        final SlpTokenId slpTokenId = transactionOutputDatabaseManager.getSlpTokenId(transactionId);
         final Boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.address;
+package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.util.type.identifier.Identifier;
 

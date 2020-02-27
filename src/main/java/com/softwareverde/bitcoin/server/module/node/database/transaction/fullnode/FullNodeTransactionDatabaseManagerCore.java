@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.BlockStore;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -527,8 +527,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final AddressDatabaseManager addressDatabaseManager = _databaseManager.getAddressDatabaseManager();
-        return addressDatabaseManager.getSlpTokenId(transactionId);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
+        return transactionOutputDatabaseManager.getSlpTokenId(transactionId);
     }
 
     @Override

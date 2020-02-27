@@ -105,7 +105,7 @@ public class NodeModule {
     protected final TransactionProcessor _transactionProcessor;
     protected final TransactionRelay _transactionRelay;
     protected final BlockchainBuilder _blockchainBuilder;
-    protected final AddressProcessor _addressProcessor;
+    protected final TransactionOutputIndexer _transactionOutputIndexer;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
     protected final RequestDataHandler _requestDataHandler;
 
@@ -193,9 +193,9 @@ public class NodeModule {
             _slpTransactionProcessor.stop();
         }
 
-        if (! (_addressProcessor instanceof DisabledAddressProcessor)) {
+        if (! (_transactionOutputIndexer instanceof DisabledTransactionOutputIndexer)) {
             Logger.info("[Stopping Addresses Processor]");
-            _addressProcessor.stop();
+            _transactionOutputIndexer.stop();
         }
 
         Logger.info("[Stopping Transaction Processor]");
@@ -479,13 +479,13 @@ public class NodeModule {
         final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
         if (! indexModeIsEnabled) {
             _slpTransactionProcessor = null;
-            _addressProcessor = new DisabledAddressProcessor();
+            _transactionOutputIndexer = new DisabledTransactionOutputIndexer();
         }
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
-            _addressProcessor = new AddressProcessor(databaseManagerFactory);
-            _addressProcessor.setOnSleepCallback(new Runnable() {
+            _transactionOutputIndexer = new TransactionOutputIndexer(databaseManagerFactory);
+            _transactionOutputIndexer.setOnSleepCallback(new Runnable() {
                 @Override
                 public void run() {
                     Logger.trace("AddressProcessor: Callback");
@@ -501,7 +501,7 @@ public class NodeModule {
                     final Sha256Hash blockHash = block.getHash();
 
                     _blockStore.storeBlock(block, blockHeight);
-                    _addressProcessor.wakeUp();
+                    _transactionOutputIndexer.wakeUp();
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
@@ -621,7 +621,7 @@ public class NodeModule {
                 @Override
                 public void onNewTransactions(final List<Transaction> transactions) {
                     _transactionRelay.relayTransactions(transactions);
-                    _addressProcessor.wakeUp();
+                    _transactionOutputIndexer.wakeUp();
                 }
             });
         }
@@ -669,7 +669,7 @@ public class NodeModule {
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
-                for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
+                for (final SleepyService sleepyService : new SleepyService[]{_transactionOutputIndexer, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
                     if (sleepyService != null) {
                         final Class<?> clazz = sleepyService.getClass();
                         final String serviceName = clazz.getSimpleName();
@@ -916,9 +916,9 @@ public class NodeModule {
         Logger.info("[Starting Transaction Processor]");
         _transactionProcessor.start();
 
-        if (! (_addressProcessor instanceof DisabledAddressProcessor)) {
+        if (! (_transactionOutputIndexer instanceof DisabledTransactionOutputIndexer)) {
             Logger.info("[Starting Address Processor]");
-            _addressProcessor.start();
+            _transactionOutputIndexer.start();
         }
 
         if (_slpTransactionProcessor != null) {

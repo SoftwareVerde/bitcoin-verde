@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.address;
+package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
-public interface AddressDatabaseManager {
+public interface TransactionOutputDatabaseManager {
     AddressId storeAddress(Address address) throws DatabaseException;
     List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
     AddressId getAddressId(String addressString) throws DatabaseException;

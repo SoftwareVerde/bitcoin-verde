@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -32,7 +32,7 @@ import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 
-public class AddressProcessor extends SleepyService {
+public class TransactionOutputIndexer extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
     protected static class OutputIndexData {
@@ -55,11 +55,11 @@ public class AddressProcessor extends SleepyService {
         final Address address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) { return null; }
 
-        final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
-        final AddressId addressId = addressDatabaseManager.getAddressId(address);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+        final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
         if (addressId != null) { return addressId; }
 
-        return addressDatabaseManager.storeAddress(address);
+        return transactionOutputDatabaseManager.storeAddress(address);
     }
 
     protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
@@ -224,7 +224,7 @@ public class AddressProcessor extends SleepyService {
         }
     }
 
-    public AddressProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public TransactionOutputIndexer(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
@@ -242,13 +242,13 @@ public class AddressProcessor extends SleepyService {
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
             int outputCount = 0;
             processTimer.start();
             TransactionUtil.startTransaction(databaseConnection);
             {
-                final List<TransactionId> queuedTransactionIds = addressDatabaseManager.getUnprocessedTransactions(BATCH_SIZE);
+                final List<TransactionId> queuedTransactionIds = transactionOutputDatabaseManager.getUnprocessedTransactions(BATCH_SIZE);
                 if (queuedTransactionIds.isEmpty()) { return false; }
 
                 for (final TransactionId transactionId : queuedTransactionIds) {
@@ -262,12 +262,12 @@ public class AddressProcessor extends SleepyService {
                     _indexTransactionOutputs(outputIndexData, transactionId, transaction, databaseManager);
 
                     for (final OutputIndexData indexData : outputIndexData.values()) {
-                        addressDatabaseManager.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
+                        transactionOutputDatabaseManager.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
                         outputCount += 1;
                     }
                 }
 
-                addressDatabaseManager.dequeueTransactionsForProcessing(queuedTransactionIds);
+                transactionOutputDatabaseManager.dequeueTransactionsForProcessing(queuedTransactionIds);
             }
             TransactionUtil.commitTransaction(databaseConnection);
             processTimer.stop();

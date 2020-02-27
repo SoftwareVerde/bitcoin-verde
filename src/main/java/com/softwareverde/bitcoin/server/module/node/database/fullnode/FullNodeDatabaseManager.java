@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
@@ -34,7 +34,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
     protected FullNodePendingBlockDatabaseManager _pendingBlockDatabaseManager;
-    protected AddressDatabaseManager _addressDatabaseManager;
+    protected TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected FullNodeTransactionDatabaseManager _transactionDatabaseManager;
     protected UnconfirmedTransactionInputDatabaseManager _unconfirmedTransactionInputDatabaseManager;
     protected UnconfirmedTransactionOutputDatabaseManager _unconfirmedTransactionOutputDatabaseManager;
@@ -114,12 +114,12 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         return _transactionDatabaseManager;
     }
 
-    public AddressDatabaseManager getAddressDatabaseManager() {
-        if (_addressDatabaseManager == null) {
-            _addressDatabaseManager = new AddressDatabaseManagerCore(this);
+    public TransactionOutputDatabaseManager getTransactionOutputDatabaseManager() {
+        if (_transactionOutputDatabaseManager == null) {
+            _transactionOutputDatabaseManager = new TransactionOutputDatabaseManagerCore(this);
         }
 
-        return _addressDatabaseManager;
+        return _transactionOutputDatabaseManager;
     }
 
     public UnconfirmedTransactionInputDatabaseManager getUnconfirmedTransactionInputDatabaseManager() {

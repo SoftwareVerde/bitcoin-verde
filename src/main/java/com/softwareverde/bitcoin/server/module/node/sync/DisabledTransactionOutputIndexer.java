@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
-public class DisabledAddressProcessor extends AddressProcessor {
-    public DisabledAddressProcessor() {
+public class DisabledTransactionOutputIndexer extends TransactionOutputIndexer {
+    public DisabledTransactionOutputIndexer() {
         super(null);
     }
 

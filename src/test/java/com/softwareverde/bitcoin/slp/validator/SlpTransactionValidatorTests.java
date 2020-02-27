@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.slp.validator;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessorTests;
+import com.softwareverde.bitcoin.server.module.node.sync.TransactionOutputIndexer;
+import com.softwareverde.bitcoin.server.module.node.sync.TransactionOutputIndexerTests;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -27,10 +27,10 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
 
     @Test
     public void should_validate_slp_transactions() throws Exception {
-        final AddressProcessor addressProcessor = new AddressProcessor(_fullNodeDatabaseManagerFactory);
+        final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(_fullNodeDatabaseManagerFactory);
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             // Setup
-            final List<TransactionId> transactionIds = AddressProcessorTests.loadBvtTokens(databaseManager);
+            final List<TransactionId> transactionIds = TransactionOutputIndexerTests.loadBvtTokens(databaseManager);
 
             final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
             slpValidityMap.put(Sha256Hash.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"), true);
@@ -50,11 +50,11 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             slpValidityMap.put(Sha256Hash.fromHexString("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478"), false); // Attempts to spend not SLP outputs belonging to invalid SLP transactions...
 
             // Action
-            addressProcessor.start();
+            transactionOutputIndexer.start();
 
             final int maxSleepCount = 10;
             int sleepCount = 0;
-            while (addressProcessor.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
+            while (transactionOutputIndexer.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
                 Thread.sleep(250L);
                 sleepCount += 1;
 
@@ -107,14 +107,14 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             }
         }
         finally {
-            addressProcessor.stop();
+            transactionOutputIndexer.stop();
         }
     }
 
 
     @Test
     public void should_validate_non_trivial_recursive_slp_transaction_depth() throws Exception {
-        final AddressProcessor addressProcessor = new AddressProcessor(_fullNodeDatabaseManagerFactory);
+        final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(_fullNodeDatabaseManagerFactory);
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             // Setup
             final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
@@ -254,11 +254,11 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
 
 
             // Action
-            addressProcessor.start();
+            transactionOutputIndexer.start();
 
             final int maxSleepCount = 10;
             int sleepCount = 0;
-            while (addressProcessor.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
+            while (transactionOutputIndexer.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
                 Thread.sleep(250L);
                 sleepCount += 1;
 
@@ -318,7 +318,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
             }
         }
         finally {
-            addressProcessor.stop();
+            transactionOutputIndexer.stop();
         }
     }
 }

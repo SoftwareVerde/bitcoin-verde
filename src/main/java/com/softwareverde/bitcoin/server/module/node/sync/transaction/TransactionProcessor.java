@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -67,7 +67,7 @@ public class TransactionProcessor extends SleepyService {
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
             final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null); // TODO: Both should not be null...
 
@@ -155,7 +155,7 @@ public class TransactionProcessor extends SleepyService {
                 }
                 storeTransactionsTimer.stop();
 
-                addressDatabaseManager.queueTransactionsForProcessing(validTransactionIds);
+                transactionOutputDatabaseManager.queueTransactionsForProcessing(validTransactionIds);
 
                 Logger.info("Committed " + (transactionsToStore.getCount() - invalidTransactionCount) + " transactions to the MemoryPool in " + storeTransactionsTimer.getMillisecondsElapsed() + "ms. (" + String.format("%.2f", (transactionsToStore.getCount() / storeTransactionsTimer.getMillisecondsElapsed().floatValue() * 1000F)) + "tps) (" + invalidTransactionCount + " invalid)");
 

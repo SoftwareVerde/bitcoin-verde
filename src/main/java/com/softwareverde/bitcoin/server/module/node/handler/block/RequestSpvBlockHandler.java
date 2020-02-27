@@ -8,7 +8,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -38,16 +38,16 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final HashSet<TransactionId> transactionIds = new HashSet<TransactionId>();
             for (final Address address : addresses) {
-                final AddressId addressId = addressDatabaseManager.getAddressId(address);
+                final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
                 if (addressId == null) { continue; }
 
-                final List<TransactionId> matchedTransactionIds = addressDatabaseManager.getTransactionIds(headBlockchainSegmentId, addressId, false);
+                final List<TransactionId> matchedTransactionIds = transactionOutputDatabaseManager.getTransactionIds(headBlockchainSegmentId, addressId, false);
                 for (final TransactionId transactionId : matchedTransactionIds) {
                     transactionIds.add(transactionId);
                 }

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.address;
+package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
@@ -32,7 +32,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class AddressDatabaseManagerCore implements AddressDatabaseManager {
+public class TransactionOutputDatabaseManagerCore implements TransactionOutputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
     protected AddressId _getAddressId(final String address) throws DatabaseException {
@@ -48,7 +48,7 @@ public class AddressDatabaseManagerCore implements AddressDatabaseManager {
         return AddressId.wrap(addressId);
     }
 
-    public AddressDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
+    public TransactionOutputDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
