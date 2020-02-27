@@ -4,9 +4,8 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.slp.SlpUtil;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -16,21 +15,23 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.slp.SlpUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
@@ -56,10 +57,10 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
     protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
-        final String transactionHashString = transactionHash.toString();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
@@ -68,7 +69,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         transactionJson.put("byteCount", transactionData.getByteCount());
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionId);
+        final SlpTokenId slpTokenId = addressDatabaseManager.getSlpTokenId(transactionId);
         final Boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {
@@ -209,7 +210,24 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final Json slpJson;
         if (hasSlpData) {
-            final SlpGenesisScript slpGenesisScript = slpTransactionDatabaseManager.getSlpGenesisScript(slpTokenId);
+            final TransactionId slpGenesisTransactionId = transactionDatabaseManager.getTransactionId(slpTokenId);
+            final Transaction slpGenesisTransaction = transactionDatabaseManager.getTransaction(slpGenesisTransactionId);
+
+            final SlpGenesisScript slpGenesisScript;
+            {
+                if (slpGenesisTransaction != null) {
+                    final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
+
+                    final List<TransactionOutput> transactionOutputs = slpGenesisTransaction.getTransactionOutputs();
+                    final TransactionOutput transactionOutput = transactionOutputs.get(0);
+                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                    slpGenesisScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
+                }
+                else {
+                    slpGenesisScript = null;
+                }
+            }
+
             if (slpGenesisScript != null) {
                 slpJson = slpGenesisScript.toJson();
 

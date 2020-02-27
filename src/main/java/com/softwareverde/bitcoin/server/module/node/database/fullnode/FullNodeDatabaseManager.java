@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
@@ -18,6 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManagerCore;
 import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
@@ -114,7 +116,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     public AddressDatabaseManager getAddressDatabaseManager() {
         if (_addressDatabaseManager == null) {
-            // _addressDatabaseManager = new AddressDatabaseManager(this);
+            _addressDatabaseManager = new AddressDatabaseManagerCore(this);
         }
 
         return _addressDatabaseManager;
@@ -146,7 +148,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     public SlpTransactionDatabaseManager getSlpTransactionDatabaseManager() {
         if (_slpTransactionDatabaseManager == null) {
-            // _slpTransactionDatabaseManager = new SlpTransactionDatabaseManager(this);
+            _slpTransactionDatabaseManager = new SlpTransactionDatabaseManagerCore(this);
         }
 
         return _slpTransactionDatabaseManager;

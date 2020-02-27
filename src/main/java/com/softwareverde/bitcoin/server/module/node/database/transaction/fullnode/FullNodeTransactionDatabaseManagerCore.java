@@ -9,12 +9,12 @@ import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.BlockStore;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.*;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -307,10 +307,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         _blockStore = blockStore;
     }
 
+    @Override
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
         return _getTransaction(transactionId, true);
     }
 
+    @Override
     public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
@@ -329,6 +331,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return true;
     }
 
+    @Override
     public void addToUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         final Transaction transaction = _getTransaction(transactionId, true);
         if (transaction == null) {
@@ -338,6 +341,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         _storeUnconfirmedTransaction(transactionId, transaction);
     }
 
+    @Override
     public void addToUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
         final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionIds.getCount());
 
@@ -358,14 +362,17 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
     }
 
+    @Override
     public void removeFromUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         _deleteFromUnconfirmedTransactions(transactionId);
     }
 
+    @Override
     public void removeFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
         _deleteFromUnconfirmedTransactions(transactionIds);
     }
 
+    @Override
     public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -376,6 +383,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return (! rows.isEmpty());
     }
 
+    @Override
     public List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -391,6 +399,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return listBuilder.build();
     }
 
+    @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<TransactionId> transactionIds) throws DatabaseException {
         if (transactionIds.isEmpty()) { return new MutableList<TransactionId>(0); }
 
@@ -446,6 +455,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return listBuilder.build();
     }
 
+    @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -474,6 +484,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return listBuilder.build();
     }
 
+    @Override
     public Integer getUnconfirmedTransactionCount() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -485,6 +496,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return row.getInteger("transaction_count");
     }
 
+    @Override
     public Long calculateTransactionFee(final Transaction transaction) throws DatabaseException {
         // TODO: Optimize.
 
@@ -510,14 +522,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return (totalInputAmount - totalOutputValue);
     }
 
+    @Override
     public SlpTokenId getSlpTokenId(final Sha256Hash transactionHash) throws DatabaseException {
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = _databaseManager.getSlpTransactionDatabaseManager();
-        return slpTransactionDatabaseManager.getSlpTokenId(transactionId);
+        final AddressDatabaseManager addressDatabaseManager = _databaseManager.getAddressDatabaseManager();
+        return addressDatabaseManager.getSlpTokenId(transactionId);
     }
 
+    @Override
     public TransactionId storeTransaction(final Transaction transaction) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
 
@@ -542,6 +556,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return TransactionId.wrap(transactionId);
     }
 
+    @Override
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
@@ -582,6 +597,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return transactionIds.build();
     }
 
+    @Override
     public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
         return _getTransactionId(transactionHash);
     }
@@ -605,6 +621,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return transactionIds;
     }
 
+    @Override
     public Sha256Hash getTransactionHash(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -618,6 +635,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
+    @Override
     public BlockId getBlockId(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
@@ -632,10 +650,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return null;
     }
 
+    @Override
     public List<BlockId> getBlockIds(final TransactionId transactionId) throws DatabaseException {
         return _getBlockIds(transactionId);
     }
 
+    @Override
     public List<BlockId> getBlockIds(final Sha256Hash transactionHash) throws DatabaseException {
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return new MutableList<BlockId>(); }

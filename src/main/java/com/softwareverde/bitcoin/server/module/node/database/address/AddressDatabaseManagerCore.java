@@ -17,7 +17,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -33,7 +32,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
+public class AddressDatabaseManagerCore implements AddressDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
     protected AddressId _getAddressId(final String address) throws DatabaseException {
@@ -48,7 +47,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         return AddressId.wrap(addressId);
     }
 
-    public FullNodeAddressDatabaseManager(final FullNodeDatabaseManager databaseManager) {
+    public AddressDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
@@ -313,8 +312,34 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
     }
 
     @Override
+    public SlpTokenId getSlpTokenId(final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transactions.hash FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.slp_transaction_id WHERE transaction_outputs.transaction_id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return SlpTokenId.wrap(Sha256Hash.copyOf(row.getBytes("hash")));
+    }
+
+    @Override
     public List<TransactionId> getSlpTransactionIds(final SlpTokenId slpTokenId) throws DatabaseException {
-        return null;
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transaction_outputs.transaction_id FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.slp_transaction_id WHERE transactions.hash = ?")
+                .setParameter(slpTokenId)
+        );
+
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            transactionIds.add(transactionId);
+        }
+        return transactionIds;
     }
 
     @Override

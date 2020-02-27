@@ -5,12 +5,10 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
-// TODO: Rename
 public interface AddressDatabaseManager {
     List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
     AddressId getAddressId(String addressString) throws DatabaseException;
@@ -19,6 +17,8 @@ public interface AddressDatabaseManager {
     List<TransactionId> getTransactionIdsSendingTo(BlockchainSegmentId blockchainSegmentId, AddressId addressId, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     List<TransactionId> getTransactionIdsSpendingFrom(BlockchainSegmentId blockchainSegmentId, AddressId addressId, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     Long getAddressBalance(BlockchainSegmentId blockchainSegmentId, AddressId addressId) throws DatabaseException;
+
+    SlpTokenId getSlpTokenId(TransactionId transactionId) throws DatabaseException;
     List<TransactionId> getSlpTransactionIds(SlpTokenId slpTokenId) throws DatabaseException;
 
     void queueTransactionsForProcessing(List<TransactionId> transactionIds) throws DatabaseException;

@@ -16,7 +16,6 @@ import com.softwareverde.util.Util;
 
 import java.util.LinkedHashMap;
 
-// TODO
 public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
@@ -28,16 +27,14 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
                 "SELECT " +
                     "blocks.id AS block_id, transaction_outputs.transaction_id " +
                 "FROM " +
-                    "locking_scripts " +
-                    "INNER JOIN transaction_outputs " +
-                        "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
+                    "transaction_outputs " +
                     "INNER JOIN block_transactions " +
                         "ON (block_transactions.transaction_id = transaction_outputs.transaction_id) " +
                     "INNER JOIN blocks " +
                         "ON (blocks.id = block_transactions.block_id) " +
                 "WHERE " +
                     "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = transaction_outputs.transaction_id AND t.blockchain_segment_id = blocks.blockchain_segment_id) " +
-                    "AND locking_scripts.slp_transaction_id IS NOT NULL " +
+                    "AND transaction_outputs.slp_transaction_id IS NOT NULL " +
                 "GROUP BY blocks.id, transaction_outputs.transaction_id " +
                 "ORDER BY blocks.block_height ASC " +
                 "LIMIT "+ maxCount
@@ -80,16 +77,14 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
                 "SELECT " +
                     "transaction_outputs.transaction_id " +
                 "FROM " +
-                    "locking_scripts " +
-                    "INNER JOIN transaction_outputs " +
-                        "ON (transaction_outputs.id = locking_scripts.transaction_output_id) " +
+                    "transaction_outputs " +
                     "INNER JOIN unconfirmed_transactions " +
                         "ON (unconfirmed_transactions.transaction_id = transaction_outputs.transaction_id) " +
                     "LEFT OUTER JOIN validated_slp_transactions " +
                         "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
                 "WHERE " +
                     "validated_slp_transactions.id IS NULL " +
-                    "AND locking_scripts.slp_transaction_id IS NOT NULL " +
+                    "AND transaction_outputs.slp_transaction_id IS NOT NULL " +
                 "GROUP BY transaction_outputs.transaction_id ASC " +
                 "LIMIT " + maxCount
             )

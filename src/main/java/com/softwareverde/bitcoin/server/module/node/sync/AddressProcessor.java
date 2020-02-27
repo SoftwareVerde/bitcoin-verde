@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.module.node.database.address.AddressData
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -46,6 +45,8 @@ public class AddressProcessor extends SleepyService {
     }
 
     protected final ScriptPatternMatcher _scriptPatternMatcher = new ScriptPatternMatcher();
+    protected final SlpScriptInflater _slpScriptInflater = new SlpScriptInflater();
+
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected Runnable _onSleepCallback;
 
@@ -125,11 +126,10 @@ public class AddressProcessor extends SleepyService {
             return;
         }
 
-        final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
         boolean slpTransactionIsValid;
         { // Validate SLP Transaction...
             // NOTE: Inflating the whole transaction is mildly costly, but typically this only happens once per SLP transaction, which is required anyway.
-            final SlpScript slpScript = slpScriptInflater.fromLockingScript(slpLockingScript);
+            final SlpScript slpScript = _slpScriptInflater.fromLockingScript(slpLockingScript);
 
             slpTransactionIsValid = ( (slpScript != null) && (transactionOutputCount >= slpScript.getMinimumTransactionOutputCount()) );
 
@@ -239,12 +239,7 @@ public class AddressProcessor extends SleepyService {
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-            final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
             final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
-
-            final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-            final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
 
             int outputCount = 0;
             processTimer.start();
