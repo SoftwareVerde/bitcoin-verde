@@ -132,6 +132,9 @@ public class BlockLoader {
                     final PendingBlockId nextPendingBlockId = nextPendingBlockIds.get(0);
                     nextBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(nextPendingBlockId);
 
+                    final Boolean hasBlockData = pendingBlockDatabaseManager.hasBlockData(nextPendingBlockId);
+                    if (! hasBlockData) { break; }
+
                     { // Skip if the block is already within the buffer...
                         boolean futureExists = false;
                         for (final PendingBlockFuture pendingBlockFuture : _pendingBlockFutures) {
