@@ -4,7 +4,9 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -15,6 +17,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -52,10 +56,10 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
     public List<AddressId> getAddressIds(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT address_id FROM transaction_output_addresses WHERE transaction_id = ?")
+            new Query("SELECT address_id FROM transaction_outputs WHERE transaction_id = ?")
         );
         rows.addAll(databaseConnection.query(
-            new Query("SELECT address_id FROM transaction_input_addresses WHERE transaction_id = ?")
+            new Query("SELECT address_id FROM transaction_inputs WHERE transaction_id = ?")
         ));
 
         final HashSet<AddressId> addressIds = new HashSet<AddressId>(rows.size());
@@ -78,21 +82,21 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
     }
 
     /**
-     * Returns a list of rows of {blockchain_segment_id, transaction_id} from transaction_input_addresses for the provided addressId.
+     * Returns a list of rows of {blockchain_segment_id, transaction_id} from transaction_inputs for the provided addressId.
      */
     protected java.util.List<Row> _getTransactionIdsSpendingFrom(final AddressId addressId, final DatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(
-            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM transaction_input_addresses LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_input_addresses.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_input_addresses.address_id = ? GROUP BY transaction_input_addresses.transaction_id, blocks.blockchain_segment_id")
+            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_inputs.address_id = ? GROUP BY transaction_inputs.transaction_id, blocks.blockchain_segment_id")
                 .setParameter(addressId)
         );
     }
 
     /**
-     * Returns a list of rows of {blockchain_segment_id, transaction_id} from transaction_output_addresses for the provided addressId.
+     * Returns a list of rows of {blockchain_segment_id, transaction_id} from transaction_outputs for the provided addressId.
      */
     protected java.util.List<Row> _getTransactionIdsSendingTo(final AddressId addressId, final DatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(
-            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM transaction_output_addresses LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_output_addresses.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_output_addresses.address_id = ? GROUP BY transaction_output_addresses.transaction_id, blocks.blockchain_segment_id")
+            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_outputs.address_id = ? GROUP BY transaction_outputs.transaction_id, blocks.blockchain_segment_id")
                 .setParameter(addressId)
         );
     }
@@ -205,7 +209,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final HashMap<TransactionId, MutableList<Integer>> outputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
         { // Load debits, with output_indexes...
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, transaction_output_addresses.transaction_id, transaction_output_addresses.output_index FROM transaction_output_addresses LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_output_addresses.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_output_addresses.address_id = ?")
+                new Query("SELECT blocks.blockchain_segment_id, transaction_outputs.transaction_id, transaction_outputs.output_index FROM transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_outputs.address_id = ?")
                     .setParameter(addressId)
             );
             if (transactionOutputRows.isEmpty()) { return 0L; }
@@ -230,7 +234,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final HashMap<TransactionId, MutableList<Integer>> inputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
         { // Load credits, with input_indexes...
             final java.util.List<Row> transactionInputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, transaction_input_addresses.transaction_id, transaction_input_addresses.input_index FROM transaction_input_addresses LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_input_addresses.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_input_addresses.address_id = ?")
+                new Query("SELECT blocks.blockchain_segment_id, transaction_inputs.transaction_id, transaction_inputs.input_index FROM transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_inputs.address_id = ?")
                     .setParameter(addressId)
             );
 
@@ -311,5 +315,57 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
     @Override
     public List<TransactionId> getSlpTransactionIds(final SlpTokenId slpTokenId) throws DatabaseException {
         return null;
+    }
+
+    @Override
+    public void queueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE transaction_output_processor_queue (transaction_id) VALUES (?)");
+        for (final TransactionId transactionId : transactionIds) {
+            query.setParameter(transactionId);
+        }
+
+        databaseConnection.executeSql(query);
+    }
+
+    @Override
+    public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transaction_id FROM transaction_output_processor_queue LIMIT " + batchSize)
+        );
+
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            transactionIds.add(transactionId);
+        }
+        return transactionIds;
+    }
+
+    @Override
+    public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM transaction_output_processor_queue WHERE transaction_id IN (?)")
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+        );
+    }
+
+    @Override
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("INSERT INTO transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?)")
+                .setParameter(transactionId)
+                .setParameter(outputIndex)
+                .setParameter(amount)
+                .setParameter(addressId)
+                .setParameter(scriptType.getScriptTypeId())
+                .setParameter(slpTransactionId)
+        );
     }
 }

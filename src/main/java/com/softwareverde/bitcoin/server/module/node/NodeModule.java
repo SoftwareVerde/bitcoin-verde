@@ -193,7 +193,7 @@ public class NodeModule {
             _slpTransactionProcessor.stop();
         }
 
-        if (_addressProcessor != null) {
+        if (! (_addressProcessor instanceof DisabledAddressProcessor)) {
             Logger.info("[Stopping Addresses Processor]");
             _addressProcessor.stop();
         }
@@ -476,22 +476,22 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, _masterInflater, blockProcessor, blockLoader, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
-        if (true) {
+        final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
+        if (! indexModeIsEnabled) {
             _slpTransactionProcessor = null;
             _addressProcessor = new DisabledAddressProcessor();
         }
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
-            if (_addressProcessor != null) {
-                _addressProcessor.setOnSleepCallback(new Runnable() {
-                    @Override
-                    public void run() {
-                        Logger.trace("AddressProcessor: Callback");
-                        _slpTransactionProcessor.wakeUp();
-                    }
-                });
-            }
+            _addressProcessor = new AddressProcessor(databaseManagerFactory);
+            _addressProcessor.setOnSleepCallback(new Runnable() {
+                @Override
+                public void run() {
+                    Logger.trace("AddressProcessor: Callback");
+                    _slpTransactionProcessor.wakeUp();
+                }
+            });
         }
 
         { // Set the synchronization elements to cascade to each component...
@@ -500,13 +500,8 @@ public class NodeModule {
                 public void onNewBlock(final Long blockHeight, final Block block) {
                     final Sha256Hash blockHash = block.getHash();
 
-                    if (_blockStore != null) {
-                        _blockStore.storeBlock(block, blockHeight);
-                    }
-
-                    if (_addressProcessor != null) {
-                        _addressProcessor.wakeUp();
-                    }
+                    _blockStore.storeBlock(block, blockHeight);
+                    _addressProcessor.wakeUp();
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
@@ -627,9 +622,7 @@ public class NodeModule {
                 public void onNewTransactions(final List<Transaction> transactions) {
 
                     _transactionRelay.relayTransactions(transactions);
-                    if (_addressProcessor != null) {
-                        _addressProcessor.wakeUp();
-                    }
+                    _addressProcessor.wakeUp();
                 }
             });
         }
@@ -924,7 +917,7 @@ public class NodeModule {
         Logger.info("[Starting Transaction Processor]");
         _transactionProcessor.start();
 
-        if (_addressProcessor != null) {
+        if (! (_addressProcessor instanceof DisabledAddressProcessor)) {
             Logger.info("[Starting Address Processor]");
             _addressProcessor.start();
         }

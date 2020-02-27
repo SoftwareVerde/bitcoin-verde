@@ -1,9 +1,20 @@
+CREATE TABLE script_types (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    type VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY script_types_uq (type)
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+INSERT INTO script_types (id, type) VALUES
+    (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'), (3, 'PAY_TO_PUBLIC_KEY'), (4, 'PAY_TO_PUBLIC_KEY_HASH'), (5, 'PAY_TO_SCRIPT_HASH'),
+    (6, 'SLP_GENESIS_SCRIPT'), (7, 'SLP_SEND_SCRIPT'), (8, 'SLP_MINT_SCRIPT'), (9, 'SLP_COMMIT_SCRIPT');
+
 CREATE TABLE pending_blocks (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash BINARY(32) NOT NULL,
     previous_block_hash BINARY(32) NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
-    last_download_attempt_timestamp BIGINT UNSIGNED NULL,
+    last_download_attempt_timestamp BIGINT UNSIGNED,
     failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
     priority BIGINT NOT NULL,
     was_downloaded TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
@@ -18,7 +29,7 @@ CREATE TABLE pending_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash BINARY(32) NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
-    last_download_attempt_timestamp BIGINT UNSIGNED NULL,
+    last_download_attempt_timestamp BIGINT UNSIGNED,
     failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
     priority BIGINT NOT NULL,
     PRIMARY KEY (id),
@@ -78,9 +89,9 @@ CREATE TABLE blocks (
 
 CREATE TABLE blockchain_segments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    parent_blockchain_segment_id INT UNSIGNED NULL,
-    nested_set_left INT UNSIGNED NULL,
-    nested_set_right INT UNSIGNED NULL,
+    parent_blockchain_segment_id INT UNSIGNED,
+    nested_set_left INT UNSIGNED,
+    nested_set_right INT UNSIGNED,
     PRIMARY KEY (id),
     FOREIGN KEY blockchain_segments_parent_blockchain_segment_id (parent_blockchain_segment_id) REFERENCES blockchain_segments (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
@@ -124,7 +135,7 @@ CREATE TABLE unconfirmed_transactions (
     PRIMARY KEY (id),
     UNIQUE KEY unconfirmed_transaction_txid_uq (transaction_id),
     FOREIGN KEY unconfirmed_transaction_transaction_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unconfirmed_transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -133,8 +144,8 @@ CREATE TABLE unconfirmed_transaction_outputs (
     amount BIGINT UNSIGNED NOT NULL,
     locking_script BLOB NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_output_tx_id_index_uq (unconfirmed_transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
+    UNIQUE KEY unconfirmed_transaction_output_tx_id_index_uq (unconfirmed_transaction_id, `index`),
+    FOREIGN KEY unconfirmed_transaction_outputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unconfirmed_transaction_inputs (
@@ -149,34 +160,50 @@ CREATE TABLE unconfirmed_transaction_inputs (
     FOREIGN KEY transaction_inputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-CREATE TABLE transaction_output_addresses (
+CREATE TABLE transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    address_id INT UNSIGNED NOT NULL,
     transaction_id INT UNSIGNED NOT NULL,
-    output_index INT UNSIGNED NULL,
+    output_index INT UNSIGNED,
+    amount BIGINT UNSIGNED NOT NULL,
+    address_id INT UNSIGNED NOT NULL,
+    script_type_id INT UNSIGNED NOT NULL DEFAULT 1,
+    slp_transaction_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_addresses_uq (transaction_id, output_index),
     FOREIGN KEY transaction_output_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
-    FOREIGN KEY transaction_output_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE
+    FOREIGN KEY transaction_output_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE,
+    FOREIGN KEY transaction_output_addresses_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
+    FOREIGN KEY transaction_output_addresses_slp_tx_fk (slp_transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE transaction_input_addresses (
+CREATE TABLE transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     address_id INT UNSIGNED NOT NULL,
     transaction_id INT UNSIGNED NOT NULL,
-    input_index INT UNSIGNED NULL,
+    input_index INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_input_addresses_uq (transaction_id, input_index),
     FOREIGN KEY transaction_input_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
     FOREIGN KEY transaction_input_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE address_processor_queue (
+CREATE TABLE transaction_output_processor_queue (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY address_processor_queue_uq (transaction_id),
-    FOREIGN KEY address_processor_queue_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+    UNIQUE KEY transaction_output_processor_queue_uq (transaction_id),
+    FOREIGN KEY transaction_output_processor_queue_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE TABLE validated_slp_transactions (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    transaction_id INT UNSIGNED NOT NULL,
+    blockchain_segment_id INT UNSIGNED NOT NULL,
+    is_valid TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY valid_slp_transactions_uq (transaction_id, blockchain_segment_id),
+    FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
+    FOREIGN KEY valid_slp_transactions_blockchain_segment_id_fk (blockchain_segment_id) REFERENCES blockchain_segments (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE hosts (

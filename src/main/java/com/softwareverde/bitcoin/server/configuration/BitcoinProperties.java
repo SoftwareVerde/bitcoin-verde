@@ -20,6 +20,7 @@ public class BitcoinProperties {
     protected Boolean _transactionBloomFilterIsEnabled;
     protected Boolean _bootstrapIsEnabled;
     protected Boolean _trimBlocksIsEnabled;
+    protected Boolean _indexingModeIsEnabled;
     protected Boolean _blockCacheIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
@@ -37,6 +38,7 @@ public class BitcoinProperties {
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     public Boolean isTransactionBloomFilterEnabled() { return _transactionBloomFilterIsEnabled; }
     public Boolean isTrimBlocksEnabled() { return _trimBlocksIsEnabled; }
+    public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }
     public Boolean isBlockCacheEnabled() { return _blockCacheIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
