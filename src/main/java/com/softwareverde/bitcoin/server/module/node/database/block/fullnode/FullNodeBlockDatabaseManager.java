@@ -78,7 +78,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         }
     }
 
-    protected void _storeBlockTransactions(final BlockId blockId, final Block block) throws DatabaseException {
+    protected List<TransactionId> _storeBlockTransactions(final BlockId blockId, final Block block) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final List<Transaction> transactions = block.getTransactions();
@@ -96,9 +96,10 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final MilliTimer storeBlockTimer = new MilliTimer();
         final MilliTimer associateTransactionsTimer = new MilliTimer();
 
+        final List<TransactionId> transactionIds;
         storeBlockTimer.start();
         {
-            final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
+            transactionIds = transactionDatabaseManager.storeTransactions(transactions);
             if (transactionIds == null) { throw new DatabaseException("Unable to store block transactions."); }
 
             associateTransactionsTimer.start();
@@ -108,6 +109,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         }
         storeBlockTimer.stop();
         Logger.info("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
+        return transactionIds;
     }
 
     protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
@@ -220,7 +222,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
      *  If the BlockHeader has already been stored, this will update the existing BlockHeader.
      *  Transactions inserted on this chain are assumed to be a part of the parent's chain if the BlockHeader did not exist.
      */
-    public BlockId storeBlock(final Block block) throws DatabaseException {
+    public BlockId storeBlock(final Block block) throws DatabaseException { return this.storeBlock(block, null); }
+    public BlockId storeBlock(final Block block, final MutableList<TransactionId> returnedTransactionIds) throws DatabaseException {
         if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to storeBlock without obtaining lock."); }
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
@@ -238,12 +241,16 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             blockId = existingBlockId;
         }
 
-        _storeBlockTransactions(blockId, block);
+        final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block);
+        if (returnedTransactionIds != null) {
+            returnedTransactionIds.addAll(transactionIds);
+        }
 
         return blockId;
     }
 
-    public Boolean storeBlockTransactions(final Block block) throws DatabaseException {
+    public Boolean storeBlockTransactions(final Block block) throws DatabaseException { return this.storeBlockTransactions(block, null); }
+    public Boolean storeBlockTransactions(final Block block, final MutableList<TransactionId> returnedTransactionIds) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
@@ -253,7 +260,10 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             return false;
         }
 
-        _storeBlockTransactions(blockId, block);
+        final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block);
+        if (returnedTransactionIds != null) {
+            returnedTransactionIds.addAll(transactionIds);
+        }
 
         return true;
     }
@@ -263,7 +273,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
      *  If the BlockHeader has already been stored, this function will throw a DatabaseException.
      *  Transactions inserted on this chain are assumed to be a part of the parent's chain.
      */
-    public BlockId insertBlock(final Block block) throws DatabaseException {
+    public BlockId insertBlock(final Block block) throws DatabaseException { return this.insertBlock(block, null); }
+    public BlockId insertBlock(final Block block, final MutableList<TransactionId> returnedTransactionIds) throws DatabaseException {
         if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to insertBlock without obtaining lock."); }
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
@@ -274,7 +285,11 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
 
-        _storeBlockTransactions(blockId, block);
+        final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block);
+        if (returnedTransactionIds != null) {
+            returnedTransactionIds.addAll(transactionIds);
+        }
+
         return blockId;
     }
 

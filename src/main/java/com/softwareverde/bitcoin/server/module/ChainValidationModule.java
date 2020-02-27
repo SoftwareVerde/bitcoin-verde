@@ -167,7 +167,7 @@ public class ChainValidationModule {
                 System.out.println("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
-                final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block, null);
+                final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
 
                 if (! blockValidationResult.isValid) {
                     Logger.error("Invalid block found: " + blockHash + "(" + blockValidationResult.errorMessage + ")");

@@ -56,7 +56,10 @@ public class AddressProcessor extends SleepyService {
         if (address == null) { return null; }
 
         final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
-        return addressDatabaseManager.getAddressId(address);
+        final AddressId addressId = addressDatabaseManager.getAddressId(address);
+        if (addressId != null) { return addressId; }
+
+        return addressDatabaseManager.storeAddress(address);
     }
 
     protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript, final FullNodeDatabaseManager databaseManager) throws DatabaseException {

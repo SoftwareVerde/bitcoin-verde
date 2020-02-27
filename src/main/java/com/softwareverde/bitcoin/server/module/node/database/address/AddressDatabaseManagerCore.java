@@ -39,6 +39,7 @@ public class AddressDatabaseManagerCore implements AddressDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id FROM addresses WHERE address = ?")
+                .setParameter(address)
         );
         if (rows.isEmpty()) { return null; }
 
@@ -49,6 +50,21 @@ public class AddressDatabaseManagerCore implements AddressDatabaseManager {
 
     public AddressDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
+    }
+
+    @Override
+    public AddressId storeAddress(final Address address) throws DatabaseException {
+        final String addressString = address.toBase58CheckEncoded();
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final Long addressId = databaseConnection.executeSql(
+            new Query("INSERT IGNORE INTO addresses (address) VALUES (?)")
+                .setParameter(addressString)
+        );
+        if (databaseConnection.getRowsAffectedCount() > 0) {
+            return AddressId.wrap(addressId);
+        }
+
+        return _getAddressId(addressString);
     }
 
     @Override

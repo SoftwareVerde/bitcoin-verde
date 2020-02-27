@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -55,7 +56,6 @@ public class BlockProcessor {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
-    // protected final MutableUnspentTransactionOutputSet _unspentTransactionOutputSet;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
     protected Integer _maxThreadCount = 4;
@@ -70,7 +70,6 @@ public class BlockProcessor {
         final BlockValidatorFactory blockValidatorFactory,
         final TransactionValidatorFactory transactionValidatorFactory,
         final MutableMedianBlockTime medianBlockTime,
-        // final MutableUnspentTransactionOutputSet unspentTransactionOutputSet,
         final OrphanedTransactionsCache orphanedTransactionsCache,
         final BlockStore blockStore
     ) {
@@ -79,7 +78,6 @@ public class BlockProcessor {
         _transactionValidatorFactory = transactionValidatorFactory;
         _blockValidatorFactory = blockValidatorFactory;
 
-        // _unspentTransactionOutputSet = unspentTransactionOutputSet;
         _medianBlockTime = medianBlockTime;
 
         _startTime = System.currentTimeMillis();
@@ -98,6 +96,7 @@ public class BlockProcessor {
 
     protected Long _processBlock(final Block block, final UnspentTransactionOutputSet preLoadedUnspentTransactionOutputSet) throws DatabaseException {
         final UnspentTransactionOutputSet unspentTransactionOutputSet;
+        final List<Transaction> blockTransactions = block.getTransactions();
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -108,6 +107,7 @@ public class BlockProcessor {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
 
             final BlockchainSegmentId originalHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
@@ -168,7 +168,8 @@ public class BlockProcessor {
             TransactionUtil.startTransaction(databaseConnection);
             {
                 storeBlockTimer.start();
-                final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
+                final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
+                final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block, transactionIds); // Store the Block's transactions (the BlockHeader should have already been stored above)...
                 if (_blockStore != null) {
                     _blockStore.storeBlock(block, blockHeight);
                 }
@@ -184,7 +185,7 @@ public class BlockProcessor {
                     return null;
                 }
 
-                final int transactionCount = block.getTransactions().getCount();
+                final int transactionCount = blockTransactions.getCount();
                 Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
                 if (preLoadedUnspentTransactionOutputSet != null) {
@@ -226,13 +227,16 @@ public class BlockProcessor {
                     Logger.debug("Invalid block. Transactions did not validate for block: " + blockHash);
                     return null;
                 }
+
+                { // Queue the transactions for processing...
+                    addressDatabaseManager.queueTransactionsForProcessing(transactionIds);
+                }
             }
 
             final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final Integer byteCount = blockDeflater.getByteCount(block);
             blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
 
-            // _unspentTransactionOutputSet.addBlock(block);
             _medianBlockTime.addBlock(block);
 
             final BlockchainSegmentId newHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -304,10 +308,9 @@ public class BlockProcessor {
                     { // Update the UTXO set...
                         final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
                         final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-                        final List<Transaction> transactions = block.getTransactions();
 
                         boolean isCoinbaseTransaction = true;
-                        for (final Transaction transaction : transactions) {
+                        for (final Transaction transaction : blockTransactions) {
                             if (! isCoinbaseTransaction) {
                                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                                 for (final TransactionInput transactionInput : transactionInputs) {
@@ -348,7 +351,7 @@ public class BlockProcessor {
 
             TransactionUtil.commitTransaction(databaseConnection);
 
-            final Integer blockTransactionCount = block.getTransactions().getCount();
+            final Integer blockTransactionCount = blockTransactions.getCount();
 
             final Float averageBlocksPerSecond;
             final Float averageTransactionsPerSecond;

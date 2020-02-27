@@ -437,7 +437,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
-                    return _blockValidator.validatePrototypeBlock(blockId, block, null);
+                    return _blockValidator.validatePrototypeBlock(blockId, block);
                 }
             }
             finally {

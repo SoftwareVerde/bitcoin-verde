@@ -55,6 +55,7 @@ public class BlockchainBuilder extends SleepyService {
      *  If not provided, the transactionOutputSet is loaded from the database.
      *  Returns true if the pending block was valid and stored.
      */
+    protected Boolean _processPendingBlock(final PendingBlock pendingBlock) { return _processPendingBlock(pendingBlock, null); }
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputSet transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
@@ -187,7 +188,7 @@ public class BlockchainBuilder extends SleepyService {
 
                 // Process the first available candidate block...
                 final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
-                final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock, null);
+                final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
                 if (! processCandidateBlockWasSuccessful) {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);

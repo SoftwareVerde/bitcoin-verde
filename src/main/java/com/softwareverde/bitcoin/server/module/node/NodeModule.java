@@ -620,7 +620,6 @@ public class NodeModule {
             _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
                 @Override
                 public void onNewTransactions(final List<Transaction> transactions) {
-
                     _transactionRelay.relayTransactions(transactions);
                     _addressProcessor.wakeUp();
                 }

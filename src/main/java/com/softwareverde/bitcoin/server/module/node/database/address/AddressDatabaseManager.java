@@ -10,6 +10,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
 public interface AddressDatabaseManager {
+    AddressId storeAddress(Address address) throws DatabaseException;
     List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
     AddressId getAddressId(String addressString) throws DatabaseException;
     AddressId getAddressId(Address address) throws DatabaseException;

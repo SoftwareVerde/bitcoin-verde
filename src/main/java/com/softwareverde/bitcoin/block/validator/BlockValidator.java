@@ -342,6 +342,7 @@ public class BlockValidator {
      * Validates the provided block for mining.
      *  PrototypeBlock's are valid blocks, with the sole exception of their hash is not required to be valid.
      */
+    public BlockValidationResult validatePrototypeBlock(final BlockId blockId, final Block prototypeBlock) { return this.validatePrototypeBlock(blockId, prototypeBlock, null); }
     public BlockValidationResult validatePrototypeBlock(final BlockId blockId, final Block prototypeBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
         final Difficulty difficulty = prototypeBlock.getDifficulty();
@@ -350,10 +351,13 @@ public class BlockValidator {
         return _validateBlock(blockId, mutableBlock, unspentTransactionOutputSet);
     }
 
+    public BlockValidationResult validateBlock(final BlockId blockId, final Block nullableBlock) { return this.validateBlock(blockId, nullableBlock, null); }
     public BlockValidationResult validateBlock(final BlockId blockId, final Block nullableBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         return _validateBlock(blockId, nullableBlock, unspentTransactionOutputSet);
     }
 
+    public BlockValidationResult validateBlockTransactions(final BlockId blockId) { return this.validateBlockTransactions(blockId, null, null); }
+    public BlockValidationResult validateBlockTransactions(final BlockId blockId, final Block nullableBlock) { return this.validateBlockTransactions(blockId, nullableBlock, null); }
     public BlockValidationResult validateBlockTransactions(final BlockId blockId, final Block nullableBlock, final UnspentTransactionOutputSet unspentTransactionOutputSet) {
         final Block block;
         final Long blockHeight;
