@@ -35,7 +35,7 @@ import java.util.Set;
 public class TransactionOutputDatabaseManagerCore implements TransactionOutputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
-    protected AddressId _getAddressId(final String address) throws DatabaseException {
+    protected AddressId _getAddressId(final Address address) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id FROM addresses WHERE address = ?")
@@ -54,17 +54,16 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
 
     @Override
     public AddressId storeAddress(final Address address) throws DatabaseException {
-        final String addressString = address.toBase58CheckEncoded();
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final Long addressId = databaseConnection.executeSql(
             new Query("INSERT IGNORE INTO addresses (address) VALUES (?)")
-                .setParameter(addressString)
+                .setParameter(address)
         );
         if (databaseConnection.getRowsAffectedCount() > 0) {
             return AddressId.wrap(addressId);
         }
 
-        return _getAddressId(addressString);
+        return _getAddressId(address);
     }
 
     @Override
@@ -86,14 +85,9 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
     }
 
     @Override
-    public AddressId getAddressId(final String addressString) throws DatabaseException {
-        return _getAddressId(addressString);
-    }
-
-    @Override
     public AddressId getAddressId(final Address address) throws DatabaseException {
         if (address == null) { return null; }
-        return _getAddressId(address.toBase58CheckEncoded());
+        return _getAddressId(address);
     }
 
     /**

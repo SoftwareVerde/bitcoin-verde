@@ -12,11 +12,12 @@ public class DatabaseMaintainer {
     protected static final List<String> TABLES;
     static {
         final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
+        listBuilder.add("script_types");
         listBuilder.add("pending_blocks");
         listBuilder.add("pending_transactions");
         listBuilder.add("pending_transaction_data");
         listBuilder.add("pending_transactions_dependent_transactions");
-        // listBuilder.add("addresses");
+        listBuilder.add("addresses");
         listBuilder.add("blocks");
         listBuilder.add("blockchain_segments");
         listBuilder.add("transactions");
@@ -25,10 +26,10 @@ public class DatabaseMaintainer {
         listBuilder.add("unconfirmed_transactions");
         listBuilder.add("unconfirmed_transaction_outputs");
         listBuilder.add("unconfirmed_transaction_inputs");
-        // listBuilder.add("script_types");
-        // listBuilder.add("locking_scripts");
-        // listBuilder.add("unlocking_scripts");
-        // listBuilder.add("address_processor_queue");
+        listBuilder.add("transaction_outputs");
+        listBuilder.add("transaction_inputs");
+        listBuilder.add("transaction_output_processor_queue");
+        listBuilder.add("validated_slp_transactions");
         listBuilder.add("hosts");
         listBuilder.add("nodes");
         listBuilder.add("node_features");

@@ -11,9 +11,9 @@ import com.softwareverde.database.DatabaseException;
 
 public interface TransactionOutputDatabaseManager {
     AddressId storeAddress(Address address) throws DatabaseException;
-    List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
-    AddressId getAddressId(String addressString) throws DatabaseException;
     AddressId getAddressId(Address address) throws DatabaseException;
+    List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
+
     List<TransactionId> getTransactionIds(BlockchainSegmentId blockchainSegmentId, AddressId addressId, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     List<TransactionId> getTransactionIdsSendingTo(BlockchainSegmentId blockchainSegmentId, AddressId addressId, Boolean includeUnconfirmedTransactions) throws DatabaseException;
     List<TransactionId> getTransactionIdsSpendingFrom(BlockchainSegmentId blockchainSegmentId, AddressId addressId, Boolean includeUnconfirmedTransactions) throws DatabaseException;

@@ -36,7 +36,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
 
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address.toBase58CheckEncoded());
+            final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
             return transactionOutputDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
         }
         catch (final Exception exception) {
@@ -53,7 +53,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
-            final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address.toBase58CheckEncoded());
+            final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final List<TransactionId> transactionIds = transactionOutputDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
