@@ -45,6 +45,13 @@ CREATE TABLE pending_transactions_dependent_transactions (
     FOREIGN KEY pending_transaction_prevout_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
+CREATE TABLE addresses (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    address VARCHAR(255) BINARY NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY addresses_uq (address)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE blocks (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash BINARY(32) NOT NULL,
@@ -141,6 +148,36 @@ CREATE TABLE unconfirmed_transaction_inputs (
     PRIMARY KEY (id),
     FOREIGN KEY transaction_inputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE transaction_output_addresses (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    address_id INT UNSIGNED NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
+    output_index INT UNSIGNED NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY transaction_output_addresses_uq (transaction_id, output_index),
+    FOREIGN KEY transaction_output_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
+    FOREIGN KEY transaction_output_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE TABLE transaction_input_addresses (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    address_id INT UNSIGNED NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
+    input_index INT UNSIGNED NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY transaction_input_addresses_uq (transaction_id, input_index),
+    FOREIGN KEY transaction_input_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
+    FOREIGN KEY transaction_input_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE TABLE address_processor_queue (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    transaction_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY address_processor_queue_uq (transaction_id),
+    FOREIGN KEY address_processor_queue_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE hosts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
