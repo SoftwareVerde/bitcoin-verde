@@ -57,16 +57,7 @@ public class BlockDownloader extends SleepyService {
 
     protected void _onBlockDownloaded(final Block block, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
         pendingBlockDatabaseManager.storeBlock(block);
-        if (_blockStore != null) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(block.getHash());
-            if (blockId != null) {
-                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                _blockStore.storeBlock(block, blockHeight);
-            }
-        }
     }
 
     protected void _markPendingBlockIdsAsFailed(final Set<Sha256Hash> pendingBlockHashes) {

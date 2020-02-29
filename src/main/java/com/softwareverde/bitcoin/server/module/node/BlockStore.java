@@ -42,15 +42,15 @@ public class BlockStore {
         _blockInflaters = blockInflaters;
     }
 
-    public void storeBlock(final Block block, final Long blockHeight) {
-        if (_blockDataDirectory == null) { return; }
+    public Boolean storeBlock(final Block block, final Long blockHeight) {
+        if (_blockDataDirectory == null) { return false; }
 
         final Sha256Hash blockHash = block.getHash();
 
         final String blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return; }
+        if (blockPath == null) { return false; }
 
-        if (IoUtil.fileExists(blockPath)) { return; }
+        if (IoUtil.fileExists(blockPath)) { return true; }
 
         { // Create the directory, if necessary...
             final String dataDirectory = _getBlockDataDirectory(blockHeight);
@@ -59,7 +59,7 @@ public class BlockStore {
                 final Boolean mkdirSuccessful = directory.mkdirs();
                 if (! mkdirSuccessful) {
                     Logger.warn("Unable to create block data directory: " + dataDirectory);
-                    return;
+                    return false;
                 }
             }
         }
@@ -67,7 +67,7 @@ public class BlockStore {
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         final MutableByteArray byteArray = blockDeflater.toBytes(block);
 
-        IoUtil.putFileContents(blockPath, byteArray.unwrap());
+        return IoUtil.putFileContents(blockPath, byteArray.unwrap());
     }
 
     public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {

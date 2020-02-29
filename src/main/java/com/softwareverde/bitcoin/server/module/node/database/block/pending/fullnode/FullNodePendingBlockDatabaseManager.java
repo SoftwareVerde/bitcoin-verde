@@ -127,8 +127,12 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
     protected void _insertPendingBlockData(final PendingBlockId pendingBlockId, final Block pendingBlock) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        _blockStore.storePendingBlock(pendingBlock);
+        final Boolean storeWasSuccessful = _blockStore.storePendingBlock(pendingBlock);
+        if (! storeWasSuccessful) {
+            throw new DatabaseException("Error storing pending block: " + pendingBlock.getHash());
+        }
 
+        Logger.trace("Stored data for pending block: " + pendingBlock.getHash());
         databaseConnection.executeSql(
             new Query("UPDATE pending_blocks SET was_downloaded = 1 WHERE id = ?")
                 .setParameter(pendingBlockId)

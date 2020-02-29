@@ -41,15 +41,15 @@ public class PendingBlockStore extends BlockStore {
         _pendingBlockDataDirectory = pendingBlockDataDirectory;
     }
 
-    public void storePendingBlock(final Block block) {
-        if (_pendingBlockDataDirectory == null) { return; }
+    public Boolean storePendingBlock(final Block block) {
+        if (_pendingBlockDataDirectory == null) { return false; }
 
         final Sha256Hash blockHash = block.getHash();
 
         final String blockPath = _getPendingBlockDataPath(blockHash);
-        if (blockPath == null) { return; }
+        if (blockPath == null) { return false; }
 
-        if (IoUtil.fileExists(blockPath)) { return; }
+        if (IoUtil.fileExists(blockPath)) { return true; }
 
         { // Create the directory, if necessary...
             final String cacheDirectory = _getPendingBlockDataDirectory(blockHash);
@@ -58,7 +58,7 @@ public class PendingBlockStore extends BlockStore {
                 final Boolean mkdirSuccessful = directory.mkdirs();
                 if (! mkdirSuccessful) {
                     Logger.warn("Unable to create block cache directory: " + cacheDirectory);
-                    return;
+                    return false;
                 }
             }
         }
@@ -66,7 +66,7 @@ public class PendingBlockStore extends BlockStore {
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         final MutableByteArray byteArray = blockDeflater.toBytes(block);
 
-        IoUtil.putFileContents(blockPath, byteArray.unwrap());
+        return IoUtil.putFileContents(blockPath, byteArray.unwrap());
     }
 
     public void removePendingBlock(final Sha256Hash blockHash) {
@@ -78,7 +78,7 @@ public class PendingBlockStore extends BlockStore {
         if (! IoUtil.fileExists(blockPath)) { return; }
 
         final File file = new File(blockPath);
-        file.delete();
+        // file.delete();
     }
 
     public ByteArray getPendingBlockData(final Sha256Hash blockHash) {
