@@ -115,7 +115,7 @@ public class BlockValidatorTests extends IntegrationTest {
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
                     final AddressInflater addressInflater = new AddressInflater();
-                    listBuilder.add(transactionInflater.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+                    listBuilder.add(transactionInflater.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.uncompressedFromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
                     block = new MutableBlock(blockHeader, listBuilder.build());
 
                     block.setPreviousBlockHash(mostRecentBlockHash);
@@ -552,7 +552,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 //  This transaction will create an output that can be spent by our private key.
                 transactionToSpend = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 mutableBlock.addTransaction(transactionToSpend);
@@ -566,7 +566,7 @@ public class BlockValidatorTests extends IntegrationTest {
             {
                 final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createTransactionInputThatSpendsTransaction(transactionToSpend),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 1L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 1L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 // Sign the transaction..
@@ -676,7 +676,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 //  This transaction will create an output that can be spent by our private key.
                 validCoinbaseWithDuplicateIdentifier = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 blockWithDuplicateTxId.addTransaction(validCoinbaseWithDuplicateIdentifier);
@@ -695,7 +695,7 @@ public class BlockValidatorTests extends IntegrationTest {
             {
                 final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createTransactionInputThatSpendsTransaction(validCoinbaseWithDuplicateIdentifier),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 // Sign the transaction..
@@ -720,7 +720,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
                 final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 mutableBlock.addTransaction(regularCoinbaseTransaction);
@@ -760,7 +760,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
                 final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1N7ABymxVuekZ3B37xkU2u2XPygDg1bwZR"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1N7ABymxVuekZ3B37xkU2u2XPygDg1bwZR"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 mutableBlock.addTransaction(regularCoinbaseTransaction);
@@ -785,7 +785,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
                 final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("18rComAH12mPMG53hyvWB6ewAN26TXK6rU"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("18rComAH12mPMG53hyvWB6ewAN26TXK6rU"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 mutableBlock.addTransaction(regularCoinbaseTransaction);
@@ -851,7 +851,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 //  This transaction will create an output that can be spent by our private key.
                 spendableCoinbase = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 blockWithSpendableCoinbase.addTransaction(spendableCoinbase);
@@ -870,7 +870,7 @@ public class BlockValidatorTests extends IntegrationTest {
             {
                 final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
                         TransactionValidatorTests._createTransactionInputThatSpendsTransaction(spendableCoinbase),
-                        TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                        TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 // Sign the transaction..
@@ -895,7 +895,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
                 final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
                         TransactionValidatorTests._createCoinbaseTransactionInput(),
-                        TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                        TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 mutableBlock.addTransaction(regularCoinbaseTransaction);
@@ -920,7 +920,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
                 final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
                     TransactionValidatorTests._createCoinbaseTransactionInput(),
-                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1DgiazmkoTEdvTa6ErdzrqvmnenGS11RU2"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1DgiazmkoTEdvTa6ErdzrqvmnenGS11RU2"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
                 );
 
                 mutableBlock.addTransaction(regularCoinbaseTransaction);

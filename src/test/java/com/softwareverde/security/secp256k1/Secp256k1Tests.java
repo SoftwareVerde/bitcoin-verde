@@ -86,7 +86,7 @@ public class Secp256k1Tests {
 
         final BitcoinMessageSignature signature = BitcoinUtil.signBitcoinMessage(privateKey, message, useCompressedAddress);
 
-        final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey));
+        final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.uncompressedFromPrivateKey(privateKey));
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
@@ -101,7 +101,7 @@ public class Secp256k1Tests {
         final String message = "Mary had a little lamb.";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
         final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);

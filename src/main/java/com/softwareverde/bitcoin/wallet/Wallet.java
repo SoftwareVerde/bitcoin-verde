@@ -81,6 +81,7 @@ public class Wallet {
 
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
     protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
+    protected final Map<TransactionOutputIdentifier, Sha256Hash> _externallySpentTransactionOutputs = new HashMap<>();
     protected BloomFilter _cachedBloomFilter = null;
 
     protected final MedianBlockTime _medianBlockTime;
@@ -235,7 +236,7 @@ public class Wallet {
         final PublicKey decompressedPublicKey = publicKey.decompress();
 
         final AddressInflater addressInflater = new AddressInflater();
-        final Address decompressedAddress = addressInflater.fromPrivateKey(constPrivateKey);
+        final Address decompressedAddress = addressInflater.uncompressedFromPrivateKey(constPrivateKey);
         final Address compressedAddress = addressInflater.compressedFromPrivateKey(constPrivateKey);
 
         _privateKeys.put(compressedPublicKey.asConst(), constPrivateKey);
@@ -319,7 +320,9 @@ public class Wallet {
     protected void _reloadTransactions() {
         final MutableList<Transaction> transactions = new MutableList<Transaction>(_transactions.values());
         final HashSet<Sha256Hash> confirmedTransactions = new HashSet<Sha256Hash>(_confirmedTransactions);
+        final Map<TransactionOutputIdentifier, Sha256Hash> externallySpentTransactionOutputs = new HashMap<>(_externallySpentTransactionOutputs);
 
+        _externallySpentTransactionOutputs.clear();
         _spentTransactionOutputs.clear();
         _transactionOutputs.clear();
         _transactions.clear();
@@ -339,6 +342,13 @@ public class Wallet {
             }
 
             _addTransaction(transaction, isConfirmedTransaction);
+        }
+
+        // transfer explicitly spent outputs to new data set
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : externallySpentTransactionOutputs.keySet()) {
+            if (_transactions.containsKey(transactionOutputIdentifier.getTransactionHash())) {
+                _markTransactionOutputAsSpent(transactionOutputIdentifier);
+            }
         }
     }
 
@@ -386,7 +396,7 @@ public class Wallet {
 
         final AddressInflater addressInflater = new AddressInflater();
         final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
-        final Address address = addressInflater.fromPublicKey(publicKey);
+        final Address address = addressInflater.uncompressedFromPublicKey(publicKey);
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
@@ -603,11 +613,21 @@ public class Wallet {
         { // Calculate the total SLP Token amount selected by the required TransactionOutputs...
             long totalAmount = 0L;
             for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputIdentifiersToSpend) {
-                // final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
-                final Long transactionOutputTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
-                if (transactionOutputTokenAmount == null) { return null; }
+                final SlpTokenId outputTokenId = _getSlpTokenId(transactionOutputIdentifier);
+                final Boolean isValidSlpTransaction = _isSlpTransactionAndIsValid(transactionOutputIdentifier.getTransactionHash(), shouldIncludeNotYetValidatedTransactions);
+                if (isValidSlpTransaction == null) {
+                    Logger.error("Unable to add required output " + transactionOutputIdentifier.getTransactionHash() + ":" + transactionOutputIdentifier.getOutputIndex() + " as the transaction is not available.");
+                    return null;
+                }
+                final Boolean isSlpOutput = _isSlpTokenOutput(transactionOutputIdentifier);
+                if (isValidSlpTransaction && isSlpOutput) {
+                    if (! Util.areEqual(slpTokenId, outputTokenId)) {
+                        Logger.warn("Required output " + transactionOutputIdentifier.getTransactionHash() + ":" + transactionOutputIdentifier.getOutputIndex() + " has a different token type (" + outputTokenId + ") than the transaction being created (" + slpTokenId + ").  These tokens will be burned.");
+                    }
 
-                totalAmount += transactionOutputTokenAmount;
+                    final Long transactionOutputTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
+                    totalAmount += transactionOutputTokenAmount;
+                }
 
                 configuration.transactionOutputIdentifiersToSpend.add(transactionOutputIdentifier);
             }
@@ -631,6 +651,9 @@ public class Wallet {
                 if (! _isSlpTokenOutput(transactionOutputIdentifier)) { continue; }
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 if (! _isSlpTransactionAndIsValid(transactionHash, shouldIncludeNotYetValidatedTransactions)) { continue; }
+
+                final SlpTokenId outputTokenId = _getSlpTokenId(transactionOutputIdentifier);
+                if (! Util.areEqual(slpTokenId, outputTokenId)) { continue; }
 
                 final Long tokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
                 if (tokenAmount == null) { continue; }
@@ -924,7 +947,7 @@ public class Wallet {
             bloomFilter.addItem(publicKey.compress());
 
             // Add receiving matchers...
-            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey));
+            bloomFilter.addItem(addressInflater.uncompressedFromPrivateKey(privateKey));
             bloomFilter.addItem(addressInflater.compressedFromPrivateKey(privateKey));
         }
 
@@ -965,16 +988,43 @@ public class Wallet {
         _addTransaction(transaction, true);
     }
 
+    public synchronized void addTransaction(final Transaction transaction, final List<Integer> validOutputIndexes) {
+        _addTransaction(transaction, true);
+        _markTransactionOutputsAsSpent(transaction, validOutputIndexes);
+    }
+
     public synchronized void addUnconfirmedTransaction(final Transaction transaction) {
         _addTransaction(transaction, false);
     }
 
-    public synchronized void markTransactionOutputSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
-        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-        final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
-        if (spendableTransactionOutput == null) { return; }
+    public synchronized void addUnconfirmedTransaction(final Transaction transaction, final List<Integer> validOutputIndexes) {
+        _addTransaction(transaction, false);
+        _markTransactionOutputsAsSpent(transaction, validOutputIndexes);
+    }
 
-        spendableTransactionOutput.setIsSpent(true);
+    public synchronized void markTransactionOutputAsSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
+        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
+        _markTransactionOutputAsSpent(transactionOutputIdentifier);
+    }
+
+    protected void _markTransactionOutputsAsSpent(final Transaction transaction, final List<Integer> validOutputIndexes) {
+        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+            if (! validOutputIndexes.contains(transactionOutput.getIndex())) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), transactionOutput.getIndex());
+                _markTransactionOutputAsSpent(transactionOutputIdentifier);
+            }
+        }
+    }
+
+    protected void _markTransactionOutputAsSpent(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        final MutableSpendableTransactionOutput transactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+        if (transactionOutput != null) {
+            transactionOutput.setIsSpent(true);
+        }
+
+        final Sha256Hash sentinelHash = Sha256Hash.EMPTY_HASH;
+        _spentTransactionOutputs.put(transactionOutputIdentifier, sentinelHash);
+        _externallySpentTransactionOutputs.put(transactionOutputIdentifier, sentinelHash);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount) {
@@ -1067,6 +1117,15 @@ public class Wallet {
         return _transactions.containsKey(transactionHash);
     }
 
+    /**
+     * <p>Get a list of the transactions contained within this wallet object.</p>
+     *
+     * @return A new list populated with the transactions contained within the wallet.
+     */
+    public List<Transaction> getTransactions() {
+        return new MutableList<>(_transactions.values());
+    }
+
     public synchronized Transaction getTransaction(final Sha256Hash transactionHash) {
         final Transaction transaction = _transactions.get(transactionHash);
         return transaction;
@@ -1147,7 +1206,7 @@ public class Wallet {
 
         final AddressInflater addressInflater = new AddressInflater();
         final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
-        final Address address = addressInflater.fromPublicKey(publicKey);
+        final Address address = addressInflater.uncompressedFromPublicKey(publicKey);
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
