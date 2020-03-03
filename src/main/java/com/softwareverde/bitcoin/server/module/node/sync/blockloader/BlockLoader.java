@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.transaction.validator.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
@@ -62,6 +63,11 @@ public class BlockLoader {
                     if (shouldLoadUnspentOutputs) {
                         final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                         unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock);
+                        blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
+                    }
+                    else { // NOTE: Outputs are available via LazyLoading, upon demand.
+                        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(_databaseManagerFactory);
+                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock); // Operation is only executed on demand...
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                     }
 
