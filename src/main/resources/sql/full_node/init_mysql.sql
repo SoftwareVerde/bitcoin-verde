@@ -119,11 +119,9 @@ CREATE TABLE block_transactions (
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unspent_transaction_outputs (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY transaction_outputs_uq (transaction_hash, `index`) USING BTREE
+    PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unconfirmed_transactions (

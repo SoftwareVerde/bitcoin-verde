@@ -669,7 +669,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         { // Ensure the output is in the UTXO set...
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                new Query("SELECT 1 FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
                     .setParameter(transactionHash)
                     .setParameter(outputIndex)
             );
