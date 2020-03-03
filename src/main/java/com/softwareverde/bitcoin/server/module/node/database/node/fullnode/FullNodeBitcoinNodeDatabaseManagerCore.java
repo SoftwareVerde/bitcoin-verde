@@ -236,45 +236,61 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
             batchedInsertQuery.setParameter(pendingBlockId);
         }
 
-        DatabaseException deadlockException = null;
-        for (int i = 0; i < 3; ++i) {
-            try {
-                databaseConnection.executeSql(batchedInsertQuery);
-                return (databaseConnection.getRowsAffectedCount() > 0);
-            }
-            catch (final DatabaseException exception) {
-                deadlockException = exception;
-            }
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock();
+
+            databaseConnection.executeSql(batchedInsertQuery);
+            return (databaseConnection.getRowsAffectedCount() > 0);
+
         }
-        throw deadlockException;
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
     }
 
     @Override
     public void deleteBlockInventory(final PendingBlockId pendingBlockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id = ?")
-                .setParameter(pendingBlockId)
-        );
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+
+            databaseConnection.executeSql(
+                new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id = ?")
+                    .setParameter(pendingBlockId)
+            );
+
+        }
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
     }
 
     @Override
     public void deleteBlockInventory(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        if (pendingBlockIds.isEmpty()) { return; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        if (pendingBlockIds.isEmpty()) { return; }
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (?)")
-                .setInClauseParameters(pendingBlockIds, ValueExtractor.IDENTIFIER)
-        );
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+
+            databaseConnection.executeSql(
+                new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (?)")
+                    .setInClauseParameters(pendingBlockIds, ValueExtractor.IDENTIFIER)
+            );
+
+        }
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
     }
 
     @Override
     public void updateTransactionInventory(final BitcoinNode node, final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
         if (pendingTransactionIds.isEmpty()) { return; }
+
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Ip ip = node.getIp();
         final Integer port = node.getPort();
@@ -287,18 +303,37 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
             batchedInsertQuery.setParameter(nodeId);
             batchedInsertQuery.setParameter(pendingTransactionId);
         }
-        databaseConnection.executeSql(batchedInsertQuery);
+
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock();
+
+            databaseConnection.executeSql(batchedInsertQuery);
+
+        }
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
     }
 
     @Override
     public List<NodeId> filterNodesViaTransactionInventory(final List<NodeId> nodeIds, final Sha256Hash transactionHash, final FilterType filterType) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (?)")
-                .setParameter(transactionHash)
-                .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
-        );
+        final java.util.List<Row> rows;
+
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock();
+
+            rows = databaseConnection.query(
+                new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (?)")
+                    .setParameter(transactionHash)
+                    .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
+            );
+
+        }
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
         if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
@@ -325,20 +360,19 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
     public List<NodeId> filterNodesViaBlockInventory(final List<NodeId> nodeIds, final Sha256Hash blockHash, final FilterType filterType) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final ReentrantReadWriteLock.ReadLock pendingBlockTableReadLock = PendingBlockDatabaseManager.READ_LOCK;
-
         final java.util.List<Row> rows;
         try {
-            pendingBlockTableReadLock.lock();
+            PendingBlockDatabaseManager.READ_LOCK.lock();
 
             rows = databaseConnection.query(
                 new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (?)")
                     .setParameter(blockHash)
                     .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
             );
+
         }
         finally {
-            pendingBlockTableReadLock.unlock();
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
         }
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
@@ -366,10 +400,18 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
     public void deleteTransactionInventory(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id = ?")
-                .setParameter(pendingTransactionId)
-        );
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+
+            databaseConnection.executeSql(
+                new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id = ?")
+                    .setParameter(pendingTransactionId)
+            );
+
+        }
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
     }
 
     @Override
@@ -378,10 +420,18 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         if (pendingTransactionIds.isEmpty()) { return; }
 
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (?)")
-                .setInClauseParameters(pendingTransactionIds, ValueExtractor.IDENTIFIER)
-        );
+        try {
+            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+
+            databaseConnection.executeSql(
+                new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (?)")
+                    .setInClauseParameters(pendingTransactionIds, ValueExtractor.IDENTIFIER)
+            );
+
+        }
+        finally {
+            PendingBlockDatabaseManager.READ_LOCK.unlock();
+        }
     }
 
     @Override

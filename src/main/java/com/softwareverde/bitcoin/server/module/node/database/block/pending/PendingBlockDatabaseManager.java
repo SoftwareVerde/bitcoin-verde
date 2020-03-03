@@ -12,8 +12,8 @@ public interface PendingBlockDatabaseManager {
     // NOTE: Read/Write locks are currently disabled.
     //  Enabling the locks greatly slows down block download and processing, and
     //  there is no clear detriment to keeping the locks disabled.
-    ReentrantReadWriteLock.ReadLock READ_LOCK = ReadWriteLock.disabledReadLock();
-    ReentrantReadWriteLock.WriteLock WRITE_LOCK = ReadWriteLock.disabledWriteLock();
+    ReentrantReadWriteLock.ReadLock READ_LOCK = ReadWriteLock.readLock();
+    ReentrantReadWriteLock.WriteLock WRITE_LOCK = ReadWriteLock.writeLock();
 
     List<Tuple<Sha256Hash, Sha256Hash>> selectPriorityPendingBlocksWithUnknownNodeInventory(final List<NodeId> connectedNodes) throws DatabaseException;
 }

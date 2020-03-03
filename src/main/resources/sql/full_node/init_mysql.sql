@@ -163,9 +163,9 @@ CREATE TABLE unconfirmed_transaction_inputs (
 CREATE TABLE transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
-    output_index INT UNSIGNED,
+    output_index INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
-    address_id INT UNSIGNED NOT NULL,
+    address_id INT UNSIGNED,
     script_type_id INT UNSIGNED NOT NULL DEFAULT 1,
     slp_transaction_id INT UNSIGNED,
     PRIMARY KEY (id),
@@ -178,9 +178,9 @@ CREATE TABLE transaction_outputs (
 
 CREATE TABLE transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    address_id INT UNSIGNED NOT NULL,
     transaction_id INT UNSIGNED NOT NULL,
-    input_index INT UNSIGNED,
+    input_index INT UNSIGNED NOT NULL,
+    address_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_input_addresses_uq (transaction_id, input_index),
     FOREIGN KEY transaction_input_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
