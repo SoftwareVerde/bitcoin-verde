@@ -400,26 +400,20 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<TransactionId> transactionIds) throws DatabaseException {
-        if (transactionIds.isEmpty()) { return new MutableList<TransactionId>(0); }
+    public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<Transaction> transactions) throws DatabaseException {
+        if (transactions.isEmpty()) { return new MutableList<TransactionId>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        // TODO: Optimize...
         final HashSet<TransactionOutputIdentifier> transactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>();
-        for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = _getTransaction(transactionId, true);
-            if (transaction == null) {
-                Logger.error("Unable to find Transaction: " + transactionId);
-            }
+        for (final Transaction transaction : transactions) {
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 transactionOutputIdentifiers.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
             }
         }
 
-        final java.util.List<Row> rows;
-        {
-            final Query query = new Query(
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query(
                 "SELECT " +
                     "unconfirmed_transactions.transaction_id " +
                 "FROM " +
@@ -429,23 +423,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 "WHERE " +
                     "(unconfirmed_transaction_inputs.previous_transaction_hash, unconfirmed_transaction_inputs.previous_transaction_output_index) IN (?) " +
                 "GROUP BY unconfirmed_transactions.transaction_id"
-            );
-
-//            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-//                final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
-//                final Integer previousTransactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-//
-//                query.setInClauseParameters(
-//                    new InClauseParameter(
-//                        new TypedParameter(previousTransactionHash.toString()),
-//                        new TypedParameter(previousTransactionOutputIndex)
-//                    )
-//                );
-//            }
-            query.setInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
-
-            rows = databaseConnection.query(query);
-        }
+            )
+                .setInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+        );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
         for (final Row row : rows) {

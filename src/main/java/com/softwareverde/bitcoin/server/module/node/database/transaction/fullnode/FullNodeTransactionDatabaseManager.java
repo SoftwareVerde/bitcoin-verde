@@ -20,7 +20,7 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException;
 
     // "Select transactions that are unconfirmed that spend an output spent by any of these transactionIds..."
-    List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(List<TransactionId> transactionIds) throws DatabaseException;
+    List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(List<Transaction> transactions) throws DatabaseException;
 
     // "Select transactions that are unconfirmed that spent an output produced by any of these transactionIds..."
     List<TransactionId> getUnconfirmedTransactionsDependingOn(List<TransactionId> transactionIds) throws DatabaseException;

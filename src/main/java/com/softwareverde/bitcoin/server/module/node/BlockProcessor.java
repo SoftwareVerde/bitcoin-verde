@@ -13,13 +13,13 @@ import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -99,6 +99,7 @@ public class BlockProcessor {
         final List<Transaction> blockTransactions = block.getTransactions();
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final Sha256Hash blockHash = block.getHash();
             _processedBlockCount += 1;
@@ -245,7 +246,6 @@ public class BlockProcessor {
             { // Maintain memory-pool correctness...
                 if (bestBlockchainHasChanged) {
                     // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
-
                     final MilliTimer timer = new MilliTimer();
                     Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
                     timer.start();
@@ -254,9 +254,9 @@ public class BlockProcessor {
                     BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(originalHeadBlockchainSegmentId);
 
                     while (nextBlockId != null) {
-                        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
-                        transactionIds.remove(0); // Exclude the coinbase...
-                        transactionDatabaseManager.addToUnconfirmedTransactions(transactionIds);
+                        final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
+                        nextBlockTransactionIds.remove(0); // Exclude the coinbase...
+                        transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
 
                         // 2. Continue to traverse up the chain until the block is connected to the new headBlockchain...
                         nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
@@ -270,9 +270,9 @@ public class BlockProcessor {
 
                     // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
                     while (nextBlockId != null) {
-                        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
-                        transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
-                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
+                        final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
+                        nextBlockTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(nextBlockTransactionIds);
 
                         nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
                     }
@@ -330,15 +330,17 @@ public class BlockProcessor {
                         transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
                     }
 
-                    final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(blockId));
-                    transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
+                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
+                    final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(transactionIds);
+                    mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
 
                     { // Remove any transactions in the memory pool that were included in this block...
-                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
                     }
 
                     { // Remove any transactions in the memory pool that are now considered double-spends...
-                        final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(transactionIds));
+                        final List<TransactionId> dependentUnconfirmedTransaction = transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(blockTransactions);
+                        final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(dependentUnconfirmedTransaction);
                         while (! transactionsToRemove.isEmpty()) {
                             transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
                             final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
