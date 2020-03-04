@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -42,6 +43,8 @@ import java.util.HashSet;
 import java.util.Map;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
+    protected static final Long MAX_UTXO_CACHE_COUNT = 2000000L;
+
     protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
@@ -669,7 +672,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         { // Ensure the output is in the UTXO set...
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT 1 FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                new Query("SELECT 1 FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? AND (is_spent = 0 OR is_spent IS NULL)")
                     .setParameter(transactionHash)
                     .setParameter(outputIndex)
             );
@@ -771,15 +774,22 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Query query = new BatchedInsertQuery("INSERT IGNORE INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)"); // INSERT IGNORE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
-        for (final TransactionOutputIdentifier transactionOutputIdentifier : unspentTransactionOutputIdentifiers) {
-            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-            final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-            query.setParameter(transactionHash);
-            query.setParameter(outputIndex);
-        }
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(256);
+        batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            @Override
+            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
+                    final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                    final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
-        databaseConnection.executeSql(query);
+                    query.setParameter(transactionHash);
+                    query.setParameter(outputIndex);
+                }
+
+                databaseConnection.executeSql(query);
+            }
+        });
     }
 
     @Override
@@ -788,8 +798,52 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
-            .setInClauseParameters(spentTransactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-        );
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(256);
+        batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            @Override
+            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?) ON DUPLICATE KEY UPDATE is_spent = 1");
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
+                    final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                    final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
+                    query.setParameter(transactionHash);
+                    query.setParameter(outputIndex);
+                }
+
+                databaseConnection.executeSql(query);
+            }
+        });
+    }
+
+    public void commitUnspentTransactionOutputs() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE is_spent = 0"));
+        databaseConnection.executeSql(new Query("DELETE committed_unspent_transaction_outputs, unspent_transaction_outputs FROM committed_unspent_transaction_outputs INNER JOIN unspent_transaction_outputs ON ( (unspent_transaction_outputs.transaction_hash = committed_unspent_transaction_outputs.transaction_hash) AND (unspent_transaction_outputs.`index` = committed_unspent_transaction_outputs.`index`) ) WHERE unspent_transaction_outputs.is_spent = 1"));
+
+        Long rowCount;
+        {
+            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs"));
+            final Row row = rows.get(0);
+            rowCount = row.getLong("row_count");
+        }
+
+        {
+            final Long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
+            if (deleteCount > 0L) {
+                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent IS NULL LIMIT " + deleteCount));
+                rowCount -= databaseConnection.getRowsAffectedCount();
+            }
+        }
+
+        {
+            final Long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
+            if (deleteCount > 0L) {
+                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs LIMIT " + deleteCount));
+            }
+        }
+
+        databaseConnection.executeSql(new Query("UPDATE unspent_transaction_outputs SET is_spent = NULL"));
     }
 }

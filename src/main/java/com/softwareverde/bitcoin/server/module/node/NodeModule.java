@@ -777,6 +777,7 @@ public class NodeModule {
             final Database database = _environment.getDatabase();
             try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
                 maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
+                maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE committed_unspent_transaction_outputs"));
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);
@@ -818,13 +819,16 @@ public class NodeModule {
                         unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
                     }
 
+                    final MilliTimer utxoTimer = new MilliTimer();
+                    utxoTimer.start();
                     transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
                     transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+                    utxoTimer.stop();
 
-                    transactionCount += transactionCount;
+                    transactionCount += transactions.getCount();
                     timer.stop();
 
-                    System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + timer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / timer.getMillisecondsElapsed()) + " tps)");
+                    System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + timer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (timer.getMillisecondsElapsed()+1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed()+1L)) + " tps");
                     blockHeight += 1L;
                 }
             }

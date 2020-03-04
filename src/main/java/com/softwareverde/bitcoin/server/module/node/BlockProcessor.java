@@ -95,8 +95,12 @@ public class BlockProcessor {
     }
 
     protected Long _processBlock(final Block block, final UnspentTransactionOutputSet preLoadedUnspentTransactionOutputSet) throws DatabaseException {
+        final NanoTimer processBlockTimer = new NanoTimer();
+        processBlockTimer.start();
+
         final UnspentTransactionOutputSet unspentTransactionOutputSet;
         final List<Transaction> blockTransactions = block.getTransactions();
+        final int transactionCount = blockTransactions.getCount();
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
 
@@ -186,7 +190,6 @@ public class BlockProcessor {
                     return null;
                 }
 
-                final int transactionCount = blockTransactions.getCount();
                 Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
                 if (preLoadedUnspentTransactionOutputSet != null) {
@@ -306,6 +309,9 @@ public class BlockProcessor {
                 }
                 else {
                     { // Update the UTXO set...
+                        final MilliTimer utxoSetTimer = new MilliTimer();
+                        utxoSetTimer.start();
+
                         final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
                         final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
 
@@ -325,9 +331,20 @@ public class BlockProcessor {
                             isCoinbaseTransaction = false;
                         }
 
-                        // NOTE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
+                        final MilliTimer markUnspentTimer = new MilliTimer();
+                        final MilliTimer markSpentTimer = new MilliTimer();
+
+                        // NOTICE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
+                        markUnspentTimer.start();
                         transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
+                        markUnspentTimer.stop();
+                        markSpentTimer.start();
                         transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+                        markSpentTimer.stop();
+
+                        utxoSetTimer.stop();
+
+                        Logger.trace("UTXO Update: " + utxoSetTimer.getMillisecondsElapsed() +"ms. (" + markUnspentTimer.getMillisecondsElapsed() + "ms insert, " + markSpentTimer.getMillisecondsElapsed() + "ms delete)");
                     }
 
                     final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
@@ -374,8 +391,8 @@ public class BlockProcessor {
                 final Integer totalTransactionCount;
                 {
                     int value = 0;
-                    for (final Integer transactionCount : _transactionsPerBlock) {
-                        value += transactionCount;
+                    for (final Integer transactionCountPerBlock : _transactionsPerBlock) {
+                        value += transactionCountPerBlock;
                     }
                     totalTransactionCount = value;
                 }
@@ -389,6 +406,8 @@ public class BlockProcessor {
             _averageBlocksPerSecond.value = averageBlocksPerSecond; // ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
             _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
+            processBlockTimer.stop();
+            Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
             Logger.debug("Block Height: " + blockHeight);
             return blockHeight;
         }

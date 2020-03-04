@@ -43,7 +43,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 for (final TransactionInput transactionInput : transactionInputs) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                     final boolean isUnique = requiredTransactionOutputs.add(transactionOutputIdentifier);
-                    if (! isUnique) { // Two inputs cannot same the same output...
+                    if (! isUnique) { // Two inputs cannot spent the same output...
                         return false;
                     }
                 }

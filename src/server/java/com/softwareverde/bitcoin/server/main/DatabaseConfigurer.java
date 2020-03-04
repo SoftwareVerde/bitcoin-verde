@@ -11,6 +11,8 @@ public class DatabaseConfigurer {
     }
 
     public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Integer maxDatabaseThreadCount, final DatabaseProperties databaseProperties) {
+        commandLineArguments.addArgument("--max_heap_table_size=4294967295"); // Maximum engine=MEMORY table size.
+
         if (SystemUtil.isWindowsOperatingSystem()) {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
             commandLineArguments.setInnoDbBufferPoolByteCount(Math.min(ByteUtil.Unit.GIGABYTES, databaseProperties.getMaxMemoryByteCount()));
