@@ -36,6 +36,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -676,7 +677,17 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     .setParameter(transactionHash)
                     .setParameter(outputIndex)
             );
-            if (rows.isEmpty()) { return null; }
+            if (rows.isEmpty()) {
+                rows.addAll(databaseConnection.query(
+                    new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                        .setParameter(transactionHash)
+                        .setParameter(outputIndex)
+                ));
+
+                if (rows.isEmpty()) {
+                    return null;
+                }
+            }
         }
 
         final TransactionId transactionId = _getTransactionId(transactionHash);
@@ -816,12 +827,23 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         });
     }
 
+    @Override
     public void commitUnspentTransactionOutputs() throws DatabaseException {
+        final MilliTimer commitUtxoTimerInsert = new MilliTimer();
+        final MilliTimer commitUtxoTimerDelete = new MilliTimer();
+        final MilliTimer commitUtxoTimerPurge = new MilliTimer();
+        final MilliTimer commitUtxoTimerCleanup = new MilliTimer();
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        commitUtxoTimerInsert.start();
         databaseConnection.executeSql(new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE is_spent = 0"));
-        databaseConnection.executeSql(new Query("DELETE committed_unspent_transaction_outputs, unspent_transaction_outputs FROM committed_unspent_transaction_outputs INNER JOIN unspent_transaction_outputs ON ( (unspent_transaction_outputs.transaction_hash = committed_unspent_transaction_outputs.transaction_hash) AND (unspent_transaction_outputs.`index` = committed_unspent_transaction_outputs.`index`) ) WHERE unspent_transaction_outputs.is_spent = 1"));
+        commitUtxoTimerInsert.stop();
+        commitUtxoTimerDelete.start();
+        databaseConnection.executeSql(new Query("DELETE unspent_transaction_outputs, committed_unspent_transaction_outputs FROM unspent_transaction_outputs LEFT OUTER JOIN committed_unspent_transaction_outputs ON ( (unspent_transaction_outputs.transaction_hash = committed_unspent_transaction_outputs.transaction_hash) AND (unspent_transaction_outputs.`index` = committed_unspent_transaction_outputs.`index`) ) WHERE unspent_transaction_outputs.is_spent = 1"));
+        commitUtxoTimerDelete.stop();
 
+        commitUtxoTimerPurge.start();
         Long rowCount;
         {
             final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs"));
@@ -843,7 +865,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs LIMIT " + deleteCount));
             }
         }
+        commitUtxoTimerPurge.stop();
 
+        commitUtxoTimerCleanup.start();
         databaseConnection.executeSql(new Query("UPDATE unspent_transaction_outputs SET is_spent = NULL"));
+        commitUtxoTimerCleanup.stop();
+
+        Logger.info("Commit Utxo Timer: insert=" + commitUtxoTimerInsert.getMillisecondsElapsed() + "ms, delete=" + commitUtxoTimerDelete.getMillisecondsElapsed() + "ms, purge=" + commitUtxoTimerPurge.getMillisecondsElapsed() + "ms, cleanup=" + commitUtxoTimerCleanup.getMillisecondsElapsed() + "ms");
     }
 }

@@ -42,4 +42,5 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
 
     void markTransactionOutputsAsUnspent(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers) throws DatabaseException;
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
+    void commitUnspentTransactionOutputs() throws DatabaseException;
 }

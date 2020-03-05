@@ -88,7 +88,7 @@ import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
-    protected final Boolean _rebuildUtxoSet = false;
+    protected final Boolean _rebuildUtxoSet = true;
 
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
@@ -824,6 +824,14 @@ public class NodeModule {
                     transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
                     transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
                     utxoTimer.stop();
+
+                    if ((blockHeight % 4032L) == 0L) {
+                        final MilliTimer utxoCommitTimer = new MilliTimer();
+                        utxoCommitTimer.start();
+                        transactionDatabaseManager.commitUnspentTransactionOutputs();
+                        utxoCommitTimer.stop();
+                        System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
+                    }
 
                     transactionCount += transactions.getCount();
                     timer.stop();

@@ -192,17 +192,6 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         return transactionOutputIds;
     }
 
-    public Boolean isTransactionOutputSpent(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? AND (is_spent = 0 OR is_spent IS NULL)")
-                .setParameter(transactionOutputIdentifier.getTransactionHash())
-                .setParameter(transactionOutputIdentifier.getOutputIndex())
-        );
-
-        return (rows.isEmpty());
-    }
-
     public void deleteTransactionOutput(final UnconfirmedTransactionOutputId unconfirmedTransactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         databaseConnection.executeSql(
