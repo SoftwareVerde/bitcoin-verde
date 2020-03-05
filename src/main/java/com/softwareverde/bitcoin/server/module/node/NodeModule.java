@@ -821,8 +821,8 @@ public class NodeModule {
 
                     final MilliTimer utxoTimer = new MilliTimer();
                     utxoTimer.start();
-                    transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
-                    transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+                    transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
+                    transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
                     utxoTimer.stop();
 
                     if ((blockHeight % 4032L) == 0L) {

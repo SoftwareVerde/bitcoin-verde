@@ -10,10 +10,10 @@ import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.BlockStore;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -780,7 +780,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public void markTransactionOutputsAsUnspent(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers) throws DatabaseException {
+    public void markTransactionOutputsAsUnspent(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
         if (unspentTransactionOutputIdentifiers.isEmpty()) { return; }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -789,13 +789,14 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
+                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
                 for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
                     final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
                     query.setParameter(transactionHash);
                     query.setParameter(outputIndex);
+                    query.setParameter(blockHeight);
                 }
 
                 databaseConnection.executeSql(query);
@@ -804,7 +805,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
+    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
         if (spentTransactionOutputIdentifiers.isEmpty()) { return; }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -813,13 +814,14 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?) ON DUPLICATE KEY UPDATE is_spent = 1");
+                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 1");
                 for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
                     final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
                     query.setParameter(transactionHash);
                     query.setParameter(outputIndex);
+                    query.setParameter(blockHeight);
                 }
 
                 databaseConnection.executeSql(query);
@@ -854,7 +856,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         {
             final Long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
             if (deleteCount > 0L) {
-                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent IS NULL LIMIT " + deleteCount));
+                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent IS NULL ORDER BY block_height ASC LIMIT " + deleteCount));
                 rowCount -= databaseConnection.getRowsAffectedCount();
             }
         }
@@ -862,7 +864,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         {
             final Long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
             if (deleteCount > 0L) {
-                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs LIMIT " + deleteCount));
+                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs is_spent = 0 ORDER BY block_height ASC LIMIT " + deleteCount));
             }
         }
         commitUtxoTimerPurge.stop();

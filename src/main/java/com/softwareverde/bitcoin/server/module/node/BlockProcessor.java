@@ -336,10 +336,10 @@ public class BlockProcessor {
 
                         // NOTICE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
                         markUnspentTimer.start();
-                        transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers);
+                        transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
                         markUnspentTimer.stop();
                         markSpentTimer.start();
-                        transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+                        transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
                         markSpentTimer.stop();
 
                         utxoSetTimer.stop();
