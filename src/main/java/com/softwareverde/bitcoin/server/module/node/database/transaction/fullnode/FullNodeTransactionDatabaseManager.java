@@ -11,6 +11,10 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
+    // Long MAX_UTXO_CACHE_COUNT = 2000000L;
+    Long MAX_UTXO_CACHE_COUNT = 17179869184L;
+    String UTXO_CACHE_BLOCK_HEIGHT_KEY = "utxo_cache_block_height";
+
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
     void addToUnconfirmedTransactions(List<TransactionId> transactionIds) throws DatabaseException;
@@ -43,4 +47,6 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     void markTransactionOutputsAsUnspent(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException;
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException;
     void commitUnspentTransactionOutputs() throws DatabaseException;
+    Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
+    Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
 }

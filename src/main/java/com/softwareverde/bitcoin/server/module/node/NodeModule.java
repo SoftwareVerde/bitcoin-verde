@@ -88,7 +88,7 @@ import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
-    protected final Boolean _rebuildUtxoSet = true;
+    protected final Boolean _rebuildUtxoSet = false;
 
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
@@ -768,13 +768,16 @@ public class NodeModule {
 
     public void loop() {
 
+        final MilliTimer timer = new MilliTimer();
+        timer.start();
+
+        long transactionCount = 0;
+
+        final Database database = _environment.getDatabase();
+        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
+
         if (_rebuildUtxoSet) {
-            final MilliTimer timer = new MilliTimer();
-            timer.start();
-
-            long transactionCount = 0;
-
-            final Database database = _environment.getDatabase();
             try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
                 maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
                 maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE committed_unspent_transaction_outputs"));
@@ -783,73 +786,72 @@ public class NodeModule {
                 Logger.error(exception);
                 return;
             }
+        }
 
-            final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                long blockHeight = 1; // inclusive
-                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        // Validate the UTXO set is up to date...
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
 
-                while (blockHeight <= maxBlockHeight) {
-                    final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
-                    final Block block = blockDatabaseManager.getBlock(blockId);
-                    final List<Transaction> transactions = block.getTransactions();
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
-                    final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-                    final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-                    for (int i = 0; i < transactions.getCount(); ++i) {
-                        final Transaction transaction = transactions.get(i);
+            while (blockHeight <= maxBlockHeight) {
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
+                final Block block = blockDatabaseManager.getBlock(blockId);
+                final List<Transaction> transactions = block.getTransactions();
 
-                        final boolean isCoinbase = (i == 0);
-                        if (! isCoinbase) {
-                            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                                spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                            }
+                final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+                final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+                for (int i = 0; i < transactions.getCount(); ++i) {
+                    final Transaction transaction = transactions.get(i);
+
+                    final boolean isCoinbase = (i == 0);
+                    if (! isCoinbase) {
+                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                            spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                         }
-
-                        final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
-                        unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
                     }
 
-                    final MilliTimer utxoTimer = new MilliTimer();
-                    utxoTimer.start();
-                    transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
-                    transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
-                    utxoTimer.stop();
-
-                    if ((blockHeight % 4032L) == 0L) {
-                        final MilliTimer utxoCommitTimer = new MilliTimer();
-                        utxoCommitTimer.start();
-                        transactionDatabaseManager.commitUnspentTransactionOutputs();
-                        utxoCommitTimer.stop();
-                        System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
-                    }
-
-                    transactionCount += transactions.getCount();
-                    timer.stop();
-
-                    System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + timer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (timer.getMillisecondsElapsed()+1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed()+1L)) + " tps");
-                    blockHeight += 1L;
+                    final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+                    unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
                 }
+
+                final MilliTimer utxoTimer = new MilliTimer();
+                utxoTimer.start();
+                transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
+                transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
+                utxoTimer.stop();
+
+                final Long uncommittedUtxoCount = transactionDatabaseManager.getUncommittedUnspentTransactionOutputCount();
+                if ( ((blockHeight % 4032L) == 0L) || (uncommittedUtxoCount > FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
+                    final MilliTimer utxoCommitTimer = new MilliTimer();
+                    utxoCommitTimer.start();
+                    transactionDatabaseManager.commitUnspentTransactionOutputs();
+                    utxoCommitTimer.stop();
+                    System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
+                }
+
+                transactionCount += transactions.getCount();
+                timer.stop();
+
+                System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + timer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (timer.getMillisecondsElapsed()+1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed()+1L)) + " tps");
+                blockHeight += 1L;
             }
-            catch (final DatabaseException exception) {
-                Logger.error(exception);
-                return;
-            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.error(exception);
+            return;
         }
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
-            final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
             final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
             headersBootstrapper.run();
         }

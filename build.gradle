@@ -46,7 +46,7 @@ dependencies {
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.64'
     implementation  group: 'org.mariadb.jdbc',          name: 'mariadb-java-client',    version: '2.4.1'
 
-    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.1.1'
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.1.2'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
     api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.1.0'
     api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v1.1.0'
@@ -198,7 +198,7 @@ allprojects {
     }
 
     // Requires "dot".  `brew install graphviz`
-    task javadoc(overwrite: true, dependsOn: compileJava) {
+    task makeDocumentation(dependsOn: javadoc) {
         setDescription('Generates Javadoc API documentation with UMLGraph diagrams')
         setGroup(JavaBasePlugin.DOCUMENTATION_GROUP)
 

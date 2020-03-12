@@ -1,9 +1,17 @@
+CREATE TABLE properties (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `key` VARCHAR(255) NOT NULL,
+    `value` VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY properties_uq (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE script_types (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     type VARCHAR(255) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY script_types_uq (type)
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO script_types (id, type) VALUES
     (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'), (3, 'PAY_TO_PUBLIC_KEY'), (4, 'PAY_TO_PUBLIC_KEY_HASH'), (5, 'PAY_TO_SCRIPT_HASH'),
@@ -61,7 +69,7 @@ CREATE TABLE addresses (
     address BINARY(20) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY addresses_uq (address)
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE blocks (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -130,9 +138,9 @@ CREATE TABLE unspent_transaction_outputs (
 CREATE TABLE committed_unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
-    block_height INT UNSIGNED NOT NULL,
     PRIMARY KEY (transaction_hash, `index`)
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1
+PARTITION BY KEY() PARTITIONS 1024;
 
 CREATE TABLE unconfirmed_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -154,7 +162,7 @@ CREATE TABLE unconfirmed_transaction_outputs (
     PRIMARY KEY (id),
     UNIQUE KEY unconfirmed_transaction_output_tx_id_index_uq (unconfirmed_transaction_id, `index`),
     FOREIGN KEY unconfirmed_transaction_outputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unconfirmed_transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -166,7 +174,7 @@ CREATE TABLE unconfirmed_transaction_inputs (
     unlocking_script BLOB NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY transaction_inputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,

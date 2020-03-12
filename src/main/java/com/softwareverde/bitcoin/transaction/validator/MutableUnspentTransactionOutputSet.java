@@ -44,7 +44,11 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                     final boolean isUnique = requiredTransactionOutputs.add(transactionOutputIdentifier);
                     if (! isUnique) { // Two inputs cannot spent the same output...
-                        return false;
+                        final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
+                        final boolean isAllowedDuplicate = ALLOWED_DUPLICATE_TRANSACTION_HASHES.contains(previousTransactionHash);
+                        if (! isAllowedDuplicate) {
+                            return false;
+                        }
                     }
                 }
             }
@@ -69,6 +73,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
                 final TransactionOutput transactionOutput = transactionOutputs.get(i);
                 if (transactionOutput == null) {
+                    if (loadedAllOutputsSuccessfully) {
+                        Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
+                    }
                     loadedAllOutputsSuccessfully = false;
                     continue; // Continue processing for pre-loading the UTXO set for pending blocks...
                 }
