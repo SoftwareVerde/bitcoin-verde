@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BatchedBlockHeaders;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidatorFactory;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
@@ -116,6 +115,16 @@ public class BlockHeaderDownloader extends SleepyService {
         });
     }
 
+    protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders, final BlockHeaderDatabaseManager blockHeaderDatabaseManager) {
+        try {
+            return blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders, _maxHeaderBatchSize);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
     protected Boolean _validateAndStoreBlockHeader(final BlockHeader blockHeader, final DatabaseManager databaseManager) throws DatabaseException {
         final Sha256Hash blockHash = blockHeader.getHash();
 
@@ -196,9 +205,13 @@ public class BlockHeaderDownloader extends SleepyService {
 
             TransactionUtil.startTransaction(databaseConnection);
 
-            final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders, _maxHeaderBatchSize);
+            final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, blockHeaderDatabaseManager);
             if ( (blockIds == null) || (blockIds.isEmpty()) ) {
                 TransactionUtil.rollbackTransaction(databaseConnection);
+
+                final BlockHeader firstBlockHeader = blockHeaders.get(0);
+                Logger.info("Invalid BlockHeader: " + firstBlockHeader.getHash());
+
                 return false;
             }
 
@@ -242,7 +255,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager);
-            if (! headersAreValid) { return; }
+            if (! headersAreValid) { return; } // TODO: Prevent attempting to reprocess invalid Block Headers (e.g. DOS)...
 
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();

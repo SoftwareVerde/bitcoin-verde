@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -23,12 +24,14 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -166,10 +169,10 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         blockHeader.setNonce(nonce);
 
         { // Assert that the hashes match after inflation...
-            final Sha256Hash expectedHash = Sha256Hash.copyOf(row.getBytes("hash"));
+            final Sha256Hash expectedHash = Sha256Hash.wrap(row.getBytes("hash"));
             final Sha256Hash actualHash = blockHeader.getHash();
             if (! Util.areEqual(expectedHash, actualHash)) {
-                Logger.warn("Unable to inflate block: " + blockHeader.getHash());
+                Logger.warn("Unable to inflate block: " + expectedHash + " / " + blockHeader.getHash());
                 return null;
             }
         }
@@ -241,60 +244,76 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
+        if (blockHeaders.isEmpty()) {
+            return new MutableList<BlockId>(0);
+        }
 
-        final BlockHeader firstBlockHeader = blockHeaders.get(0);
-
-        BlockId previousBlockId = _getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
-        Long previousBlockHeight = _getBlockHeight(previousBlockId);
-        ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
+        if (blockHeaders.getCount() == 1) {
+            final BlockHeader blockHeader = blockHeaders.get(0);
+            final BlockId blockId = _insertBlockHeader(blockHeader);
+            return new ImmutableList<BlockId>(blockId);
+        }
 
         final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getCount());
 
-        BlockId leadingBlockId = BlockId.wrap((previousBlockId == null ? 0L : previousBlockId.longValue()) + 1L);
+        final Container<Long> previousBlockHeight = new Container<Long>();
+        final Container<ChainWork> previousChainWork = new Container<ChainWork>();
+        final Container<BlockId> lastInsertedBlockId = new Container<BlockId>();
 
-        int batchStartIndex = 0;
-        while (batchStartIndex < blockHeaders.getCount()) {
-            int batchSize = Math.min(blockHeaders.getCount() - blockIds.getCount(), maxBatchSize); // Limiting query variables to below 999
+        final BatchRunner<BlockHeader> batchRunner = new BatchRunner<BlockHeader>(maxBatchSize);
+        batchRunner.run(blockHeaders, new BatchRunner.Batch<BlockHeader>() {
+            @Override
+            public void run(final List<BlockHeader> batchedBlockHeaders) throws Exception {
+                final int batchCount = batchedBlockHeaders.getCount();
+                int i = 0;
 
-            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                // Since the next insert_id of the blocks table may not be the previous blockId + 1, insert the first blockHeader and retrieve its auto_increment value, then proceed with regular batching...
+                if (lastInsertedBlockId.value == null) {
+                    final BlockHeader blockHeader = batchedBlockHeaders.get(0);
+                    final BlockId blockId = _insertBlockHeader(blockHeader);
 
-            for (int i = batchStartIndex; i < (batchStartIndex + batchSize); i++) {
-                final BlockHeader blockHeader = blockHeaders.get(i);
+                    lastInsertedBlockId.value = blockId;
+                    previousBlockHeight.value = _getBlockHeight(blockId);
+                    previousChainWork.value = _getChainWork(blockId);
+                    blockIds.add(blockId);
 
-                long blockHeight = (previousBlockId == null ? 0 : (previousBlockHeight + 1L));
-                final Difficulty difficulty = blockHeader.getDifficulty();
+                    i += 1;
+                }
 
-                final BlockWork blockWork = difficulty.calculateWork();
-                final ChainWork chainWork = ChainWork.add(previousChainWork, blockWork);
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-                batchedInsertQuery.setParameter(blockHeader.getHash());
-                batchedInsertQuery.setParameter(previousBlockId);
-                batchedInsertQuery.setParameter(blockHeight);
-                batchedInsertQuery.setParameter(blockHeader.getMerkleRoot());
-                batchedInsertQuery.setParameter(blockHeader.getVersion());
-                batchedInsertQuery.setParameter(blockHeader.getTimestamp());
-                batchedInsertQuery.setParameter(difficulty);
-                batchedInsertQuery.setParameter(blockHeader.getNonce());
-                batchedInsertQuery.setParameter(chainWork);
+                long previousBlockId = lastInsertedBlockId.value.longValue();
+                while (i < batchCount) {
+                    final BlockHeader blockHeader = batchedBlockHeaders.get(i);
 
-                previousBlockHeight = blockHeight;
-                previousBlockId = BlockId.wrap((previousBlockId == null ? 0L : previousBlockId.longValue()) + 1L);
-                previousChainWork = chainWork;
+                    long blockHeight = (previousBlockHeight.value + 1L);
+                    final Difficulty difficulty = blockHeader.getDifficulty();
+
+                    final BlockWork blockWork = difficulty.calculateWork();
+                    final ChainWork chainWork = ChainWork.add(previousChainWork.value, blockWork);
+
+                    batchedInsertQuery.setParameter(blockHeader.getHash());
+                    batchedInsertQuery.setParameter(previousBlockId);
+                    batchedInsertQuery.setParameter(blockHeight);
+                    batchedInsertQuery.setParameter(blockHeader.getMerkleRoot());
+                    batchedInsertQuery.setParameter(blockHeader.getVersion());
+                    batchedInsertQuery.setParameter(blockHeader.getTimestamp());
+                    batchedInsertQuery.setParameter(difficulty);
+                    batchedInsertQuery.setParameter(blockHeader.getNonce());
+                    batchedInsertQuery.setParameter(chainWork);
+
+                    previousBlockId += 1L;
+                    previousBlockHeight.value = blockHeight;
+                    previousChainWork.value = chainWork;
+
+                    blockIds.add(BlockId.wrap(lastInsertedBlockId.value.longValue() + i));
+
+                    i += 1;
+                }
+
+                lastInsertedBlockId.value = BlockId.wrap(databaseConnection.executeSql(batchedInsertQuery));
             }
-
-            final BlockId finalBlockId = BlockId.wrap(databaseConnection.executeSql(batchedInsertQuery));
-            if (finalBlockId == null) {
-                return null;
-            }
-
-            for (int i = 0; i < batchSize; i++) {
-                blockIds.add(BlockId.wrap(leadingBlockId.longValue() + i));
-            }
-            leadingBlockId = BlockId.wrap(finalBlockId.longValue() + 1);
-
-            batchStartIndex += batchSize;
-        }
+        });
 
         return blockIds;
     }

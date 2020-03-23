@@ -11,15 +11,25 @@ public class BatchRunner<T> {
         void run(List<T> batchItems) throws Exception;
     }
 
-    protected final Integer _batchSize;
+    protected final Integer _maxItemCountPerBatch;
 
-    public BatchRunner(final Integer batchSize) {
-        _batchSize = batchSize;
+    public BatchRunner(final Integer maxItemCountPerBatch) {
+        _maxItemCountPerBatch = maxItemCountPerBatch;
     }
 
     public void run(final List<T> totalCollection, final Batch<T> batch) throws DatabaseException {
-        final int batchSize = _batchSize;
-        final int batchCount = (int) Math.ceil(totalCollection.getSize() / (double) batchSize);
+        final int totalItemCount = totalCollection.getCount();
+
+        final int itemCountPerBatch;
+        final int batchCount;
+        if (totalItemCount <= _maxItemCountPerBatch) {
+            itemCountPerBatch = totalItemCount;
+            batchCount = 1;
+        }
+        else {
+            itemCountPerBatch = _maxItemCountPerBatch;
+            batchCount = (int) Math.ceil(totalItemCount / (double) itemCountPerBatch);
+        }
 
         final Thread[] threads = new Thread[batchCount];
         final Container<Exception> exceptionContainer = new Container<Exception>();
@@ -28,10 +38,10 @@ public class BatchRunner<T> {
             final Thread thread = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    final MutableList<T> bathedItems = new MutableList<T>(batchSize);
-                    for (int j = 0; j < batchSize; ++j) {
-                        final int index = ((batchId * batchSize) + j);
-                        if (index >= totalCollection.getSize()) { break; }
+                    final MutableList<T> bathedItems = new MutableList<T>(itemCountPerBatch);
+                    for (int j = 0; j < itemCountPerBatch; ++j) {
+                        final int index = ((batchId * itemCountPerBatch) + j);
+                        if (index >= totalItemCount) { break; }
                         final T item = totalCollection.get(index);
                         bathedItems.add(item);
                     }
