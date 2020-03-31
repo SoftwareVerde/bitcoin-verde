@@ -459,7 +459,7 @@ public class NodeModule {
         }
 
         { // Initialize the BlockDownloader...
-            _blockDownloader = new BlockDownloader(databaseManagerFactory, _bitcoinNodeManager, _blockStore, _masterInflater);
+            _blockDownloader = new BlockDownloader(databaseManagerFactory, synchronizationStatusHandler, _bitcoinNodeManager, _blockStore, _masterInflater);
         }
 
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
@@ -799,7 +799,7 @@ public class NodeModule {
             long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            final Long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
 
             while (blockHeight <= maxBlockHeight) {
                 final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
