@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.UnspentTransactionOutputCommitter;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -244,7 +245,7 @@ public class BlockProcessor {
             _medianBlockTime.addBlock(block);
 
             final BlockchainSegmentId newHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final Boolean bestBlockchainHasChanged = (! Util.areEqual(newHeadBlockchainSegmentId, originalHeadBlockchainSegmentId));
+            final boolean bestBlockchainHasChanged = (! Util.areEqual(newHeadBlockchainSegmentId, originalHeadBlockchainSegmentId));
 
             { // Maintain memory-pool correctness...
                 if (bestBlockchainHasChanged) {
@@ -308,43 +309,9 @@ public class BlockProcessor {
                     Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
                 }
                 else {
-                    { // Update the UTXO set...
-                        final MilliTimer utxoSetTimer = new MilliTimer();
-                        utxoSetTimer.start();
-
-                        final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-                        final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-
-                        boolean isCoinbaseTransaction = true;
-                        for (final Transaction transaction : blockTransactions) {
-                            if (! isCoinbaseTransaction) {
-                                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                                for (final TransactionInput transactionInput : transactionInputs) {
-                                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                                    spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                                }
-                            }
-
-                            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
-                            unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
-
-                            isCoinbaseTransaction = false;
-                        }
-
-                        final MilliTimer markUnspentTimer = new MilliTimer();
-                        final MilliTimer markSpentTimer = new MilliTimer();
-
-                        // NOTICE: Order matters in order to prevent outputs created and spent in the same block being handled correctly.
-                        markUnspentTimer.start();
-                        transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
-                        markUnspentTimer.stop();
-                        markSpentTimer.start();
-                        transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
-                        markSpentTimer.stop();
-
-                        utxoSetTimer.stop();
-
-                        Logger.trace("UTXO Update: " + utxoSetTimer.getMillisecondsElapsed() +"ms. (" + markUnspentTimer.getMillisecondsElapsed() + "ms insert, " + markSpentTimer.getMillisecondsElapsed() + "ms delete)");
+                    { // Maintain the UTXO (Unspent Transaction Output) set...
+                        final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
+                        unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(block, blockHeight);
                     }
 
                     final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);

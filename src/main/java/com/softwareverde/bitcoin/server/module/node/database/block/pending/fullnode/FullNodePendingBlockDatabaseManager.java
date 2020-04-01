@@ -237,62 +237,62 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
     public PendingBlockId getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             return _getPendingBlockId(blockHash);
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
     public Boolean hasBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             return _hasBlockData(pendingBlockId);
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
     public Boolean pendingBlockExists(final Sha256Hash blockHash) throws DatabaseException {
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final PendingBlockId pendingBlockId = _getPendingBlockId(blockHash);
             return (pendingBlockId != null);
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
     public List<PendingBlockId> getPendingBlockIdsWithPreviousBlockHash(final Sha256Hash previousBlockHash) throws DatabaseException {
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             return _getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
     public PendingBlockId insertBlockHash(final Sha256Hash blockHash) throws DatabaseException {
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             return _storePendingBlock(blockHash, null);
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -302,7 +302,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
      */
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash) throws DatabaseException {
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
             if (existingPendingBlockId != null) { return existingPendingBlockId; }
@@ -311,7 +311,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -321,7 +321,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
      */
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
             if (existingPendingBlockId != null) { return existingPendingBlockId; }
@@ -339,13 +339,13 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
     public PendingBlockId storeBlock(final Block block) throws DatabaseException {
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final Sha256Hash blockHash = block.getHash();
             final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
@@ -366,7 +366,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             return pendingBlockId;
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -375,7 +375,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT blocks.block_height, pending_blocks.hash FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?) LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_blocks.was_downloaded = 0) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
@@ -443,7 +443,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -451,7 +451,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_blocks.hash = ?) AND (node_blocks_inventory.node_id IN (?)) LIMIT 1")
@@ -463,7 +463,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -471,7 +471,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final Long minSecondsBetweenDownloadAttempts = 5L;
             final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
@@ -493,7 +493,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -501,7 +501,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE pending_blocks.was_downloaded = 1  GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 128")
@@ -518,7 +518,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -526,7 +526,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT id, hash FROM pending_blocks WHERE id = ?")
@@ -539,7 +539,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -547,7 +547,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             databaseConnection.executeSql(
                 new Query("UPDATE pending_blocks SET failed_download_count = failed_download_count + 1, priority = priority + 60 WHERE id = ?")
@@ -556,7 +556,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -564,7 +564,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
             databaseConnection.executeSql(
@@ -575,7 +575,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -583,7 +583,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            WRITE_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             databaseConnection.executeSql(
                 new Query("UPDATE pending_blocks SET priority = ? WHERE id = ?")
@@ -593,7 +593,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -601,7 +601,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            WRITE_LOCK.lock();
+            DELETE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT pending_blocks.id FROM pending_blocks WHERE pending_blocks.failed_download_count > ? AND pending_blocks.was_downloaded = 0")
@@ -619,7 +619,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            DELETE_LOCK.unlock();
         }
     }
 
@@ -631,7 +631,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            WRITE_LOCK.lock();
+            DELETE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 // "Delete any pending_blocks that have not already been downloaded and do not have a connected node to download from..."
@@ -650,31 +650,31 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            DELETE_LOCK.unlock();
         }
     }
 
     public PendingBlock getPendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         try {
-            READ_LOCK.lock();
+            READ_WRITE_LOCK.lock();
 
             return _getPendingBlock(pendingBlockId, true);
 
         }
         finally {
-            READ_LOCK.unlock();
+            READ_WRITE_LOCK.unlock();
         }
     }
 
     public void deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         try {
-            WRITE_LOCK.lock();
+            DELETE_LOCK.lock();
 
             _deletePendingBlock(pendingBlockId);
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            DELETE_LOCK.unlock();
         }
     }
 
@@ -687,7 +687,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            WRITE_LOCK.lock();
+            DELETE_LOCK.lock();
 
             databaseConnection.executeSql(
                 new Query("DELETE pending_blocks FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
@@ -695,7 +695,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
         }
         finally {
-            WRITE_LOCK.unlock();
+            DELETE_LOCK.unlock();
         }
     }
 }

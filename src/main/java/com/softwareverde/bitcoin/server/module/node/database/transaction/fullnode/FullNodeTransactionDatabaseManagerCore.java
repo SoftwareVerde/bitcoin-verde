@@ -671,11 +671,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         { // Ensure the output is in the UTXO set...
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT 1 FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? AND (is_spent = 0 OR is_spent IS NULL)")
+                new Query("SELECT is_spent FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
                     .setParameter(transactionHash)
                     .setParameter(outputIndex)
             );
-            if (rows.isEmpty()) {
+            if (! rows.isEmpty()) {
+                final Row row = rows.get(0);
+                final Boolean isSpent = Util.coalesce(row.getBoolean("is_spent"), false); // Both null and false are indicative of being unspent...
+                if (isSpent) { return null; }
+            }
+            else {
                 rows.addAll(databaseConnection.query(
                     new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
                         .setParameter(transactionHash)
@@ -705,31 +710,53 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<TransactionOutput>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
 
-        final Container<Integer> transactionOutputIdentifierCount = new Container<Integer>(0);
+        final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiersNotInCache;
         final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers;
         { // Only return outputs that are in the UTXO set...
+            unspentTransactionOutputIdentifiersNotInCache = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
+
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
-                    .setInClauseParameters(
-                        transactionOutputIdentifiers,
-                        new ValueExtractor<TransactionOutputIdentifier>() {
-                            @Override
-                            public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
-                                transactionOutputIdentifierCount.value += 1;
-                                return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
-                            }
+                new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                    .setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
+                        @Override
+                        public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
+                            unspentTransactionOutputIdentifiersNotInCache.add(transactionOutputIdentifier);
+                            return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
                         }
-                    )
+                    })
             );
 
-            unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>();
+            unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
             for (final Row row : rows) {
                 final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
                 final Integer outputIndex = row.getInteger("index");
+                final Boolean isSpent = Util.coalesce(row.getBoolean("is_spent"), false); // Both null and false are indicative of being unspent...
 
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+
+                if (! isSpent) {
+                    unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                }
+
+                unspentTransactionOutputIdentifiersNotInCache.remove(transactionOutputIdentifier);
+            }
+        }
+        { // Load UTXOs that weren't in the memory-cache but are in the greater UTXO set on disk...
+            final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.size();
+            if (cacheMissCount > 0) {
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                        .setInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                );
+                for (final Row row : rows) {
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                    final Integer outputIndex = row.getInteger("index");
+
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                    unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                }
             }
         }
 
@@ -760,7 +787,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactions.put(transaction.getHash(), transaction);
         }
 
-        final ImmutableListBuilder<TransactionOutput> transactionOutputsBuilder = new ImmutableListBuilder<TransactionOutput>(transactionOutputIdentifierCount.value);
+        final ImmutableListBuilder<TransactionOutput> transactionOutputsBuilder = new ImmutableListBuilder<TransactionOutput>(transactionOutputIdentifierCount);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             if (! unspentTransactionOutputIdentifiers.contains(transactionOutputIdentifier)) {
                 transactionOutputsBuilder.add(null);
@@ -861,7 +888,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         {
-            final Long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
+            final long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
             if (deleteCount > 0L) {
                 databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent IS NULL ORDER BY block_height ASC LIMIT " + deleteCount));
                 rowCount -= databaseConnection.getRowsAffectedCount();
@@ -869,7 +896,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         {
-            final Long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
+            final long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
             if (deleteCount > 0L) {
                 databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent = 0 ORDER BY block_height ASC LIMIT " + deleteCount));
             }
@@ -881,7 +908,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         commitUtxoTimerCleanup.stop();
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)")
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
                 .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
                 .setParameter(blockHeight)
         );

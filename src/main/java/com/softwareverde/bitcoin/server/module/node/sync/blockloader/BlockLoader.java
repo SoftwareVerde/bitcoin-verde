@@ -48,13 +48,13 @@ public class BlockLoader {
 
                     final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(nextPendingBlockId);
                     if (pendingBlock == null) {
-                        Logger.debug("Unable to load pending block: " + nextPendingBlockId, new Exception());
+                        Logger.debug("Unable to load pending block: " + nextPendingBlockId);
                         return;
                     }
 
                     final Block nextBlock = pendingBlock.inflateBlock(blockInflater);
                     if (nextBlock == null) {
-                        Logger.debug("Unable to inflate pending block: " + pendingBlock.getBlockHash(), new Exception());
+                        Logger.debug("Unable to inflate pending block: " + pendingBlock.getBlockHash());
                         return;
                     }
 

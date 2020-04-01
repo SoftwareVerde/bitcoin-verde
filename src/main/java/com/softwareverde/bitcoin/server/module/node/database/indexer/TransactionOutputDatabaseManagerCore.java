@@ -394,7 +394,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?)")
+            new Query("INSERT INTO transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address_id = VALUES(address_id), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)")
                 .setParameter(transactionId)
                 .setParameter(outputIndex)
                 .setParameter(amount)

@@ -1,7 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
-import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -19,14 +17,13 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashSet;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNodeDatabaseManager {
 
@@ -237,14 +234,14 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         }
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.lock();
 
             databaseConnection.executeSql(batchedInsertQuery);
             return (databaseConnection.getRowsAffectedCount() > 0);
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -253,7 +250,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+            PendingBlockDatabaseManager.DELETE_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
 
             databaseConnection.executeSql(
                 new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id = ?")
@@ -262,7 +259,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.DELETE_LOCK.unlock();
         }
     }
 
@@ -273,7 +270,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+            PendingBlockDatabaseManager.DELETE_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
 
             databaseConnection.executeSql(
                 new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (?)")
@@ -282,7 +279,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.DELETE_LOCK.unlock();
         }
     }
 
@@ -305,13 +302,13 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         }
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.lock();
 
             databaseConnection.executeSql(batchedInsertQuery);
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -322,7 +319,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final java.util.List<Row> rows;
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.lock();
 
             rows = databaseConnection.query(
                 new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (?)")
@@ -332,7 +329,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.unlock();
         }
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
@@ -362,7 +359,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         final java.util.List<Row> rows;
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.lock();
 
             rows = databaseConnection.query(
                 new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (?)")
@@ -372,7 +369,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.unlock();
         }
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
@@ -401,7 +398,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
 
             databaseConnection.executeSql(
                 new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id = ?")
@@ -410,7 +407,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.READ_WRITE_LOCK.unlock();
         }
     }
 
@@ -421,7 +418,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         if (pendingTransactionIds.isEmpty()) { return; }
 
         try {
-            PendingBlockDatabaseManager.READ_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
+            PendingBlockDatabaseManager.DELETE_LOCK.lock(); // ReadLock is obtained for the other DatabaseManager, despite being a write operation to this DatabaseManager.
 
             databaseConnection.executeSql(
                 new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (?)")
@@ -430,7 +427,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
         }
         finally {
-            PendingBlockDatabaseManager.READ_LOCK.unlock();
+            PendingBlockDatabaseManager.DELETE_LOCK.unlock();
         }
     }
 

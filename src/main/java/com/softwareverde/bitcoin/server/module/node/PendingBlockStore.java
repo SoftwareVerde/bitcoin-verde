@@ -78,7 +78,7 @@ public class PendingBlockStore extends BlockStore {
         if (! IoUtil.fileExists(blockPath)) { return; }
 
         final File file = new File(blockPath);
-        // file.delete();
+        // file.delete(); // TODO: Uncomment for release.
     }
 
     public ByteArray getPendingBlockData(final Sha256Hash blockHash) {
