@@ -12,7 +12,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
     // Long MAX_UTXO_CACHE_COUNT = 2000000L;
-    Long MAX_UTXO_CACHE_COUNT = 17179869184L;
+    Long MAX_UTXO_CACHE_COUNT = 42107512L; // (unspent_transaction_outputs::max_data_length / unspent_transaction_outputs::avg_row_length);
     String UTXO_CACHE_BLOCK_HEIGHT_KEY = "utxo_cache_block_height";
 
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;

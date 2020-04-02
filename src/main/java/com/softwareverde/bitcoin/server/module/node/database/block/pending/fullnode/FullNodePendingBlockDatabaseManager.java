@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -686,16 +687,18 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
     public void cleanupPendingBlocks() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        try {
-            DELETE_LOCK.lock();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try {
+                DELETE_LOCK.lock();
 
-            databaseConnection.executeSql(
-                new Query("DELETE pending_blocks FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
-            );
+                databaseConnection.executeSql(
+                        new Query("DELETE pending_blocks FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
+                );
 
-        }
-        finally {
-            DELETE_LOCK.unlock();
+            }
+            finally {
+                DELETE_LOCK.unlock();
+            }
         }
     }
 }

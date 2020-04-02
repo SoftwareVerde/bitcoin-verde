@@ -129,7 +129,7 @@ CREATE TABLE block_transactions (
 CREATE TABLE unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
-    is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT="NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.",
+    is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT 'NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.',
     block_height INT UNSIGNED NOT NULL,
     PRIMARY KEY (transaction_hash, `index`),
     INDEX utxo_block_height_ix (is_spent, block_height) USING BTREE

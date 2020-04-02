@@ -40,20 +40,21 @@ public class UnspentTransactionOutputCommitter {
             unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
         }
 
-        final MilliTimer utxoTimer = new MilliTimer();
-        utxoTimer.start();
-        _transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
-        _transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
-        utxoTimer.stop();
-
+        final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = _transactionDatabaseManager.getUncommittedUnspentTransactionOutputCount();
-        if ( ((blockHeight % 4032L) == 0L) || (uncommittedUtxoCount > FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
+        if ( ((blockHeight % 4032L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
             _transactionDatabaseManager.commitUnspentTransactionOutputs();
             utxoCommitTimer.stop();
             System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
         }
+
+        final MilliTimer utxoTimer = new MilliTimer();
+        utxoTimer.start();
+        _transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
+        _transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
+        utxoTimer.stop();
 
         totalTimer.stop();
 

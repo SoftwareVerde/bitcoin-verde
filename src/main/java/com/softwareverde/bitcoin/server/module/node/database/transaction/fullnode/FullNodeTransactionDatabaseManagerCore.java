@@ -810,7 +810,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(256);
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
         batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -835,7 +835,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(256);
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
         batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
