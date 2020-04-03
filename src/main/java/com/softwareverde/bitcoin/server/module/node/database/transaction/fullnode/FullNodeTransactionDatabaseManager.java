@@ -11,9 +11,17 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
-    // Long MAX_UTXO_CACHE_COUNT = 2000000L;
-    Long MAX_UTXO_CACHE_COUNT = 42107512L; // (unspent_transaction_outputs::max_data_length / unspent_transaction_outputs::avg_row_length);
     String UTXO_CACHE_BLOCK_HEIGHT_KEY = "utxo_cache_block_height";
+
+    /**
+     * MAX_UTXO_CACHE_COUNT determines the maximum number of rows (both clean and dirty) within the unspent_transaction_outputs in-memory table.
+     *  This value is a function of the max_heap_table_size, which caps out at 4 gigabytes.
+     *  The theoretical value, calculated via (unspent_transaction_outputs::max_data_length / unspent_transaction_outputs::avg_row_length), is not quite accurate.
+     *  After some empirical evidence, the actual unspent_transaction_outputs::max_data_length and unspent_transaction_outputs::avg_row_length reported by MySQL aren't sufficient/accurate.
+     *  The actual observed max row count is 39216366, which renders exactly 4GB of memory (1882505376 in data, 2412509502 in indexes), which puts row_length at 48 bytes per row, 109.55 including indexes.
+     *  The value chosen, 33554432 (2^25), is the closest power-of-two under the 4GB max, which allows for some additional (although unobserved) inaccuracies.
+     */
+    Long MAX_UTXO_CACHE_COUNT = 33554432L; // 2^25
 
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
