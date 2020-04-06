@@ -3,10 +3,9 @@ package com.softwareverde.bitcoin.test;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -25,20 +24,22 @@ import java.sql.Connection;
 public class IntegrationTest extends UnitTest {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
 
-    protected final DatabaseManagerCache _databaseManagerCache = new DisabledDatabaseManagerCache();
     protected final MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
+    protected final PendingBlockStore _blockStore;
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
     protected final FullNodeDatabaseManagerFactory _readUncomittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
 
     public IntegrationTest() {
+        final PendingBlockStore blockStore = new PendingBlockStore();
+
         final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
-        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory);
+        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(databaseConnectionFactory);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-        _readUncomittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
+        _readUncomittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {

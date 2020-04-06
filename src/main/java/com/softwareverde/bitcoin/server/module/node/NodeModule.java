@@ -48,6 +48,8 @@ import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterC
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.DisabledBanFilter;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
@@ -58,8 +60,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -256,13 +256,13 @@ public class NodeModule {
         { // Initialize the BlockCache...
             final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
             final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
-            _blockStore = new PendingBlockStore(blockCacheDirectory, pendingBlockCacheDirectory, _masterInflater);
+            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, _masterInflater);
         }
 
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
-        final Integer maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
+        final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
 

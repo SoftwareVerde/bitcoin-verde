@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node;
+package com.softwareverde.bitcoin.server.module.node.store;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
@@ -11,7 +11,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.io.File;
 
-public class PendingBlockStore extends BlockStore {
+public class PendingBlockStoreCore extends BlockStoreCore implements PendingBlockStore {
     protected final String _pendingBlockDataDirectory;
 
     protected String _getPendingBlockDataDirectory(final Sha256Hash blockHash) {
@@ -29,18 +29,18 @@ public class PendingBlockStore extends BlockStore {
     }
 
     protected String _getPendingBlockDataPath(final Sha256Hash blockHash) {
-        final String pendingBlockDataDirectory = _pendingBlockDataDirectory;
-        if (pendingBlockDataDirectory == null) { return null; }
+        if (_pendingBlockDataDirectory == null) { return null; }
 
         final String blockHeightDirectory = _getPendingBlockDataDirectory(blockHash);
         return (blockHeightDirectory + "/" + blockHash);
     }
 
-    public PendingBlockStore(final String blockDataDirectory, final String pendingBlockDataDirectory, final BlockInflaters blockInflaters) {
+    public PendingBlockStoreCore(final String blockDataDirectory, final String pendingBlockDataDirectory, final BlockInflaters blockInflaters) {
         super(blockDataDirectory, blockInflaters);
         _pendingBlockDataDirectory = pendingBlockDataDirectory;
     }
 
+    @Override
     public Boolean storePendingBlock(final Block block) {
         if (_pendingBlockDataDirectory == null) { return false; }
 
@@ -55,7 +55,7 @@ public class PendingBlockStore extends BlockStore {
             final String cacheDirectory = _getPendingBlockDataDirectory(blockHash);
             final File directory = new File(cacheDirectory);
             if (! directory.exists()) {
-                final Boolean mkdirSuccessful = directory.mkdirs();
+                final boolean mkdirSuccessful = directory.mkdirs();
                 if (! mkdirSuccessful) {
                     Logger.warn("Unable to create block cache directory: " + cacheDirectory);
                     return false;
@@ -69,6 +69,7 @@ public class PendingBlockStore extends BlockStore {
         return IoUtil.putFileContents(blockPath, byteArray.unwrap());
     }
 
+    @Override
     public void removePendingBlock(final Sha256Hash blockHash) {
         if (_pendingBlockDataDirectory == null) { return; }
 
@@ -81,6 +82,7 @@ public class PendingBlockStore extends BlockStore {
         // file.delete(); // TODO: Uncomment for release.
     }
 
+    @Override
     public ByteArray getPendingBlockData(final Sha256Hash blockHash) {
         if (_pendingBlockDataDirectory == null) { return null; }
 
@@ -91,6 +93,7 @@ public class PendingBlockStore extends BlockStore {
         return MutableByteArray.wrap(IoUtil.getFileContents(blockPath));
     }
 
+    @Override
     public Boolean pendingBlockExists(final Sha256Hash blockHash) {
         if (_pendingBlockDataDirectory == null) { return false; }
 

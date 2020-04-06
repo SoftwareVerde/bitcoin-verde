@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.database.DatabaseException;
 

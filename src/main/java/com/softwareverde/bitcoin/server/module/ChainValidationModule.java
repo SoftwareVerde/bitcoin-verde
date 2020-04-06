@@ -16,7 +16,6 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.module.node.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -24,6 +23,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -31,7 +32,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -69,8 +69,7 @@ public class ChainValidationModule {
         }
 
         final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(mutableNetworkTime, medianBlockTime);
-        final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, mutableNetworkTime, medianBlockTime);
-        _blockValidatorFactory = blockValidatorFactory;
+        _blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, mutableNetworkTime, medianBlockTime);
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
 
@@ -78,7 +77,7 @@ public class ChainValidationModule {
             if (bitcoinProperties.isBlockCacheEnabled()) {
                 final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
                 final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
-                _blockStore = new PendingBlockStore(blockCacheDirectory, pendingBlockCacheDirectory, masterInflater);
+                _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, masterInflater);
             }
             else {
                 _blockStore = null;

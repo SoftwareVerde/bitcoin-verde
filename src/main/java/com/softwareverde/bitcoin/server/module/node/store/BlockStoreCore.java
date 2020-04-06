@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node;
+package com.softwareverde.bitcoin.server.module.node.store;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
@@ -14,7 +14,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import java.io.File;
 import java.io.RandomAccessFile;
 
-public class BlockStore {
+public class BlockStoreCore implements BlockStore {
     protected final BlockInflaters _blockInflaters;
     protected final String _blockDataDirectory;
     protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
@@ -25,23 +25,23 @@ public class BlockStore {
         final String blockDataDirectory = _blockDataDirectory;
         if (blockDataDirectory == null) { return null; }
 
-        final Long blockHeightDirectory = (blockHeight / _blocksPerDirectoryCount);
+        final long blockHeightDirectory = (blockHeight / _blocksPerDirectoryCount);
         return (blockDataDirectory + "/" + blockHeightDirectory);
     }
 
     protected String _getBlockDataPath(final Sha256Hash blockHash, final Long blockHeight) {
-        final String blockDataDirectory = _blockDataDirectory;
-        if (blockDataDirectory == null) { return null; }
+        if (_blockDataDirectory == null) { return null; }
 
         final String blockHeightDirectory = _getBlockDataDirectory(blockHeight);
         return (blockHeightDirectory + "/" + blockHash);
     }
 
-    public BlockStore(final String blockDataDirectory, final BlockInflaters blockInflaters) {
+    public BlockStoreCore(final String blockDataDirectory, final BlockInflaters blockInflaters) {
         _blockDataDirectory = blockDataDirectory;
         _blockInflaters = blockInflaters;
     }
 
+    @Override
     public Boolean storeBlock(final Block block, final Long blockHeight) {
         if (_blockDataDirectory == null) { return false; }
 
@@ -56,7 +56,7 @@ public class BlockStore {
             final String dataDirectory = _getBlockDataDirectory(blockHeight);
             final File directory = new File(dataDirectory);
             if (! directory.exists()) {
-                final Boolean mkdirSuccessful = directory.mkdirs();
+                final boolean mkdirSuccessful = directory.mkdirs();
                 if (! mkdirSuccessful) {
                     Logger.warn("Unable to create block data directory: " + dataDirectory);
                     return false;
@@ -70,6 +70,7 @@ public class BlockStore {
         return IoUtil.putFileContents(blockPath, byteArray.unwrap());
     }
 
+    @Override
     public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return; }
 
@@ -82,6 +83,7 @@ public class BlockStore {
         file.delete();
     }
 
+    @Override
     public Block getBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return null; }
 
@@ -96,6 +98,7 @@ public class BlockStore {
         return blockInflater.fromBytes(blockBytes);
     }
 
+    @Override
     public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
         if (_blockDataDirectory == null) { return null; }
 
