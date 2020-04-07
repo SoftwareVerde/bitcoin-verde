@@ -52,7 +52,9 @@ import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
@@ -788,100 +790,34 @@ public class NodeModule {
         }
 
         { // Validate the UTXO set is up to date...
-            final LinkedList<PreloadedBlock> preloadedBlocks = new LinkedList<PreloadedBlock>();
-            final Thread blockPreloadThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final int maxQueueSize = 128;
-
-                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                        final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
-
-                        long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
-                        while (blockHeight <= maxBlockHeight) {
-                            synchronized (preloadedBlocks) {
-                                if (preloadedBlocks.size() >= maxQueueSize) {
-                                    preloadedBlocks.wait();
-                                }
-                            }
-
-                            // Expensive relative to the other actions during the UTXO loading...
-                            final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
-                            final Block block = blockDatabaseManager.getBlock(blockId);
-
-                            final PreloadedBlock preloadedBlock = new PreloadedBlock(blockHeight, block);
-
-                            synchronized (preloadedBlocks) {
-                                preloadedBlocks.addLast(preloadedBlock);
-                                preloadedBlocks.notifyAll();
-
-                                Logger.trace("Preload Blocks: " + preloadedBlocks.size() + " / " + maxQueueSize);
-                            }
-
-                            blockHeight += 1L;
-
-                            if (Thread.interrupted()) {
-                                break;
-                            }
-                        }
-                    }
-                    catch (final Exception exception) {
-                        if (! (exception instanceof InterruptedException)) {
-                            Logger.debug(exception);
-                        }
-                    }
-                    finally {
-                        synchronized (preloadedBlocks) {
-                            preloadedBlocks.addLast(null);
-                            preloadedBlocks.notifyAll();
-                        }
-                    }
-                }
-            });
-
-            blockPreloadThread.start();
-
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
 
                 final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
 
-                final Thread currentThread = Thread.currentThread();
-                while (! currentThread.isInterrupted()) {
-                    final PreloadedBlock preloadedBlock;
-                    synchronized (preloadedBlocks) {
-                        if (preloadedBlocks.isEmpty()) {
-                            try {
-                                preloadedBlocks.wait();
-                            }
-                            catch (final InterruptedException exception) {
-                                blockPreloadThread.interrupt();
-                                break;
-                            }
-                        }
+                final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
 
-                        preloadedBlock = preloadedBlocks.pollFirst();
-                        if (preloadedBlock == null) {
-                            blockPreloadThread.interrupt();
-                            break;
-                        }
-
-                        preloadedBlocks.notifyAll();
+                long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
+                while (blockHeight <= maxBlockHeight) {
+                    final PreloadedBlock preloadedBlock = blockLoader.getBlock(blockHeight);
+                    if (preloadedBlock == null) {
+                        Logger.debug("Unable to load block: " + blockHeight);
+                        return;
                     }
 
-                    unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(preloadedBlock.block, preloadedBlock.blockHeight);
+                    unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight());
+                    blockHeight += 1L;
                 }
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);
-                return;
             }
         }
 
@@ -1008,15 +944,5 @@ public class NodeModule {
 
     public void shutdown() {
         _shutdown();
-    }
-}
-
-class PreloadedBlock {
-    public final Long blockHeight;
-    public final Block block;
-
-    public PreloadedBlock(final Long blockHeight, final Block block) {
-        this.block = block;
-        this.blockHeight = blockHeight;
     }
 }
