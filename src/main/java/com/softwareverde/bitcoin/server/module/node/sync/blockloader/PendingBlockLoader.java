@@ -22,7 +22,7 @@ import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
-public class BlockLoader {
+public class PendingBlockLoader {
     protected final BlockInflaters _blockInflaters;
     protected final ThreadPool _threadPool;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -97,7 +97,7 @@ public class BlockLoader {
         return (Util.coalesce(blockHeight, Long.MAX_VALUE) > loadUnspentOutputsAfterBlockHeight);
     }
 
-    public BlockLoader(final Integer queueCount, final FullNodeDatabaseManagerFactory databaseManagerFactory, final ThreadPool threadPool, final BlockInflaters blockInflaters) {
+    public PendingBlockLoader(final Integer queueCount, final FullNodeDatabaseManagerFactory databaseManagerFactory, final ThreadPool threadPool, final BlockInflaters blockInflaters) {
         _blockInflaters = blockInflaters;
         _threadPool = threadPool;
         _databaseManagerFactory = databaseManagerFactory;

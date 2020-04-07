@@ -20,8 +20,12 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
      *  After some empirical evidence, the actual unspent_transaction_outputs::max_data_length and unspent_transaction_outputs::avg_row_length reported by MySQL aren't sufficient/accurate.
      *  The actual observed max row count is 39216366, which renders exactly 4GB of memory (1882505376 in data, 2412509502 in indexes), which puts row_length at 48 bytes per row, 109.55 including indexes.
      *  The value chosen, 33554432 (2^25), is the closest power-of-two under the 4GB max, which allows for some additional (although unobserved) inaccuracies.
+     *
+     *  Update: Using a BTREE for the PRIMARY KEY changes the used bytes per row (BTREE is less memory-efficient but more performant).
+     *      The actual observed max row count with these settings is 27891486, which results in 1338877344 in data, 2941008296 in indexes). 48 bytes per row, 154 including indexes.
+     *      The new value chosen is not near a clean power of two, so 27M was chosen (27889398 being the theoretical max).
      */
-    Long MAX_UTXO_CACHE_COUNT = 33554432L; // 2^25
+    Long MAX_UTXO_CACHE_COUNT = 27000000L;
 
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;

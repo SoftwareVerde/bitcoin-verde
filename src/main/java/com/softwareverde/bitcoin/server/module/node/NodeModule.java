@@ -52,7 +52,7 @@ import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
@@ -86,6 +86,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
@@ -471,10 +472,10 @@ public class NodeModule {
         }
 
         { // Initialize BlockchainBuilder...
-            final BlockLoader blockLoader = new BlockLoader(3, databaseManagerFactory, _mainThreadPool, _masterInflater);
+            final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(3, databaseManagerFactory, _mainThreadPool, _masterInflater);
             final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
-            blockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
-            _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, _masterInflater, blockProcessor, blockLoader, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
+            pendingBlockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
+            _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, _masterInflater, blockProcessor, pendingBlockLoader, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
         final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
@@ -768,11 +769,8 @@ public class NodeModule {
     }
 
     public void loop() {
-
         final MilliTimer timer = new MilliTimer();
         timer.start();
-
-        long transactionCount = 0;
 
         final Database database = _environment.getDatabase();
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
@@ -789,71 +787,102 @@ public class NodeModule {
             }
         }
 
-        // Validate the UTXO set is up to date...
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        { // Validate the UTXO set is up to date...
+            final LinkedList<PreloadedBlock> preloadedBlocks = new LinkedList<PreloadedBlock>();
+            final Thread blockPreloadThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final int maxQueueSize = 128;
 
-            final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
+                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
+                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                        final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
 
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final Long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
+                        long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
+                        while (blockHeight <= maxBlockHeight) {
+                            synchronized (preloadedBlocks) {
+                                if (preloadedBlocks.size() >= maxQueueSize) {
+                                    preloadedBlocks.wait();
+                                }
+                            }
 
-            while (blockHeight <= maxBlockHeight) {
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
-                final Block block = blockDatabaseManager.getBlock(blockId);
+                            // Expensive relative to the other actions during the UTXO loading...
+                            final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
+                            final Block block = blockDatabaseManager.getBlock(blockId);
 
-                unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(block, blockHeight);
+                            final PreloadedBlock preloadedBlock = new PreloadedBlock(blockHeight, block);
 
-//                final List<Transaction> transactions = block.getTransactions();
-//
-//                final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-//                final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-//                for (int i = 0; i < transactions.getCount(); ++i) {
-//                    final Transaction transaction = transactions.get(i);
-//
-//                    final boolean isCoinbase = (i == 0);
-//                    if (! isCoinbase) {
-//                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-//                            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-//                            spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-//                        }
-//                    }
-//
-//                    final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
-//                    unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
-//                }
-//
-//                final MilliTimer utxoTimer = new MilliTimer();
-//                utxoTimer.start();
-//                transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
-//                transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
-//                utxoTimer.stop();
-//
-//                final Long uncommittedUtxoCount = transactionDatabaseManager.getUncommittedUnspentTransactionOutputCount();
-//                if ( ((blockHeight % 4032L) == 0L) || (uncommittedUtxoCount > FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
-//                    final MilliTimer utxoCommitTimer = new MilliTimer();
-//                    utxoCommitTimer.start();
-//                    transactionDatabaseManager.commitUnspentTransactionOutputs();
-//                    utxoCommitTimer.stop();
-//                    System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
-//                }
-//
-//                transactionCount += transactions.getCount();
-//                timer.stop();
-//
-//                System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + timer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (timer.getMillisecondsElapsed()+1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed()+1L)) + " tps");
-                blockHeight += 1L;
+                            synchronized (preloadedBlocks) {
+                                preloadedBlocks.addLast(preloadedBlock);
+                                preloadedBlocks.notifyAll();
+
+                                Logger.trace("Preload Blocks: " + preloadedBlocks.size() + " / " + maxQueueSize);
+                            }
+
+                            blockHeight += 1L;
+
+                            if (Thread.interrupted()) {
+                                break;
+                            }
+                        }
+                    }
+                    catch (final Exception exception) {
+                        if (! (exception instanceof InterruptedException)) {
+                            Logger.debug(exception);
+                        }
+                    }
+                    finally {
+                        synchronized (preloadedBlocks) {
+                            preloadedBlocks.addLast(null);
+                            preloadedBlocks.notifyAll();
+                        }
+                    }
+                }
+            });
+
+            blockPreloadThread.start();
+
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
+
+                final Thread currentThread = Thread.currentThread();
+                while (! currentThread.isInterrupted()) {
+                    final PreloadedBlock preloadedBlock;
+                    synchronized (preloadedBlocks) {
+                        if (preloadedBlocks.isEmpty()) {
+                            try {
+                                preloadedBlocks.wait();
+                            }
+                            catch (final InterruptedException exception) {
+                                blockPreloadThread.interrupt();
+                                break;
+                            }
+                        }
+
+                        preloadedBlock = preloadedBlocks.pollFirst();
+                        if (preloadedBlock == null) {
+                            blockPreloadThread.interrupt();
+                            break;
+                        }
+
+                        preloadedBlocks.notifyAll();
+                    }
+
+                    unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(preloadedBlock.block, preloadedBlock.blockHeight);
+                }
             }
-        }
-        catch (final DatabaseException exception) {
-            Logger.error(exception);
-            return;
+            catch (final DatabaseException exception) {
+                Logger.error(exception);
+                return;
+            }
         }
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
@@ -979,5 +1008,15 @@ public class NodeModule {
 
     public void shutdown() {
         _shutdown();
+    }
+}
+
+class PreloadedBlock {
+    public final Long blockHeight;
+    public final Block block;
+
+    public PreloadedBlock(final Long blockHeight, final Block block) {
+        this.block = block;
+        this.blockHeight = blockHeight;
     }
 }

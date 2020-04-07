@@ -21,7 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
 import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -46,7 +46,7 @@ public class BlockchainBuilder extends SleepyService {
     protected final BlockProcessor _blockProcessor;
     protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
     protected final BlockDownloadRequester _blockDownloadRequester;
-    protected final BlockLoader _blockLoader;
+    protected final PendingBlockLoader _pendingBlockLoader;
     protected Boolean _hasGenesisBlock;
     protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
 
@@ -73,7 +73,7 @@ public class BlockchainBuilder extends SleepyService {
         final Long processedBlockHeight;
         { // Maximize the Thread priority and process the block...
             final Thread currentThread = Thread.currentThread();
-            final Integer originalThreadPriority = currentThread.getPriority();
+            final int originalThreadPriority = currentThread.getPriority();
             try {
                 currentThread.setPriority(Thread.MAX_PRIORITY);
                 processedBlockHeight = _blockProcessor.processBlock(block, transactionOutputSet);
@@ -211,7 +211,7 @@ public class BlockchainBuilder extends SleepyService {
                         final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
                         final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
 
-                        final PreloadedPendingBlock preloadedPendingBlock = _blockLoader.getBlock(pendingBlockHash, pendingBlockId);
+                        final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
                         final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
                         final UnspentTransactionOutputSet unspentTransactionOutputSet = preloadedPendingBlock.getUnspentTransactionOutputSet();
 
@@ -258,7 +258,7 @@ public class BlockchainBuilder extends SleepyService {
         final FullNodeDatabaseManagerFactory databaseManagerFactory,
         final BlockInflaters blockInflaters,
         final BlockProcessor blockProcessor,
-        final BlockLoader blockLoader,
+        final PendingBlockLoader pendingBlockLoader,
         final BlockDownloader.StatusMonitor downloadStatusMonitor,
         final BlockDownloadRequester blockDownloadRequester,
         final ThreadPool threadPool
@@ -267,7 +267,7 @@ public class BlockchainBuilder extends SleepyService {
         _databaseManagerFactory = databaseManagerFactory;
         _blockInflaters = blockInflaters;
         _blockProcessor = blockProcessor;
-        _blockLoader = blockLoader;
+        _pendingBlockLoader = pendingBlockLoader;
         _downloadStatusMonitor = downloadStatusMonitor;
         _blockDownloadRequester = blockDownloadRequester;
         _threadPool = threadPool;
