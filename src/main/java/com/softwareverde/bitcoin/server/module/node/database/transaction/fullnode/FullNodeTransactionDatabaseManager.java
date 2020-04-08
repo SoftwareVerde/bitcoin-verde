@@ -24,8 +24,11 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
      *  Update: Using a BTREE for the PRIMARY KEY changes the used bytes per row (BTREE is less memory-efficient but more performant).
      *      The actual observed max row count with these settings is 27891486, which results in 1338877344 in data, 2941008296 in indexes). 48 bytes per row, 154 including indexes.
      *      The new value chosen is not near a clean power of two, so 27M was chosen (27889398 being the theoretical max).
+     *
+     *  Update 2: Removing the index on is_spent changes the data+index size per row to 109 including indexes.
+     *      The new value chosen is now 33554432 (2^25) (39403369 being the new theoretical max).
      */
-    Long MAX_UTXO_CACHE_COUNT = 27000000L;
+    Long MAX_UTXO_CACHE_COUNT = 33554432L; // 2^25
 
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;

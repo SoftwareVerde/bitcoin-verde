@@ -50,7 +50,7 @@ public class BlockStoreCore implements BlockStore {
         final String blockPath = _getBlockDataPath(blockHash, blockHeight);
         if (blockPath == null) { return false; }
 
-        if (IoUtil.fileExists(blockPath)) { return true; }
+        if (! IoUtil.isEmpty(blockPath)) { return true; }
 
         { // Create the directory, if necessary...
             final String dataDirectory = _getBlockDataDirectory(blockHeight);

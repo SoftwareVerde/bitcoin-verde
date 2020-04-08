@@ -814,7 +814,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
+                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
                 for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
                     final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -839,7 +839,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 1");
+                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, ?, 1) ON DUPLICATE KEY UPDATE is_spent = 1");
                 for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
                     final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -865,22 +865,50 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final Long blockHeight;
         {
+            final Long previousUtxoCacheBlockHeight;
+            {
+                java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT `value` AS block_height FROM properties WHERE `key` = ?")
+                                .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
+                );
+                if (! rows.isEmpty()) {
+                    final Row row = rows.get(0);
+                    previousUtxoCacheBlockHeight = Util.coalesce(row.getLong("block_height"), 0L);
+                }
+                else {
+                    previousUtxoCacheBlockHeight = 0L;
+                }
+            }
+
             java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT MAX(block_height) AS block_height FROM unspent_transaction_outputs WHERE is_spent IS NOT NULL")
+                new Query("SELECT MAX(block_height) AS block_height FROM unspent_transaction_outputs")
             );
-            final Row row = rows.get(0);
-            blockHeight = Util.coalesce(row.getLong("block_height"), 0L);
+            if (! rows.isEmpty()) {
+                final Row row = rows.get(0);
+                blockHeight = Util.coalesce(row.getLong("block_height"), previousUtxoCacheBlockHeight);
+            }
+            else {
+                blockHeight = previousUtxoCacheBlockHeight;
+            }
         }
 
-        commitUtxoTimerInsert.start();
-        databaseConnection.executeSql(new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE is_spent = 0"));
-        commitUtxoTimerInsert.stop();
+        // Synchronize the committed set with the in-memory set...
         commitUtxoTimerDelete.start();
         databaseConnection.executeSql(new Query("DELETE unspent_transaction_outputs, committed_unspent_transaction_outputs FROM unspent_transaction_outputs LEFT OUTER JOIN committed_unspent_transaction_outputs ON ( (unspent_transaction_outputs.transaction_hash = committed_unspent_transaction_outputs.transaction_hash) AND (unspent_transaction_outputs.`index` = committed_unspent_transaction_outputs.`index`) ) WHERE unspent_transaction_outputs.is_spent = 1"));
         commitUtxoTimerDelete.stop();
+        commitUtxoTimerInsert.start();
+        databaseConnection.executeSql(new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE is_spent = 0"));
+        commitUtxoTimerInsert.stop();
+
+        // Save the committed set's block height...
+        databaseConnection.executeSql(
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
+                .setParameter(blockHeight)
+        );
 
         commitUtxoTimerPurge.start();
-        Long rowCount;
+        final Long rowCount;
         {
             final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs"));
             final Row row = rows.get(0);
@@ -890,15 +918,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         {
             final long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
             if (deleteCount > 0L) {
-                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent IS NULL ORDER BY block_height ASC LIMIT " + deleteCount));
-                rowCount -= databaseConnection.getRowsAffectedCount();
-            }
-        }
-
-        {
-            final long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
-            if (deleteCount > 0L) {
-                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs WHERE is_spent = 0 ORDER BY block_height ASC LIMIT " + deleteCount));
+                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs ORDER BY block_height ASC LIMIT " + deleteCount));
             }
         }
         commitUtxoTimerPurge.stop();
@@ -906,12 +926,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         commitUtxoTimerCleanup.start();
         databaseConnection.executeSql(new Query("UPDATE unspent_transaction_outputs SET is_spent = NULL"));
         commitUtxoTimerCleanup.stop();
-
-        databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
-                .setParameter(blockHeight)
-        );
 
         Logger.info("Commit Utxo Timer: insert=" + commitUtxoTimerInsert.getMillisecondsElapsed() + "ms, delete=" + commitUtxoTimerDelete.getMillisecondsElapsed() + "ms, purge=" + commitUtxoTimerPurge.getMillisecondsElapsed() + "ms, cleanup=" + commitUtxoTimerCleanup.getMillisecondsElapsed() + "ms");
     }

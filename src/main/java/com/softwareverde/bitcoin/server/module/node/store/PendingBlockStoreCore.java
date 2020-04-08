@@ -49,7 +49,7 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         final String blockPath = _getPendingBlockDataPath(blockHash);
         if (blockPath == null) { return false; }
 
-        if (IoUtil.fileExists(blockPath)) { return true; }
+        if (! IoUtil.isEmpty(blockPath)) { return true; }
 
         { // Create the directory, if necessary...
             final String cacheDirectory = _getPendingBlockDataDirectory(blockHash);

@@ -58,10 +58,10 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
                 // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.
                 // TODO: Consider: If no peers still do not have the block, search for a historic node with the block.
 
-                Boolean searchForBlockHash = false;
+                boolean searchForBlockHash = false;
                 synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
                     final Long now = _systemTime.getCurrentTimeInSeconds();
-                    final Long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
+                    final long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
                     if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
                         final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
                         final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
@@ -105,21 +105,6 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
         }
     }
 
-//    /**
-//     * Check for missing NodeInventory in order to speed up the initial Block download...
-//     */
-//    protected void _checkForNodeInventory() {
-//        synchronized (_lastNodeInventoryBroadcastTimestampMutex) {
-//            final Long now = _systemTime.getCurrentTimeInSeconds();
-//            final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
-//            if (durationSinceLastRequest <= 30) { return; } // Throttle requests to once every 30 seconds...
-//
-//            _lastNodeInventoryBroadcastTimestamp = now;
-//        }
-//
-//        _bitcoinNodeManager.findNodeInventory();
-//    }
-
     public BlockDownloadRequesterCore(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockDownloader = blockDownloader;
@@ -128,19 +113,11 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
     @Override
     public void requestBlock(final BlockHeader blockHeader) {
-//        _checkForNodeInventory();
         _requestBlock(blockHeader.getHash(), blockHeader.getPreviousBlockHash(), blockHeader.getTimestamp());
     }
 
     @Override
-    public void requestBlock(final Sha256Hash blockHash, final Long priority) {
-//        _checkForNodeInventory();
-        _requestBlock(blockHash, null, priority);
-    }
-
-    @Override
-    public void requestBlock(final Sha256Hash blockHash) {
-//        _checkForNodeInventory();
-        _requestBlock(blockHash, null, 0L);
+    public void requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) {
+        _requestBlock(blockHash, previousBlockHash, 0L);
     }
 }

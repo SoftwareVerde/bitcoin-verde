@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.util;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
 public class IoUtil extends com.softwareverde.util.IoUtil {
     protected IoUtil() { }
@@ -46,5 +44,13 @@ public class IoUtil extends com.softwareverde.util.IoUtil {
     public static Boolean fileExists(final String path) {
         final File file = new File(path);
         return file.exists();
+    }
+
+    public static Boolean isEmpty(final String path) {
+        final File file = new File(path);
+        if (! file.exists()) { return true; }
+        if (! file.isFile()) { return true; }
+
+        return (file.length() < 1);
     }
 }

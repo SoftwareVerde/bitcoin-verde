@@ -16,13 +16,13 @@ public interface PendingBlockDatabaseManager {
 }
 
 class ReadWriteLock {
-    protected static final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    protected static final ReentrantReadWriteLock REENTRANT_READ_WRITE_LOCK = new ReentrantReadWriteLock();
 
     public static ReentrantReadWriteLock.ReadLock readLock() {
-        return ReadWriteLock.readWriteLock.readLock();
+        return ReadWriteLock.REENTRANT_READ_WRITE_LOCK.readLock();
     }
 
     public static ReentrantReadWriteLock.WriteLock writeLock() {
-        return ReadWriteLock.readWriteLock.writeLock();
+        return ReadWriteLock.REENTRANT_READ_WRITE_LOCK.writeLock();
     }
 }

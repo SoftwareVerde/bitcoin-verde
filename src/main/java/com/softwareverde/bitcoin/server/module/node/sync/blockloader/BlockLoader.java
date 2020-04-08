@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
@@ -20,6 +21,7 @@ public class BlockLoader {
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final HashMap<Long, BlockFuture> _blockFutures;
     protected final Integer _maxQueueCount;
+    protected final Long _maxBlockHeight;
     protected Long _nextBlockHeight;
 
     /**
@@ -63,10 +65,22 @@ public class BlockLoader {
         _blockFutures = new HashMap<Long, BlockFuture>(queueCount);
         _maxQueueCount = queueCount;
         _nextBlockHeight = 0L;
+
+        Long maxBlockHeight = Long.MAX_VALUE;
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+        }
+        _maxBlockHeight = maxBlockHeight;
     }
 
     public synchronized PreloadedBlock getBlock(final Long blockHeight) {
-        while (_blockFutures.size() < _maxQueueCount) {
+        while ( (_blockFutures.size() < _maxQueueCount) && (_nextBlockHeight <= _maxBlockHeight) ) {
             _nextBlockHeight = Math.max(_nextBlockHeight, blockHeight);
             final BlockFuture blockFuture = _asynchronouslyLoadNextBlock(_nextBlockHeight);
             _blockFutures.put(_nextBlockHeight, blockFuture);

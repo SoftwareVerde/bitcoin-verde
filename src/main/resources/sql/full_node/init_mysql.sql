@@ -131,8 +131,8 @@ CREATE TABLE unspent_transaction_outputs (
     `index` INT UNSIGNED NOT NULL,
     is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT 'NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.',
     block_height INT UNSIGNED NOT NULL,
-    PRIMARY KEY (transaction_hash, `index`) USING BTREE,
-    INDEX utxo_block_height_ix (is_spent, block_height) USING BTREE
+    PRIMARY KEY (transaction_hash, `index`) USING HASH,
+    INDEX utxo_block_height_ix (block_height) USING BTREE
 ) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE committed_unspent_transaction_outputs (

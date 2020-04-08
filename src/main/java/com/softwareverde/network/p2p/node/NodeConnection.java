@@ -243,7 +243,7 @@ public class NodeConnection {
     }
 
     protected void _writeOrQueueMessage(final ProtocolMessage message) {
-        final Boolean messageWasQueued;
+        final boolean messageWasQueued;
 
         final BinarySocket binarySocket = _binarySocket;
         if (_socketIsConnected(binarySocket)) {

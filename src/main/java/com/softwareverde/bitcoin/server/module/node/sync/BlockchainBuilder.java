@@ -164,7 +164,7 @@ public class BlockchainBuilder extends SleepyService {
                         _hasGenesisBlock = true;
                     }
                     else {
-                        _blockDownloadRequester.requestBlock(BlockHeader.GENESIS_BLOCK_HASH);
+                        _blockDownloadRequester.requestBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
                         return false;
                     }
                 }
@@ -179,9 +179,10 @@ public class BlockchainBuilder extends SleepyService {
                     final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                     final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
                     if (nextBlockId != null) {
+                        final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
                         final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
                         Logger.debug("Requesting Block: " + nextBlockHash);
-                        _blockDownloadRequester.requestBlock(nextBlockHash);
+                        _blockDownloadRequester.requestBlock(nextBlockHash, previousBlockHash);
                     }
                     break;
                 }

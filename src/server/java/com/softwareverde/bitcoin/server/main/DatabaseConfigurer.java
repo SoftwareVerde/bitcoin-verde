@@ -32,8 +32,9 @@ public class DatabaseConfigurer {
 
             commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount);
 
-            commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
+            commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0"); // Write directly to disk; database crashing may result in data corruption.
             commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
+            // commandLineArguments.addArgument("--key_buffer_size=" + (1L * ByteUtil.Unit.GIGABYTES)); // MyISAM
 
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount);

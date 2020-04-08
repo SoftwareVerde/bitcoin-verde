@@ -371,6 +371,11 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         }
     }
 
+    /**
+     * Returns a List of Tuples to be used within a set of BlockFinder requests.
+     *  The first item in the Tuple is the startingBlockHash, the second is the endingBlockHash.
+     *  The startingBlockHash is the previous Block Hash of the missing block since BlockFinders respond with inventory after the requested hash.
+     */
     @Override
     public List<Tuple<Sha256Hash, Sha256Hash>> selectPriorityPendingBlocksWithUnknownNodeInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -379,7 +384,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             READ_WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT blocks.block_height, pending_blocks.hash FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?) LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_blocks.was_downloaded = 0) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
+                new Query("SELECT blocks.block_height, pending_blocks.hash, pending_blocks.previous_block_hash FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (?) LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_blocks.was_downloaded = 0) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
                     .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
             );
 
@@ -389,7 +394,8 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             Long tupleStartingBlockHeight = null; // The blockHeight of blockHashStartEnd.first...
             for (final Row row : rows) {
                 final Long blockHeight = row.getLong("block_height");
-                final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
+                final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
+                final Sha256Hash previousBlockHash = Sha256Hash.wrap(row.getBytes("previous_block_hash"));
 
                 boolean addTupleToDownloadPlan = false;
                 boolean createNewTuple = false;
@@ -432,7 +438,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
                 if (createNewTuple) {
                     blockHashStartEnd = new Tuple<Sha256Hash, Sha256Hash>();
-                    blockHashStartEnd.first = blockHash;
+                    blockHashStartEnd.first = previousBlockHash;
                     tupleStartingBlockHeight = blockHeight;
                 }
             }
