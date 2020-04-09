@@ -55,6 +55,7 @@ public class DatabaseConfigurer {
             // commandLineArguments.addArgument("--performance_schema");
             // commandLineArguments.addArgument("--general_log_file=query.log");
             // commandLineArguments.addArgument("--general_log=1");
+            commandLineArguments.addArgument("--performance-schema=ON");
         }
     }
 

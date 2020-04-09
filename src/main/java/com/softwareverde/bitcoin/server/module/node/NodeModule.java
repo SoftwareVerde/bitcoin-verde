@@ -812,7 +812,7 @@ public class NodeModule {
                         return;
                     }
 
-                    unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight());
+                    unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight(), databaseConnectionPool);
                     blockHeight += 1L;
                 }
             }

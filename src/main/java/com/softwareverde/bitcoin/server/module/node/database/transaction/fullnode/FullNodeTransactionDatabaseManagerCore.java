@@ -6,16 +6,17 @@ import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.*;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -25,7 +26,6 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.wallet.utxo.SpendableTransactionOutput;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -43,25 +43,14 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
     protected final BlockStore _blockStore;
-
-    public static class SpendableTransactionOutput extends TransactionOutputIdentifier {
-        protected final Boolean _isSpent;
-
-        public SpendableTransactionOutput(final Sha256Hash transactionHash, final Integer outputIndex, final Boolean isSpent) {
-            super(transactionHash, outputIndex);
-            _isSpent = isSpent;
-        }
-
-        public Boolean isSpent() {
-            return _isSpent;
-        }
-    }
 
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
@@ -315,6 +304,40 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         return null;
+    }
+
+    protected Thread _createCommitSubRoutineThread(final Container<Boolean> threadContinueContainer, final BlockingQueue<TransactionOutputIdentifier> concurrentBatch, final BatchRunner.Batch<TransactionOutputIdentifier> batch) {
+        final int batchSize = 1024;
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize);
+
+        return new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (threadContinueContainer.value) {
+                    int itemCount = 0;
+                    final MutableList<TransactionOutputIdentifier> batchedItems = new MutableList<TransactionOutputIdentifier>(batchSize);
+                    try {
+                        while (itemCount < batchSize) {
+                            final TransactionOutputIdentifier transactionOutputIdentifier = concurrentBatch.take();
+                            batchedItems.add(transactionOutputIdentifier);
+                            itemCount += 1;
+                        }
+                    }
+                    catch (final InterruptedException exception) {
+                        // Continue...
+                    }
+
+                    if (! batchedItems.isEmpty()) {
+                        try {
+                            batchRunner.run(batchedItems, batch);
+                        }
+                        catch (final DatabaseException exception) {
+                            Logger.debug(exception);
+                        }
+                    }
+                }
+            }
+        });
     }
 
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
@@ -869,7 +892,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public void commitUnspentTransactionOutputs() throws DatabaseException {
+    public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         final MilliTimer commitUtxoTimerInsert = new MilliTimer();
         final MilliTimer commitUtxoTimerDelete = new MilliTimer();
         final MilliTimer commitUtxoTimerPurge = new MilliTimer();
@@ -877,95 +900,146 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Long committedUtxoCacheBlockHeight;
+        final Long minUtxoBlockHeight;
         final Long maxUtxoBlockHeight;
         {
-            final Long previousUtxoCacheBlockHeight;
-            {
-                java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT `value` AS block_height FROM properties WHERE `key` = ?")
-                        .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
-                );
-                if (! rows.isEmpty()) {
-                    final Row row = rows.get(0);
-                    previousUtxoCacheBlockHeight = Util.coalesce(row.getLong("block_height"), 0L);
-                }
-                else {
-                    previousUtxoCacheBlockHeight = 0L;
-                }
-            }
+//            final Long previousUtxoCacheBlockHeight;
+//            {
+//                final java.util.List<Row> rows = databaseConnection.query(
+//                    new Query("SELECT `value` AS block_height FROM properties WHERE `key` = ?")
+//                        .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
+//                );
+//                if (! rows.isEmpty()) {
+//                    final Row row = rows.get(0);
+//                    previousUtxoCacheBlockHeight = Util.coalesce(row.getLong("block_height"), 0L);
+//                }
+//                else {
+//                    previousUtxoCacheBlockHeight = 0L;
+//                }
+//            }
 
-            java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT MAX(block_height) AS block_height FROM unspent_transaction_outputs")
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT COALESCE(MIN(block_height), 0) AS min_block_height, COALESCE(MAX(block_height), 0) AS max_block_height FROM unspent_transaction_outputs")
             );
-            if (! rows.isEmpty()) {
-                final Row row = rows.get(0);
-                maxUtxoBlockHeight = Util.coalesce(row.getLong("block_height"), previousUtxoCacheBlockHeight);
-            }
-            else {
-                maxUtxoBlockHeight = previousUtxoCacheBlockHeight;
-            }
-            committedUtxoCacheBlockHeight = previousUtxoCacheBlockHeight;
-        }
-
-        final Long rowCount;
-        {
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs"));
             final Row row = rows.get(0);
-            rowCount = row.getLong("row_count");
+            maxUtxoBlockHeight = row.getLong("max_block_height");
+            minUtxoBlockHeight = row.getLong("min_block_height");
         }
-        final long minDeleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
 
-        long deleteCount = 0L;
-        Long blockHeight = committedUtxoCacheBlockHeight;
+//        final Long blockHeightCount;
+//        {
+//            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS block_height_count FROM unspent_transaction_outputs GROUP BY block_height"));
+//            final Row row = rows.get(0);
+//            blockHeightCount = row.getLong("block_height_count");
+//        }
+
+//        final Long rowCount;
+//        {
+//            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs"));
+//            final Row row = rows.get(0);
+//            rowCount = row.getLong("row_count");
+//        }
+//        final long minDeleteCount = Math.max((rowCount - (MAX_UTXO_CACHE_COUNT / 2L)), 0L);
+
+        final int batchSize = 1024;
+        final LinkedBlockingQueue<TransactionOutputIdentifier> transactionOutputsDeleteMemoryBatch = new LinkedBlockingQueue<TransactionOutputIdentifier>();
+        final LinkedBlockingQueue<TransactionOutputIdentifier> transactionOutputsDeleteCommittedBatch = new LinkedBlockingQueue<TransactionOutputIdentifier>();
+        final LinkedBlockingQueue<TransactionOutputIdentifier> transactionOutputsCommitBatch = new LinkedBlockingQueue<TransactionOutputIdentifier>();
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize);
+
+        final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
+
+        final Thread deleteMemoryUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsDeleteMemoryBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            @Override
+            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    databaseConnection.executeSql(
+                        new Query("DELETE unspent_transaction_outputs WHERE (transaction_hash, `index`) IN ((?, ?))")
+                            .setInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                    );
+                }
+            }
+        });
+
+        final Thread deleteCommittedUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsDeleteCommittedBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            @Override
+            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    databaseConnection.executeSql(
+                        new Query("DELETE committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN ((?, ?))")
+                            .setInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                    );
+                }
+            }
+        });
+
+        final Thread commitUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsCommitBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            @Override
+            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    databaseConnection.executeSql(
+                        new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)")
+                            .setInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                    );
+                }
+            }
+        });
+
+        final long maxKeepCount = (MAX_UTXO_CACHE_COUNT / 2L);
+
+        long keepCount = 0L;
+        Long blockHeight = maxUtxoBlockHeight;
         do {
             final java.util.List<Row> blockHeightRows = databaseConnection.query(
-                new Query("SELECT block_height FROM unspent_transaction_outputs WHERE block_height > ? GROUP BY block_height ORDER BY block_height ASC LIMIT 1024")
+                new Query("SELECT block_height FROM unspent_transaction_outputs WHERE block_height <= ? GROUP BY block_height ORDER BY block_height DESC LIMIT 1024")
                     .setParameter(blockHeight)
             );
             for (final Row blockHeightRow : blockHeightRows) {
                 blockHeight = blockHeightRow.getLong("block_height");
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT transaction_hash, `index` FROM unspent_transaction_outputs WHERE block_height = ?")
+                    new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE block_height = ?")
                         .setParameter(blockHeight)
                 );
 
-                final MutableList<SpendableTransactionOutput> transactionOutputsDeleteBatch = new MutableList<SpendableTransactionOutput>(rows.size());
-                final MutableList<SpendableTransactionOutput> transactionOutputsCommitBatch = new MutableList<SpendableTransactionOutput>(rows.size());
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
                     final Integer outputIndex = row.getInteger("index");
                     final Boolean isSpent = row.getBoolean("is_spent");
 
-                    final SpendableTransactionOutput spendableTransactionOutput = new SpendableTransactionOutput(transactionHash, outputIndex, isSpent);
+                    final TransactionOutputIdentifier spendableTransactionOutput = new TransactionOutputIdentifier(transactionHash, outputIndex);
 
-                    if (isSpent) {
-                        transactionOutputsDeleteBatch.add(spendableTransactionOutput);
-                        deleteCount += 1L;
+                    if (Util.coalesce(isSpent, false)) {
+                        transactionOutputsDeleteCommittedBatch.add(spendableTransactionOutput);
+                        transactionOutputsDeleteMemoryBatch.add(spendableTransactionOutput);
                     }
                     else {
                         transactionOutputsCommitBatch.add(spendableTransactionOutput);
+
+                        if (keepCount >= maxKeepCount) {
+                            transactionOutputsDeleteMemoryBatch.add(spendableTransactionOutput);
+                        }
+                        else {
+                            keepCount += 1L;
+                        }
                     }
                 }
-
-                if (! transactionOutputsDeleteBatch.isEmpty()) {
-                    databaseConnection.executeSql(
-                        new Query("DELETE unspent_transaction_outputs WHERE (transaction_hash, `index`) IN ((?, ?))")
-                            .setInClauseParameters(transactionOutputsDeleteBatch, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
-                    databaseConnection.executeSql(
-                        new Query("DELETE committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN ((?, ?))")
-                            .setInClauseParameters(transactionOutputsDeleteBatch, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
-                }
-                if (! transactionOutputsCommitBatch.isEmpty()) {
-                    databaseConnection.executeSql(
-                        new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)")
-                            .setInClauseParameters(transactionOutputsCommitBatch, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
-                }
             }
-        } while(blockHeight < maxUtxoBlockHeight);
+        } while (blockHeight > minUtxoBlockHeight);
+
+        threadContinueContainer.value = false;
+        deleteCommittedUnspentOutputsThread.interrupt();
+        deleteMemoryUnspentOutputsThread.interrupt();
+        commitUnspentOutputsThread.interrupt();
+
+        try {
+            deleteCommittedUnspentOutputsThread.join();
+            deleteMemoryUnspentOutputsThread.join();
+            commitUnspentOutputsThread.join();
+        }
+        catch (final InterruptedException exception) {
+            final Thread currentThread = Thread.currentThread();
+            currentThread.interrupt(); // Continue but retain the interrupted flag...
+        }
 
         // Save the committed set's block height...
         databaseConnection.executeSql(
@@ -975,15 +1049,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         );
 
         commitUtxoTimerPurge.start();
-
-
-        {
-            final long deleteCount = (rowCount - (MAX_UTXO_CACHE_COUNT / 2L));
-            if (deleteCount > 0L) {
-                databaseConnection.executeSql(new Query("DELETE FROM unspent_transaction_outputs ORDER BY block_height ASC LIMIT " + deleteCount));
-            }
-        }
-        commitUtxoTimerPurge.stop();
 
         commitUtxoTimerCleanup.start();
         databaseConnection.executeSql(new Query("UPDATE unspent_transaction_outputs SET is_spent = NULL"));

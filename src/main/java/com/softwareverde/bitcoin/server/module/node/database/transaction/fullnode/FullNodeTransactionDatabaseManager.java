@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -61,7 +62,7 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
 
     void markTransactionOutputsAsUnspent(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException;
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException;
-    void commitUnspentTransactionOutputs() throws DatabaseException;
+    void commitUnspentTransactionOutputs(DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
 }

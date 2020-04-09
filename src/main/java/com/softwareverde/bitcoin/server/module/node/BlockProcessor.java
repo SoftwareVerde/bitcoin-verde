@@ -310,7 +310,7 @@ public class BlockProcessor {
                 else {
                     { // Maintain the UTXO (Unspent Transaction Output) set...
                         final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
-                        unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(block, blockHeight);
+                        unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(block, blockHeight, _databaseManagerFactory.getDatabaseConnectionFactory());
                     }
 
                     final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);

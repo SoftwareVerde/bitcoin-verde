@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -16,7 +17,7 @@ public class UnspentTransactionOutputCommitter {
         _transactionDatabaseManager = transactionDatabaseManager;
     }
 
-    public void commitUnspentTransactionOutputs(final Block block, final Long blockHeight) throws DatabaseException {
+    public void commitUnspentTransactionOutputs(final Block block, final Long blockHeight, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         final MilliTimer totalTimer = new MilliTimer();
         totalTimer.start();
 
@@ -45,7 +46,7 @@ public class UnspentTransactionOutputCommitter {
         if ( ((blockHeight % 4032L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
-            _transactionDatabaseManager.commitUnspentTransactionOutputs();
+            _transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
             utxoCommitTimer.stop();
             System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
         }
