@@ -1,8 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -37,6 +40,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
@@ -44,6 +48,15 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getCount());
             Sha256Hash previousBlockHash = null;
             for (final Sha256Hash blockHash : blockHashes) {
+                if (previousBlockHash == null) {
+                    final Boolean headerExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
+                    if (headerExists) {
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
+                        previousBlockHash = blockHeader.getPreviousBlockHash();
+                    }
+                }
+
                 final Boolean blockExists = blockDatabaseManager.hasTransactions(blockHash);
                 if (blockExists) {
                     previousBlockHash = blockHash;

@@ -2,14 +2,17 @@ package com.softwareverde.bitcoin.server.module.node.database.block.pending.full
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.inventory.MutableUnknownBlockInventory;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.inventory.UnknownBlockInventory;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -21,7 +24,6 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -372,12 +374,11 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
     }
 
     /**
-     * Returns a List of Tuples to be used within a set of BlockFinder requests.
-     *  The first item in the Tuple is the startingBlockHash, the second is the endingBlockHash.
-     *  The startingBlockHash is the previous Block Hash of the missing block since BlockFinders respond with inventory after the requested hash.
+     * Returns a List of UnknownInventory objects to be used within a set of BlockFinder/BlockHeader requests.
+     *  The previousBlockHash may be null if it is unknown.
      */
     @Override
-    public List<Tuple<Sha256Hash, Sha256Hash>> selectPriorityPendingBlocksWithUnknownNodeInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
+    public List<UnknownBlockInventory> findUnknownNodeInventoryByPriority(final List<NodeId> connectedNodeIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         try {
@@ -388,10 +389,10 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                     .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
             );
 
-            final MutableList<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = new MutableList<Tuple<Sha256Hash, Sha256Hash>>(rows.size());
+            final MutableList<UnknownBlockInventory> downloadPlan = new MutableList<UnknownBlockInventory>(rows.size());
 
-            Tuple<Sha256Hash, Sha256Hash> blockHashStartEnd = null;
-            Long tupleStartingBlockHeight = null; // The blockHeight of blockHashStartEnd.first...
+            MutableUnknownBlockInventory mutableUnknownBlockInventory = null;
+            Long tupleStartingBlockHeight = null; // The blockHeight of mutableUnknownBlockInventory.first...
             for (final Row row : rows) {
                 final Long blockHeight = row.getLong("block_height");
                 final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
@@ -399,7 +400,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
                 boolean addTupleToDownloadPlan = false;
                 boolean createNewTuple = false;
-                if (blockHashStartEnd == null) {
+                if (mutableUnknownBlockInventory == null) {
                     createNewTuple = true;
 
                     if (blockHeight == null) {
@@ -418,32 +419,45 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                         }
                         else {
                             final long blockHeightDifference = (blockHeight - tupleStartingBlockHeight);
-                            if ((blockHeightDifference < 0) || (blockHeightDifference >= 500)) {
+                            if ((blockHeightDifference < 0) || (blockHeightDifference >= QueryBlocksMessage.MAX_BLOCK_HASH_COUNT)) {
                                 addTupleToDownloadPlan = true;
                             }
                             else {
-                                blockHashStartEnd.second = blockHash;
+                                mutableUnknownBlockInventory.setLastUnknownBlockHash(blockHash);
                             }
                         }
                     }
                 }
 
                 if (addTupleToDownloadPlan) {
-                    if (blockHashStartEnd != null) {
-                        downloadPlan.add(blockHashStartEnd);
-                        blockHashStartEnd = null;
+                    if (mutableUnknownBlockInventory != null) {
+                        downloadPlan.add(mutableUnknownBlockInventory);
+                        mutableUnknownBlockInventory = null;
                         tupleStartingBlockHeight = null;
                     }
                 }
 
                 if (createNewTuple) {
-                    blockHashStartEnd = new Tuple<Sha256Hash, Sha256Hash>();
-                    blockHashStartEnd.first = previousBlockHash;
+                    mutableUnknownBlockInventory = new MutableUnknownBlockInventory();
+                    mutableUnknownBlockInventory.setFirstUnknownBlockHash(blockHash);
+
+                    if (previousBlockHash == null) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        if (blockId != null) {
+                            final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
+                            mutableUnknownBlockInventory.setPreviousBlockHash(blockHeader.getPreviousBlockHash());
+                        }
+                    }
+                    else {
+                        mutableUnknownBlockInventory.setPreviousBlockHash(previousBlockHash);
+                    }
+
                     tupleStartingBlockHeight = blockHeight;
                 }
             }
-            if (blockHashStartEnd != null) {
-                downloadPlan.add(blockHashStartEnd);
+            if (mutableUnknownBlockInventory != null) {
+                downloadPlan.add(mutableUnknownBlockInventory);
             }
 
             return downloadPlan;
@@ -697,9 +711,18 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             try {
                 DELETE_LOCK.lock();
 
-                databaseConnection.executeSql(
-                        new Query("DELETE pending_blocks FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
+                // NOTE: Selecting the rows first is more performant than doing the join/delete as a single query since the select does not require a lock on the blocks table...
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
                 );
+
+                for (final Row row : rows) {
+                    final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
+                    databaseConnection.executeSql(
+                        new Query("DELETE FROM pending_blocks WHERE id = ?")
+                            .setParameter(pendingBlockId)
+                    );
+                }
 
             }
             finally {

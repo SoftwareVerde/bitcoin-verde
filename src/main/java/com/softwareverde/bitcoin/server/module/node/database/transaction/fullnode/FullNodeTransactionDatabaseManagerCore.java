@@ -32,6 +32,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
+import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
@@ -306,19 +307,19 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return null;
     }
 
-    protected Thread _createCommitSubRoutineThread(final Container<Boolean> threadContinueContainer, final BlockingQueue<TransactionOutputIdentifier> concurrentBatch, final BatchRunner.Batch<TransactionOutputIdentifier> batch) {
+    protected Thread _createCommitSubRoutineThread(final Container<Boolean> threadContinueContainer, final BlockingQueue<UnspentTransactionOutput> concurrentBatch, final BatchRunner.Batch<UnspentTransactionOutput> batch) {
         final int batchSize = 1024;
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize);
+        final BatchRunner<UnspentTransactionOutput> batchRunner = new BatchRunner<UnspentTransactionOutput>(batchSize);
 
         return new Thread(new Runnable() {
             @Override
             public void run() {
                 while (threadContinueContainer.value) {
                     int itemCount = 0;
-                    final MutableList<TransactionOutputIdentifier> batchedItems = new MutableList<TransactionOutputIdentifier>(batchSize);
+                    final MutableList<UnspentTransactionOutput> batchedItems = new MutableList<UnspentTransactionOutput>(batchSize);
                     try {
                         while (itemCount < batchSize) {
-                            final TransactionOutputIdentifier transactionOutputIdentifier = concurrentBatch.take();
+                            final UnspentTransactionOutput transactionOutputIdentifier = concurrentBatch.take();
                             batchedItems.add(transactionOutputIdentifier);
                             itemCount += 1;
                         }
@@ -891,6 +892,36 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         });
     }
 
+    static class UnspentTransactionOutput extends TransactionOutputIdentifier {
+        public static ValueExtractor<UnspentTransactionOutput> VALUE_EXTRACTOR = new ValueExtractor<UnspentTransactionOutput>() {
+            @Override
+            public InClauseParameter extractValues(final UnspentTransactionOutput transactionOutputIdentifier) {
+                if (transactionOutputIdentifier == null) { return InClauseParameter.NULL; }
+
+                final Long blockHeight = transactionOutputIdentifier.getBlockHeight();
+                final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
+                final Integer previousTransactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+
+                final TypedParameter blockHeightTypedParameter = (blockHeight != null ? new TypedParameter(blockHeight) : TypedParameter.NULL);
+                final TypedParameter previousTransactionHashTypedParameter = (previousTransactionHash != null ? new TypedParameter(previousTransactionHash.getBytes()) : TypedParameter.NULL);
+                final TypedParameter previousTransactionOutputIndexTypedParameter = (previousTransactionOutputIndex != null ? new TypedParameter(previousTransactionOutputIndex) : TypedParameter.NULL);
+
+                return new InClauseParameter(blockHeightTypedParameter, previousTransactionHashTypedParameter, previousTransactionOutputIndexTypedParameter);
+            }
+        };
+
+        protected final Long _blockHeight;
+
+        public UnspentTransactionOutput(final Sha256Hash transactionHash, final Integer index, final Long blockHeight) {
+            super(transactionHash, index);
+            _blockHeight = blockHeight;
+        }
+
+        public Long getBlockHeight() {
+            return _blockHeight;
+        }
+    }
+
     @Override
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         final MilliTimer commitUtxoTimerInsert = new MilliTimer();
@@ -903,21 +934,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Long minUtxoBlockHeight;
         final Long maxUtxoBlockHeight;
         {
-//            final Long previousUtxoCacheBlockHeight;
-//            {
-//                final java.util.List<Row> rows = databaseConnection.query(
-//                    new Query("SELECT `value` AS block_height FROM properties WHERE `key` = ?")
-//                        .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
-//                );
-//                if (! rows.isEmpty()) {
-//                    final Row row = rows.get(0);
-//                    previousUtxoCacheBlockHeight = Util.coalesce(row.getLong("block_height"), 0L);
-//                }
-//                else {
-//                    previousUtxoCacheBlockHeight = 0L;
-//                }
-//            }
-
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT COALESCE(MIN(block_height), 0) AS min_block_height, COALESCE(MAX(block_height), 0) AS max_block_height FROM unspent_transaction_outputs")
             );
@@ -926,64 +942,113 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             minUtxoBlockHeight = row.getLong("min_block_height");
         }
 
-//        final Long blockHeightCount;
-//        {
-//            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS block_height_count FROM unspent_transaction_outputs GROUP BY block_height"));
-//            final Row row = rows.get(0);
-//            blockHeightCount = row.getLong("block_height_count");
-//        }
-
-//        final Long rowCount;
-//        {
-//            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs"));
-//            final Row row = rows.get(0);
-//            rowCount = row.getLong("row_count");
-//        }
-//        final long minDeleteCount = Math.max((rowCount - (MAX_UTXO_CACHE_COUNT / 2L)), 0L);
-
-        final int batchSize = 1024;
-        final LinkedBlockingQueue<TransactionOutputIdentifier> transactionOutputsDeleteMemoryBatch = new LinkedBlockingQueue<TransactionOutputIdentifier>();
-        final LinkedBlockingQueue<TransactionOutputIdentifier> transactionOutputsDeleteCommittedBatch = new LinkedBlockingQueue<TransactionOutputIdentifier>();
-        final LinkedBlockingQueue<TransactionOutputIdentifier> transactionOutputsCommitBatch = new LinkedBlockingQueue<TransactionOutputIdentifier>();
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize);
+        final LinkedBlockingQueue<UnspentTransactionOutput> transactionOutputsDeleteMemoryBatch = new LinkedBlockingQueue<UnspentTransactionOutput>();
+        final LinkedBlockingQueue<UnspentTransactionOutput> transactionOutputsDeleteCommittedBatch = new LinkedBlockingQueue<UnspentTransactionOutput>();
+        final LinkedBlockingQueue<UnspentTransactionOutput> transactionOutputsCommitBatch = new LinkedBlockingQueue<UnspentTransactionOutput>();
 
         final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
 
-        final Thread deleteMemoryUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsDeleteMemoryBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+        final Thread deleteMemoryUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsDeleteMemoryBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
-            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+            public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    databaseConnection.executeSql(
-                        new Query("DELETE unspent_transaction_outputs WHERE (transaction_hash, `index`) IN ((?, ?))")
-                            .setInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
-                }
-            }
-        });
 
-        final Thread deleteCommittedUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsDeleteCommittedBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
-            @Override
-            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    databaseConnection.executeSql(
-                        new Query("DELETE committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN ((?, ?))")
-                            .setInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
-                }
-            }
-        });
+                    final MutableList<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight = new MutableList<UnspentTransactionOutput>(batchItems.getCount());
 
-        final Thread commitUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsCommitBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
-            @Override
-            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    databaseConnection.executeSql(
-                        new Query("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)")
-                            .setInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
+                    Query deleteQuery = null;
+                    Long lastBlockHeight = null;
+                    for (final UnspentTransactionOutput unspentTransactionOutput : batchItems) {
+                        final Long blockHeight = unspentTransactionOutput.getBlockHeight();
+
+                        if (deleteQuery == null) {
+                            deleteQuery = new Query("DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND block_height = ?");
+                        }
+                        else if (! Util.areEqual(blockHeight, lastBlockHeight)) {
+                            deleteQuery.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+                            deleteQuery.setParameter(lastBlockHeight);
+
+                            databaseConnection.executeSql(deleteQuery);
+
+                            deleteQuery = null;
+                            unspentTransactionOutputsByBlockHeight.clear();
+                        }
+
+                        unspentTransactionOutputsByBlockHeight.add(unspentTransactionOutput);
+                        lastBlockHeight = blockHeight;
+                    }
+
+                    if (deleteQuery != null) {
+                        deleteQuery.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+                        deleteQuery.setParameter(lastBlockHeight);
+
+                        databaseConnection.executeSql(deleteQuery);
+
+                        unspentTransactionOutputsByBlockHeight.clear();
+                    }
                 }
             }
         });
+        deleteMemoryUnspentOutputsThread.start();
+
+        final Thread deleteCommittedUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsDeleteCommittedBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+            @Override
+            public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
+                // TODO: Remove code duplication by having the executed batches be guaranteed to be in the same block height...
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+
+                    final MutableList<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight = new MutableList<UnspentTransactionOutput>(batchItems.getCount());
+
+                    Query deleteQuery = null;
+                    Long lastBlockHeight = null;
+                    for (final UnspentTransactionOutput unspentTransactionOutput : batchItems) {
+                        final Long blockHeight = unspentTransactionOutput.getBlockHeight();
+
+                        if (deleteQuery == null) {
+                            deleteQuery = new Query("DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND block_height = ?");
+                        }
+                        else if (! Util.areEqual(blockHeight, lastBlockHeight)) {
+                            deleteQuery.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+                            deleteQuery.setParameter(lastBlockHeight);
+
+                            databaseConnection.executeSql(deleteQuery);
+
+                            deleteQuery = null;
+                            unspentTransactionOutputsByBlockHeight.clear();
+                        }
+
+                        unspentTransactionOutputsByBlockHeight.add(unspentTransactionOutput);
+                        lastBlockHeight = blockHeight;
+                    }
+
+                    if (deleteQuery != null) {
+                        deleteQuery.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+                        deleteQuery.setParameter(lastBlockHeight);
+
+                        databaseConnection.executeSql(deleteQuery);
+
+                        unspentTransactionOutputsByBlockHeight.clear();
+                    }
+                }
+            }
+        });
+        deleteCommittedUnspentOutputsThread.start();
+
+        final Thread commitUnspentOutputsThread = _createCommitSubRoutineThread(threadContinueContainer, transactionOutputsCommitBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+            @Override
+            public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
+                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (block_height, transaction_hash, `index`) VALUES (?, ?, ?)");
+                for (final UnspentTransactionOutput transactionOutputIdentifier : batchItems) {
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getTransactionHash());
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getOutputIndex());
+                }
+
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    databaseConnection.executeSql(batchedInsertQuery);
+                }
+            }
+        });
+        commitUnspentOutputsThread.start();
 
         final long maxKeepCount = (MAX_UTXO_CACHE_COUNT / 2L);
 
@@ -1006,7 +1071,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     final Integer outputIndex = row.getInteger("index");
                     final Boolean isSpent = row.getBoolean("is_spent");
 
-                    final TransactionOutputIdentifier spendableTransactionOutput = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                    final UnspentTransactionOutput spendableTransactionOutput = new UnspentTransactionOutput(transactionHash, outputIndex, blockHeight);
 
                     if (Util.coalesce(isSpent, false)) {
                         transactionOutputsDeleteCommittedBatch.add(spendableTransactionOutput);
@@ -1026,12 +1091,13 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         } while (blockHeight > minUtxoBlockHeight);
 
+        // Notify the threads that the list-building is complete...
         threadContinueContainer.value = false;
         deleteCommittedUnspentOutputsThread.interrupt();
         deleteMemoryUnspentOutputsThread.interrupt();
         commitUnspentOutputsThread.interrupt();
 
-        try {
+        try { // Wait for the threads to complete...
             deleteCommittedUnspentOutputsThread.join();
             deleteMemoryUnspentOutputsThread.join();
             commitUnspentOutputsThread.join();
@@ -1045,7 +1111,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         databaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
                 .setParameter(UTXO_CACHE_BLOCK_HEIGHT_KEY)
-                .setParameter(blockHeight)
+                .setParameter(maxUtxoBlockHeight)
         );
 
         commitUtxoTimerPurge.start();
