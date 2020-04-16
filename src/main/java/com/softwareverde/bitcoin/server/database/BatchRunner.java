@@ -86,4 +86,8 @@ public class BatchRunner<T> {
             throw new DatabaseException(exception);
         }
     }
+
+    public Integer getBatchSize() {
+        return _maxItemCountPerBatch;
+    }
 }
