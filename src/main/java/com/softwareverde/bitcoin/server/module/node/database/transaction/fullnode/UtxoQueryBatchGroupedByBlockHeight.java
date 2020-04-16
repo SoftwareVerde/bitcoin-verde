@@ -29,7 +29,7 @@ class UtxoQueryBatchGroupedByBlockHeight implements BatchRunner.Batch<UnspentTra
             final MutableList<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight = new MutableList<UnspentTransactionOutput>(batchItems.getCount());
 
             Query deleteQuery = null;
-            Long lastBlockHeight = null;
+            Long lastBlockHeight = -1L; // Cannot be null, since null is an acceptable value from UnspentTransactionOutput::getBlockHeight...
             for (final UnspentTransactionOutput unspentTransactionOutput : batchItems) {
                 final Long blockHeight = unspentTransactionOutput.getBlockHeight();
 

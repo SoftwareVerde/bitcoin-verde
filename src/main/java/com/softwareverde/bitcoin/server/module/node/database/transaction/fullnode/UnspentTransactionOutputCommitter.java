@@ -53,8 +53,8 @@ public class UnspentTransactionOutputCommitter {
 
         final MilliTimer utxoTimer = new MilliTimer();
         utxoTimer.start();
-        _transactionDatabaseManager.markTransactionOutputsAsUnspent(unspentTransactionOutputIdentifiers, blockHeight);
-        _transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers, blockHeight);
+        _transactionDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
+        _transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
         utxoTimer.stop();
 
         totalTimer.stop();

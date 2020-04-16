@@ -130,7 +130,7 @@ CREATE TABLE unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT 'NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.',
-    block_height INT UNSIGNED NOT NULL,
+    block_height INT UNSIGNED COMMENT 'NULL indicates the output was not in the cache when it was marked for delete.',
     PRIMARY KEY (transaction_hash, `index`) USING HASH,
     INDEX utxo_block_height_ix (block_height DESC) USING BTREE
 ) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
