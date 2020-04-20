@@ -8,8 +8,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class FakeBlockStore implements PendingBlockStore {
 
-    public FakeBlockStore(final String blockDataDirectory, final String pendingBlockDataDirectory, final BlockInflaters blockInflaters) {
-    }
+    public FakeBlockStore() { }
 
     @Override
     public Boolean storePendingBlock(final Block block) {

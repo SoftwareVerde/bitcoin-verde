@@ -43,7 +43,7 @@ public class UnspentTransactionOutputCommitter {
 
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = _transactionDatabaseManager.getUncommittedUnspentTransactionOutputCount();
-        if ( ((blockHeight % 4032L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
+        if ( ((blockHeight % 2016L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
             _transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);

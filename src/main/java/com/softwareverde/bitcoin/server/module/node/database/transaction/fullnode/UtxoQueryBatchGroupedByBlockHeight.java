@@ -6,20 +6,21 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Util;
 
 class UtxoQueryBatchGroupedByBlockHeight implements BatchRunner.Batch<UnspentTransactionOutput> {
-    public interface ParameterApplier {
-        void applyParameters(Query query, Long blockHeight, List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight);
+    public interface QueryExecutor {
+        void executeQuery(List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, Long blockHeight, Query query, DatabaseConnection databaseConnection) throws DatabaseException;
     }
 
     protected final String _queryString;
-    protected final ParameterApplier _parameterApplier;
+    protected final QueryExecutor _queryExecutor;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
 
-    public UtxoQueryBatchGroupedByBlockHeight(final DatabaseConnectionFactory databaseConnectionFactory, final String query, final ParameterApplier parameterApplier) {
+    public UtxoQueryBatchGroupedByBlockHeight(final DatabaseConnectionFactory databaseConnectionFactory, final String query, final QueryExecutor queryExecutor) {
         _queryString = query;
-        _parameterApplier = parameterApplier;
+        _queryExecutor = queryExecutor;
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
@@ -28,18 +29,13 @@ class UtxoQueryBatchGroupedByBlockHeight implements BatchRunner.Batch<UnspentTra
 
             final MutableList<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight = new MutableList<UnspentTransactionOutput>(batchItems.getCount());
 
-            Query deleteQuery = null;
             Long lastBlockHeight = -1L; // Cannot be null, since null is an acceptable value from UnspentTransactionOutput::getBlockHeight...
             for (final UnspentTransactionOutput unspentTransactionOutput : batchItems) {
                 final Long blockHeight = unspentTransactionOutput.getBlockHeight();
 
-                if (deleteQuery == null) {
-                    deleteQuery = new Query(_queryString);
-                }
-                else if (! Util.areEqual(blockHeight, lastBlockHeight)) {
-                    _parameterApplier.applyParameters(deleteQuery, lastBlockHeight, unspentTransactionOutputsByBlockHeight);
-                    databaseConnection.executeSql(deleteQuery);
-                    deleteQuery = null;
+                if ( (! unspentTransactionOutputsByBlockHeight.isEmpty()) && (! Util.areEqual(blockHeight, lastBlockHeight)) ) {
+                    final Query query = new Query(_queryString);
+                    _queryExecutor.executeQuery(unspentTransactionOutputsByBlockHeight, lastBlockHeight, query, databaseConnection);
                     unspentTransactionOutputsByBlockHeight.clear();
                 }
 
@@ -47,10 +43,9 @@ class UtxoQueryBatchGroupedByBlockHeight implements BatchRunner.Batch<UnspentTra
                 lastBlockHeight = blockHeight;
             }
 
-            if (deleteQuery != null) {
-                _parameterApplier.applyParameters(deleteQuery, lastBlockHeight, unspentTransactionOutputsByBlockHeight);
-                databaseConnection.executeSql(deleteQuery);
-                deleteQuery = null;
+            if (! unspentTransactionOutputsByBlockHeight.isEmpty()) {
+                final Query query = new Query(_queryString);
+                _queryExecutor.executeQuery(unspentTransactionOutputsByBlockHeight, lastBlockHeight, query, databaseConnection);
                 unspentTransactionOutputsByBlockHeight.clear();
             }
         }

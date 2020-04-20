@@ -7,7 +7,8 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.MilliTimer;
 
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockingQueueBatchRunner<T> extends Thread {
@@ -15,8 +16,10 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     public static <T> BlockingQueueBatchRunner<T> newInstance(final BatchRunner.Batch<T> batch) {
         final BatchRunner<T> batchRunner = new BatchRunner<T>(1024);
         final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
-        final LinkedBlockingQueue<T> itemQueue = new LinkedBlockingQueue<T>();
+        final LinkedList<T> itemQueue = new LinkedList<T>();
         final AtomicLong executionTime = new AtomicLong(0L);
+        final Container<Boolean> isDoneAddingItems = new Container<Boolean>(false);
+        final AtomicInteger queuedItemCount = new AtomicInteger(0);
 
         final Runnable coreRunnable = new Runnable() {
             @Override
@@ -24,18 +27,37 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                 final int batchSize = batchRunner.getBatchSize();
                 final MilliTimer executionTimer = new MilliTimer();
 
-                while (threadContinueContainer.value) {
-                    int itemCount = 0;
+                while ( threadContinueContainer.value || (queuedItemCount.get() > 0) ) {
+                    int batchItemCount = 0;
                     final MutableList<T> batchedItems = new MutableList<T>(batchSize);
-                    try {
-                        while (itemCount < batchSize) {
-                            final T transactionOutputIdentifier = itemQueue.take();
-                            batchedItems.add(transactionOutputIdentifier);
-                            itemCount += 1;
+                    while (batchItemCount < batchSize) {
+
+                        final T item;
+                        if (isDoneAddingItems.value) {
+                            if (queuedItemCount.get() < 1) { break; }
+                            item = itemQueue.removeFirst();
+                            queuedItemCount.addAndGet(-1);
                         }
-                    }
-                    catch (final InterruptedException exception) {
-                        // Continue...
+                        else {
+                            synchronized (itemQueue) {
+                                if (! isDoneAddingItems.value) {
+                                    try {
+                                        itemQueue.wait();
+                                    }
+                                    catch (final InterruptedException exception) {
+                                        Logger.debug("Aborting BlockingQueueBatch.");
+                                        return;
+                                    }
+                                }
+
+                                if (queuedItemCount.get() < 1) { break; }
+                                item = itemQueue.removeFirst();
+                                queuedItemCount.addAndGet(-1);
+                            }
+                        }
+
+                        batchedItems.add(item);
+                        batchItemCount += 1;
                     }
 
                     if (! batchedItems.isEmpty()) {
@@ -45,6 +67,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                         }
                         catch (final DatabaseException exception) {
                             Logger.debug(exception);
+                            return;
                         }
                         finally {
                             executionTimer.stop();
@@ -55,32 +78,50 @@ public class BlockingQueueBatchRunner<T> extends Thread {
             }
         };
 
-        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, batchRunner, coreRunnable, executionTime);
+        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, isDoneAddingItems);
     }
 
     protected final Container<Boolean> _threadContinueContainer;
-    protected final LinkedBlockingQueue<T> _itemQueue;
+    protected final LinkedList<T> _itemQueue;
+    protected final AtomicInteger _queuedItemCount;
     protected final BatchRunner<T> _batchRunner;
     protected final AtomicLong _executionTime;
+    protected final Container<Boolean> _isDoneAddingItems;
+    protected Integer _totalItemCount = 0;
 
-    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedBlockingQueue<T> itemQueue, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime) {
+    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedList<T> itemQueue, final AtomicInteger queuedItemCount, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Boolean> isDoneAddingItems) {
         super(coreRunnable);
         _threadContinueContainer = threadContinueContainer;
         _itemQueue = itemQueue;
+        _queuedItemCount = queuedItemCount;
         _batchRunner = batchRunner;
         _executionTime = executionTime;
+        _isDoneAddingItems = isDoneAddingItems;
     }
 
     public void addItem(final T item) {
-        _itemQueue.add(item);
+        synchronized (_itemQueue) {
+            _itemQueue.addLast(item);
+            _queuedItemCount.addAndGet(1);
+            _itemQueue.notify();
+            _totalItemCount += 1;
+        }
     }
 
     public void finish() {
         _threadContinueContainer.value = false;
-        this.interrupt();
+
+        synchronized (_itemQueue) {
+            _isDoneAddingItems.value = true;
+            _itemQueue.notify();
+        }
     }
 
     public Long getExecutionTime() {
         return _executionTime.get();
+    }
+
+    public Integer getTotalItemCount() {
+        return _totalItemCount;
     }
 }

@@ -636,25 +636,26 @@ public class HistoricTransactionsTests {
 
     @Test
     public void should_verify_transaction_54AED2D3ABC9B7F6337272649A8B61B774415D469CED1C218F8780BD644C02ED() {
-        // NOTE: This transaction's LockTime failed to validate.  However, its lockTime should be ignore since all of its inputs' SequenceNumbers are "final"...
-
-        // Setup
-        final TestConfig testConfig = new TestConfig();
-        testConfig.transactionBytes = "0100000001FEF8D1C268874475E874A2A3A664A4EB6F98D1D258B62A2800E4BEFA069C57AD010000008B483045022100B482783530D3EC73C97A5DC147EE3CF1705E355C17DD9DF7AD30D8E49712260D022059750222B33F45D80F5DC49C732786EBAED6C6FA72162A4632FEA7231339C15C0141045D443089B4587D355B4CB5AC39B0156AFC92152627693149DE16D0D2269CEA2417010C0BC6930E9B47573DAB76A951E01D884B2BED9EAF92CC2369B6DDC7F98CFFFFFFFF0200000000000000000B6A0942454E2072756C657A306F0100000000001976A9147038DC3B8533A422D1225ECBCC3C85E282FD92B388ACE4670600";
-        testConfig.blockHeight = 419808L;
-
-        final Context context = initContext(testConfig);
-
-        final MedianBlockTime medianBlockTime = new ImmutableMedianBlockTime(1467969398L);
-        final NetworkTime networkTime = new ImmutableNetworkTime(1529680230L);
-
-        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(null, networkTime, medianBlockTime);
-
-        // Action
-        final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(context.getTransaction());
-
-        // Assert
-        Assert.assertFalse(shouldValidateLockTime);
+//        // NOTE: This transaction's LockTime failed to validate.  However, its lockTime should be ignore since all of its inputs' SequenceNumbers are "final"...
+//
+//        // Setup
+//        final TestConfig testConfig = new TestConfig();
+//        testConfig.transactionBytes = "0100000001FEF8D1C268874475E874A2A3A664A4EB6F98D1D258B62A2800E4BEFA069C57AD010000008B483045022100B482783530D3EC73C97A5DC147EE3CF1705E355C17DD9DF7AD30D8E49712260D022059750222B33F45D80F5DC49C732786EBAED6C6FA72162A4632FEA7231339C15C0141045D443089B4587D355B4CB5AC39B0156AFC92152627693149DE16D0D2269CEA2417010C0BC6930E9B47573DAB76A951E01D884B2BED9EAF92CC2369B6DDC7F98CFFFFFFFF0200000000000000000B6A0942454E2072756C657A306F0100000000001976A9147038DC3B8533A422D1225ECBCC3C85E282FD92B388ACE4670600";
+//        testConfig.blockHeight = 419808L;
+//
+//        final Context context = initContext(testConfig);
+//
+//        final MedianBlockTime medianBlockTime = new ImmutableMedianBlockTime(1467969398L);
+//        final NetworkTime networkTime = new ImmutableNetworkTime(1529680230L);
+//
+//        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(null, networkTime, medianBlockTime);
+//
+//        // Action
+//        final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(context.getTransaction());
+//
+//        // Assert
+//        Assert.assertFalse(shouldValidateLockTime);
+        Assert.fail();
     }
 
     @Test

@@ -4,10 +4,8 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.fullnode.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -15,7 +13,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -146,72 +143,74 @@ public class TransactionOutputIndexerTests extends IntegrationTest {
     }
 
     public static void assertTransactionSlpOutputs(final String transactionHash, final int[] slpOutputs, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
-        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
-
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(Sha256Hash.fromHexString(transactionHash));
-
-        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-        for (int i = 0; i < transactionOutputIds .getCount(); ++i) {
-            final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
-
-            final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionOutputId);
-            if (Arrays.contains(slpOutputs, i)) {
-                if (slpTokenId == null) {
-                    Assert.fail(transactionHash + ":" + i + " was not marked as an SLP Output.");
-                }
-            }
-            else {
-                if (slpTokenId != null) {
-                    Assert.fail(transactionHash + ":" + i + " was marked as an SLP Output.");
-                }
-            }
-        }
+//        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+//        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+//        final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
+//
+//        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(Sha256Hash.fromHexString(transactionHash));
+//
+//        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+//        for (int i = 0; i < transactionOutputIds .getCount(); ++i) {
+//            final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
+//
+//            final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionOutputId);
+//            if (Arrays.contains(slpOutputs, i)) {
+//                if (slpTokenId == null) {
+//                    Assert.fail(transactionHash + ":" + i + " was not marked as an SLP Output.");
+//                }
+//            }
+//            else {
+//                if (slpTokenId != null) {
+//                    Assert.fail(transactionHash + ":" + i + " was marked as an SLP Output.");
+//                }
+//            }
+//        }
+        Assert.fail();
     }
 
     @Test
     public void should_process_slp_transactions() throws Exception {
-        final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(_fullNodeDatabaseManagerFactory);
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            // Setup
-            TransactionOutputIndexerTests.loadBvtTokens(databaseManager);
-
-            // Action
-            transactionOutputIndexer.start();
-
-            final int maxSleepCount = 10;
-            int sleepCount = 0;
-            while (transactionOutputIndexer.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
-                Thread.sleep(250L);
-                sleepCount += 1;
-
-                if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
-            }
-
-            // Assert
-            final AddressDatabaseManager addressDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
-            final List<TransactionId> slpTransactionIds = addressDatabaseManager.getSlpTransactionIds(SlpTokenId.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"));
-            Assert.assertEquals(14, slpTransactionIds.getCount());
-
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[]{ 0, 1 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("0F58E80BF3E747E32BCF3218D77DC01495622D723589D1F1D1FD98AEFA798D3D", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("4C27492AA05C9D4248ADF3DA47A9915FB0694D00D01462FF48B461E36486DE99", new int[]{ 0, 1, 2, 3 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("87B17979CC05E9E5F5FA9E8C6D78482478A4E6F6D78360E818E16311F7F157F0", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("731B7493DCAF21A368F384D75AD820F73F72DE9479622B35EF935E5D5C9D6F0E", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("AE0D9AE505E4B75619A376FA70F7C295245F8FD28F3B625FBEA19E26AB29A928", new int[]{ 0, 1, 2 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[]{ 0, 1 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[]{ 0, 1 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[]{ 0, 1 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[]{ 0, 1 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[]{ 0, 1 }, databaseManager);
-            TransactionOutputIndexerTests.assertTransactionSlpOutputs("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647", new int[]{ }, databaseManager);
-        }
-        finally {
-            transactionOutputIndexer.stop();
-        }
+//        final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(_fullNodeDatabaseManagerFactory);
+//        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+//            // Setup
+//            TransactionOutputIndexerTests.loadBvtTokens(databaseManager);
+//
+//            // Action
+//            transactionOutputIndexer.start();
+//
+//            final int maxSleepCount = 10;
+//            int sleepCount = 0;
+//            while (transactionOutputIndexer.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
+//                Thread.sleep(250L);
+//                sleepCount += 1;
+//
+//                if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
+//            }
+//
+//            // Assert
+//            final AddressDatabaseManager addressDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+//            final List<TransactionId> slpTransactionIds = addressDatabaseManager.getSlpTransactionIds(SlpTokenId.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"));
+//            Assert.assertEquals(14, slpTransactionIds.getCount());
+//
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[]{ 0, 1 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("0F58E80BF3E747E32BCF3218D77DC01495622D723589D1F1D1FD98AEFA798D3D", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("4C27492AA05C9D4248ADF3DA47A9915FB0694D00D01462FF48B461E36486DE99", new int[]{ 0, 1, 2, 3 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("87B17979CC05E9E5F5FA9E8C6D78482478A4E6F6D78360E818E16311F7F157F0", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("731B7493DCAF21A368F384D75AD820F73F72DE9479622B35EF935E5D5C9D6F0E", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("AE0D9AE505E4B75619A376FA70F7C295245F8FD28F3B625FBEA19E26AB29A928", new int[]{ 0, 1, 2 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[]{ 0, 1 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[]{ 0, 1 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[]{ 0, 1 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[]{ 0, 1 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[]{ 0, 1 }, databaseManager);
+//            TransactionOutputIndexerTests.assertTransactionSlpOutputs("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647", new int[]{ }, databaseManager);
+//        }
+//        finally {
+//            transactionOutputIndexer.stop();
+//        }
+        Assert.fail();
     }
 }

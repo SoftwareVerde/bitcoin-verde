@@ -923,24 +923,32 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(new UtxoQueryBatchGroupedByBlockHeight(
             databaseConnectionFactory,
             "DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
-            new UtxoQueryBatchGroupedByBlockHeight.ParameterApplier() {
+            new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
                 @Override
-                public void applyParameters(final Query query, final Long blockHeight, final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight) {
+                public void executeQuery(final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, final Long blockHeight, final Query query, final DatabaseConnection databaseConnection) throws DatabaseException {
                     query.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
                     query.setParameter(blockHeight);
                     query.setParameter(blockHeight);
+
+                    databaseConnection.executeSql(query);
+
+                    Logger.trace("memory DELETING " + unspentTransactionOutputsByBlockHeight.getCount() + ", blockHeight=" + blockHeight);
                 }
             }
         ));
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(new UtxoQueryBatchGroupedByBlockHeight(
             databaseConnectionFactory,
             "DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
-            new UtxoQueryBatchGroupedByBlockHeight.ParameterApplier() {
+            new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
                 @Override
-                public void applyParameters(final Query query, final Long blockHeight, final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight) {
+                public void executeQuery(final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, final Long blockHeight, final Query query, final DatabaseConnection databaseConnection) throws DatabaseException {
                     query.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
                     query.setParameter(blockHeight);
                     query.setParameter(blockHeight);
+
+                    databaseConnection.executeSql(query);
+
+                    Logger.trace("disk DELETING " + unspentTransactionOutputsByBlockHeight.getCount() + ", blockHeight=" + blockHeight);
                 }
             }
         ));
@@ -1004,6 +1012,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
                 final java.util.List<Row> rows = databaseConnection.query(query);
 
+                int spentCount = 0;
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
                     final Integer outputIndex = row.getInteger("index");
@@ -1014,18 +1023,22 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     if (Util.coalesce(isSpent, false)) {
                         onDiskUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
                         inMemoryUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
+                        Logger.trace("blockingQueueBatchRunner.addItem(new UnspentTransactionOutput(Sha256Hash.fromHexString(\"" + transactionHash + "\"), " + outputIndex + ", " + nullableBlockHeight + "));");
+                        spentCount += 1;
                     }
                     else {
                         onDiskUtxoInsertBatchRunner.addItem(spendableTransactionOutput);
 
                         if (keepCount >= maxKeepCount) {
                             inMemoryUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
+                            Logger.trace("blockingQueueBatchRunner.addItem(new UnspentTransactionOutput(Sha256Hash.fromHexString(\"" + transactionHash + "\"), " + outputIndex + ", " + nullableBlockHeight + "));");
                         }
                         else {
                             keepCount += 1L;
                         }
                     }
                 }
+                Logger.trace(rows.size() + " UTXOs, blockHeight=" + nullableBlockHeight + ", spent=" + spentCount + ", kept=" + keepCount);
 
                 blockHeight = Util.coalesce(nullableBlockHeight, Long.MIN_VALUE); // Only the first row should be null.  If no other rows follow, then MIN_VALUE causes the outer loop to exit.
             }

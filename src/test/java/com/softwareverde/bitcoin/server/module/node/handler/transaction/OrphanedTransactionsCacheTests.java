@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -25,6 +24,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
@@ -86,7 +86,7 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
             final Transaction parentTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(genesisBlockCoinbase.getHash(), 0), genesisBlockCoinbase.getTransactionOutputs().get(0)); // NOTE: This transaction does not properly unlock its output...
             final Transaction childTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(parentTransaction.getHash(), 0), parentTransaction.getTransactionOutputs().get(0));
 
-            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(_databaseManagerCache);
+            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
 
             orphanedTransactionsCache.add(childTransaction, databaseManager);
 
