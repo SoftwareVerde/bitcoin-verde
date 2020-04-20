@@ -147,6 +147,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
         // Action
         blockingQueueBatchRunner.start();
 
+        blockingQueueBatchRunner.addItem(new UnspentTransactionOutput(Sha256Hash.fromHexString("0000000000000000000000000000000000000000000000000000000000000000"), 0, null));
         blockingQueueBatchRunner.addItem(new UnspentTransactionOutput(Sha256Hash.fromHexString("F4184FC596403B9D638783CF57ADFE4C75C605F6356FBC91338530E9831E9E16"), 1, 170L));
         blockingQueueBatchRunner.addItem(new UnspentTransactionOutput(Sha256Hash.fromHexString("0437CD7F8525CEED2324359C2D0BA26006D92D856A9C20FA0241106EE5A597C9"), 0, 9L));
 

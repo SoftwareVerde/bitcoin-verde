@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -29,7 +28,8 @@ public class IntegrationTest extends UnitTest {
     protected final MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
     protected final MasterInflater _masterInflater;
-    protected final PendingBlockStore _blockStore;
+    protected final FakeBlockStore _blockStore;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
     protected final FullNodeDatabaseManagerFactory _readUncomittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
@@ -38,11 +38,11 @@ public class IntegrationTest extends UnitTest {
         _masterInflater = new CoreInflater();
         _blockStore = new FakeBlockStore();
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _blockStore, _masterInflater);
-        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(databaseConnectionFactory);
+        _databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _blockStore, _masterInflater);
+        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory);
 
-        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
+        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
         _readUncomittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _blockStore, _masterInflater);
 
         // Bypass the Hikari database connection pool...
@@ -51,7 +51,7 @@ public class IntegrationTest extends UnitTest {
 
             @Override
             public DatabaseConnection newConnection() throws DatabaseException {
-                final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
+                final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
                 _databaseConnections.add(databaseConnection);
                 return databaseConnection;
             }
