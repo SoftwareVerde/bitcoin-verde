@@ -662,6 +662,7 @@ public class NodeModule {
             final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(statisticsContainer, _rpcThreadPool, _masterInflater);
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
+                final UtxoCacheHandler utxoCacheHandler = new UtxoCacheHandler(databaseManagerFactory);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
@@ -694,6 +695,7 @@ public class NodeModule {
 
                 rpcSocketServerHandler.setSynchronizationStatusHandler(synchronizationStatusHandler);
                 rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
+                rpcSocketServerHandler.setUtxoCacheHandler(utxoCacheHandler);
                 rpcSocketServerHandler.setNodeHandler(nodeHandler);
                 rpcSocketServerHandler.setQueryAddressHandler(queryAddressHandler);
                 rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);

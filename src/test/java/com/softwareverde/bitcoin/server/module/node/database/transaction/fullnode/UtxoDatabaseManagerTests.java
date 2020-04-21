@@ -1,11 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
-import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
-import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -20,24 +17,13 @@ import org.junit.Test;
 
 import java.util.List;
 
-public class FullNodeTransactionDatabaseManagerCoreTests extends IntegrationTest {
+public class UtxoDatabaseManagerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
     }
 
     protected static final Long MAX_UTXO_COUNT = 32L;
-
-    static class PartialMockTransactionDatabaseManager extends FullNodeTransactionDatabaseManagerCore {
-        public PartialMockTransactionDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
-            super(databaseManager, blockStore, masterInflater);
-        }
-
-        @Override
-        public Long _getMaxUtxoCount() {
-            return MAX_UTXO_COUNT;
-        }
-    }
 
     protected Long _getUtxoCountInMemory(final DatabaseConnection databaseConnection) throws DatabaseException {
         final List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS count FROM unspent_transaction_outputs"));
@@ -57,9 +43,9 @@ public class FullNodeTransactionDatabaseManagerCoreTests extends IntegrationTest
         final FullNodeDatabaseManager fullNodeDatabaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager();
         try (final DatabaseConnection databaseConnection = fullNodeDatabaseManager.getDatabaseConnection()) {
 
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = new PartialMockTransactionDatabaseManager(fullNodeDatabaseManager, _blockStore, _masterInflater);
+            final UtxoDatabaseManager utxoDatabaseManager = new UtxoDatabaseManager(MAX_UTXO_COUNT, fullNodeDatabaseManager, _blockStore, _masterInflater);
 
-            Long blockHeight = 1L;
+            long blockHeight = 1L;
             for (int i = 0; i < MAX_UTXO_COUNT; ) {
                 final int utxoCountPerBlock = ((i * 2) + 1);
 
@@ -75,7 +61,7 @@ public class FullNodeTransactionDatabaseManagerCoreTests extends IntegrationTest
                     i += 1;
                 }
 
-                transactionDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, blockHeight);
+                utxoDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, blockHeight);
                 blockHeight += 1L;
             }
 
@@ -85,7 +71,7 @@ public class FullNodeTransactionDatabaseManagerCoreTests extends IntegrationTest
             }
 
             // Action
-            transactionDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory);
+            utxoDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory);
 
             // Assert
             final Long utxoCountInMemory = _getUtxoCountInMemory(databaseConnection);

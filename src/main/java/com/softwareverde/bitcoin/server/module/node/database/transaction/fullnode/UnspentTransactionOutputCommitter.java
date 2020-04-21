@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class UnspentTransactionOutputCommitter {
@@ -19,6 +20,9 @@ public class UnspentTransactionOutputCommitter {
 
     public void commitUnspentTransactionOutputs(final Block block, final Long blockHeight, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         final MilliTimer totalTimer = new MilliTimer();
+        final MilliTimer utxoCommitTimer = new MilliTimer();
+        final MilliTimer utxoTimer = new MilliTimer();
+
         totalTimer.start();
 
         final List<Transaction> transactions = block.getTransactions();
@@ -42,23 +46,29 @@ public class UnspentTransactionOutputCommitter {
         }
 
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
-        final Long uncommittedUtxoCount = _transactionDatabaseManager.getUncommittedUnspentTransactionOutputCount();
-        if ( ((blockHeight % 2016L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= FullNodeTransactionDatabaseManager.MAX_UTXO_CACHE_COUNT) ) {
-            final MilliTimer utxoCommitTimer = new MilliTimer();
+        final Long uncommittedUtxoCount = _transactionDatabaseManager.getCachedUnspentTransactionOutputCount();
+        if ( ((blockHeight % 2016L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= UtxoDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT) ) {
             utxoCommitTimer.start();
             _transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
             utxoCommitTimer.stop();
-            System.out.println("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
+            Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
         }
 
-        final MilliTimer utxoTimer = new MilliTimer();
         utxoTimer.start();
-        _transactionDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
-        _transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
-        utxoTimer.stop();
+        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
+        try {
+            _transactionDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
+            _transactionDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+        }
+        finally {
+            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+        }
 
+        utxoTimer.stop();
         totalTimer.stop();
 
-        System.out.println("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + totalTimer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (totalTimer.getMillisecondsElapsed()+1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed()+1L)) + " tps");
+        Logger.debug("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + totalTimer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (totalTimer.getMillisecondsElapsed() + 1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed() + 1L)) + " tps");
+
+
     }
 }

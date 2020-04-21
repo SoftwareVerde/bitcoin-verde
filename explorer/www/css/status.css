@@ -124,7 +124,8 @@
 }
 
 .statistics .server-memory .server-memory-bar,
-.statistics .server-load .server-load-bar {
+.statistics .server-load .server-load-bar,
+.statistics .utxo-cache .utxo-cache-bar {
     width: 100%;
     margin: auto;
     height: 1em;
@@ -197,8 +198,16 @@
     margin-bottom: 0.5em;
 }
 
+.utxo-cache::before {
+    content: "Utxo Cache";
+    display: block;
+    text-align: center;
+    margin-bottom: 0.5em;
+}
+
 .statistics .server-memory .server-memory-text,
-.statistics .server-load .server-load-text {
+.statistics .server-load .server-load-text,
+.statistics .utxo-cache .utxo-cache-text {
     position: absolute;
     border: none;
     left: 50%;

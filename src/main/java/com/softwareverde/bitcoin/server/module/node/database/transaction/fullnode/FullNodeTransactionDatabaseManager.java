@@ -11,25 +11,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
-public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
-    String UTXO_CACHE_BLOCK_HEIGHT_KEY = "utxo_cache_block_height";
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-    /**
-     * MAX_UTXO_CACHE_COUNT determines the maximum number of rows (both clean and dirty) within the unspent_transaction_outputs in-memory table.
-     *  This value is a function of the max_heap_table_size, which caps out at 4 gigabytes.
-     *  The theoretical value, calculated via (unspent_transaction_outputs::max_data_length / unspent_transaction_outputs::avg_row_length), is not quite accurate.
-     *  After some empirical evidence, the actual unspent_transaction_outputs::max_data_length and unspent_transaction_outputs::avg_row_length reported by MySQL aren't sufficient/accurate.
-     *  The actual observed max row count is 39216366, which renders exactly 4GB of memory (1882505376 in data, 2412509502 in indexes), which puts row_length at 48 bytes per row, 109.55 including indexes.
-     *  The value chosen, 33554432 (2^25), is the closest power-of-two under the 4GB max, which allows for some additional (although unobserved) inaccuracies.
-     *
-     *  Update: Using a BTREE for the PRIMARY KEY changes the used bytes per row (BTREE is less memory-efficient but more performant).
-     *      The actual observed max row count with these settings is 27891486, which results in 1338877344 in data, 2941008296 in indexes). 48 bytes per row, 154 including indexes.
-     *      The new value chosen is not near a clean power of two, so 27M was chosen (27889398 being the theoretical max).
-     *
-     *  Update 2: Removing the index on is_spent changes the data+index size per row to 109 including indexes.
-     *      The new value chosen is now 33554432 (2^25) (39403369 being the new theoretical max).
-     */
-    Long MAX_UTXO_CACHE_COUNT = 33554432L; // 2^25
+public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
+    ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX = ReadWriteLock.getReadLock();
+    ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX = ReadWriteLock.getWriteLock();
 
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
@@ -63,6 +49,14 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException;
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
     void commitUnspentTransactionOutputs(DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException;
+    Long getCachedUnspentTransactionOutputCount() throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
+}
+
+class ReadWriteLock {
+    protected static final ReentrantReadWriteLock READ_WRITE_LOCK = new ReentrantReadWriteLock(false);
+
+    public static ReentrantReadWriteLock.ReadLock getReadLock() { return READ_WRITE_LOCK.readLock(); }
+    public static ReentrantReadWriteLock.WriteLock getWriteLock() { return READ_WRITE_LOCK.writeLock(); }
 }

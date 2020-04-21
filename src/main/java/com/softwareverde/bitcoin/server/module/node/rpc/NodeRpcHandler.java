@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -36,6 +35,7 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
@@ -76,6 +76,15 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public interface ServiceInquisitor {
         Map<String, String> getServiceStatuses();
+    }
+
+    public interface UtxoCacheHandler {
+        Long getCachedUtxoCount();
+        Long getMaxCachedUtxoCount();
+        Long getUncommittedUtxoCount();
+        Long getCommittedUtxoBlockHeight();
+
+        void commitUtxoCache();
     }
 
     public interface QueryBlockchainHandler {
@@ -185,6 +194,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     protected SynchronizationStatus _synchronizationStatusHandler = null;
     protected ShutdownHandler _shutdownHandler = null;
+    protected UtxoCacheHandler _utxoCacheHandler = null;
     protected NodeHandler _nodeHandler = null;
     protected QueryAddressHandler _queryAddressHandler = null;
     protected ThreadPoolInquisitor _threadPoolInquisitor = null;
@@ -475,6 +485,28 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
+    protected void _queryUtxoCache(final Json parameters, final Json response) {
+        final UtxoCacheHandler utxoCacheHandler = _utxoCacheHandler;
+        if (utxoCacheHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Long utxoCacheCount = utxoCacheHandler.getCachedUtxoCount();
+        final Long maxUtxoCacheCount = utxoCacheHandler.getMaxCachedUtxoCount();
+        final Long uncommittedUtxoCount = utxoCacheHandler.getUncommittedUtxoCount();
+
+        final Long committedUtxoBlockHeight = utxoCacheHandler.getCommittedUtxoBlockHeight();
+
+        response.put("utxoCacheCount", utxoCacheCount);
+        response.put("maxUtxoCacheCount", maxUtxoCacheCount);
+        response.put("uncommittedUtxoCount", uncommittedUtxoCount);
+        response.put("committedUtxoBlockHeight", committedUtxoBlockHeight);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET:
     protected void _calculateNextDifficulty(final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -573,6 +605,13 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
             response.put("statistics", statisticsJson);
+        }
+
+        { // Utxo Cache Status
+            final Json parameters = new Json();
+            final Json utxoCacheStatus = new Json();
+            _queryUtxoCache(parameters, utxoCacheStatus);
+            response.put("utxoCacheStatus", utxoCacheStatus);
         }
 
         { // Server Load
@@ -823,6 +862,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final Boolean wasSuccessful = shutdownHandler.shutdown();
         response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
+    }
+
+    // Requires POST:
+    protected void _commitUtxoCache(final Json parameters, final Json response) {
+        final UtxoCacheHandler utxoCacheHandler = _utxoCacheHandler;
+        if (utxoCacheHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        utxoCacheHandler.commitUtxoCache();
+        response.put(WAS_SUCCESS_KEY, 1);
     }
 
     // Requires POST: <host>, <port>
@@ -1217,6 +1268,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         _shutdownHandler = shutdownHandler;
     }
 
+    public void setUtxoCacheHandler(final UtxoCacheHandler utxoCacheHandler) {
+        _utxoCacheHandler = utxoCacheHandler;
+    }
+
     public void setNodeHandler(final NodeHandler nodeHandler) {
         _nodeHandler = nodeHandler;
     }
@@ -1447,6 +1502,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _queryBlockHeight(parameters, response);
                             } break;
 
+                            case "UTXO_CACHE": {
+                                _queryUtxoCache(parameters, response);
+                            } break;
+
                             case "DIFFICULTY": {
                                 _calculateNextDifficulty(response);
                             } break;
@@ -1502,6 +1561,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                         switch (query.toUpperCase()) {
                             case "SHUTDOWN": {
                                 _shutdown(parameters, response);
+                            } break;
+
+                            case "COMMIT_UTXO_CACHE": {
+                                _commitUtxoCache(parameters, response);
                             } break;
 
                             case "ADD_NODE": {

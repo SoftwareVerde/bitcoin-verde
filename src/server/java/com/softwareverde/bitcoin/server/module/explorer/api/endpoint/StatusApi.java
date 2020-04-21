@@ -13,6 +13,7 @@ public class StatusApi extends ExplorerApiEndpoint {
     private static class StatusResult extends ApiResult {
         private Json _serverLoad = new Json();
         private Json _statistics = new Json(true);
+        private Json _utxoCacheStatus = new Json();
         private Json _serviceStatuses = new Json();
         private String _status;
 
@@ -21,6 +22,9 @@ public class StatusApi extends ExplorerApiEndpoint {
         }
         public void setStatistics(final Json statistics) {
             _statistics = statistics;
+        }
+        public void setUtxoCacheStatus(final Json utxoCacheStatus) {
+            _utxoCacheStatus = utxoCacheStatus;
         }
         public void setServiceStatuses(final Json serviceStatuses) {
             _serviceStatuses = serviceStatuses;
@@ -34,6 +38,7 @@ public class StatusApi extends ExplorerApiEndpoint {
             final Json json = super.toJson();
             json.put("status", _status);
             json.put("statistics", _statistics);
+            json.put("utxoCacheStatus", _utxoCacheStatus);
             json.put("serverLoad", _serverLoad);
             json.put("serviceStatuses", _serviceStatuses);
             return json;
@@ -62,6 +67,7 @@ public class StatusApi extends ExplorerApiEndpoint {
 
                 final String status;
                 final Json statisticsJson;
+                final Json utxoCacheStatusJson;
                 final Json serverLoadJson;
                 final Json serviceStatusesJson;
                 {
@@ -76,6 +82,7 @@ public class StatusApi extends ExplorerApiEndpoint {
                     }
 
                     statisticsJson = rpcResponseJson.get("statistics");
+                    utxoCacheStatusJson = rpcResponseJson.get("utxoCacheStatus");
                     status = rpcResponseJson.getString("status");
                     serverLoadJson = rpcResponseJson.get("serverLoad");
                     serviceStatusesJson = rpcResponseJson.get("serviceStatuses");
@@ -85,6 +92,7 @@ public class StatusApi extends ExplorerApiEndpoint {
                 statusResult.setWasSuccess(true);
                 statusResult.setStatus(status);
                 statusResult.setStatistics(statisticsJson);
+                statusResult.setUtxoCacheStatus(utxoCacheStatusJson);
                 statusResult.setServerLoad(serverLoadJson);
                 statusResult.setServiceStatuses(serviceStatusesJson);
                 return new JsonResponse(Response.Codes.OK, statusResult);
