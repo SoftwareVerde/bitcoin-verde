@@ -289,13 +289,13 @@ public class UtxoDatabaseManager {
         final AtomicInteger inMemoryDeleteCounter = new AtomicInteger(0);
         final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(new UtxoQueryBatchGroupedByBlockHeight(
             databaseConnectionFactory,
-            "DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
+            "DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)",
             new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
                 @Override
                 public void executeQuery(final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, final Long blockHeight, final Query query, final DatabaseConnection databaseConnection) throws DatabaseException {
-                    query.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
-                    query.setParameter(blockHeight);
-                    query.setParameter(blockHeight);
+                    // ExpandedInClause is used to transform the IN clause into grouped conjunctions (ie. "((key = value AND key = value) OR ...)").
+                    //  This is necessary because the current version of MySQL/MariaDB's query optimizer is not smart enough to use the index for DELETE queries using IN clauses.
+                    query.setExpandedInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
                     databaseConnection.executeSql(query);
                     inMemoryDeleteCounter.addAndGet(unspentTransactionOutputsByBlockHeight.getCount());
@@ -309,7 +309,9 @@ public class UtxoDatabaseManager {
             new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
                 @Override
                 public void executeQuery(final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, final Long blockHeight, final Query query, final DatabaseConnection databaseConnection) throws DatabaseException {
-                    query.setInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+                    // BlockHeight is included within the query to optimize the partition selection, when available...
+
+                    query.setExpandedInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
                     query.setParameter(blockHeight);
                     query.setParameter(blockHeight);
 
