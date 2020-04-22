@@ -137,7 +137,8 @@
 }
 
 .statistics .server-memory .server-memory-fill,
-.statistics .server-load .server-load-fill {
+.statistics .server-load .server-load-fill,
+.statistics .utxo-cache .utxo-cache-fill {
     background: #F99300;
     border: none;
     height: 100%;
