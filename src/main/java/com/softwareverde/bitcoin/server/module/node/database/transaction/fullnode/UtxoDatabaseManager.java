@@ -263,6 +263,9 @@ public class UtxoDatabaseManager {
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        final long maxKeepCount = (_maxUtxoCount / 2L);
+        final int maxUtxoPerBatch = 1024;
+
         final Long minUtxoBlockHeight;
         final Long maxUtxoBlockHeight;
         {
@@ -287,7 +290,7 @@ public class UtxoDatabaseManager {
         //  which would render errors recoverable by only rebuilding since the last commitment instead of rebuilding the whole UTXO set, but this is not currently done.
 
         final AtomicInteger inMemoryDeleteCounter = new AtomicInteger(0);
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(new UtxoQueryBatchGroupedByBlockHeight(
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
             databaseConnectionFactory,
             "DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)",
             new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
@@ -303,7 +306,7 @@ public class UtxoDatabaseManager {
             }
         ));
         final AtomicInteger onDiskDeleteCounter = new AtomicInteger(0);
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(new UtxoQueryBatchGroupedByBlockHeight(
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
             databaseConnectionFactory,
             "DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
             new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
@@ -321,7 +324,7 @@ public class UtxoDatabaseManager {
             }
         ));
         final AtomicInteger onDiskInsertCounter = new AtomicInteger(0);
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(new BatchRunner.Batch<UnspentTransactionOutput>() {
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (block_height, transaction_hash, `index`) VALUES (?, ?, ?)");
@@ -342,9 +345,6 @@ public class UtxoDatabaseManager {
         inMemoryUtxoDeleteBatchRunner.start();
         onDiskUtxoDeleteBatchRunner.start();
         onDiskUtxoInsertBatchRunner.start();
-
-        final long maxKeepCount = (_maxUtxoCount / 2L);
-        final int maxUtxoPerBatch = 1024;
 
         long keepCount = 0L;
         Long blockHeight = maxUtxoBlockHeight;
@@ -433,6 +433,19 @@ public class UtxoDatabaseManager {
                             keepCount += 1L;
                         }
                     }
+
+                    { // Throttle iteration so prevent BatchRunner from consuming too much memory...
+                        final int maxItemCount = (maxUtxoPerBatch * 32);
+
+                        try {
+                            inMemoryUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
+                            onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
+                            onDiskUtxoInsertBatchRunner.waitForQueueCapacity(maxItemCount);
+                        }
+                        catch (final InterruptedException exception) {
+                            throw new DatabaseException(exception);
+                        }
+                    }
                 }
 
                 final Long firstBlockHeight = blockHeights.get(0);
@@ -452,14 +465,12 @@ public class UtxoDatabaseManager {
         onDiskUtxoInsertBatchRunner.finish();
 
         try {
-            inMemoryUtxoDeleteBatchRunner.join();
-            onDiskUtxoDeleteBatchRunner.join();
-            onDiskUtxoInsertBatchRunner.join();
+            inMemoryUtxoDeleteBatchRunner.waitUntilFinished();
+            onDiskUtxoDeleteBatchRunner.waitUntilFinished();
+            onDiskUtxoInsertBatchRunner.waitUntilFinished();
         }
-        catch (final InterruptedException exception) {
-            // Keep the interrupted flag...
-            final Thread currentThread = Thread.currentThread();
-            currentThread.interrupt();
+        catch (final Exception exception) {
+            throw new DatabaseException(exception);
         }
 
         // Save the committed set's block height...

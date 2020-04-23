@@ -14,17 +14,22 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BlockingQueueBatchRunner<T> extends Thread {
 
     public static <T> BlockingQueueBatchRunner<T> newInstance(final BatchRunner.Batch<T> batch) {
-        final BatchRunner<T> batchRunner = new BatchRunner<T>(1024);
+        return BlockingQueueBatchRunner.newInstance(1024, batch);
+    }
+
+    public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final BatchRunner.Batch<T> batch) {
+        final BatchRunner<T> batchRunner = new BatchRunner<T>(itemCountPerBatch);
         final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
         final LinkedList<T> itemQueue = new LinkedList<T>();
         final AtomicLong executionTime = new AtomicLong(0L);
         final Container<Boolean> isDoneAddingItems = new Container<Boolean>(false);
         final AtomicInteger queuedItemCount = new AtomicInteger(0);
+        final Container<Exception> exceptionContainer = new Container<Exception>(null);
 
         final Runnable coreRunnable = new Runnable() {
             @Override
             public void run() {
-                final int batchSize = batchRunner.getBatchSize();
+                final int batchSize = batchRunner.getItemCountPerBatch();
                 final MilliTimer executionTimer = new MilliTimer();
 
                 while ( threadContinueContainer.value || (queuedItemCount.get() > 0) ) {
@@ -65,20 +70,31 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                         try {
                             batchRunner.run(batchedItems, batch);
                         }
-                        catch (final DatabaseException exception) {
+                        catch (final Exception exception) {
                             Logger.debug(exception);
+
+                            synchronized (itemQueue) {
+                                exceptionContainer.value = exception;
+                                itemQueue.clear();
+                                queuedItemCount.set(0);
+                            }
+
                             return;
                         }
                         finally {
                             executionTimer.stop();
                             executionTime.addAndGet(executionTimer.getMillisecondsElapsed());
+
+                            synchronized (queuedItemCount) {
+                                queuedItemCount.notifyAll();
+                            }
                         }
                     }
                 }
             }
         };
 
-        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, isDoneAddingItems);
+        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, isDoneAddingItems, exceptionContainer);
     }
 
     protected final Container<Boolean> _threadContinueContainer;
@@ -87,9 +103,10 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     protected final BatchRunner<T> _batchRunner;
     protected final AtomicLong _executionTime;
     protected final Container<Boolean> _isDoneAddingItems;
+    protected final Container<Exception> _exceptionContainer;
     protected Integer _totalItemCount = 0;
 
-    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedList<T> itemQueue, final AtomicInteger queuedItemCount, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Boolean> isDoneAddingItems) {
+    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedList<T> itemQueue, final AtomicInteger queuedItemCount, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Boolean> isDoneAddingItems, final Container<Exception> exceptionContainer) {
         super(coreRunnable);
         _threadContinueContainer = threadContinueContainer;
         _itemQueue = itemQueue;
@@ -97,10 +114,29 @@ public class BlockingQueueBatchRunner<T> extends Thread {
         _batchRunner = batchRunner;
         _executionTime = executionTime;
         _isDoneAddingItems = isDoneAddingItems;
+        _exceptionContainer = exceptionContainer;
+    }
+
+    public Integer getItemCountPerBatch() {
+        return _batchRunner.getItemCountPerBatch();
+    }
+
+    public Long getExecutionTime() {
+        return _executionTime.get();
+    }
+
+    public Integer getTotalItemCount() {
+        return _totalItemCount;
+    }
+
+    public Integer getQueueItemCount() {
+        return _queuedItemCount.get();
     }
 
     public void addItem(final T item) {
         synchronized (_itemQueue) {
+            if (_exceptionContainer.value != null) { return; }
+
             _itemQueue.addLast(item);
             _queuedItemCount.addAndGet(1);
             _itemQueue.notify();
@@ -108,6 +144,23 @@ public class BlockingQueueBatchRunner<T> extends Thread {
         }
     }
 
+    public void waitForQueueCapacity(final Integer maxCapacity) throws InterruptedException {
+        while (true) {
+            synchronized (_queuedItemCount) {
+                if (_queuedItemCount.get() < maxCapacity) {
+                    return;
+                }
+
+                _queuedItemCount.wait();
+            }
+
+            if (_exceptionContainer.value != null) { return; }
+        }
+    }
+
+    /**
+     * Informs the Thread to shuts down after the queue has completed.
+     */
     public void finish() {
         _threadContinueContainer.value = false;
 
@@ -117,11 +170,17 @@ public class BlockingQueueBatchRunner<T> extends Thread {
         }
     }
 
-    public Long getExecutionTime() {
-        return _executionTime.get();
-    }
+    /**
+     * Waits until the Thread is complete.
+     *  Throws an exception if one was encountered during executing any of the batches.
+     *  BlockingQueueBatchRunner::finish must be called before the thread will finish.
+     *  BlockingQueueBatchRunner::join may be used instead of this function, however any captured Exception will not be thrown.
+     */
+    public void waitUntilFinished() throws Exception {
+        super.join();
 
-    public Integer getTotalItemCount() {
-        return _totalItemCount;
+        if (_exceptionContainer.value != null) {
+            throw _exceptionContainer.value;
+        }
     }
 }

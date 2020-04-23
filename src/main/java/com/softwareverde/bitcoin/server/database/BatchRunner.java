@@ -87,7 +87,7 @@ public class BatchRunner<T> {
         }
     }
 
-    public Integer getBatchSize() {
+    public Integer getItemCountPerBatch() {
         return _maxItemCountPerBatch;
     }
 }
