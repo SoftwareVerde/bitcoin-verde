@@ -21,7 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.UnspentTransactionOutputCommitter;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -309,8 +309,9 @@ public class BlockProcessor {
                 }
                 else {
                     { // Maintain the UTXO (Unspent Transaction Output) set...
-                        final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
-                        unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(block, blockHeight, _databaseManagerFactory.getDatabaseConnectionFactory());
+                        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
+                        final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory);
+                        unspentTransactionOutputManager.updateUtxoSetWithBlock(block, blockHeight);
                     }
 
                     final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);

@@ -33,7 +33,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.UnspentTransactionOutputCommitter;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.*;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
@@ -88,7 +88,6 @@ import com.softwareverde.util.timer.MilliTimer;
 import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
@@ -802,7 +801,7 @@ public class NodeModule {
                 final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                 final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
 
-                final UnspentTransactionOutputCommitter unspentTransactionOutputCommitter = new UnspentTransactionOutputCommitter(transactionDatabaseManager);
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionPool);
 
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
 
@@ -814,7 +813,7 @@ public class NodeModule {
                         return;
                     }
 
-                    unspentTransactionOutputCommitter.commitUnspentTransactionOutputs(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight(), databaseConnectionPool);
+                    unspentTransactionOutputManager.updateUtxoSetWithBlock(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight());
                     blockHeight += 1L;
                 }
             }

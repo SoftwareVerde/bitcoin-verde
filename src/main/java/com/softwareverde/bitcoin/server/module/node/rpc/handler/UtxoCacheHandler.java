@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
@@ -59,12 +60,13 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
 
     @Override
     public void commitUtxoCache() {
+        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final MilliTimer utxoCommitTimer = new MilliTimer();
             utxoCommitTimer.start();
 
-            transactionDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory.getDatabaseConnectionFactory());
+            transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
 
             utxoCommitTimer.stop();
             Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");

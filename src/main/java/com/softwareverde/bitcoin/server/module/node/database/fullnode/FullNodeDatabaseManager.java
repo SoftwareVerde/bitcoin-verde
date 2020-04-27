@@ -27,8 +27,6 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
 
-    protected DatabaseConnectionFactory _databaseConnectionFactory = null;
-
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
@@ -45,14 +43,6 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _databaseConnection = databaseConnection;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
-    }
-
-    public void setDatabaseConnectionFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-    }
-
-    public DatabaseConnectionFactory getDatabaseConnectionFactory() {
-        return _databaseConnectionFactory;
     }
 
     @Override
