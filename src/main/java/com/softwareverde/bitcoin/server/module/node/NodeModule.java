@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -222,6 +223,25 @@ public class NodeModule {
 
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
+
+        Logger.info("[Committing UTXO Set]");
+        {
+            final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionPool();
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                final MilliTimer utxoCommitTimer = new MilliTimer();
+                utxoCommitTimer.start();
+
+                transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionPool);
+
+                utxoCommitTimer.stop();
+                Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
+            }
+            catch (final DatabaseException exception) {
+                Logger.warn(exception);
+            }
+        }
 
         Logger.info("[Shutting Down Thread Server]");
         _mainThreadPool.stop();
@@ -793,29 +813,13 @@ public class NodeModule {
         { // Validate the UTXO set is up to date...
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
                 final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
 
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionPool);
 
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
 
-                long blockHeight = (transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
-                while (blockHeight <= maxBlockHeight) {
-                    final PreloadedBlock preloadedBlock = blockLoader.getBlock(blockHeight);
-                    if (preloadedBlock == null) {
-                        Logger.debug("Unable to load block: " + blockHeight);
-                        return;
-                    }
-
-                    unspentTransactionOutputManager.updateUtxoSetWithBlock(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight());
-                    blockHeight += 1L;
-                }
+                unspentTransactionOutputManager.buildUtxoSet(blockLoader);
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);

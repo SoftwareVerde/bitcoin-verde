@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.Full
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.UtxoDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedBlock;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -26,7 +25,7 @@ public class UnspentTransactionOutputManager {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManager _databaseManager;
 
-    public void _buildUtxoSet(final BlockLoader blockLoader) throws DatabaseException {
+    public void _buildUtxoSetUpToHeadBlock(final BlockLoader blockLoader) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
@@ -83,7 +82,7 @@ public class UnspentTransactionOutputManager {
 
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = transactionDatabaseManager.getCachedUnspentTransactionOutputCount();
-        if ( ((blockHeight % 2016L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= UtxoDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT) ) {
+        if ( ((blockHeight % 2016L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT) ) {
             utxoCommitTimer.start();
             _commitInMemoryUtxoSetToDisk();
             utxoCommitTimer.stop();
@@ -120,7 +119,7 @@ public class UnspentTransactionOutputManager {
             maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
             maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE committed_unspent_transaction_outputs"));
 
-            _buildUtxoSet(blockLoader);
+            _buildUtxoSetUpToHeadBlock(blockLoader);
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -131,7 +130,7 @@ public class UnspentTransactionOutputManager {
      * Builds the UTXO set from the last committed block.
      */
     public void buildUtxoSet(final BlockLoader blockLoader) throws DatabaseException {
-        _buildUtxoSet(blockLoader);
+        _buildUtxoSetUpToHeadBlock(blockLoader);
     }
 
     /**
@@ -140,7 +139,14 @@ public class UnspentTransactionOutputManager {
      *  A disk-commit is executed periodically based on block height and/or if the in-memory set grows too large.
      */
     public void updateUtxoSetWithBlock(final Block block, final Long blockHeight) throws DatabaseException {
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final Long uncommittedUtxoBlockHeight = transactionDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
+        if (blockHeight != (uncommittedUtxoBlockHeight + 1L)) {
+            throw new DatabaseException("Attempted to update UTXO set with out-of-order block.");
+        }
+
         _updateUtxoSetWithBlock(block, blockHeight);
+        transactionDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
     }
 
     /**

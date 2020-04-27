@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.UtxoDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
@@ -31,7 +31,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
 
     @Override
     public Long getMaxCachedUtxoCount() {
-        return UtxoDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT;
+        return UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT;
     }
 
     @Override

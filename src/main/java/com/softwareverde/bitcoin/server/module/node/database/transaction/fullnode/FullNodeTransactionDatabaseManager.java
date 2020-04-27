@@ -52,6 +52,8 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     Long getCachedUnspentTransactionOutputCount() throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
+    Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
+    void setUncommittedUnspentTransactionOutputBlockHeight(Long blockHeight) throws DatabaseException;
 }
 
 class ReadWriteLock {

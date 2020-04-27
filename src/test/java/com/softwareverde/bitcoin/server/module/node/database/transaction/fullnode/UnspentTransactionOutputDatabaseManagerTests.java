@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -17,7 +18,7 @@ import org.junit.Test;
 
 import java.util.List;
 
-public class UtxoDatabaseManagerTests extends IntegrationTest {
+public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
@@ -43,7 +44,7 @@ public class UtxoDatabaseManagerTests extends IntegrationTest {
         final FullNodeDatabaseManager fullNodeDatabaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager();
         try (final DatabaseConnection databaseConnection = fullNodeDatabaseManager.getDatabaseConnection()) {
 
-            final UtxoDatabaseManager utxoDatabaseManager = new UtxoDatabaseManager(MAX_UTXO_COUNT, fullNodeDatabaseManager, _blockStore, _masterInflater);
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputDatabaseManager(MAX_UTXO_COUNT, fullNodeDatabaseManager, _blockStore, _masterInflater);
 
             long blockHeight = 1L;
             for (int i = 0; i < MAX_UTXO_COUNT; ) {
@@ -61,7 +62,7 @@ public class UtxoDatabaseManagerTests extends IntegrationTest {
                     i += 1;
                 }
 
-                utxoDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, blockHeight);
+                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, blockHeight);
                 blockHeight += 1L;
             }
 
@@ -71,7 +72,7 @@ public class UtxoDatabaseManagerTests extends IntegrationTest {
             }
 
             // Action
-            utxoDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory);
 
             // Assert
             final Long utxoCountInMemory = _getUtxoCountInMemory(databaseConnection);

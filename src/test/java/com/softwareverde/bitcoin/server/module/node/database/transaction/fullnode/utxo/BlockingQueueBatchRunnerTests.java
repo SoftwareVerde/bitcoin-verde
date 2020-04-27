@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
+package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;

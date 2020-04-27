@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
+package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.security.hash.sha256.Sha256Hash;

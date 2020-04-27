@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.*;
@@ -44,7 +45,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
     protected final BlockStore _blockStore;
-    protected final UtxoDatabaseManager _utxoDatabaseManager;
+    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
 
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
@@ -301,14 +302,14 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
-        this(databaseManager, blockStore, masterInflater, new UtxoDatabaseManager(databaseManager, blockStore, masterInflater));
+        this(databaseManager, blockStore, masterInflater, new UnspentTransactionOutputDatabaseManager(databaseManager, blockStore, masterInflater));
     }
 
-    public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater, final UtxoDatabaseManager utxoDatabaseManager) {
+    public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
         _databaseManager = databaseManager;
         _masterInflater = masterInflater;
         _blockStore = blockStore;
-        _utxoDatabaseManager = utxoDatabaseManager;
+        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
     }
 
     @Override
@@ -669,7 +670,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
 
         try {
-            return _utxoDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+            return _unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
@@ -681,7 +682,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
 
         try {
-            return _utxoDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+            return _unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
@@ -693,7 +694,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
 
         try {
-            _utxoDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
+            _unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -705,7 +706,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
 
         try {
-            _utxoDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+            _unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -717,7 +718,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
 
         try {
-            _utxoDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
+            _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -729,7 +730,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
 
         try {
-            return _utxoDatabaseManager.getCachedUnspentTransactionOutputCount();
+            return _unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
@@ -741,7 +742,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
 
         try {
-            return _utxoDatabaseManager.getUncommittedUnspentTransactionOutputCount();
+            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
@@ -753,10 +754,34 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
 
         try {
-            return _utxoDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
+            return _unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
         }
         finally {
             FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+        }
+    }
+
+    @Override
+    public Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
+        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+
+        try {
+            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
+        }
+        finally {
+            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+        }
+    }
+
+    @Override
+    public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) throws DatabaseException {
+        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
+
+        try {
+            _unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
+        }
+        finally {
+            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
         }
     }
 }
