@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.bip.HF20200515;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
@@ -14,6 +15,8 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class StringOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STRING;
     public static final Integer MAX_BYTE_COUNT = 520;
+
+    public static final StringOperation REVERSE_BYTES = new StringOperation((byte) 0xBC, Opcode.REVERSE_BYTES);
 
     protected static StringOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -90,8 +93,8 @@ public class StringOperation extends SubTypedOperation {
                     return false;
                 }
 
-                final Integer bytes0ByteCount = index;
-                final Integer bytes1ByteCount = (valueByteCount - index);
+                final int bytes0ByteCount = index;
+                final int bytes1ByteCount = (valueByteCount - index);
 
                 final byte[] bytes0 = new byte[bytes0ByteCount];
                 final byte[] bytes1 = new byte[bytes1ByteCount];
@@ -154,7 +157,7 @@ public class StringOperation extends SubTypedOperation {
 
                 if (byteCount < minimallyEncodedByteArray.getByteCount()) { return false; } // Fail if data is lost during the conversion...
 
-                final Boolean isNegative;
+                final boolean isNegative;
                 {
                     if (minimallyEncodedByteArray.isEmpty()) {
                         isNegative = false;
@@ -183,6 +186,17 @@ public class StringOperation extends SubTypedOperation {
 
                 final Value decodedValue = Value.fromBytes(bytes);
                 stack.push(decodedValue);
+
+                return (! stack.didOverflow());
+            }
+
+            case REVERSE_BYTES: {
+                final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+                if (! HF20200515.isEnabled(medianBlockTime)) { return false; }
+
+                final Value value = stack.pop();
+                final Value reversedValue = Value.fromBytes(ByteUtil.reverseEndian(value));
+                stack.push(reversedValue);
 
                 return (! stack.didOverflow());
             }

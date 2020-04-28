@@ -48,7 +48,7 @@ public class AbcScriptRunnerTests {
 
         @Override
         public ImmutableMedianBlockTime asConst() {
-            return new ImmutableMedianBlockTime(_medianBlockTime);
+            return ImmutableMedianBlockTime.fromSeconds(_medianBlockTime);
         }
 
         @Override

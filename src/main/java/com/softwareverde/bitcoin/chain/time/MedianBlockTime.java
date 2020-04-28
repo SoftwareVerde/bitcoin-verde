@@ -5,8 +5,11 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.Time;
 
 public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTime> {
-    Long GENESIS_BLOCK_TIMESTAMP = 1231006505L;
-    MedianBlockTime MAX_VALUE = new ImmutableMedianBlockTime(Long.MAX_VALUE);
+    Long GENESIS_BLOCK_TIMESTAMP = 1231006505L; // In seconds.
+    ImmutableMedianBlockTime MAX_VALUE = new ImmutableMedianBlockTime(Long.MAX_VALUE);
+
+    @Override
+    ImmutableMedianBlockTime asConst();
 }
 
 abstract class MedianBlockTimeCore implements MedianBlockTime {

@@ -506,6 +506,8 @@ public class Wallet {
         }
         unspentTransactionOutputs.sort(SpendableTransactionOutput.AMOUNT_ASCENDING_COMPARATOR);
 
+        final long mandatoryOutputsFundingAmount = selectedUtxoAmount;
+
         for (final SpendableTransactionOutput spendableTransactionOutput : unspentTransactionOutputs) {
             if (selectedUtxoAmount >= (minimumUtxoAmount + feesToSpendOutputs.value)) { break; }
 
@@ -535,7 +537,7 @@ public class Wallet {
                 }
 
                 feesToSpendOutputs.value += feeToSpendThisOutput;
-                selectedUtxoAmount = transactionOutputAmount;
+                selectedUtxoAmount = transactionOutputAmount + mandatoryOutputsFundingAmount;
                 transactionOutputsToSpend.add(spendableTransactionOutput);
 
                 break;
