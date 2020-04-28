@@ -132,7 +132,7 @@ public class AddressInflater {
         return checksumByteArray;
     }
 
-    public Address fromPrivateKey(final PrivateKey privateKey) {
+    public Address uncompressedFromPrivateKey(final PrivateKey privateKey) {
         final PublicKey publicKey = privateKey.getPublicKey();
         final byte[] rawBitcoinAddress = _hashPublicKey(publicKey);
         return new Address(rawBitcoinAddress);
@@ -145,7 +145,7 @@ public class AddressInflater {
         return new CompressedAddress(rawBitcoinAddress);
     }
 
-    public Address fromPublicKey(final PublicKey publicKey) {
+    public Address uncompressedFromPublicKey(final PublicKey publicKey) {
         if (publicKey.isCompressed()) {
             final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.decompress());
             return new Address(rawBitcoinAddress);
@@ -161,12 +161,25 @@ public class AddressInflater {
         return new Address(bytes.getBytes());
     }
 
+    public Address fromBytes(final ByteArray bytes, final Boolean isCompressed) {
+        if (bytes.getByteCount() != Address.BYTE_COUNT) { return null; }
+        if (isCompressed) {
+            return new CompressedAddress(bytes.getBytes());
+        }
+        else {
+            return new Address(bytes.getBytes());
+        }
+    }
+
+    /**
+     * Returns a CompressedAddress from the compressed version of the public key.
+     */
     public CompressedAddress compressedFromPublicKey(final PublicKey publicKey) {
         final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.compress());
         return new CompressedAddress(rawBitcoinAddress);
     }
 
-    public Address fromBase58Check(final String base58CheckString) {
+    public Address uncompressedFromBase58Check(final String base58CheckString) {
         return _fromBase58Check(base58CheckString, false);
     }
 
@@ -179,7 +192,20 @@ public class AddressInflater {
         return _fromBase58Check(base58CheckString, true);
     }
 
-    public Address fromBase32Check(final String base32String) {
+    public Address uncompressedFromBase32Check(final String base32String) {
+        return _fromBase32Check(base32String, false);
+    }
+
+    /**
+     * Returns a CompressedAddress from the base32CheckString.
+     *  NOTE: Validation that the string is actually derived from a compressed PublicKey is impossible,
+     *  therefore, only use this function if the sourced string is definitely a compressed PublicKey.
+     */
+    public Address compressedFromBase32Check(final String base32String) {
+        return _fromBase32Check(base32String, true);
+    }
+
+    protected Address _fromBase32Check(final String base32String, final Boolean isCompressed) {
         { // Check for mixed-casing...
             boolean hasUpperCase = false;
             boolean hasLowerCase = false;
@@ -236,14 +262,24 @@ public class AddressInflater {
         final ByteArray calculatedChecksum = AddressInflater.calculateBase32Checksum(checksumPayload);
         if (! Util.areEqual(calculatedChecksum, checksum)) { return null; }
 
-        if (addressType == 0x08) { // P2SH
+        if (addressType == PayToScriptHashAddress.BASE_32_PREFIX) { // P2SH
             return new PayToScriptHashAddress(hash.getBytes());
         }
 
-        if (addressType == 0x00) { // P2PKH
-            return new Address(hash.getBytes());
+        if (addressType == Address.BASE_32_PREFIX) { // P2PKH
+            if (isCompressed) {
+                return new CompressedAddress(hash.getBytes());
+            }
+            else {
+                return new Address(hash.getBytes());
+            }
         }
 
-        return new Address(hash.getBytes());
+        if (isCompressed) {
+            return new CompressedAddress(hash.getBytes());
+        }
+        else {
+            return new Address(hash.getBytes());
+        }
     }
 }

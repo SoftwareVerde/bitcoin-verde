@@ -24,8 +24,8 @@ public class MutableSlpGenesisScript extends SlpGenesisScriptCore {
         _decimalCount = decimalCount;
     }
 
-    public void setGeneratorOutputIndex(final Integer generatorOutputIndex) {
-        _generatorOutputIndex = generatorOutputIndex;
+    public void setBatonOutputIndex(final Integer batonOutputIndex) {
+        _batonOutputIndex = batonOutputIndex;
     }
 
     /**

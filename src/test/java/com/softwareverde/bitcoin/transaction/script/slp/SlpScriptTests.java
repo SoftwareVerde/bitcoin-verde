@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.MutableSlpGenesisScript;
+import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import org.junit.Assert;
 import org.junit.Test;
@@ -30,7 +31,7 @@ public class SlpScriptTests {
         slpGenesisScript.setDocumentUrl("https://simpleledger.cash/");
         slpGenesisScript.setDocumentHash(null);
         slpGenesisScript.setDecimalCount(8);
-        slpGenesisScript.setGeneratorOutputIndex(0);
+        slpGenesisScript.setBatonOutputIndex(null);
         slpGenesisScript.setTokenCount(21000000L * Transaction.SATOSHIS_PER_BITCOIN);
 
         // Action
@@ -41,5 +42,25 @@ public class SlpScriptTests {
         Assert.assertEquals(scriptDeflater.toBytes(expectedLockingScript), scriptDeflater.toBytes(lockingScript));
         Assert.assertEquals(slpScriptInflater.genesisScriptFromScript(expectedLockingScript), slpScriptInflater.genesisScriptFromScript(lockingScript));
         Assert.assertEquals(SlpScriptType.GENESIS, slpScriptType);
+    }
+
+    @Test
+    public void decimal_count_byte_length_must_be_1_byte_for_zero_decimals() {
+        final MutableSlpGenesisScript slpGenesisScript = new MutableSlpGenesisScript();
+        slpGenesisScript.setTokenName("Bitcoin Cash");
+        slpGenesisScript.setTokenCount(0xFFFFFFFFFFFFFFFFL);
+        slpGenesisScript.setBatonOutputIndex(null);
+        slpGenesisScript.setTokenAbbreviation("BCH");
+        slpGenesisScript.setDocumentUrl(null);
+        slpGenesisScript.setDocumentHash(null);
+        slpGenesisScript.setDecimalCount(0);
+
+        final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
+        final LockingScript genesisLockingScript = slpScriptBuilder.createGenesisScript(slpGenesisScript);
+
+        final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
+        final SlpGenesisScript inflatedSlpGenesisScript = slpScriptInflater.genesisScriptFromScript(genesisLockingScript);
+
+        Assert.assertEquals(slpGenesisScript, inflatedSlpGenesisScript);
     }
 }

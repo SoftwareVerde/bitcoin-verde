@@ -14,8 +14,8 @@ public class MutableSlpMintScript extends SlpMintScriptCore {
         _tokenId = tokenId;
     }
 
-    public void setGeneratorOutputIndex(final Integer generatorOutputIndex) {
-        _generatorOutputIndex = generatorOutputIndex;
+    public void setBatonOutputIndex(final Integer batonOutputIndex) {
+        _batonOutputIndex = batonOutputIndex;
     }
 
     public void setTokenCount(final Long tokenCount) {

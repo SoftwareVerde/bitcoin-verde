@@ -142,6 +142,11 @@ public class PushOperation extends SubTypedOperation {
         return new PushOperation(opcodeByte, opcode, payload);
     }
 
+    /**
+     * Creates an appropriately sized PushOperation for the provided bytes.
+     *  If `byteArray` is empty, a non-minimally-encoded operation will be returned.
+     *  Consider using PushOperation.ZERO instead to intentionally push an empty ByteArray.
+     */
     public static PushOperation pushBytes(final ByteArray byteArray) {
         if (byteArray == null) { return null; }
 
@@ -149,7 +154,6 @@ public class PushOperation extends SubTypedOperation {
         if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; }
 
         if (byteCount == 0) {
-            // Use <0x4C 0x00> to support SLP.  If not using SLP, consider PushOperation.PUSH_ZERO.
             final Payload payload = new Payload(true, 1, Value.ZERO);
             return new PushOperation(Opcode.PUSH_DATA_BYTE.getValue(), Opcode.PUSH_DATA_BYTE, payload);
         }

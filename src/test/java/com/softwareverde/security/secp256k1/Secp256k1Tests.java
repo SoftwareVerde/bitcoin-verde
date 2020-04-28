@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.security.secp256k1.signature.Signature;
@@ -84,10 +85,10 @@ public class Secp256k1Tests {
         final String message = "Milo the dog.";
         final Boolean useCompressedAddress = true;
 
-        final BitcoinMessageSignature signature = Secp256k1.signBitcoinMessage(privateKey, message, useCompressedAddress);
+        final BitcoinMessageSignature signature = BitcoinUtil.signBitcoinMessage(privateKey, message, useCompressedAddress);
 
-        final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey));
-        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+        final Address address = (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.uncompressedFromPrivateKey(privateKey));
+        final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
     }
@@ -101,8 +102,9 @@ public class Secp256k1Tests {
         final String message = "Mary had a little lamb.";
 
         final BitcoinMessageSignature signature = BitcoinMessageSignature.fromBase64(signatureString);
-        final Address address = addressInflater.fromBase58Check(addressString);
-        final Boolean isValid = Secp256k1.verifyBitcoinMessage(message, address, signature);
+
+        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
+        final Boolean isValid = BitcoinUtil.verifyBitcoinMessage(message, address, signature);
 
         Assert.assertTrue(isValid);
     }

@@ -143,7 +143,7 @@ public class TransactionOutputIndexer extends SleepyService {
                 switch (slpScript.getType()) {
                     case GENESIS: {
                         final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) slpScript;
-                        final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
+                        final Integer generatorOutputIndex = slpGenesisScript.getBatonOutputIndex();
 
                         if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputCount)) {
                             slpTransactionIsValid = false;
@@ -168,7 +168,7 @@ public class TransactionOutputIndexer extends SleepyService {
 
                     case MINT: {
                         final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
-                        final Integer generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
+                        final Integer generatorOutputIndex = slpMintScript.getBatonOutputIndex();
 
                         if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputCount)) {
                             slpTransactionIsValid = false;

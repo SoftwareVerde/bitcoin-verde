@@ -10,7 +10,7 @@ public interface SlpMintScript extends SlpScript, Constable<ImmutableSlpMintScri
     Integer RECEIVER_TRANSACTION_OUTPUT_INDEX = 1;
 
     SlpTokenId getTokenId();
-    Integer getGeneratorOutputIndex();
+    Integer getBatonOutputIndex();
     Long getTokenCount();
 
     @Override
@@ -19,14 +19,14 @@ public interface SlpMintScript extends SlpScript, Constable<ImmutableSlpMintScri
 
 abstract class SlpMintScriptCore implements SlpMintScript {
     protected SlpTokenId _tokenId;
-    protected Integer _generatorOutputIndex;
+    protected Integer _batonOutputIndex;
     protected Long _tokenCount;
 
     public SlpMintScriptCore() { }
 
     public SlpMintScriptCore(final SlpMintScript slpMintScript) {
         _tokenId = slpMintScript.getTokenId().asConst();
-        _generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
+        _batonOutputIndex = slpMintScript.getBatonOutputIndex();
         _tokenCount = slpMintScript.getTokenCount();
     }
 
@@ -37,7 +37,7 @@ abstract class SlpMintScriptCore implements SlpMintScript {
 
     @Override
     public Integer getMinimumTransactionOutputCount() {
-        return Math.max(2, (Util.coalesce(_generatorOutputIndex) + 1)); // Requires at least 1 Script Output and 1 Receiver Output...
+        return Math.max(2, (Util.coalesce(_batonOutputIndex) + 1)); // Requires at least 1 Script Output and 1 Receiver Output...
     }
 
     @Override
@@ -46,8 +46,8 @@ abstract class SlpMintScriptCore implements SlpMintScript {
     }
 
     @Override
-    public Integer getGeneratorOutputIndex() {
-        return _generatorOutputIndex;
+    public Integer getBatonOutputIndex() {
+        return _batonOutputIndex;
     }
 
     @Override

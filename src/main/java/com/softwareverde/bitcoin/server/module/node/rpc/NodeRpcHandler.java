@@ -659,7 +659,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address.");
@@ -692,7 +692,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
