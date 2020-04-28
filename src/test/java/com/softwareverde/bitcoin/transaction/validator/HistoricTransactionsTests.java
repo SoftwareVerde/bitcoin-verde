@@ -645,8 +645,8 @@ public class HistoricTransactionsTests {
 
         final Context context = initContext(testConfig);
 
-        final MedianBlockTime medianBlockTime = new ImmutableMedianBlockTime(1467969398L);
-        final NetworkTime networkTime = new ImmutableNetworkTime(1529680230L);
+        final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
+        final NetworkTime networkTime = ImmutableNetworkTime.fromSeconds(1529680230L);
 
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(null, networkTime, medianBlockTime);
 
