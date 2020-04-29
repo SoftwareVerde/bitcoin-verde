@@ -93,6 +93,16 @@ class Api {
         Http.get(Api.PREFIX + "search", apiParameters, callback);
     }
 
+    static getBlockTransactions(blockHash, parameters, callback) {
+        const defaultParameters = {
+            pageSize: 32,
+            pageNumber: 0
+        };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.get(Api.PREFIX + "blocks/" + blockHash + "/transactions", apiParameters, callback);
+    }
+
     static listBlockHeaders(parameters, callback) {
         const defaultParameters = {
             blockHeight: null,
