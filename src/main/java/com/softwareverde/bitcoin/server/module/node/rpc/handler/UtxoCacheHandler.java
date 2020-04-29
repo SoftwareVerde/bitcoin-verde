@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
@@ -20,8 +21,8 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     @Override
     public Long getCachedUtxoCount() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            return transactionDatabaseManager.getCachedUnspentTransactionOutputCount();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            return unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -37,8 +38,8 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     @Override
     public Long getUncommittedUtxoCount() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            return transactionDatabaseManager.getUncommittedUnspentTransactionOutputCount();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            return unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -49,8 +50,8 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     @Override
     public Long getCommittedUtxoBlockHeight() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            return transactionDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            return unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -62,14 +63,8 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     public void commitUtxoCache() {
         final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final MilliTimer utxoCommitTimer = new MilliTimer();
-            utxoCommitTimer.start();
-
-            transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
-
-            utxoCommitTimer.stop();
-            Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);

@@ -34,6 +34,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.*;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
@@ -229,11 +230,11 @@ public class NodeModule {
             final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionPool();
             final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MilliTimer utxoCommitTimer = new MilliTimer();
                 utxoCommitTimer.start();
 
-                transactionDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionPool);
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionPool);
 
                 utxoCommitTimer.stop();
                 Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
@@ -799,17 +800,6 @@ public class NodeModule {
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
 
-        if (_rebuildUtxoSet) {
-            try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
-                maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
-                maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE committed_unspent_transaction_outputs"));
-            }
-            catch (final DatabaseException exception) {
-                Logger.error(exception);
-                return;
-            }
-        }
-
         { // Validate the UTXO set is up to date...
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
@@ -819,7 +809,18 @@ public class NodeModule {
 
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
 
-                unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                if (_rebuildUtxoSet) {
+                    try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
+                        unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(maintenanceDatabaseConnection, blockLoader);
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.error(exception);
+                        return;
+                    }
+                }
+                else {
+                    unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                }
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);

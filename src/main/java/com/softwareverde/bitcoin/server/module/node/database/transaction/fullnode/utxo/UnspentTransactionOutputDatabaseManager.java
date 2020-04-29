@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.BatchedUpdateQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -34,8 +35,18 @@ import com.softwareverde.util.timer.MilliTimer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class UnspentTransactionOutputDatabaseManager {
+    public static final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX;
+    public static final ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX;
+    static {
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(false);
+
+        UTXO_READ_MUTEX = readWriteLock.readLock();
+        UTXO_WRITE_MUTEX = readWriteLock.writeLock();
+    }
+
     protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(0L);
     protected static final String COMMITTED_UTXO_BLOCK_HEIGHT_KEY = "committed_utxo_block_height";
 
@@ -61,7 +72,7 @@ public class UnspentTransactionOutputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
 
-    protected static void commitUnspentTransactionOutputs(final Long maxUtxoCount, final DatabaseConnection transactionalDatabaseConnection, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
+    protected static void _commitUnspentTransactionOutputs(final Long maxUtxoCount, final DatabaseConnection transactionalDatabaseConnection, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
         final long maxKeepCount = (maxUtxoCount / 2L);
         final int maxUtxoPerBatch = 1024;
 
@@ -88,7 +99,6 @@ public class UnspentTransactionOutputDatabaseManager {
         //  It's plausible to execute the changes to the on-disk UTXO set with a single Database Transaction,
         //  which would render errors recoverable by only rebuilding since the last commitment instead of rebuilding the whole UTXO set, but this is not currently done.
 
-        final AtomicInteger inMemoryDeleteCounter = new AtomicInteger(0);
         final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
             nonTransactionalDatabaseConnectionFactory,
             "DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)",
@@ -100,11 +110,9 @@ public class UnspentTransactionOutputDatabaseManager {
                     query.setExpandedInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
                     databaseConnection.executeSql(query);
-                    inMemoryDeleteCounter.addAndGet(unspentTransactionOutputsByBlockHeight.getCount());
                 }
             }
         ));
-        final AtomicInteger onDiskDeleteCounter = new AtomicInteger(0);
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
             "DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
             new UtxoQueryBatchGroupedByBlockHeight.BatchExecutor() {
@@ -119,11 +127,9 @@ public class UnspentTransactionOutputDatabaseManager {
                     synchronized (transactionalDatabaseConnection) {
                         transactionalDatabaseConnection.executeSql(query);
                     }
-                    onDiskDeleteCounter.addAndGet(unspentTransactionOutputsByBlockHeight.getCount());
                 }
             }
         ));
-        final AtomicInteger onDiskInsertCounter = new AtomicInteger(0);
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
@@ -137,8 +143,6 @@ public class UnspentTransactionOutputDatabaseManager {
                 synchronized (transactionalDatabaseConnection) {
                     transactionalDatabaseConnection.executeSql(batchedInsertQuery);
                 }
-
-                onDiskInsertCounter.addAndGet(batchItems.getCount());
             }
         });
 
@@ -284,9 +288,7 @@ public class UnspentTransactionOutputDatabaseManager {
         inMemoryUtxoCleanupTimer.start();
         nonTransactionalDatabaseConnection.executeSql(new Query("UPDATE unspent_transaction_outputs SET is_spent = NULL"));
         inMemoryUtxoCleanupTimer.stop();
-
         Logger.info("Commit Utxo Timer: inMemoryUtxoDeleteBatchRunner=" + inMemoryUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms, cleanup=" + inMemoryUtxoCleanupTimer.getMillisecondsElapsed() + "ms");
-        Logger.info("Commit DELETE memory=" + inMemoryUtxoDeleteBatchRunner.getTotalItemCount() + "/" + inMemoryDeleteCounter.get() + ", disk=" + onDiskUtxoDeleteBatchRunner.getTotalItemCount() + "/" + onDiskDeleteCounter.get() + "; INSERT " + onDiskUtxoInsertBatchRunner.getTotalItemCount() + "/" + onDiskInsertCounter.get());
     }
 
     protected void _resetInMemoryUtxoSet() throws DatabaseException {
@@ -312,48 +314,60 @@ public class UnspentTransactionOutputDatabaseManager {
     public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
         if (spentTransactionOutputIdentifiers.isEmpty()) { return; }
 
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
-        batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
-            @Override
-            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 1) ON DUPLICATE KEY UPDATE is_spent = 1");
-                for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
-                    final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-                    final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                @Override
+                public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 1) ON DUPLICATE KEY UPDATE is_spent = 1");
+                    for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
+                        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
-                    query.setParameter(transactionHash);
-                    query.setParameter(outputIndex);
+                        query.setParameter(transactionHash);
+                        query.setParameter(outputIndex);
+                    }
+
+                    databaseConnection.executeSql(query);
                 }
-
-                databaseConnection.executeSql(query);
-            }
-        });
+            });
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
     }
 
     public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
         if (unspentTransactionOutputIdentifiers.isEmpty()) { return; }
 
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
-        batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
-            @Override
-            public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
-                for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
-                    final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-                    final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                @Override
+                public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE is_spent = 0"); // INSERT/UPDATE is necessary to account for duplicate transactions E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468 and D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599.
+                    for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
+                        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
 
-                    query.setParameter(transactionHash);
-                    query.setParameter(outputIndex);
-                    query.setParameter(blockHeight);
+                        query.setParameter(transactionHash);
+                        query.setParameter(outputIndex);
+                        query.setParameter(blockHeight);
+                    }
+
+                    databaseConnection.executeSql(query);
                 }
-
-                databaseConnection.executeSql(query);
-            }
-        });
+            });
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
     }
 
     public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
@@ -362,7 +376,8 @@ public class UnspentTransactionOutputDatabaseManager {
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        { // Ensure the output is in the UTXO set...
+        UTXO_READ_MUTEX.lock();
+        try { // Ensure the output is in the UTXO set...
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT is_spent FROM unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
                     .setParameter(transactionHash)
@@ -384,6 +399,9 @@ public class UnspentTransactionOutputDatabaseManager {
                     return null;
                 }
             }
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
         }
 
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
@@ -407,53 +425,60 @@ public class UnspentTransactionOutputDatabaseManager {
 
         final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiersNotInCache;
         final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers;
-        { // Only return outputs that are in the UTXO set...
-            unspentTransactionOutputIdentifiersNotInCache = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
 
-            final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
-                    .setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
-                        @Override
-                        public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
-                            unspentTransactionOutputIdentifiersNotInCache.add(transactionOutputIdentifier);
-                            return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
-                        }
-                    })
-            );
+        UTXO_READ_MUTEX.lock();
+        try {
+            { // Only return outputs that are in the UTXO set...
+                unspentTransactionOutputIdentifiersNotInCache = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
 
-            unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
-            for (final Row row : rows) {
-                final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
-                final Integer outputIndex = row.getInteger("index");
-                final Boolean isSpent = Util.coalesce(row.getBoolean("is_spent"), false); // Both null and false are indicative of being unspent...
-
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-
-                if (! isSpent) {
-                    unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
-                }
-
-                unspentTransactionOutputIdentifiersNotInCache.remove(transactionOutputIdentifier);
-            }
-        }
-        { // Load UTXOs that weren't in the memory-cache but are in the greater UTXO set on disk...
-            final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.size();
-            if (cacheMissCount > 0) {
-                // TODO: Since block_height cannot be specified, this query hits every partition in the on-disk UTXO set.
-                //  Since the query is not currently uniquely limited, the database will query every partition even if finds it in the first partition.
-                //  Consider investigating if it is possible to abort additional partition searches once the output is found...
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
-                        .setInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                    new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                        .setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
+                            @Override
+                            public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
+                                unspentTransactionOutputIdentifiersNotInCache.add(transactionOutputIdentifier);
+                                return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
+                            }
+                        })
                 );
+
+                unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
                     final Integer outputIndex = row.getInteger("index");
+                    final Boolean isSpent = Util.coalesce(row.getBoolean("is_spent"), false); // Both null and false are indicative of being unspent...
 
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                    unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+
+                    if (! isSpent) {
+                        unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                    }
+
+                    unspentTransactionOutputIdentifiersNotInCache.remove(transactionOutputIdentifier);
                 }
             }
+            { // Load UTXOs that weren't in the memory-cache but are in the greater UTXO set on disk...
+                final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.size();
+                if (cacheMissCount > 0) {
+                    // TODO: Since block_height cannot be specified, this query hits every partition in the on-disk UTXO set.
+                    //  Since the query is not currently uniquely limited, the database will query every partition even if finds it in the first partition.
+                    //  Consider investigating if it is possible to abort additional partition searches once the output is found...
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                            .setInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                    );
+                    for (final Row row : rows) {
+                        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                        final Integer outputIndex = row.getInteger("index");
+
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                        unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                    }
+                }
+            }
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -501,9 +526,11 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
+        UTXO_WRITE_MUTEX.lock();
+
         try (final DatabaseConnection nonTransactionalDatabaseConnection = databaseConnectionFactory.newConnection()) {
             final DatabaseConnection transactionalDatabaseConnection = _databaseManager.getDatabaseConnection();
-            UnspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_maxUtxoCount, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);
+            _commitUnspentTransactionOutputs(_maxUtxoCount, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);
         }
         catch (final Exception exception) {
             try {
@@ -518,44 +545,77 @@ public class UnspentTransactionOutputDatabaseManager {
             }
             throw new DatabaseException(exception);
         }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
     }
 
     public Long getCachedUnspentTransactionOutputCount() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs")
-        );
-        final Row row = rows.get(0);
-        return row.getLong("row_count");
+        UTXO_READ_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs")
+            );
+            final Row row = rows.get(0);
+            return row.getLong("row_count");
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
+        }
     }
 
     public Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs WHERE is_spent IS NOT NULL")
-        );
-        final Row row = rows.get(0);
-        return row.getLong("row_count");
+        UTXO_READ_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs WHERE is_spent IS NOT NULL")
+            );
+            final Row row = rows.get(0);
+            return row.getLong("row_count");
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
+        }
     }
 
     public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        UTXO_READ_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, value FROM properties WHERE `key` = ?")
-                .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-        );
-        if (rows.isEmpty()) { return 0L; }
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id, value FROM properties WHERE `key` = ?")
+                    .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
+            );
+            if (rows.isEmpty()) { return 0L; }
 
-        final Row row = rows.get(0);
-        return Util.coalesce(row.getLong("value"), 0L);
+            final Row row = rows.get(0);
+            return Util.coalesce(row.getLong("value"), 0L);
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
+        }
     }
 
     public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) {
-        UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = blockHeight;
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = blockHeight;
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
     }
 
     public Long getUncommittedUnspentTransactionOutputBlockHeight() {
-        return UNCOMMITTED_UTXO_BLOCK_HEIGHT.value;
+        UTXO_READ_MUTEX.lock();
+        try {
+            return UNCOMMITTED_UTXO_BLOCK_HEIGHT.value;
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
+        }
     }
 }

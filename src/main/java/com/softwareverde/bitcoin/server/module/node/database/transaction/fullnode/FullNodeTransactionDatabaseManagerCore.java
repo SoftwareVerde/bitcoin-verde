@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
@@ -45,7 +44,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
     protected final BlockStore _blockStore;
-    protected final UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
 
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
@@ -302,14 +300,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
-        this(databaseManager, blockStore, masterInflater, new UnspentTransactionOutputDatabaseManager(databaseManager, blockStore, masterInflater));
-    }
-
-    public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater, final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager) {
         _databaseManager = databaseManager;
         _masterInflater = masterInflater;
         _blockStore = blockStore;
-        _unspentTransactionOutputDatabaseManager = unspentTransactionOutputDatabaseManager;
     }
 
     @Override
@@ -667,121 +660,123 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
+        UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.lock();
         try {
-            return _unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+            return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
         }
         finally {
-            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+            UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.unlock();
         }
     }
 
     @Override
     public List<TransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
+        UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.lock();
         try {
-            return _unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+            return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         }
         finally {
-            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+            UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.unlock();
         }
     }
 
-    @Override
-    public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-
-        try {
-            _unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-
-        try {
-            _unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-
-        try {
-            _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public Long getCachedUnspentTransactionOutputCount() throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-
-        try {
-            return _unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-
-        try {
-            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-
-        try {
-            return _unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-
-        try {
-            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-        }
-    }
-
-    @Override
-    public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) throws DatabaseException {
-        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-
-        try {
-            _unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
-        }
-        finally {
-            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-        }
-    }
+//    @Override
+//    public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
+//
+//        try {
+//            _unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
+//
+//        try {
+//            _unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
+//
+//        try {
+//            _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public Long getCachedUnspentTransactionOutputCount() throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+//
+//        try {
+//            return _unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+//
+//        try {
+//            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+//
+//        try {
+//            return _unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
+//
+//        try {
+//            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
+//        }
+//    }
+//
+//    @Override
+//    public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) throws DatabaseException {
+//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
+//
+//        try {
+//            _unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
+//        }
+//        finally {
+//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+//        }
+//    }
 }

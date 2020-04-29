@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -11,12 +10,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
-    ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX = ReadWriteLock.getReadLock();
-    ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX = ReadWriteLock.getWriteLock();
-
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
     void addToUnconfirmedTransactions(List<TransactionId> transactionIds) throws DatabaseException;
@@ -45,20 +39,4 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
      *  If an error occurred while loading any TransactionOutput then null is returned instead of a List.
      */
     List<TransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifier) throws DatabaseException;
-
-    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException;
-    void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
-    void commitUnspentTransactionOutputs(DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException;
-    Long getCachedUnspentTransactionOutputCount() throws DatabaseException;
-    Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
-    Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
-    Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
-    void setUncommittedUnspentTransactionOutputBlockHeight(Long blockHeight) throws DatabaseException;
-}
-
-class ReadWriteLock {
-    protected static final ReentrantReadWriteLock READ_WRITE_LOCK = new ReentrantReadWriteLock(false);
-
-    public static ReentrantReadWriteLock.ReadLock getReadLock() { return READ_WRITE_LOCK.readLock(); }
-    public static ReentrantReadWriteLock.WriteLock getWriteLock() { return READ_WRITE_LOCK.writeLock(); }
 }
