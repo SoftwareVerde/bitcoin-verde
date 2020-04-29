@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.slp.SlpUtil;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -45,6 +46,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+
         { // Include Extra Block Metadata...
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
@@ -53,6 +56,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
             blockJson.put("byteCount", blockHeaderDatabaseManager.getBlockByteCount(blockId));
             blockJson.put("transactionCount", transactionCount);
+            blockJson.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
         }
     }
 

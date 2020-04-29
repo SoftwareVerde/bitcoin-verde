@@ -124,7 +124,7 @@
     cursor: default;
 }
 .transaction .io .transaction-outputs {
-    margin-left: calc(5% - 1.5em);
+    margin-left: calc(5% - 2em);
 }
 .transaction .io img.tx-arrow {
     width: 1.75em;

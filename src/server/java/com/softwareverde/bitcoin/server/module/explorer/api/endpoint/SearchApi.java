@@ -105,15 +105,27 @@ public class SearchApi extends ExplorerApiEndpoint {
                         final Json queryBlockResponseJson;
                         if (queryParam.length() == hashCharacterLength) {
                             final Sha256Hash blockHash = Sha256Hash.fromHexString(queryParam);
-                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHash, rawFormat);
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlockHeader(blockHash, rawFormat);
+                            if ( (queryBlockResponseJson != null) && queryBlockResponseJson.hasKey("block") ) {
+                                final Json blockJson = queryBlockResponseJson.get("block");
+                                final Json blockTransactionsJson = nodeJsonRpcConnection.getBlockTransactions(blockHash, 32, 0);
+                                blockJson.put("transactions", blockTransactionsJson);
+                                queryBlockResponseJson.put("block", blockJson);
+                            }
                         }
                         else {
-                            final Boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9,. ])", queryParam).isEmpty());
+                            final boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9,. ])", queryParam).isEmpty());
                             if ( (! Util.isLong(queryParam)) || (queryParamContainsNonNumeric) ) {
                                 return new JsonResponse(Response.Codes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
                             }
                             final Long blockHeight = Util.parseLong(queryParam);
-                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHeight, rawFormat);
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlockHeader(blockHeight, rawFormat);
+                            if ( (queryBlockResponseJson != null) && queryBlockResponseJson.hasKey("block") ) {
+                                final Json blockJson = queryBlockResponseJson.get("block");
+                                final Json blockTransactionsJson = nodeJsonRpcConnection.getBlockTransactions(blockHeight, 32, 0);
+                                blockJson.put("transactions", blockTransactionsJson);
+                                queryBlockResponseJson.put("block", blockJson);
+                            }
                         }
 
                         if (queryBlockResponseJson == null) {
@@ -129,7 +141,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                             }
                             else {
                                 final Json blockJson = queryBlockResponseJson.get("block");
-                                final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
+                                final boolean isFullBlock = (blockJson.get("transactions").length() > 0);
 
                                 object = blockJson;
                                 objectType = (isFullBlock ? SearchResult.ObjectType.BLOCK : SearchResult.ObjectType.BLOCK_HEADER);
