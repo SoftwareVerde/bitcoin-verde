@@ -141,6 +141,7 @@ class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.databas
 
     public void registerBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork) {
         final Sha256Hash blockHash = blockHeader.getHash();
+        System.out.println("Registering " + blockHeader.getHash() + " -> " + blockHeight);
 
         final BlockId blockId = BlockId.wrap(_nextBlockId);
         _blockIds.put(blockHash, blockId);
@@ -333,7 +334,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
 
         {
             final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("0000002037C3455AA34BA4B325339A38AD985FA773E3CAE4CD052A01000000000000000049F464F13D452661A86566BE978A8C1C07E263E57F29B5C48E965765EE93246D8B6F055D9C460318913BF6B5"));
-            databaseManager.registerBlockHeader(blockHeader, 487193L, null);
+            databaseManager.registerBlockHeader(blockHeader, 587193L, null);
         }
 
         {
