@@ -6,13 +6,19 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManager {
+    static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
+        return FakeFullNodeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
+    }
+
     @Override
     default BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         throw new UnsupportedOperationException();
@@ -150,5 +156,15 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     @Override
     default BlockId getBlockIdAtHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
         throw new UnsupportedOperationException();
+    }
+}
+
+class FakeFullNodeBlockHeaderDatabaseManager extends FullNodeBlockHeaderDatabaseManager {
+    public static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
+        return FullNodeBlockHeaderDatabaseManager._newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
+    }
+
+    public FakeFullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {
+        super(databaseManager);
     }
 }
