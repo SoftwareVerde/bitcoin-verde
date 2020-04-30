@@ -447,50 +447,96 @@ class Ui {
         $(".block-header .byte-count .value:not(.kilobytes)", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || (block.transactions ? block.transactions.length : null ) || "-").toLocaleString());
 
-        const pageSize = 256;
+        const renderBlockTransactions = function(transactions) {
+            Ui.renderTransactions(transactions, function(transaction, transactionUi) {
+                $(".transactions", blockUi).append(transactionUi);
+            });
+        };
+
+        const pageSize = 32;
         const transactionCount = block.transactionCount;
         const pageCount = parseInt((transactionCount + pageSize - 1) / pageSize);
         const pageNavigation = $(".transactions-nav .page-navigation", blockUi);
-        for (let i = 0; i < Math.min(3, pageCount); i += 1) {
-            const pageLink = $("<a></a>");
-            pageLink.text(i + 1);
-            pageNavigation.append(pageLink);
-        }
-        if (pageCount > 3) {
-            pageNavigation.append("<span>...</span>");
-        }
-        for (let i = 0; i < Math.min(3, (pageCount - 3)); i += 1) {
-            const pageLink = $("<a></a>");
-            pageLink.text((pageCount - 3) + i + 1);
-            pageNavigation.append(pageLink);
-        }
 
-        const loadingElement = Ui._getLoadingElement();
-        const appendTransaction = function(i, transactions) {
-            if (i >= transactions.length) {
-                loadingElement.remove();
-                return;
-            }
-
-            const transaction = transactions[i];
-            const transactionUi = Ui.inflateTransaction(transaction);
-            $(".transactions", blockUi).append(transactionUi);
-            $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
-            window.setTimeout(appendTransaction, 0, (i+1), transactions);
-        };
-
-        $("a", pageNavigation).on("click", function() {
-            const pageNumber = (parseInt($(this).text()) - 1);
+        const changePage = function(pageNumber) {
             Api.getBlockTransactions(block.hash, { pageSize: pageSize, pageNumber: pageNumber }, function(data) {
                 const container = $(".transactions", blockUi);
                 container.empty();
+
                 const transactions = data.transactions;
-                appendTransaction(0, transactions);
+                renderBlockTransactions(transactions);
+
+                renderPagination(pageNumber);
             });
+        };
+
+        const createPaginationButton = function(pageNumber) {
+            pageNumber = parseInt(pageNumber);
+
+            const element = $("<a></a>");
+            element.toggleClass("value-" + pageNumber);
+            element.text(pageNumber + 1);
+
+            element.on("click", function() {
+                changePage(pageNumber);
+            });
+
+            return element;
+        };
+
+        const renderPagination = function(pageNumber) {
+            const maxButtonCount = 7;
+            pageNumber = ( (typeof pageNumber != "undefined") ? pageNumber : renderPagination.currentPageNumber );
+
+            if ( (pageNumber < 0) || (pageNumber >= pageCount) ) {
+                return;
+            }
+
+            const buttonCount = Math.min(maxButtonCount, pageCount);
+            const halfButtonCount = parseInt(buttonCount / 2);
+            let buttonCountLeft = ((pageNumber < halfButtonCount) ? pageNumber : halfButtonCount);
+            let leftButtonStartIndex = (buttonCountLeft == 0 ? -1 : (pageNumber - buttonCountLeft));
+            const rightButtonStartIndex = (pageNumber + 1);
+            const buttonCountRight = ((rightButtonStartIndex + halfButtonCount) > pageCount ? (pageCount - pageNumber - 1) : ((2 * halfButtonCount) - buttonCountLeft));
+            if (buttonCountRight < halfButtonCount) {
+                const additionalButtonsLeft = Math.max(0, Math.min((halfButtonCount - buttonCountRight), leftButtonStartIndex));
+                buttonCountLeft += additionalButtonsLeft;
+                leftButtonStartIndex -= additionalButtonsLeft;
+            }
+
+            pageNavigation.empty();
+            const totalButtonCount = Math.min(pageCount, (buttonCountLeft + buttonCountRight + 1));
+            for (let i = 0; i < totalButtonCount; ++i) {
+                let paginationButton = null;
+                if (i < buttonCountLeft) {
+                    paginationButton = createPaginationButton(leftButtonStartIndex + i);
+                }
+                else if (i > buttonCountLeft) {
+                    paginationButton = createPaginationButton(rightButtonStartIndex + (i - buttonCountLeft - 1));
+                }
+                else {
+                    paginationButton = createPaginationButton(pageNumber);
+                    paginationButton.toggleClass("current");
+                }
+
+                pageNavigation.append(paginationButton);
+            }
+
+            renderPagination.currentPageNumber = pageNumber;
+        };
+        renderPagination.currentPageNumber = 0;
+
+        const pageCarets = $("> .previous, > .next", pageNavigation.parent());
+        pageCarets.on("click", function() {
+            const direction = ($(this).hasClass("previous") ? -1 : 1);
+            const newPageNumber = (renderPagination.currentPageNumber + direction);
+            changePage(newPageNumber);
         });
 
+        renderPagination();
+
         const transactions = (block.transactions || []);
-        appendTransaction(0, transactions);
+        renderBlockTransactions(transactions);
 
         return blockUi;
     }
@@ -661,8 +707,27 @@ class Ui {
 
         const addressTransactionsContainer = $(".address-transactions", addressUi);
 
+        Ui.renderTransactions(addressTransactions, function(transaction, transactionUi) {
+            Ui.highlightAddress(addressString, transactionUi);
+            addressTransactionsContainer.append(transactionUi);
+        });
+
+        return addressUi;
+    }
+
+    static renderTransactions(transactions, renderedTransactionCallback) {
         const loadingElement = Ui._getLoadingElement();
-        const appendTransaction = function(i, transactions) {
+
+        const renderFunction = function(i, transactions) {
+            if (i == 0) {
+                const timeouts = Ui.appendTransactionTimeouts;
+                for (let j = 0; j < timeouts.length; ++j) {
+                    clearTimeout(timeouts[j]);
+                    timeouts[j] = 0;
+                }
+                Ui.appendTransactionTimeouts.length = transactions.length;
+            }
+
             if (i >= transactions.length) {
                 loadingElement.remove();
                 return;
@@ -670,21 +735,21 @@ class Ui {
 
             const transaction = transactions[i];
             const transactionUi = Ui.inflateTransaction(transaction);
-            Ui.highlightAddress(addressString, transactionUi);
-            addressTransactionsContainer.append(transactionUi);
+
+            if (typeof renderedTransactionCallback == "function") {
+                renderedTransactionCallback(transaction, transactionUi);
+            }
 
             $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
-            window.setTimeout(appendTransaction, 0, (i+1), transactions);
+            Ui.appendTransactionTimeouts[i] = window.setTimeout(renderFunction, 0, (i+1), transactions);
         };
-
-        appendTransaction(0, addressTransactions);
-
-        return addressUi;
+        renderFunction(0, transactions);
     }
 }
 Ui.displayCashAddressFormat = true;
 Ui.currentObject = null;
 Ui.currentObjectType = null;
+Ui.appendTransactionTimeouts = [];
 
 class DateUtil {
     static getTimeZoneAbbreviation() {

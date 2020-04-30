@@ -603,7 +603,41 @@
     cursor: pointer;
 }
 .block .transactions-nav .page-navigation > * {
-    margin-right: 0.25em;
+    border: solid 1px;
+    border-color: #CCCCCC;
+    width: 1.5em;
+    display: inline-block;
+    height: 1.5em;
+    line-height: 1.5em;
+    margin-left: -1px;
+    color: #858585;
+    position: relative;
+    z-index: 1;
+}
+.block .transactions-nav .page-navigation > *:first-child {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+.block .transactions-nav .page-navigation > *:last-child {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+.block .transactions-nav .page-navigation > *:hover {
+    background-color: #C7FFD5;
+}
+.block .transactions-nav .page-navigation > a.current {
+    font-size: 1.1em;
+    font-weight: bold;
+    border: solid 2px #606060;
+    z-index: 2;
+}
+.block .transactions-nav .page-navigation {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 
 .block .transactions .transaction:hover {
