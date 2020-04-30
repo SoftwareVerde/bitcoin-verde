@@ -584,12 +584,16 @@
     margin: 0px;
 }
 
+#main > .block .transactions-nav {
+    display: block;
+}
 .block .transactions-nav {
     font-size: 1.25em;
     padding-top: 0.5em;
     text-align: center;
     margin-bottom: -1em;
     color: #00B512;
+    display: none;
 }
 .block .transactions-nav .page-navigation {
     margin-left: 0.5em;
