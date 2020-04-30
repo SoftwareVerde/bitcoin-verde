@@ -314,7 +314,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Integer pageNumber;
         {
             final String paramPageSizeString = (parameters.hasKey("pageSize") ? parameters.getString("pageSize") : "128");
-            final String paramPageNumberString = (parameters.hasKey("pageSize") ? parameters.getString("pageSize") : "0");
+            final String paramPageNumberString = (parameters.hasKey("pageNumber") ? parameters.getString("pageNumber") : "0");
 
             pageSize = Util.parseInt(paramPageSizeString);
             pageNumber = Util.parseInt(paramPageNumberString);
