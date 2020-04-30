@@ -584,6 +584,24 @@
     margin: 0px;
 }
 
+.block .transactions-nav {
+    font-size: 1.25em;
+    padding-top: 0.5em;
+    text-align: center;
+    margin-bottom: -1em;
+    color: #00B512;
+}
+.block .transactions-nav .page-navigation {
+    margin-left: 0.5em;
+    margin-right: 0.5em;
+}
+.block .transactions-nav .page-navigation > a:hover {
+    cursor: pointer;
+}
+.block .transactions-nav .page-navigation > * {
+    margin-right: 0.25em;
+}
+
 .block .transactions .transaction:hover {
     box-shadow: 0px 0px 2px #00B512;
 }

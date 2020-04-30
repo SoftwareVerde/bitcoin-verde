@@ -447,6 +447,24 @@ class Ui {
         $(".block-header .byte-count .value:not(.kilobytes)", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || (block.transactions ? block.transactions.length : null ) || "-").toLocaleString());
 
+        const pageSize = 256;
+        const transactionCount = block.transactionCount;
+        const pageCount = parseInt((transactionCount + pageSize - 1) / pageSize);
+        const pageNavigation = $(".transactions-nav .page-navigation", blockUi);
+        for (let i = 0; i < Math.min(3, pageCount); i += 1) {
+            const pageLink = $("<a></a>");
+            pageLink.text(i + 1);
+            pageNavigation.append(pageLink);
+        }
+        if (pageCount > 3) {
+            pageNavigation.append("<span>...</span>");
+        }
+        for (let i = 0; i < Math.min(3, (pageCount - 3)); i += 1) {
+            const pageLink = $("<a></a>");
+            pageLink.text((pageCount - 3) + i + 1);
+            pageNavigation.append(pageLink);
+        }
+
         const loadingElement = Ui._getLoadingElement();
         const appendTransaction = function(i, transactions) {
             if (i >= transactions.length) {
@@ -460,6 +478,16 @@ class Ui {
             $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
             window.setTimeout(appendTransaction, 0, (i+1), transactions);
         };
+
+        $("a", pageNavigation).on("click", function() {
+            const pageNumber = (parseInt($(this).text()) - 1);
+            Api.getBlockTransactions(block.hash, { pageSize: pageSize, pageNumber: pageNumber }, function(data) {
+                const container = $(".transactions", blockUi);
+                container.empty();
+                const transactions = data.transactions;
+                appendTransaction(0, transactions);
+            });
+        });
 
         const transactions = (block.transactions || []);
         appendTransaction(0, transactions);
