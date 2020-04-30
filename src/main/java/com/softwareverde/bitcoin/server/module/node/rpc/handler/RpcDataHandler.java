@@ -37,27 +37,77 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final NetworkTime _networkTime;
+    protected final MedianBlockTime _medianBlockTime;
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockValidator _blockValidator;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final BlockDownloader _blockDownloader;
     protected final BlockStore _blockStore;
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final TransactionValidatorFactory transactionValidatorFactory, final BlockStore blockStore) {
+    protected Block _getBlock(final BlockId blockId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        if (blockId == null) { return null; }
+
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+        final Long blockHeight = (_blockStore != null ? blockHeaderDatabaseManager.getBlockHeight(blockId) : null);
+        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+
+        if (_blockStore != null) {
+            final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
+            if (cachedBlock != null) {
+                return cachedBlock;
+            }
+        }
+
+        final Block block = blockDatabaseManager.getBlock(blockId);
+        if (block == null) { return null; }
+
+        if (_blockStore != null) {
+            _blockStore.storeBlock(block, blockHeight);
+        }
+
+        return block;
+    }
+
+    protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Integer pageSize, final Integer pageNumber, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        if (blockId == null) { return null; }
+
+        final Block block = _getBlock(blockId, databaseManager);
+        final List<Transaction> transactions = block.getTransactions();
+
+        final MutableList<Transaction> returnedTransactions = new MutableList<Transaction>(pageSize);
+        final int startIndex = (pageNumber * pageSize);
+        for (int i = 0; i < pageSize; ++i) {
+            final int readIndex = (startIndex + i);
+            if (readIndex >= transactions.getCount()) { break; }
+
+            final Transaction transaction = transactions.get(readIndex);
+            returnedTransactions.add(transaction);
+        }
+        return returnedTransactions;
+    }
+
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockValidator blockValidator, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BlockStore blockStore) {
         _databaseManagerFactory = databaseManagerFactory;
 
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
         _blockValidator = blockValidator;
         _transactionValidatorFactory = transactionValidatorFactory;
+        _networkTime = networkTime;
+        _medianBlockTime = medianBlockTime;
         _blockStore = blockStore;
     }
 
@@ -207,8 +257,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-            final Long blockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            return blockHeaderHeight;
+            return blockHeaderDatabaseManager.getBlockHeight(blockId);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -220,29 +269,13 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public Block getBlock(final Long blockHeight) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
-            if (blockId == null) { return null; }
 
-            if (_blockStore != null) {
-                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-                final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
-                if (cachedBlock != null) {
-                    return cachedBlock;
-                }
-            }
-
-            final Block block = blockDatabaseManager.getBlock(blockId);
-
-            if (_blockStore != null) {
-                _blockStore.storeBlock(block, blockHeight);
-            }
-
-            return block;
+            return _getBlock(blockId, databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -254,28 +287,42 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public Block getBlock(final Sha256Hash blockHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+
+            return _getBlock(blockId, databaseManager);
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public List<Transaction> getBlockTransactions(final Sha256Hash blockHash, final Integer pageSize, final Integer pageNumber) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { return null; }
 
-            final Long blockHeight = (_blockStore != null ? blockHeaderDatabaseManager.getBlockHeight(blockId) : null);
+            return _getBlockTransactions(blockId, pageSize, pageNumber, databaseManager);
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
 
-            if (_blockStore != null) {
-                final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
-                if (cachedBlock != null) {
-                    return cachedBlock;
-                }
-            }
+    @Override
+    public List<Transaction> getBlockTransactions(final Long blockHeight, final Integer pageSize, final Integer pageNumber) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
 
-            final Block block = blockDatabaseManager.getBlock(blockId);
-            if (block == null) { return null; }
+            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
 
-            if (_blockStore != null) {
-                _blockStore.storeBlock(block, blockHeight);
-            }
-
-            return block;
+            return _getBlockTransactions(blockId, pageSize, pageNumber, databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -457,7 +504,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null); // TODO: both should not be null...
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null);
 
             final Container<BlockchainSegmentId> blockchainSegmentIdContainer = new Container<BlockchainSegmentId>();
 
