@@ -59,25 +59,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
                 blockHeaders[permutation[1]] = blockHeader_587197;
                 blockHeaders[permutation[2]] = blockHeader_587198;
 
-                final BlockHeader[] preSortedBlockHeaders = MedianBlockHeaderSelector.preOrderBlocks(blockHeaders);
-                _validatePreOrdering(preSortedBlockHeaders, blockHeights);
-            }
-        }
-
-        { // PreSorting will likely never be executed on anything other than 3 headers, but just in case...
-            final int[][] extraPermutations = new int[][]{
-                {0, 1, 2, 3}, {0, 1, 3, 2}, {0, 2, 1, 3}, {0, 2, 3, 1}, {0, 3, 1, 2}, {0, 3, 2, 1},
-                {1, 0, 2, 3}, {1, 0, 3, 2}, {1, 2, 0, 3}, {1, 2, 3, 0}, {1, 3, 0, 2}, {1, 3, 2, 0},
-                {2, 1, 0, 3}, {2, 1, 3, 0}, {2, 0, 1, 3}, {2, 0, 3, 1}, {2, 3, 1, 0}, {2, 3, 0, 1},
-                {3, 1, 2, 0}, {3, 1, 0, 2}, {3, 2, 1, 0}, {3, 2, 0, 1}, {3, 0, 1, 2}, {3, 0, 2, 1}
-            };
-            for (final int[] permutation : extraPermutations) {
-                final BlockHeader[] blockHeaders = new BlockHeader[4];
-                blockHeaders[permutation[0]] = blockHeader_587196;
-                blockHeaders[permutation[1]] = blockHeader_587197;
-                blockHeaders[permutation[2]] = blockHeader_587198;
-                blockHeaders[permutation[3]] = blockHeader_587199;
-
+                // System.out.println("Test: {" + permutation[0] + "," + permutation[1] + "," + permutation[2] + "}");
                 final BlockHeader[] preSortedBlockHeaders = MedianBlockHeaderSelector.preOrderBlocks(blockHeaders);
                 _validatePreOrdering(preSortedBlockHeaders, blockHeights);
             }

@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.Comparator;
@@ -28,53 +26,30 @@ class MedianBlockHeaderSelector {
     };
 
     public static BlockHeader[] preOrderBlocks(final BlockHeader[] blockHeaders) {
+        if (blockHeaders.length != 3) { return null; }
+
         final BlockHeader[] copiedBlockHeaders = Util.copyArray(blockHeaders);
 
-        final int requiredContinuousChainCount = (blockHeaders.length - 1);
-        int swapCount = 0;
-        int continuousChainCount = 0;
-        int i = 0;
-        Tuple<Integer, Integer> lastUnstableSwap = null;
-        while (true) {
-            if (swapCount > (blockHeaders.length * blockHeaders.length)) {
-                Logger.debug("Unable to sort non-continuous Block Headers.");
-                return null;
-            }
-
-            final BlockHeader blockHeader = copiedBlockHeaders[i];
-            final BlockHeader nextBlockHeader = copiedBlockHeaders[i + 1];
-
-            if (Util.areEqual(blockHeader.getHash(), nextBlockHeader.getPreviousBlockHash())) {
-                continuousChainCount += 1;
-
-                if (continuousChainCount >= requiredContinuousChainCount) { break; }
-                i += 1;
-            }
-            else if (Util.areEqual(blockHeader.getPreviousBlockHash(), nextBlockHeader.getHash())) {
-                MedianBlockHeaderSelector.swap(copiedBlockHeaders, i, (i + 1));
-                lastUnstableSwap = null;
-                swapCount += 1;
-            }
-            else { // The two adjacent blocks are not related, so swap the next out of the way...
-                final int defaultDestabilizer = 2;
-                final int destabilizer;
-                { // Ensure the same swap is not continuously repeated...
-                    final Tuple<Integer, Integer> thisUnstableSwap = new Tuple<Integer, Integer>((i + 1), (i + defaultDestabilizer));
-                    if (Util.areEqual(thisUnstableSwap, lastUnstableSwap)) {
-                        destabilizer = (thisUnstableSwap.second + 1);
-                    }
-                    else {
-                        destabilizer = defaultDestabilizer;
-                    }
-                }
-                lastUnstableSwap = new Tuple<Integer, Integer>((i + 1), (i + destabilizer));
-
-                MedianBlockHeaderSelector.swap(copiedBlockHeaders, (i + 1), ((i + destabilizer) % blockHeaders.length));
-                swapCount += 1;
-                continuousChainCount = 0;
-                i = 0;
-            }
+        if (Util.areEqual(copiedBlockHeaders[1].getHash(), copiedBlockHeaders[0].getPreviousBlockHash())) {
+            MedianBlockHeaderSelector.swap(copiedBlockHeaders, 1,0);
         }
+
+        if (Util.areEqual(copiedBlockHeaders[2].getHash(), copiedBlockHeaders[1].getPreviousBlockHash())) {
+            MedianBlockHeaderSelector.swap(copiedBlockHeaders, 2,1);
+        }
+
+        if (Util.areEqual(copiedBlockHeaders[2].getHash(), copiedBlockHeaders[0].getPreviousBlockHash())) {
+            MedianBlockHeaderSelector.swap(copiedBlockHeaders, 1,2);
+            MedianBlockHeaderSelector.swap(copiedBlockHeaders, 1,0);
+        }
+
+        if (Util.areEqual(copiedBlockHeaders[2].getHash(), copiedBlockHeaders[0].getPreviousBlockHash())) {
+            MedianBlockHeaderSelector.swap(copiedBlockHeaders, 1,2);
+            MedianBlockHeaderSelector.swap(copiedBlockHeaders, 1,0);
+        }
+
+        if (! Util.areEqual(copiedBlockHeaders[0].getHash(), copiedBlockHeaders[1].getPreviousBlockHash())) { return null; }
+        if (! Util.areEqual(copiedBlockHeaders[1].getHash(), copiedBlockHeaders[2].getPreviousBlockHash())) { return null; }
 
         return copiedBlockHeaders;
     }
