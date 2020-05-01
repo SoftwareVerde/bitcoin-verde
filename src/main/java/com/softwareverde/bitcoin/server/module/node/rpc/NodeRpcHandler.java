@@ -288,11 +288,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        if (! parameters.hasKey("hash")) {
-            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: [hash]");
-            return;
-        }
-
         final Long blockHeight;
         final Sha256Hash blockHash;
         {
