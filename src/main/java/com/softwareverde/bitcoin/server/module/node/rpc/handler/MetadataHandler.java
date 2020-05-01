@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -50,12 +51,14 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         { // Include Extra Block Metadata...
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
+            final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
 
             blockJson.put("height", blockHeight);
             blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
             blockJson.put("byteCount", blockHeaderDatabaseManager.getBlockByteCount(blockId));
             blockJson.put("transactionCount", transactionCount);
             blockJson.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
+            blockJson.put("chainWork", chainWork);
         }
     }
 
