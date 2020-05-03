@@ -24,7 +24,7 @@ public class UnspentTransactionOutputManager {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManager _databaseManager;
 
-    protected void _buildUtxoSetUpToHeadBlock(final BlockLoader blockLoader) throws DatabaseException {
+    protected Long _buildUtxoSetUpToHeadBlock(final BlockLoader blockLoader) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
@@ -37,12 +37,14 @@ public class UnspentTransactionOutputManager {
             final PreloadedBlock preloadedBlock = blockLoader.getBlock(blockHeight);
             if (preloadedBlock == null) {
                 Logger.debug("Unable to load block: " + blockHeight);
-                return;
+                break;
             }
 
             _updateUtxoSetWithBlock(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight());
             blockHeight += 1L;
         }
+
+        return (blockHeight - 1L);
     }
 
     protected void _commitInMemoryUtxoSetToDisk() throws DatabaseException {
@@ -115,10 +117,13 @@ public class UnspentTransactionOutputManager {
     public void rebuildUtxoSetFromGenesisBlock(final DatabaseConnection maintenanceDatabaseConnection, final BlockLoader blockLoader) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+
             maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
             maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE committed_unspent_transaction_outputs"));
 
-            _buildUtxoSetUpToHeadBlock(blockLoader);
+            final Long utxoBlockHeight = _buildUtxoSetUpToHeadBlock(blockLoader);
+            unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(utxoBlockHeight);
         }
         finally {
             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -131,7 +136,10 @@ public class UnspentTransactionOutputManager {
     public void buildUtxoSet(final BlockLoader blockLoader) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {
-            _buildUtxoSetUpToHeadBlock(blockLoader);
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+            final Long utxoBlockHeight = _buildUtxoSetUpToHeadBlock(blockLoader);
+            unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(utxoBlockHeight);
         }
         finally {
             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -149,7 +157,7 @@ public class UnspentTransactionOutputManager {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
             final Long uncommittedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
             if (! Util.areEqual(blockHeight, (uncommittedUtxoBlockHeight + 1L))) {
-                throw new DatabaseException("Attempted to update UTXO set with out-of-order block.");
+                throw new DatabaseException("Attempted to update UTXO set with out-of-order block. blockHeight=" + blockHeight + ", utxoHeight=" + uncommittedUtxoBlockHeight);
             }
 
             _updateUtxoSetWithBlock(block, blockHeight);

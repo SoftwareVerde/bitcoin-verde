@@ -24,6 +24,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
         final AtomicLong executionTime = new AtomicLong(0L);
         final Container<Boolean> isDoneAddingItems = new Container<Boolean>(false);
         final AtomicInteger queuedItemCount = new AtomicInteger(0);
+        final Object queuedItemCountChangedPin = new Object();
         final Container<Exception> exceptionContainer = new Container<Exception>(null);
 
         final Runnable coreRunnable = new Runnable() {
@@ -42,6 +43,10 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                             if (queuedItemCount.get() < 1) { break; }
                             item = itemQueue.removeFirst();
                             queuedItemCount.addAndGet(-1);
+
+                            synchronized (queuedItemCountChangedPin) {
+                                queuedItemCountChangedPin.notifyAll();
+                            }
                         }
                         else {
                             synchronized (itemQueue) {
@@ -58,6 +63,10 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                                 if (queuedItemCount.get() < 1) { break; }
                                 item = itemQueue.removeFirst();
                                 queuedItemCount.addAndGet(-1);
+
+                                synchronized (queuedItemCountChangedPin) {
+                                    queuedItemCountChangedPin.notifyAll();
+                                }
                             }
                         }
 
@@ -77,6 +86,10 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                                 exceptionContainer.value = exception;
                                 itemQueue.clear();
                                 queuedItemCount.set(0);
+
+                                synchronized (queuedItemCountChangedPin) {
+                                    queuedItemCountChangedPin.notifyAll();
+                                }
                             }
 
                             return;
@@ -85,8 +98,9 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                             executionTimer.stop();
                             executionTime.addAndGet(executionTimer.getMillisecondsElapsed());
 
-                            synchronized (queuedItemCount) {
-                                queuedItemCount.notifyAll();
+                            queuedItemCount.set(0); // Should be unnecessary, but for sanity...
+                            synchronized (queuedItemCountChangedPin) {
+                                queuedItemCountChangedPin.notifyAll();
                             }
                         }
                     }
@@ -94,11 +108,12 @@ public class BlockingQueueBatchRunner<T> extends Thread {
             }
         };
 
-        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, isDoneAddingItems, exceptionContainer);
+        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, queuedItemCountChangedPin, batchRunner, coreRunnable, executionTime, isDoneAddingItems, exceptionContainer);
     }
 
     protected final Container<Boolean> _threadContinueContainer;
     protected final LinkedList<T> _itemQueue;
+    protected final Object _queuedItemCountChangedPin;
     protected final AtomicInteger _queuedItemCount;
     protected final BatchRunner<T> _batchRunner;
     protected final AtomicLong _executionTime;
@@ -106,11 +121,12 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     protected final Container<Exception> _exceptionContainer;
     protected Integer _totalItemCount = 0;
 
-    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedList<T> itemQueue, final AtomicInteger queuedItemCount, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Boolean> isDoneAddingItems, final Container<Exception> exceptionContainer) {
+    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedList<T> itemQueue, final AtomicInteger queuedItemCount, final Object queuedItemCountChangedPin, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Boolean> isDoneAddingItems, final Container<Exception> exceptionContainer) {
         super(coreRunnable);
         _threadContinueContainer = threadContinueContainer;
         _itemQueue = itemQueue;
         _queuedItemCount = queuedItemCount;
+        _queuedItemCountChangedPin = queuedItemCountChangedPin;
         _batchRunner = batchRunner;
         _executionTime = executionTime;
         _isDoneAddingItems = isDoneAddingItems;
@@ -141,20 +157,18 @@ public class BlockingQueueBatchRunner<T> extends Thread {
             _queuedItemCount.addAndGet(1);
             _itemQueue.notify();
             _totalItemCount += 1;
+
+            synchronized (_queuedItemCountChangedPin) {
+                _queuedItemCountChangedPin.notifyAll();
+            }
         }
     }
 
     public void waitForQueueCapacity(final Integer maxCapacity) throws InterruptedException {
-        while (true) {
-            synchronized (_queuedItemCount) {
-                if (_queuedItemCount.get() < maxCapacity) {
-                    return;
-                }
-
-                _queuedItemCount.wait();
+        while (_queuedItemCount.get() >= maxCapacity) {
+            synchronized (_queuedItemCountChangedPin) {
+                _queuedItemCountChangedPin.wait();
             }
-
-            if (_exceptionContainer.value != null) { return; }
         }
     }
 
