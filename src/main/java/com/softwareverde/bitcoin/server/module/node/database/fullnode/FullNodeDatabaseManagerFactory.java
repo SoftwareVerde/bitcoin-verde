@@ -30,7 +30,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     @Override
     public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new FullNodeDatabaseManager(databaseConnection, _blockStore, _masterInflater);
+        return new FullNodeDatabaseManager(databaseConnection, _blockStore, _masterInflater, _maxUtxoCount, _utxoPurgePercent);
     }
 
     @Override

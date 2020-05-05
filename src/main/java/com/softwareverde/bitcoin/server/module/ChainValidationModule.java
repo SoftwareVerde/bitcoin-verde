@@ -96,8 +96,13 @@ public class ChainValidationModule {
 
         Sha256Hash nextBlockHash = _startingBlockHash;
         try (final DatabaseConnection databaseConnection = database.newConnection();) {
-
-            final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, _blockStore, masterInflater);
+            final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(
+                databaseConnection,
+                _blockStore,
+                masterInflater,
+                _bitcoinProperties.getMaxUtxoCount(),
+                _bitcoinProperties.getUtxoPurgePercent()
+            );
 
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
