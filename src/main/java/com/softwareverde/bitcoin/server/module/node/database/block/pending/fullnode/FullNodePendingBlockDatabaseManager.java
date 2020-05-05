@@ -45,7 +45,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.copyOf(row.getBytes("hash"));
+        return Sha256Hash.wrap(row.getBytes("hash"));
     }
 
     protected PendingBlockId _getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
@@ -78,7 +78,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         return listBuilder.build();
     }
 
-    protected PendingBlockId _storePendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
+    protected PendingBlockId _storePendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Boolean wasDownloaded) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
@@ -95,11 +95,12 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         }
 
         final Long pendingBlockId = databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO pending_blocks (hash, previous_block_hash, timestamp, priority) VALUES (?, ?, ?, ?)")
+            new Query("INSERT IGNORE INTO pending_blocks (hash, previous_block_hash, timestamp, priority, was_downloaded) VALUES (?, ?, ?, ?, ?)")
                 .setParameter(blockHash)
                 .setParameter(previousBlockHash)
                 .setParameter(currentTimestamp)
                 .setParameter(priority)
+                .setParameter(wasDownloaded ? 1 : 0)
         );
 
         if (pendingBlockId < 1) { // -1 may be returned if no insert occurred.
@@ -196,7 +197,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return false; }
 
         final Row row = rows.get(0);
-        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
+        final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
         final Boolean wasDownloaded = row.getBoolean("was_downloaded");
         if (! wasDownloaded) { return false; }
 
@@ -217,8 +218,10 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("hash"));
-        final Sha256Hash previousBlockHash = Sha256Hash.copyOf(row.getBytes("previous_block_hash"));
+        final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
+
+        final byte[] previousBlockHashBytes = row.getBytes("previous_block_hash");
+        final Sha256Hash previousBlockHash = Sha256Hash.wrap(previousBlockHashBytes);
 
         final ByteArray blockData;
         {
@@ -287,30 +290,11 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         }
     }
 
-    public PendingBlockId insertBlockHash(final Sha256Hash blockHash) throws DatabaseException {
+    public PendingBlockId insertBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Boolean wasDownloaded) throws DatabaseException {
         try {
             READ_WRITE_LOCK.lock();
 
-            return _storePendingBlock(blockHash, null);
-
-        }
-        finally {
-            READ_WRITE_LOCK.unlock();
-        }
-    }
-
-    /**
-     * Inserts the blockHash into PendingBlocks if it does not exist.
-     *  If previousBlockHash is provided, then the PendingBlock is updated to include the previousBlockHash.
-     */
-    public PendingBlockId storeBlockHash(final Sha256Hash blockHash) throws DatabaseException {
-        try {
-            READ_WRITE_LOCK.lock();
-
-            final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
-            if (existingPendingBlockId != null) { return existingPendingBlockId; }
-
-            return _storePendingBlock(blockHash, null);
+            return _storePendingBlock(blockHash, previousBlockHash, wasDownloaded);
 
         }
         finally {
@@ -332,7 +316,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             DatabaseException deadlockException = null;
             for (int i = 0; i < 3; ++i) {
                 try {
-                    return _storePendingBlock(blockHash, previousBlockHash);
+                    return _storePendingBlock(blockHash, previousBlockHash, false);
                 }
                 catch (final DatabaseException exception) {
                     deadlockException = exception;
@@ -361,7 +345,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                     pendingBlockId = existingPendingBlockId;
                 }
                 else {
-                    pendingBlockId = _storePendingBlock(blockHash, previousBlockHash);
+                    pendingBlockId = _storePendingBlock(blockHash, previousBlockHash, false);
                 }
             }
 
@@ -556,7 +540,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            return Sha256Hash.copyOf(row.getBytes("hash"));
+            return Sha256Hash.wrap(row.getBytes("hash"));
 
         }
         finally {

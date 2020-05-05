@@ -25,7 +25,9 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -85,6 +87,10 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.io.File;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -94,7 +100,7 @@ public class NodeModule {
 
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
-    protected final PendingBlockStore _blockStore;
+    protected final PendingBlockStoreCore _blockStore;
     protected final MasterInflater _masterInflater;
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
@@ -766,10 +772,9 @@ public class NodeModule {
             _databaseMaintenanceThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    final Thread thread = _databaseMaintenanceThread;
                     // HH    MM    SS      MS
-                    final Long analyzeEveryMilliseconds = (24L * 60L * 60L * 1000L); // 24 Hours
-                    while (! thread.isInterrupted()) {
+                    final long analyzeEveryMilliseconds = (24L * 60L * 60L * 1000L); // 24 Hours
+                    while (! _databaseMaintenanceThread.isInterrupted()) {
                         try {
                             Thread.sleep(analyzeEveryMilliseconds);
                             databaseMaintainer.analyzeTables();
@@ -797,7 +802,51 @@ public class NodeModule {
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
 
+        if (_bitcoinProperties.isBootstrapEnabled()) {
+            Logger.info("[Bootstrapping Headers]");
+            final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
+            headersBootstrapper.run();
+        }
+
+        { // Index previously downloaded blocks...
+            Logger.info("[Indexing Pending Blocks]");
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+
+                final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
+                try (final DirectoryStream<Path> pendingBlockSubDirectories = Files.newDirectoryStream(Paths.get(pendingBlockDataDirectory))) {
+                    for (final Path pendingBlockSubDirectory : pendingBlockSubDirectories) {
+                        try (final DirectoryStream<Path> pendingBlockPaths = Files.newDirectoryStream(pendingBlockSubDirectory)) {
+                            for (final Path pendingBlockPath : pendingBlockPaths) {
+                                final File pendingBlockFile = pendingBlockPath.toFile();
+                                final String blockHashString = pendingBlockFile.getName();
+                                final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
+                                if (blockHash != null) {
+                                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                                    if (blockId != null) {
+                                        final Boolean blockHasBeenProcessed = blockDatabaseManager.hasTransactions(blockHash);
+                                        if (blockHasBeenProcessed) { continue; }
+                                    }
+
+                                    final BlockId parentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+                                    final Sha256Hash parentBlockHash = blockHeaderDatabaseManager.getBlockHash(parentBlockId);
+                                    pendingBlockDatabaseManager.insertBlockHash(blockHash, parentBlockHash, true);
+                                    Logger.debug("Indexed Existing pending Block: " + blockHash);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (final Exception exception) {
+                Logger.debug(exception);
+            }
+        }
+
         { // Validate the UTXO set is up to date...
+            Logger.info("[Checking UTXO Set]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
                 final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -822,12 +871,6 @@ public class NodeModule {
             catch (final DatabaseException exception) {
                 Logger.error(exception);
             }
-        }
-
-        if (_bitcoinProperties.isBootstrapEnabled()) {
-            Logger.info("[Bootstrapping Headers]");
-            final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
-            headersBootstrapper.run();
         }
 
         if (! _bitcoinProperties.skipNetworking()) {

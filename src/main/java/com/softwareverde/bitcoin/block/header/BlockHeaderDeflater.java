@@ -1,10 +1,12 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -33,10 +35,13 @@ public class BlockHeaderDeflater {
     }
 
     protected BlockHeaderByteData _createByteData(final BlockHeader blockHeader) {
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final MerkleRoot merkleRoot = blockHeader.getMerkleRoot();
+
         final BlockHeaderByteData byteData = new BlockHeaderByteData();
         ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(blockHeader.getVersion()));
-        ByteUtil.setBytes(byteData.previousBlockHash, blockHeader.getPreviousBlockHash().getBytes());
-        ByteUtil.setBytes(byteData.merkleRoot, blockHeader.getMerkleRoot().getBytes());
+        ByteUtil.setBytes(byteData.previousBlockHash, previousBlockHash.getBytes());
+        ByteUtil.setBytes(byteData.merkleRoot, merkleRoot.getBytes());
 
         final byte[] timestampBytes = ByteUtil.longToBytes(blockHeader.getTimestamp());
         for (int i = 0; i < byteData.timestamp.length; ++i) {

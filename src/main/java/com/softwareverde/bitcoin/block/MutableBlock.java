@@ -4,8 +4,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
@@ -15,11 +13,12 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class MutableBlock implements Block {
     protected Long _version;
-    protected Sha256Hash _previousBlockHash = new ImmutableSha256Hash();
+    protected Sha256Hash _previousBlockHash = Sha256Hash.EMPTY_HASH;
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;
@@ -29,10 +28,13 @@ public class MutableBlock implements Block {
     protected Integer _cachedHashCode = null;
 
     protected void _initFromBlockHeader(final BlockHeader blockHeader) {
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final Difficulty difficulty = blockHeader.getDifficulty();
+
         _version = blockHeader.getVersion();
-        _previousBlockHash = blockHeader.getPreviousBlockHash().asConst();
+        _previousBlockHash = previousBlockHash.asConst();
         _timestamp = blockHeader.getTimestamp();
-        _difficulty = blockHeader.getDifficulty().asConst();
+        _difficulty = difficulty.asConst();
         _nonce = blockHeader.getNonce();
     }
 

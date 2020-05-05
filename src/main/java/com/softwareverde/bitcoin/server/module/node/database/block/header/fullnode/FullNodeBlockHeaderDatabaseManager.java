@@ -29,7 +29,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
@@ -117,22 +116,18 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     }
 
     protected Sha256Hash _getBlockHash(final BlockId blockId) throws DatabaseException {
+        if (blockId == null) { return null; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (blockId == null) { return new MutableSha256Hash(); }
-
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, hash FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
 
-        if (rows.isEmpty()) {
-            return new MutableSha256Hash();
-        }
-        else {
-            final Row previousBlockRow = rows.get(0);
-            return Sha256Hash.copyOf(previousBlockRow.getBytes("hash"));
-        }
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return Sha256Hash.wrap(row.getBytes("hash"));
     }
 
     protected BlockHeader _inflateBlockHeader(final BlockId blockId) throws DatabaseException {
@@ -151,7 +146,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final Sha256Hash previousBlockHash;
         {
             final BlockId previousBlockId = BlockId.wrap(row.getLong("previous_block_id"));
-            previousBlockHash = _getBlockHash(previousBlockId);
+            final Sha256Hash nullablePreviousBlockHash = _getBlockHash(previousBlockId);
+            previousBlockHash = Util.coalesce(nullablePreviousBlockHash, Sha256Hash.EMPTY_HASH);
         }
 
         final MerkleRoot merkleRoot = MutableMerkleRoot.copyOf(row.getBytes("merkle_root"));

@@ -78,8 +78,9 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
 
         if (! IoUtil.fileExists(blockPath)) { return; }
 
-        final File file = new File(blockPath);
-        // file.delete(); // TODO: Uncomment for release.
+        // TODO: Uncomment for release.
+        // final File file = new File(blockPath);
+        // file.delete();
     }
 
     @Override
