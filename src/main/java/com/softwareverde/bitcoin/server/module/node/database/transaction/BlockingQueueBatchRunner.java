@@ -8,6 +8,8 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -20,11 +22,9 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final BatchRunner.Batch<T> batch) {
         final BatchRunner<T> batchRunner = new BatchRunner<T>(itemCountPerBatch);
         final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
-        final LinkedList<T> itemQueue = new LinkedList<T>();
+        final ConcurrentLinkedQueue<T> itemQueue = new ConcurrentLinkedQueue<T>();
         final AtomicLong executionTime = new AtomicLong(0L);
-        final Container<Boolean> isDoneAddingItems = new Container<Boolean>(false);
         final AtomicInteger queuedItemCount = new AtomicInteger(0);
-        final Object queuedItemCountChangedPin = new Object();
         final Container<Exception> exceptionContainer = new Container<Exception>(null);
 
         final Runnable coreRunnable = new Runnable() {
@@ -33,48 +33,35 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                 final int batchSize = batchRunner.getItemCountPerBatch();
                 final MilliTimer executionTimer = new MilliTimer();
 
-                while ( threadContinueContainer.value || (queuedItemCount.get() > 0) ) {
+                while ( threadContinueContainer.value || (! itemQueue.isEmpty()) ) {
                     int batchItemCount = 0;
                     final MutableList<T> batchedItems = new MutableList<T>(batchSize);
                     while (batchItemCount < batchSize) {
-
-                        final T item;
-                        if (isDoneAddingItems.value) {
-                            if (queuedItemCount.get() < 1) { break; }
-                            item = itemQueue.removeFirst();
-                            queuedItemCount.addAndGet(-1);
-
-                            synchronized (queuedItemCountChangedPin) {
-                                queuedItemCountChangedPin.notifyAll();
-                            }
-                        }
-                        else {
-                            synchronized (itemQueue) {
-                                if (! isDoneAddingItems.value) {
-                                    try {
-                                        itemQueue.wait();
-                                    }
-                                    catch (final InterruptedException exception) {
-                                        Logger.debug("Aborting BlockingQueueBatch.");
-                                        return;
-                                    }
-                                }
-
-                                if (queuedItemCount.get() < 1) { break; }
-                                item = itemQueue.removeFirst();
-                                queuedItemCount.addAndGet(-1);
-
-                                synchronized (queuedItemCountChangedPin) {
-                                    queuedItemCountChangedPin.notifyAll();
+                        if (itemQueue.isEmpty()) {
+                            try {
+                                synchronized (itemQueue) {
+                                    // This wait may timeout in two cases:
+                                    //  1. An item hasn't been added in 100ms.
+                                    //  2. The last item was added and a race condition occurred during notification.
+                                    itemQueue.wait(100L);
                                 }
                             }
+                            catch (final InterruptedException exception) {
+                                Logger.debug("Aborting BlockingQueueBatch.");
+                                return;
+                            }
                         }
+
+                        final T item = itemQueue.poll();
+                        if (item == null) { break; }
+
+                        queuedItemCount.addAndGet(-1);
 
                         batchedItems.add(item);
                         batchItemCount += 1;
                     }
 
-                    if (! batchedItems.isEmpty()) {
+                    if (! batchedItems.isEmpty()) { // batchedItems item count may always be less than batchSize due to a timeout on itemQueue.wait(L)...
                         executionTimer.start();
                         try {
                             batchRunner.run(batchedItems, batch);
@@ -82,54 +69,36 @@ public class BlockingQueueBatchRunner<T> extends Thread {
                         catch (final Exception exception) {
                             Logger.debug(exception);
 
-                            synchronized (itemQueue) {
-                                exceptionContainer.value = exception;
-                                itemQueue.clear();
-                                queuedItemCount.set(0);
-
-                                synchronized (queuedItemCountChangedPin) {
-                                    queuedItemCountChangedPin.notifyAll();
-                                }
-                            }
-
-                            return;
+                            exceptionContainer.value = exception;
+                            return; // Abort execution of the remaining items for this BatchRunner...
                         }
                         finally {
                             executionTimer.stop();
                             executionTime.addAndGet(executionTimer.getMillisecondsElapsed());
-
-                            queuedItemCount.set(0); // Should be unnecessary, but for sanity...
-                            synchronized (queuedItemCountChangedPin) {
-                                queuedItemCountChangedPin.notifyAll();
-                            }
                         }
                     }
                 }
             }
         };
 
-        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, queuedItemCountChangedPin, batchRunner, coreRunnable, executionTime, isDoneAddingItems, exceptionContainer);
+        return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, exceptionContainer);
     }
 
     protected final Container<Boolean> _threadContinueContainer;
-    protected final LinkedList<T> _itemQueue;
-    protected final Object _queuedItemCountChangedPin;
+    protected final Queue<T> _itemQueue;
     protected final AtomicInteger _queuedItemCount;
     protected final BatchRunner<T> _batchRunner;
     protected final AtomicLong _executionTime;
-    protected final Container<Boolean> _isDoneAddingItems;
     protected final Container<Exception> _exceptionContainer;
     protected Integer _totalItemCount = 0;
 
-    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final LinkedList<T> itemQueue, final AtomicInteger queuedItemCount, final Object queuedItemCountChangedPin, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Boolean> isDoneAddingItems, final Container<Exception> exceptionContainer) {
+    protected BlockingQueueBatchRunner(final Container<Boolean> threadContinueContainer, final Queue<T> itemQueue, final AtomicInteger queuedItemCount, final BatchRunner<T> batchRunner, final Runnable coreRunnable, final AtomicLong executionTime, final Container<Exception> exceptionContainer) {
         super(coreRunnable);
         _threadContinueContainer = threadContinueContainer;
         _itemQueue = itemQueue;
         _queuedItemCount = queuedItemCount;
-        _queuedItemCountChangedPin = queuedItemCountChangedPin;
         _batchRunner = batchRunner;
         _executionTime = executionTime;
-        _isDoneAddingItems = isDoneAddingItems;
         _exceptionContainer = exceptionContainer;
     }
 
@@ -150,24 +119,24 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     }
 
     public void addItem(final T item) {
+        if (_exceptionContainer.value != null) { return; }
+
+        _itemQueue.add(item);
+        _queuedItemCount.addAndGet(1);
+        _totalItemCount += 1;
+
         synchronized (_itemQueue) {
-            if (_exceptionContainer.value != null) { return; }
-
-            _itemQueue.addLast(item);
-            _queuedItemCount.addAndGet(1);
-            _itemQueue.notify();
-            _totalItemCount += 1;
-
-            synchronized (_queuedItemCountChangedPin) {
-                _queuedItemCountChangedPin.notifyAll();
-            }
+            _itemQueue.notifyAll();
         }
     }
 
     public void waitForQueueCapacity(final Integer maxCapacity) throws InterruptedException {
         while (_queuedItemCount.get() >= maxCapacity) {
-            synchronized (_queuedItemCountChangedPin) {
-                _queuedItemCountChangedPin.wait();
+            if (_exceptionContainer.value != null) { return; }
+            if (! this.isAlive()) { return; }
+
+            synchronized (_itemQueue) {
+                _itemQueue.wait(100L);
             }
         }
     }
@@ -179,8 +148,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
         _threadContinueContainer.value = false;
 
         synchronized (_itemQueue) {
-            _isDoneAddingItems.value = true;
-            _itemQueue.notify();
+            _itemQueue.notifyAll();
         }
     }
 
