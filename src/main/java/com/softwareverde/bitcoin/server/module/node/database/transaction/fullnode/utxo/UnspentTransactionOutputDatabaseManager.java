@@ -63,9 +63,12 @@ public class UnspentTransactionOutputDatabaseManager {
      *  Update 2: Removing the index on is_spent changes the data+index size per row to 109 including indexes.
      *      The new value chosen is now 33554432 (2^25) (39403369 being the new theoretical max).
      */
+    public static final Long BYTES_PER_UTXO = 109L;
     public static final Long DEFAULT_MAX_UTXO_CACHE_COUNT = 33554432L; // 2^25
+    public static final Float DEFAULT_PURGE_PERCENT = 0.50F;
 
     protected final Long _maxUtxoCount;
+    protected final Float _purgePercent;
     protected final BlockStore _blockStore;
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
@@ -83,8 +86,8 @@ public class UnspentTransactionOutputDatabaseManager {
         return Util.coalesce(row.getLong("value"), 0L);
     }
 
-    protected static void _commitUnspentTransactionOutputs(final Long maxUtxoCount, final DatabaseConnection transactionalDatabaseConnection, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
-        final long maxKeepCount = (maxUtxoCount / 2L);
+    protected static void _commitUnspentTransactionOutputs(final Long maxUtxoCount, final Float purgePercent, final DatabaseConnection transactionalDatabaseConnection, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
+        final long maxKeepCount = (long) (maxUtxoCount * (1.0D - purgePercent));
         final int maxUtxoPerBatch = 1024;
 
         final Long minUtxoBlockHeight;
@@ -312,11 +315,12 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public UnspentTransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
-        this(DEFAULT_MAX_UTXO_CACHE_COUNT, databaseManager, blockStore, masterInflater);
+        this(DEFAULT_MAX_UTXO_CACHE_COUNT, DEFAULT_PURGE_PERCENT, databaseManager, blockStore, masterInflater);
     }
 
-    public UnspentTransactionOutputDatabaseManager(final Long maxUtxoCount, final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
+    public UnspentTransactionOutputDatabaseManager(final Long maxUtxoCount, final Float purgePercent, final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
         _maxUtxoCount = maxUtxoCount;
+        _purgePercent = purgePercent;
         _databaseManager = databaseManager;
         _masterInflater = masterInflater;
         _blockStore = blockStore;
@@ -541,7 +545,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
         try (final DatabaseConnection nonTransactionalDatabaseConnection = databaseConnectionFactory.newConnection()) {
             final DatabaseConnection transactionalDatabaseConnection = _databaseManager.getDatabaseConnection();
-            _commitUnspentTransactionOutputs(_maxUtxoCount, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);
+            _commitUnspentTransactionOutputs(_maxUtxoCount, _purgePercent, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);
         }
         catch (final Exception exception) {
             try {

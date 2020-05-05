@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
@@ -51,6 +52,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
+    protected final SynchronizationStatus _synchronizationStatus;
     protected final BlockStore _blockStore;
 
     protected final BlockInflaters _blockInflaters;
@@ -60,6 +62,7 @@ public class BlockProcessor {
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
+    protected Long _utxoCommitFrequency = 2016L;
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = 0L;
 
@@ -73,7 +76,8 @@ public class BlockProcessor {
         final TransactionValidatorFactory transactionValidatorFactory,
         final MutableMedianBlockTime medianBlockTime,
         final OrphanedTransactionsCache orphanedTransactionsCache,
-        final BlockStore blockStore
+        final BlockStore blockStore,
+        final SynchronizationStatus synchronizationStatus
     ) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockInflaters = blockInflaters;
@@ -86,10 +90,15 @@ public class BlockProcessor {
 
         _orphanedTransactionsCache = orphanedTransactionsCache;
         _blockStore = blockStore;
+        _synchronizationStatus = synchronizationStatus;
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
         _maxThreadCount = maxThreadCount;
+    }
+
+    public void setUtxoCommitFrequency(final Long utxoCommitFrequency) {
+        _utxoCommitFrequency = utxoCommitFrequency;
     }
 
     public void setTrustedBlockHeight(final Long trustedBlockHeight) {
@@ -310,7 +319,7 @@ public class BlockProcessor {
             else {
                 { // Maintain the UTXO (Unspent Transaction Output) set...
                     final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory);
+                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
                     unspentTransactionOutputManager.updateUtxoSetWithBlock(block, blockHeight);
                 }
 
@@ -401,26 +410,28 @@ public class BlockProcessor {
         catch (final Exception exception) {
             Logger.info("ERROR VALIDATING BLOCK: " + block.getHash(), exception);
 
-            try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            if (! _synchronizationStatus.isShuttingDown()) {
+                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                    final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-                final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
-                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory);
+                    final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
+                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
 
-                final SimpleThreadPool threadPool = new SimpleThreadPool();
-                threadPool.start();
+                    final SimpleThreadPool threadPool = new SimpleThreadPool();
+                    threadPool.start();
 
-                try {
-                    final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, _databaseManagerFactory, threadPool);
-                    unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                    try {
+                        final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, _databaseManagerFactory, threadPool);
+                        unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                    }
+                    finally {
+                        threadPool.stop();
+                    }
                 }
-                finally {
-                    threadPool.stop();
+                catch (final Exception rebuildUtxoSetException) {
+                    Logger.debug("Error rebuilding UTXO set.", rebuildUtxoSetException);
                 }
-            }
-            catch (final Exception rebuildUtxoSetException) {
-                Logger.debug("Error rebuilding UTXO set.", rebuildUtxoSetException);
             }
         }
 

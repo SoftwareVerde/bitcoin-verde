@@ -68,6 +68,11 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
     }
 
     @Override
+    public Boolean isShuttingDown() {
+        return (_state == State.SHUTTING_DOWN);
+    }
+
+    @Override
     public Long getCurrentBlockHeight() {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

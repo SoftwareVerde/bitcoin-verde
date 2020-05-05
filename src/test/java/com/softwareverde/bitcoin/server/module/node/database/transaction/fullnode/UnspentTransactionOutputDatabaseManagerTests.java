@@ -44,7 +44,7 @@ public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTes
         final FullNodeDatabaseManager fullNodeDatabaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager();
         try (final DatabaseConnection databaseConnection = fullNodeDatabaseManager.getDatabaseConnection()) {
 
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputDatabaseManager(MAX_UTXO_COUNT, fullNodeDatabaseManager, _blockStore, _masterInflater);
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputDatabaseManager(MAX_UTXO_COUNT, 0.50F, fullNodeDatabaseManager, _blockStore, _masterInflater);
 
             long blockHeight = 1L;
             for (int i = 0; i < MAX_UTXO_COUNT; ) {

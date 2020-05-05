@@ -3,19 +3,28 @@ package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
+    protected final Long _maxUtxoCount;
+    protected final Float _utxoPurgePercent;
 
     public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
+        this(databaseConnectionFactory, blockStore, masterInflater, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    }
+
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final PendingBlockStore blockStore, final MasterInflater masterInflater, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
+        _maxUtxoCount = maxUtxoCount;
+        _utxoPurgePercent = utxoPurgePercent;
     }
 
     @Override
@@ -31,6 +40,6 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
 
     @Override
     public FullNodeDatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
-        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _blockStore, _masterInflater);
+        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _blockStore, _masterInflater, _maxUtxoCount, _utxoPurgePercent);
     }
 }

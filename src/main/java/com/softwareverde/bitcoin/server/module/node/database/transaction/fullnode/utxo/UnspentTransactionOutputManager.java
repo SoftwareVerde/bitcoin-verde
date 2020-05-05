@@ -23,6 +23,7 @@ import com.softwareverde.util.timer.MilliTimer;
 public class UnspentTransactionOutputManager {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManager _databaseManager;
+    protected final Long _commitFrequency;
 
     protected Long _buildUtxoSetUpToHeadBlock(final BlockLoader blockLoader) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
@@ -83,7 +84,7 @@ public class UnspentTransactionOutputManager {
 
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
-        if ( ((blockHeight % 2016L) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT) ) {
+        if ( ((blockHeight % _commitFrequency) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT) ) {
             utxoCommitTimer.start();
             _commitInMemoryUtxoSetToDisk();
             utxoCommitTimer.stop();
@@ -106,9 +107,10 @@ public class UnspentTransactionOutputManager {
         Logger.debug("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " in " + totalTimer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (totalTimer.getMillisecondsElapsed() + 1L)) + " tps) " + utxoTimer.getMillisecondsElapsed() + "ms UTXO " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed() + 1L)) + " tps");
     }
 
-    public UnspentTransactionOutputManager(final FullNodeDatabaseManager databaseManager, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public UnspentTransactionOutputManager(final FullNodeDatabaseManager databaseManager, final DatabaseConnectionFactory databaseConnectionFactory, final Long commitFrequency) {
         _databaseManager = databaseManager;
         _databaseConnectionFactory = databaseConnectionFactory;
+        _commitFrequency = commitFrequency;
     }
 
     /**
@@ -166,5 +168,9 @@ public class UnspentTransactionOutputManager {
         finally {
             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
         }
+    }
+
+    public Long getCommitFrequency() {
+        return _commitFrequency;
     }
 }
