@@ -38,9 +38,14 @@ public class BitcoinProperties {
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
     public Boolean skipNetworking() { return _shouldSkipNetworking; }
 
-    public Long getMaxUtxoCount() { return (_maxUtxoCacheByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO); }
-    public Long getUtxoCommitFrequency() { return _utxoCommitFrequency; }
-    public Float getUtxoPurgePercent() { return _utxoPurgePercent; }
+    public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
+    public Long getMaxCachedUtxoCount() {
+        final long maxUtxoCacheByteCount = (_maxUtxoCacheByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
+        // Double-buffering of retained UTXOs between purges reduces the maximum count of UTXOs cached before the purge...
+        return (long) (maxUtxoCacheByteCount * (1.0D - _utxoPurgePercent));
+    }
+    public Long getUtxoCacheCommitFrequency() { return _utxoCommitFrequency; }
+    public Float getUtxoCachePurgePercent() { return _utxoPurgePercent; }
 
     public Boolean isTrimBlocksEnabled() { return _trimBlocksIsEnabled; }
     public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }

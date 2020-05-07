@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -35,7 +36,11 @@ public class BitcoinVerdeDatabase implements Database {
     public static final InitFile STRATUM = new InitFile("/sql/stratum/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
 
     public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties) {
-        return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, new Runnable() {
+        return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, null);
+    }
+
+    public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties, final BitcoinProperties bitcoinProperties) {
+        return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, bitcoinProperties, new Runnable() {
             @Override
             public void run() {
                 // Nothing.
@@ -68,7 +73,7 @@ public class BitcoinVerdeDatabase implements Database {
         }
     };
 
-    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties, final Runnable onShutdownCallback) {
+    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties, final BitcoinProperties bitcoinProperties, final Runnable onShutdownCallback) {
         final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
 
         try {
@@ -76,7 +81,7 @@ public class BitcoinVerdeDatabase implements Database {
                 // Initialize the embedded database...
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, bitcoinProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);

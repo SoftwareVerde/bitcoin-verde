@@ -101,6 +101,10 @@ public class UnspentTransactionOutputDatabaseManager {
 
         Logger.trace("UTXO Commit starting: max_block_height=" + maxUtxoBlockHeight + ", min_block_height=" + minUtxoBlockHeight);
 
+        nonTransactionalDatabaseConnection.executeSql(
+            new Query("DELETE FROM unspent_transaction_outputs_buffer")
+        );
+
         // The commit process has three core routines:
         //  1. Removing UTXOs marked as spent from the memory cache.
         //  2. Removing UTXOs marked as spent from the on-disk UTXO set.
@@ -111,20 +115,21 @@ public class UnspentTransactionOutputDatabaseManager {
         //  It's plausible to execute the changes to the on-disk UTXO set with a single Database Transaction,
         //  which would render errors recoverable by only rebuilding since the last commitment instead of rebuilding the whole UTXO set, but this is not currently done.
 
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
-            nonTransactionalDatabaseConnectionFactory,
-            "DELETE FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)",
-            new UtxoQueryBatchGroupedByBlockHeight.QueryExecutor() {
-                @Override
-                public void executeQuery(final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, final Long blockHeight, final Query query, final DatabaseConnection databaseConnection) throws DatabaseException {
-                    // ExpandedInClause is used to transform the IN clause into grouped conjunctions (ie. "((key = value AND key = value) OR ...)").
-                    //  This is necessary because the current version of MySQL/MariaDB's query optimizer is not smart enough to use the index for DELETE queries using IN clauses.
-                    query.setExpandedInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoRetainerBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+            @Override
+            public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
+                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO unspent_transaction_outputs_buffer (transaction_hash, `index`, is_spent, block_height) VALUES (?, ?, NULL, ?)");
+                for (final UnspentTransactionOutput transactionOutputIdentifier : batchItems) {
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getTransactionHash());
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getOutputIndex());
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
+                }
 
-                    databaseConnection.executeSql(query);
+                synchronized (transactionalDatabaseConnection) {
+                    transactionalDatabaseConnection.executeSql(batchedInsertQuery);
                 }
             }
-        ));
+        });
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
             "DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
             new UtxoQueryBatchGroupedByBlockHeight.BatchExecutor() {
@@ -158,7 +163,7 @@ public class UnspentTransactionOutputDatabaseManager {
             }
         });
 
-        inMemoryUtxoDeleteBatchRunner.start();
+        inMemoryUtxoRetainerBatchRunner.start();
         onDiskUtxoDeleteBatchRunner.start();
         onDiskUtxoInsertBatchRunner.start();
 
@@ -233,18 +238,20 @@ public class UnspentTransactionOutputDatabaseManager {
                     final UnspentTransactionOutput spendableTransactionOutput = new UnspentTransactionOutput(transactionHash, outputIndex, nullableBlockHeight);
 
                     if (Util.coalesce(nullableIsSpent, false)) {
+                        // The UTXO was spent since the last commit...
+                        // TODO: Is there a way to avoid the delete if we know the UTXO was never committed to disk?
                         onDiskUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
-                        inMemoryUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
                     }
                     else {
+                        // The UTXO has not been spent...
                         if (nullableIsSpent != null) {
+                            // The UTXO is new and has not been committed...
                             onDiskUtxoInsertBatchRunner.addItem(spendableTransactionOutput);
                         }
 
-                        if (keepCount >= maxKeepCount) {
-                            inMemoryUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
-                        }
-                        else {
+                        if (keepCount < maxKeepCount) {
+                            // Retain some UTXOs in the cache, based on age...
+                            inMemoryUtxoRetainerBatchRunner.addItem(spendableTransactionOutput);
                             keepCount += 1L;
                         }
                     }
@@ -253,7 +260,7 @@ public class UnspentTransactionOutputDatabaseManager {
                         final int maxItemCount = (maxUtxoPerBatch * 32);
 
                         try {
-                            inMemoryUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
+                            inMemoryUtxoRetainerBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoInsertBatchRunner.waitForQueueCapacity(maxItemCount);
                         }
@@ -275,18 +282,38 @@ public class UnspentTransactionOutputDatabaseManager {
 
         } while (blockHeight > minUtxoBlockHeight);
 
-        inMemoryUtxoDeleteBatchRunner.finish();
+        long rotateTablesExecutionTime = 0L;
+        final MilliTimer rotateTablesTimer = new MilliTimer();
+
+        rotateTablesTimer.start();
+        nonTransactionalDatabaseConnection.executeSql(
+            new Query("DELETE FROM unspent_transaction_outputs")
+        );
+        rotateTablesTimer.stop();
+        rotateTablesExecutionTime += rotateTablesTimer.getMillisecondsElapsed();
+
+        inMemoryUtxoRetainerBatchRunner.finish();
         onDiskUtxoDeleteBatchRunner.finish();
         onDiskUtxoInsertBatchRunner.finish();
 
         try {
-            inMemoryUtxoDeleteBatchRunner.waitUntilFinished();
+            inMemoryUtxoRetainerBatchRunner.waitUntilFinished();
             onDiskUtxoDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoInsertBatchRunner.waitUntilFinished();
         }
         catch (final Exception exception) {
             throw new DatabaseException(exception);
         }
+
+        rotateTablesTimer.start();
+        nonTransactionalDatabaseConnection.executeSql(
+            new Query("INSERT INTO unspent_transaction_outputs SELECT * FROM unspent_transaction_outputs_buffer")
+        );
+        nonTransactionalDatabaseConnection.executeSql(
+            new Query("DELETE FROM unspent_transaction_outputs_buffer")
+        );
+        rotateTablesTimer.stop();
+        rotateTablesExecutionTime += rotateTablesTimer.getMillisecondsElapsed();
 
         // Save the committed set's block height...
         final Long oldCommittedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(transactionalDatabaseConnection);
@@ -297,11 +324,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 .setParameter(newCommittedBlockHeight)
         );
 
-        final MilliTimer inMemoryUtxoCleanupTimer = new MilliTimer();
-        inMemoryUtxoCleanupTimer.start();
-        nonTransactionalDatabaseConnection.executeSql(new Query("UPDATE unspent_transaction_outputs SET is_spent = NULL"));
-        inMemoryUtxoCleanupTimer.stop();
-        Logger.info("Commit Utxo Timer: inMemoryUtxoDeleteBatchRunner=" + inMemoryUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms, cleanup=" + inMemoryUtxoCleanupTimer.getMillisecondsElapsed() + "ms");
+        Logger.info("Commit Utxo Timer: inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms, onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms, rotateTablesTimer=" + rotateTablesExecutionTime + "ms");
     }
 
     protected void _clearUncommittedUtxoSet() throws DatabaseException {

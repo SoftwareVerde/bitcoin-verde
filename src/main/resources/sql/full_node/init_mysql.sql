@@ -135,6 +135,14 @@ CREATE TABLE unspent_transaction_outputs (
     INDEX utxo_block_height_ix (block_height DESC) USING BTREE
 ) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
 
+CREATE TABLE unspent_transaction_outputs_buffer (
+    transaction_hash BINARY(32) NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
+    is_spent TINYINT(1) UNSIGNED DEFAULT 0,
+    block_height INT UNSIGNED,
+    PRIMARY KEY (transaction_hash, `index`) USING HASH
+) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
+
 CREATE TABLE committed_unspent_transaction_outputs (
     block_height INT UNSIGNED NOT NULL,
     transaction_hash BINARY(32) NOT NULL,

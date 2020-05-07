@@ -99,7 +99,15 @@ public class Configuration {
         _bitcoinProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
         _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO)));
         _bitcoinProperties._utxoCommitFrequency = Util.parseLong(_properties.getProperty("bitcoin.utxoCommitFrequency", "2016"));
+
         _bitcoinProperties._utxoPurgePercent = Util.parseFloat(_properties.getProperty("bitcoin.utxoPurgePercent", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT)));
+        if (_bitcoinProperties._utxoPurgePercent < 0F) {
+            _bitcoinProperties._utxoPurgePercent = 0F;
+        }
+        else if (_bitcoinProperties._utxoPurgePercent > 1F) {
+            _bitcoinProperties._utxoPurgePercent = 1F;
+        }
+
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
         _bitcoinProperties._trimBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
         _bitcoinProperties._indexingModeIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.indexBlocks", "1"));

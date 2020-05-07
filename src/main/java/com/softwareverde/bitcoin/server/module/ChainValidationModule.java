@@ -100,8 +100,8 @@ public class ChainValidationModule {
                 databaseConnection,
                 _blockStore,
                 masterInflater,
-                _bitcoinProperties.getMaxUtxoCount(),
-                _bitcoinProperties.getUtxoPurgePercent()
+                _bitcoinProperties.getMaxCachedUtxoCount(),
+                _bitcoinProperties.getUtxoCachePurgePercent()
             );
 
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();

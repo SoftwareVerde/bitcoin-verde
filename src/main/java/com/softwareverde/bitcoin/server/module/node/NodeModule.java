@@ -317,8 +317,8 @@ public class NodeModule {
             databaseConnectionPool,
             _blockStore,
             _masterInflater,
-            _bitcoinProperties.getMaxUtxoCount(),
-            _bitcoinProperties.getUtxoPurgePercent()
+            _bitcoinProperties.getMaxCachedUtxoCount(),
+            _bitcoinProperties.getUtxoCachePurgePercent()
         );
 
         _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
@@ -486,7 +486,7 @@ public class NodeModule {
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
             blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, transactionValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockStore, synchronizationStatusHandler);
-            blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCommitFrequency());
+            blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
@@ -810,8 +810,8 @@ public class NodeModule {
             databaseConnectionPool,
             _blockStore,
             _masterInflater,
-            _bitcoinProperties.getMaxUtxoCount(),
-            _bitcoinProperties.getUtxoPurgePercent()
+            _bitcoinProperties.getMaxCachedUtxoCount(),
+            _bitcoinProperties.getUtxoCachePurgePercent()
         );
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
@@ -820,7 +820,7 @@ public class NodeModule {
             headersBootstrapper.run();
         }
 
-        { // Index previously downloaded blocks...
+        if (false) { // Index previously downloaded blocks...
             Logger.info("[Indexing Pending Blocks]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -863,7 +863,7 @@ public class NodeModule {
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
                 final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-                final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCommitFrequency();
+                final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionPool, utxoCommitFrequency);
 
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
