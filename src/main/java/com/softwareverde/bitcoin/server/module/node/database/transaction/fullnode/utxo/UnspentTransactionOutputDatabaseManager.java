@@ -73,9 +73,7 @@ public class UnspentTransactionOutputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
     protected final MasterInflater _masterInflater;
 
-    protected Long _getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
+    protected static Long _getCommittedUnspentTransactionOutputBlockHeight(final DatabaseConnection databaseConnection) throws DatabaseException {
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, value FROM properties WHERE `key` = ?")
                 .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
@@ -183,7 +181,6 @@ public class UnspentTransactionOutputDatabaseManager {
             }
 
             if (utxoBlockHeights.isEmpty()) {
-                Logger.debug("NOTICE: Unexpected infinite loop detected. Bailing out.");
                 break;
             }
 
@@ -292,10 +289,12 @@ public class UnspentTransactionOutputDatabaseManager {
         }
 
         // Save the committed set's block height...
+        final Long oldCommittedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(transactionalDatabaseConnection);
+        final Long newCommittedBlockHeight = Math.max(maxUtxoBlockHeight, oldCommittedBlockHeight);
         transactionalDatabaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
                 .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-                .setParameter(maxUtxoBlockHeight)
+                .setParameter(newCommittedBlockHeight)
         );
 
         final MilliTimer inMemoryUtxoCleanupTimer = new MilliTimer();
@@ -305,13 +304,28 @@ public class UnspentTransactionOutputDatabaseManager {
         Logger.info("Commit Utxo Timer: inMemoryUtxoDeleteBatchRunner=" + inMemoryUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms, cleanup=" + inMemoryUtxoCleanupTimer.getMillisecondsElapsed() + "ms");
     }
 
-    protected void _resetInMemoryUtxoSet() throws DatabaseException {
+    protected void _clearUncommittedUtxoSet() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         databaseConnection.executeSql(
             new Query("DELETE FROM unspent_transaction_outputs")
         );
 
         UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = 0L;
+    }
+
+    protected void _clearUncommittedUtxoSetAndRethrow(final Exception exception) throws DatabaseException {
+        try {
+            _clearUncommittedUtxoSet();
+        }
+        catch (final Exception suppressedException) {
+            Logger.debug(suppressedException);
+            exception.addSuppressed(suppressedException);
+        }
+
+        if (exception instanceof DatabaseException) {
+            throw (DatabaseException) exception;
+        }
+        throw new DatabaseException(exception);
     }
 
     public UnspentTransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
@@ -350,6 +364,9 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             });
         }
+        catch (final Exception exception) {
+            _clearUncommittedUtxoSetAndRethrow(exception);
+        }
         finally {
             UTXO_WRITE_MUTEX.unlock();
         }
@@ -379,6 +396,9 @@ public class UnspentTransactionOutputDatabaseManager {
                     databaseConnection.executeSql(query);
                 }
             });
+        }
+        catch (final Exception exception) {
+            _clearUncommittedUtxoSetAndRethrow(exception);
         }
         finally {
             UTXO_WRITE_MUTEX.unlock();
@@ -548,17 +568,7 @@ public class UnspentTransactionOutputDatabaseManager {
             _commitUnspentTransactionOutputs(_maxUtxoCount, _purgePercent, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);
         }
         catch (final Exception exception) {
-            try {
-                _resetInMemoryUtxoSet();
-            }
-            catch (final Exception ignoreException) {
-                Logger.debug(ignoreException);
-            }
-
-            if (exception instanceof DatabaseException) {
-                throw (DatabaseException) exception;
-            }
-            throw new DatabaseException(exception);
+            _clearUncommittedUtxoSetAndRethrow(exception);
         }
         finally {
             UTXO_WRITE_MUTEX.unlock();
@@ -598,7 +608,8 @@ public class UnspentTransactionOutputDatabaseManager {
     public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
         UTXO_READ_MUTEX.lock();
         try {
-            return _getCommittedUnspentTransactionOutputBlockHeight();
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            return _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
         }
         finally {
             UTXO_READ_MUTEX.unlock();
@@ -619,11 +630,40 @@ public class UnspentTransactionOutputDatabaseManager {
         UTXO_READ_MUTEX.lock();
         try {
 
-            final Long committedUtxoBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight();
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            final Long committedUtxoBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
             return Math.max(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, committedUtxoBlockHeight);
         }
         finally {
             UTXO_READ_MUTEX.unlock();
+        }
+    }
+
+    public void clearCommittedUtxoSet() throws DatabaseException {
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            databaseConnection.executeSql(
+                new Query("DELETE FROM committed_unspent_transaction_outputs")
+            );
+            databaseConnection.executeSql(
+                new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                    .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
+                    .setParameter(0L)
+            );
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
+    }
+
+    public void clearUncommittedUtxoSet() throws DatabaseException {
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            _clearUncommittedUtxoSet();
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
         }
     }
 }

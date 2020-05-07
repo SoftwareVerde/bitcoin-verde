@@ -2,9 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -116,14 +114,13 @@ public class UnspentTransactionOutputManager {
     /**
      * Destroys the In-Memory and On-Disk UTXO set and rebuilds it from the Genesis Block.
      */
-    public void rebuildUtxoSetFromGenesisBlock(final DatabaseConnection maintenanceDatabaseConnection, final BlockLoader blockLoader) throws DatabaseException {
+    public void rebuildUtxoSetFromGenesisBlock(final BlockLoader blockLoader) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE unspent_transaction_outputs"));
-            maintenanceDatabaseConnection.executeSql(new Query("TRUNCATE TABLE committed_unspent_transaction_outputs"));
-
+            unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
+            unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
             final Long utxoBlockHeight = _buildUtxoSetUpToHeadBlock(blockLoader);
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(utxoBlockHeight);
         }
@@ -140,6 +137,7 @@ public class UnspentTransactionOutputManager {
         try {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
+            unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
             final Long utxoBlockHeight = _buildUtxoSetUpToHeadBlock(blockLoader);
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(utxoBlockHeight);
         }

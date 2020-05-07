@@ -869,13 +869,7 @@ public class NodeModule {
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
 
                 if (_rebuildUtxoSet) {
-                    try (final DatabaseConnection maintenanceDatabaseConnection = database.getMaintenanceConnection()) {
-                        unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(maintenanceDatabaseConnection, blockLoader);
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.error(exception);
-                        return;
-                    }
+                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader);
                 }
                 else {
                     unspentTransactionOutputManager.buildUtxoSet(blockLoader);
