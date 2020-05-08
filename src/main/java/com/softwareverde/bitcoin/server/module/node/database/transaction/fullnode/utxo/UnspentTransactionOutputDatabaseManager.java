@@ -125,36 +125,30 @@ public class UnspentTransactionOutputDatabaseManager {
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
                 }
 
-                synchronized (transactionalDatabaseConnection) {
-                    transactionalDatabaseConnection.executeSql(batchedInsertQuery);
+                synchronized (nonTransactionalDatabaseConnection) {
+                    nonTransactionalDatabaseConnection.executeSql(batchedInsertQuery);
                 }
             }
         });
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new UtxoQueryBatchGroupedByBlockHeight(
-            "DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND (block_height = ? OR ? IS NULL)",
-            new UtxoQueryBatchGroupedByBlockHeight.BatchExecutor() {
-                @Override
-                public void executeBatch(final List<UnspentTransactionOutput> unspentTransactionOutputsByBlockHeight, final Long blockHeight, final Query query) throws DatabaseException {
-                    // BlockHeight is included within the query to optimize the partition selection, when available...
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+            @Override
+            public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
+                final Query query = new Query("DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)");
+                query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
-                    query.setExpandedInClauseParameters(unspentTransactionOutputsByBlockHeight, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
-                    query.setParameter(blockHeight);
-                    query.setParameter(blockHeight);
-
-                    synchronized (transactionalDatabaseConnection) {
-                        transactionalDatabaseConnection.executeSql(query);
-                    }
+                synchronized (transactionalDatabaseConnection) {
+                    transactionalDatabaseConnection.executeSql(query);
                 }
             }
-        ));
+        });
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
-                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (block_height, transaction_hash, `index`) VALUES (?, ?, ?)");
+                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?)");
                 for (final UnspentTransactionOutput transactionOutputIdentifier : batchItems) {
-                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getTransactionHash());
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getOutputIndex());
+                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
                 }
 
                 synchronized (transactionalDatabaseConnection) {
@@ -328,12 +322,12 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     protected void _clearUncommittedUtxoSet() throws DatabaseException {
+        UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = 0L;
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         databaseConnection.executeSql(
             new Query("DELETE FROM unspent_transaction_outputs")
         );
-
-        UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = 0L;
     }
 
     protected void _clearUncommittedUtxoSetAndRethrow(final Exception exception) throws DatabaseException {
@@ -518,12 +512,9 @@ public class UnspentTransactionOutputDatabaseManager {
             { // Load UTXOs that weren't in the memory-cache but are in the greater UTXO set on disk...
                 final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.size();
                 if (cacheMissCount > 0) {
-                    // TODO: Since block_height cannot be specified, this query hits every partition in the on-disk UTXO set.
-                    //  Since the query is not currently uniquely limited, the database will query every partition even if finds it in the first partition.
-                    //  Consider investigating if it is possible to abort additional partition searches once the output is found...
                     final java.util.List<Row> rows = databaseConnection.query(
                         new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
-                            .setInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                            .setExpandedInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
                     );
                     for (final Row row : rows) {
                         final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
@@ -585,6 +576,11 @@ public class UnspentTransactionOutputDatabaseManager {
 
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         UTXO_WRITE_MUTEX.lock();
+
+        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value == 0L) {
+            // Prevent committing a UTXO set that has been invalidated...
+            return;
+        }
 
         try (final DatabaseConnection nonTransactionalDatabaseConnection = databaseConnectionFactory.newConnection()) {
             final DatabaseConnection transactionalDatabaseConnection = _databaseManager.getDatabaseConnection();

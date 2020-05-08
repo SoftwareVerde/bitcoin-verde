@@ -820,7 +820,7 @@ public class NodeModule {
             headersBootstrapper.run();
         }
 
-        if (false) { // Index previously downloaded blocks...
+        { // Index previously downloaded blocks...
             Logger.info("[Indexing Pending Blocks]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

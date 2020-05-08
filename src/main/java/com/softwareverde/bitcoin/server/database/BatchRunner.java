@@ -83,6 +83,16 @@ public class BatchRunner<T> {
             for (int i = 0; i < batchCount; ++i) {
                 threads[i].interrupt();
             }
+
+            try {
+                for (int i = 0; i < batchCount; ++i) {
+                    threads[i].join();
+                }
+            }
+            catch (final Exception suppressedException) {
+                exception.addSuppressed(suppressedException);
+            }
+
             throw new DatabaseException(exception);
         }
     }
