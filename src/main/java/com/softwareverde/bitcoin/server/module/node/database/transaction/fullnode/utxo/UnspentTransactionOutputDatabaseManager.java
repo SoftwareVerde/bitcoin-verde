@@ -133,11 +133,40 @@ public class UnspentTransactionOutputDatabaseManager {
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
-                final Query query = new Query("DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)");
+                final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET is_spent = 1 WHERE (transaction_hash, `index`) IN (?)");
                 query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
                 synchronized (transactionalDatabaseConnection) {
                     transactionalDatabaseConnection.executeSql(query);
+                }
+            }
+        });
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoPreDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+            @Override
+            public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
+                final Query query = new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)");
+                query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+
+                final java.util.List<Row> rows;
+                synchronized (transactionalDatabaseConnection) {
+                    rows = transactionalDatabaseConnection.query(query);
+                }
+
+                final HashSet<TransactionOutputIdentifier> utxosRequiringDelete = new HashSet<TransactionOutputIdentifier>();
+                for (final Row row : rows) {
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                    final Integer outputIndex = row.getInteger("index");
+                    final Integer nullableIsSpent = row.getInteger("is_spent");
+                    final boolean isCommittedToDisk = (Util.coalesce(nullableIsSpent) >= 2);
+                    if (isCommittedToDisk) {
+                        utxosRequiringDelete.add(new TransactionOutputIdentifier(transactionHash, outputIndex));
+                    }
+                }
+
+                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                    if (utxosRequiringDelete.contains(unspentTransactionOutput)) {
+                        onDiskUtxoDeleteBatchRunner.addItem(unspentTransactionOutput);
+                    }
                 }
             }
         });
@@ -158,6 +187,7 @@ public class UnspentTransactionOutputDatabaseManager {
         });
 
         inMemoryUtxoRetainerBatchRunner.start();
+        onDiskUtxoPreDeleteBatchRunner.start();
         onDiskUtxoDeleteBatchRunner.start();
         onDiskUtxoInsertBatchRunner.start();
 
@@ -233,8 +263,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
                     if (Util.coalesce(nullableIsSpent, false)) {
                         // The UTXO was spent since the last commit...
-                        // TODO: Is there a way to avoid the delete if we know the UTXO was never committed to disk?
-                        onDiskUtxoDeleteBatchRunner.addItem(spendableTransactionOutput);
+                        onDiskUtxoPreDeleteBatchRunner.addItem(spendableTransactionOutput);
                     }
                     else {
                         // The UTXO has not been spent...
@@ -255,6 +284,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
                         try {
                             inMemoryUtxoRetainerBatchRunner.waitForQueueCapacity(maxItemCount);
+                            onDiskUtxoPreDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoInsertBatchRunner.waitForQueueCapacity(maxItemCount);
                         }
@@ -287,11 +317,13 @@ public class UnspentTransactionOutputDatabaseManager {
         rotateTablesExecutionTime += rotateTablesTimer.getMillisecondsElapsed();
 
         inMemoryUtxoRetainerBatchRunner.finish();
+        onDiskUtxoPreDeleteBatchRunner.finish();
         onDiskUtxoDeleteBatchRunner.finish();
         onDiskUtxoInsertBatchRunner.finish();
 
         try {
             inMemoryUtxoRetainerBatchRunner.waitUntilFinished();
+            onDiskUtxoPreDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoInsertBatchRunner.waitUntilFinished();
         }
@@ -318,7 +350,14 @@ public class UnspentTransactionOutputDatabaseManager {
                 .setParameter(newCommittedBlockHeight)
         );
 
-        Logger.info("Commit Utxo Timer: inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms, onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms, onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms, rotateTablesTimer=" + rotateTablesExecutionTime + "ms");
+        Logger.info(
+            "  Commit Utxo Timer:\n +" +
+            "    inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getTotalItemCount() + " in " + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms\n" +
+            "    onDiskUtxoPreDeleteBatchRunner=" + onDiskUtxoPreDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoPreDeleteBatchRunner.getExecutionTime() + "ms\n" +
+            "    onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms\n" +
+            "    onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getTotalItemCount() + " in " + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms\n" +
+            "    rotateTablesTimer=" + rotateTablesExecutionTime + "ms"
+        );
     }
 
     protected void _clearUncommittedUtxoSet() throws DatabaseException {
@@ -368,7 +407,27 @@ public class UnspentTransactionOutputDatabaseManager {
             batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 1) ON DUPLICATE KEY UPDATE is_spent = 1");
+                    // is_spent is originally:
+                    //  non-existent if it was synchronized and purged from the cache
+                    //  null if it was unspent and has been synchronized to disk already
+                    //  0 if it is new (unspent) and requires synchronization
+                    //  1 if it was new and been marked as spent already (but not synchronized to disk) (shouldn't happen - UTXOs shouldn't be marked as spent multiple times)
+                    //  2 if it has already been marked as spent and was previously synchronized to disk (shouldn't happen - UTXOs shouldn't be marked as spent multiple times)
+                    //
+                    // Therefore, during a commit, when:
+                    //  is_spent=null, it has already been synchronized and is unspent
+                    //  is_spent=1, it has been spent but was never committed to disk
+                    //  is_spent=2, it must be physically deleted from disk
+                    //
+                    // INSERT...VALUES (?, ?, NULL, 2) ON DUPLICATE KEY UPDATE is_spent = (IF(COALESCE(is_spent, 2) >= 2, 2, 1)) renders:
+                    //  non-existent -> 2
+                    //  null -> 2
+                    //  0 -> 1
+                    //  1 -> 1
+                    //  2 -> 2
+                    //  2+ -> 2 (should never happen)
+
+                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 2) ON DUPLICATE KEY UPDATE is_spent = (IF(COALESCE(is_spent, 2) >= 2, 2, 1))");
                     for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
                         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -442,14 +501,16 @@ public class UnspentTransactionOutputDatabaseManager {
             }
             else {
                 rows.addAll(databaseConnection.query(
-                    new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
+                    new Query("SELECT is_spent FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
                         .setParameter(transactionHash)
                         .setParameter(outputIndex)
                 ));
 
-                if (rows.isEmpty()) {
-                    return null;
-                }
+                if (rows.isEmpty()) { return null; }
+
+                final Row row = rows.get(0);
+                final Boolean isSpent = row.getBoolean("is_spent");
+                if (isSpent) { return null; }
             }
         }
         finally {
@@ -513,7 +574,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.size();
                 if (cacheMissCount > 0) {
                     final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                        new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND is_spent = 0")
                             .setExpandedInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
                     );
                     for (final Row row : rows) {

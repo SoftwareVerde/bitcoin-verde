@@ -146,6 +146,7 @@ CREATE TABLE unspent_transaction_outputs_buffer (
 CREATE TABLE committed_unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
+    is_spent TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     block_height INT UNSIGNED NOT NULL,
     PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;

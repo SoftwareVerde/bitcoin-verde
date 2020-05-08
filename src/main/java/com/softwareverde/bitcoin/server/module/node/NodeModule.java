@@ -972,8 +972,10 @@ public class NodeModule {
         _uptimeTimer.start();
         _databaseMaintenanceThread.start();
 
+        final Runtime runtime = Runtime.getRuntime();
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
-            try { Thread.sleep(5000); } catch (final Exception exception) { break; }
+            try { Thread.sleep(60000); } catch (final Exception exception) { break; }
+            runtime.gc();
 
             // Logger.debug("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             // Logger.debug("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
