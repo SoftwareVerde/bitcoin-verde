@@ -36,6 +36,30 @@ import java.util.HashSet;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class UnspentTransactionOutputDatabaseManager {
+
+    public static class SpentState {
+        public static final Integer SYNCHRONIZED_UNSPENT = null;
+        public static final Integer UNSYNCHRONIZED_UNSPENT = 0;
+        public static final Integer UNSYNCHRONIZED_SPENT = 1;
+        public static final Integer SYNCHRONIZED_SPENT = 2;
+
+        public static Boolean isUnspent(final Integer isSpent) {
+            return (Util.areEqual(isSpent, SYNCHRONIZED_UNSPENT) || Util.areEqual(isSpent, UNSYNCHRONIZED_UNSPENT));
+        }
+
+        public static Boolean isUncommittedToDisk(final Integer isSpent) {
+            return (Util.areEqual(isSpent, UNSYNCHRONIZED_UNSPENT) || Util.areEqual(isSpent, UNSYNCHRONIZED_SPENT));
+        }
+
+        public static Boolean wasSpent(final Integer isSpent) {
+            return (! SpentState.isUnspent(isSpent)); // NOTE: Subtly allows for values greater than 2 or less than 0...
+        }
+
+        public static Boolean wasCommittedToDisk(final Integer isSpent) {
+            return (! SpentState.isUncommittedToDisk(isSpent)); // NOTE: Subtly allows for values greater than 2 or less than 0...
+        }
+    }
+
     public static final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX;
     public static final ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX;
     static {
@@ -130,12 +154,12 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
-            public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
+            public void run(final List<TransactionOutputIdentifier> unspentTransactionOutputs) throws Exception {
                 // Queue the output for deletion...
-                final Query query = new BatchedInsertQuery("INSERT INTO stale_committed_unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)");
-                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                final Query query = new BatchedInsertQuery("INSERT IGNORE INTO stale_committed_unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)");
+                for (final TransactionOutputIdentifier unspentTransactionOutput : unspentTransactionOutputs) {
                     query.setParameter(unspentTransactionOutput.getTransactionHash());
                     query.setParameter(unspentTransactionOutput.getOutputIndex());
                 }
@@ -146,9 +170,9 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
-            public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
+            public void run(final List<TransactionOutputIdentifier> unspentTransactionOutputs) throws Exception {
                 { // Commit the output as spent...
                     final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET is_spent = 1 WHERE (transaction_hash, `index`) IN (?)");
                     query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
@@ -159,37 +183,8 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
 
                 // Queue the output for deletion...
-                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                for (final TransactionOutputIdentifier unspentTransactionOutput : unspentTransactionOutputs) {
                     onDiskUtxoPostDeleteBatchRunner.addItem(unspentTransactionOutput);
-                }
-            }
-        });
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoPreDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
-            @Override
-            public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
-                final Query query = new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)");
-                query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
-
-                final java.util.List<Row> rows;
-                try (final DatabaseConnection nonTransactionalDatabaseConnection = nonTransactionalDatabaseConnectionFactory.newConnection()) {
-                    rows = nonTransactionalDatabaseConnection.query(query);
-                }
-
-                final HashSet<TransactionOutputIdentifier> utxosRequiringDelete = new HashSet<TransactionOutputIdentifier>();
-                for (final Row row : rows) {
-                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
-                    final Integer outputIndex = row.getInteger("index");
-                    final Integer nullableIsSpent = row.getInteger("is_spent");
-                    final boolean isCommittedToDisk = (Util.coalesce(nullableIsSpent) >= 2);
-                    if (isCommittedToDisk) {
-                        utxosRequiringDelete.add(new TransactionOutputIdentifier(transactionHash, outputIndex));
-                    }
-                }
-
-                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
-                    if (utxosRequiringDelete.contains(unspentTransactionOutput)) {
-                        onDiskUtxoDeleteBatchRunner.addItem(unspentTransactionOutput);
-                    }
                 }
             }
         });
@@ -210,7 +205,6 @@ public class UnspentTransactionOutputDatabaseManager {
         });
 
         inMemoryUtxoRetainerBatchRunner.start();
-        onDiskUtxoPreDeleteBatchRunner.start();
         onDiskUtxoDeleteBatchRunner.start();
         onDiskUtxoPostDeleteBatchRunner.start();
         onDiskUtxoInsertBatchRunner.start();
@@ -280,18 +274,28 @@ public class UnspentTransactionOutputDatabaseManager {
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
                     final Integer outputIndex = row.getInteger("index");
-                    final Boolean nullableIsSpent = row.getBoolean("is_spent");
+                    final Integer isSpent = row.getInteger("is_spent"); // NOTE: May be null if isSpent is null.
                     final Long nullableBlockHeight = row.getLong("block_height");
+
+                    // is_spent may have 4 possible values:
+                    //  null    - the UTXO has NOT been spent and it HAS been synchronized to disk
+                    //  0       - the UTXO has NOT been spent and it has NOT ever been synchronized to disk
+                    //  1       - the UTXO HAS been spent and it has NOT ever been synchronized to disk
+                    //  2       - the UTXO HAS been spent and its old (unspent) state HAD been synchronized to disk
+                    // Therefore, when is_spent is null or 2, a physical write to disk must occur to mark the UTXO as spent
 
                     final UnspentTransactionOutput spendableTransactionOutput = new UnspentTransactionOutput(transactionHash, outputIndex, nullableBlockHeight);
 
-                    if (Util.coalesce(nullableIsSpent, false)) {
-                        // The UTXO was spent since the last commit...
-                        onDiskUtxoPreDeleteBatchRunner.addItem(spendableTransactionOutput);
+                    if (SpentState.wasSpent(isSpent)) {
+                        final boolean wasCommittedToDisk = SpentState.wasCommittedToDisk(isSpent);
+                        if (wasCommittedToDisk) {
+                            final TransactionOutputIdentifier unspentTransactionOutput = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                            onDiskUtxoDeleteBatchRunner.addItem(unspentTransactionOutput);
+                        }
                     }
                     else {
                         // The UTXO has not been spent...
-                        if (nullableIsSpent != null) {
+                        if (isSpent != null) {
                             // The UTXO is new and has not been committed...
                             onDiskUtxoInsertBatchRunner.addItem(spendableTransactionOutput);
                         }
@@ -308,7 +312,6 @@ public class UnspentTransactionOutputDatabaseManager {
 
                         try {
                             inMemoryUtxoRetainerBatchRunner.waitForQueueCapacity(maxItemCount);
-                            onDiskUtxoPreDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoPostDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoInsertBatchRunner.waitForQueueCapacity(maxItemCount);
@@ -342,14 +345,12 @@ public class UnspentTransactionOutputDatabaseManager {
         rotateTablesExecutionTime += rotateTablesTimer.getMillisecondsElapsed();
 
         inMemoryUtxoRetainerBatchRunner.finish();
-        onDiskUtxoPreDeleteBatchRunner.finish();
         onDiskUtxoDeleteBatchRunner.finish();
         onDiskUtxoPostDeleteBatchRunner.finish();
         onDiskUtxoInsertBatchRunner.finish();
 
         try {
             inMemoryUtxoRetainerBatchRunner.waitUntilFinished();
-            onDiskUtxoPreDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoPostDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoInsertBatchRunner.waitUntilFinished();
@@ -380,7 +381,6 @@ public class UnspentTransactionOutputDatabaseManager {
         Logger.info(
             "Commit Utxo Timer:\n" +
             "    Commit inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getTotalItemCount() + " in " + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms\n" +
-            "    Commit onDiskUtxoPreDeleteBatchRunner=" + onDiskUtxoPreDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoPreDeleteBatchRunner.getExecutionTime() + "ms\n" +
             "    Commit onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms\n" +
             "    Commit onDiskUtxoPostDeleteBatchRunner=" + onDiskUtxoPostDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoPostDeleteBatchRunner.getExecutionTime() + "ms\n" +
             "    Commit onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getTotalItemCount() + " in " + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms\n" +
@@ -524,8 +524,8 @@ public class UnspentTransactionOutputDatabaseManager {
             );
             if (! rows.isEmpty()) {
                 final Row row = rows.get(0);
-                final Boolean isSpent = Util.coalesce(row.getBoolean("is_spent"), false); // Both null and false are indicative of being unspent...
-                if (isSpent) { return null; }
+                final Integer isSpent = row.getInteger("is_spent");
+                if (SpentState.wasSpent(isSpent)) { return null; }
             }
             else {
                 rows.addAll(databaseConnection.query(
@@ -537,8 +537,8 @@ public class UnspentTransactionOutputDatabaseManager {
                 if (rows.isEmpty()) { return null; }
 
                 final Row row = rows.get(0);
-                final Boolean isSpent = row.getBoolean("is_spent");
-                if (isSpent) { return null; }
+                final Integer isSpent = row.getInteger("is_spent");
+                if (SpentState.wasSpent(isSpent)) { return null; }
             }
         }
         finally {
@@ -587,11 +587,11 @@ public class UnspentTransactionOutputDatabaseManager {
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
                     final Integer outputIndex = row.getInteger("index");
-                    final Boolean isSpent = Util.coalesce(row.getBoolean("is_spent"), false); // Both null and false are indicative of being unspent...
+                    final Integer isSpent = row.getInteger("is_spent");
 
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
 
-                    if (! isSpent) {
+                    if (SpentState.isUnspent(isSpent)) {
                         unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                     }
 
@@ -664,13 +664,12 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-        UTXO_WRITE_MUTEX.lock();
-
         if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value == 0L) {
             // Prevent committing a UTXO set that has been invalidated...
             return;
         }
 
+        UTXO_WRITE_MUTEX.lock();
         try (final DatabaseConnection nonTransactionalDatabaseConnection = databaseConnectionFactory.newConnection()) {
             final DatabaseConnection transactionalDatabaseConnection = _databaseManager.getDatabaseConnection();
             _commitUnspentTransactionOutputs(_maxUtxoCount, _purgePercent, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);

@@ -271,7 +271,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
             READ_LOCK.unlock();
         }
 
-        final int transactionCount = transactionHashes.getSize();
+        final int transactionCount = transactionHashes.getCount();
         if (rows.size() != transactionCount) { return null; }
 
         final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
