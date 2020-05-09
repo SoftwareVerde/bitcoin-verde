@@ -34,6 +34,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.SpentTransactionOutputsCleanupService;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.*;
@@ -114,6 +115,7 @@ public class NodeModule {
     protected final BlockchainBuilder _blockchainBuilder;
     protected final TransactionOutputIndexer _transactionOutputIndexer;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
+    protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
 
     protected final NodeInitializer _nodeInitializer;
@@ -198,6 +200,11 @@ public class NodeModule {
         if (_slpTransactionProcessor != null) {
             Logger.info("[Stopping SlpTransaction Processor]");
             _slpTransactionProcessor.stop();
+        }
+
+        if (_spentTransactionOutputsCleanupService != null) {
+            Logger.info("[Stopping Spent UTXO  Cleanup Service]");
+            _spentTransactionOutputsCleanupService.stop();
         }
 
         if (! (_transactionOutputIndexer instanceof DisabledTransactionOutputIndexer)) {
@@ -527,6 +534,8 @@ public class NodeModule {
             });
         }
 
+        _spentTransactionOutputsCleanupService = new SpentTransactionOutputsCleanupService(databaseManagerFactory);
+
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
@@ -703,7 +712,7 @@ public class NodeModule {
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
-                for (final SleepyService sleepyService : new SleepyService[]{_transactionOutputIndexer, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
+                for (final SleepyService sleepyService : new SleepyService[]{_transactionOutputIndexer, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader, _spentTransactionOutputsCleanupService }) {
                     if (sleepyService != null) {
                         final Class<?> clazz = sleepyService.getClass();
                         final String serviceName = clazz.getSimpleName();
@@ -964,6 +973,11 @@ public class NodeModule {
             _slpTransactionProcessor.start();
         }
 
+        if (_spentTransactionOutputsCleanupService != null) {
+            Logger.info("[Started Spent UTXO Cleanup Service]");
+            _spentTransactionOutputsCleanupService.start();
+        }
+
         if (! _bitcoinProperties.skipNetworking()) {
             Logger.info("[Connecting To Peers]");
             _connectToAdditionalNodes();
@@ -976,6 +990,11 @@ public class NodeModule {
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
             try { Thread.sleep(60000); } catch (final Exception exception) { break; }
             runtime.gc();
+
+            // Wakeup the Spent UTXO Cleanup Service...
+            if (_spentTransactionOutputsCleanupService != null) {
+                _spentTransactionOutputsCleanupService.wakeUp();
+            }
 
             // Logger.debug("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             // Logger.debug("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());

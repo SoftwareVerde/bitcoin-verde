@@ -125,19 +125,42 @@ public class UnspentTransactionOutputDatabaseManager {
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
                 }
 
-                synchronized (nonTransactionalDatabaseConnection) {
+                try (final DatabaseConnection nonTransactionalDatabaseConnection = nonTransactionalDatabaseConnectionFactory.newConnection()) {
                     nonTransactionalDatabaseConnection.executeSql(batchedInsertQuery);
+                }
+            }
+        });
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+            @Override
+            public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
+                // Queue the output for deletion...
+                final Query query = new BatchedInsertQuery("INSERT INTO stale_committed_unspent_transaction_outputs (transaction_hash, `index`) VALUES (?, ?)");
+                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                    query.setParameter(unspentTransactionOutput.getTransactionHash());
+                    query.setParameter(unspentTransactionOutput.getOutputIndex());
+                }
+
+                // NOTE: Marking the output for deletion can use a non-transactional connection since the actual delete process checks the is_spent value...
+                try (final DatabaseConnection nonTransactionalDatabaseConnection = nonTransactionalDatabaseConnectionFactory.newConnection()) {
+                    nonTransactionalDatabaseConnection.executeSql(query);
                 }
             }
         });
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> unspentTransactionOutputs) throws Exception {
-                final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET is_spent = 1 WHERE (transaction_hash, `index`) IN (?)");
-                query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
+                { // Commit the output as spent...
+                    final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET is_spent = 1 WHERE (transaction_hash, `index`) IN (?)");
+                    query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
-                synchronized (transactionalDatabaseConnection) {
-                    transactionalDatabaseConnection.executeSql(query);
+                    synchronized (transactionalDatabaseConnection) {
+                        transactionalDatabaseConnection.executeSql(query);
+                    }
+                }
+
+                // Queue the output for deletion...
+                for (final UnspentTransactionOutput unspentTransactionOutput : unspentTransactionOutputs) {
+                    onDiskUtxoPostDeleteBatchRunner.addItem(unspentTransactionOutput);
                 }
             }
         });
@@ -148,8 +171,8 @@ public class UnspentTransactionOutputDatabaseManager {
                 query.setExpandedInClauseParameters(unspentTransactionOutputs, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER);
 
                 final java.util.List<Row> rows;
-                synchronized (transactionalDatabaseConnection) {
-                    rows = transactionalDatabaseConnection.query(query);
+                try (final DatabaseConnection nonTransactionalDatabaseConnection = nonTransactionalDatabaseConnectionFactory.newConnection()) {
+                    rows = nonTransactionalDatabaseConnection.query(query);
                 }
 
                 final HashSet<TransactionOutputIdentifier> utxosRequiringDelete = new HashSet<TransactionOutputIdentifier>();
@@ -189,6 +212,7 @@ public class UnspentTransactionOutputDatabaseManager {
         inMemoryUtxoRetainerBatchRunner.start();
         onDiskUtxoPreDeleteBatchRunner.start();
         onDiskUtxoDeleteBatchRunner.start();
+        onDiskUtxoPostDeleteBatchRunner.start();
         onDiskUtxoInsertBatchRunner.start();
 
         long keepCount = 0L;
@@ -286,6 +310,7 @@ public class UnspentTransactionOutputDatabaseManager {
                             inMemoryUtxoRetainerBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoPreDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
+                            onDiskUtxoPostDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoInsertBatchRunner.waitForQueueCapacity(maxItemCount);
                         }
                         catch (final InterruptedException exception) {
@@ -319,12 +344,14 @@ public class UnspentTransactionOutputDatabaseManager {
         inMemoryUtxoRetainerBatchRunner.finish();
         onDiskUtxoPreDeleteBatchRunner.finish();
         onDiskUtxoDeleteBatchRunner.finish();
+        onDiskUtxoPostDeleteBatchRunner.finish();
         onDiskUtxoInsertBatchRunner.finish();
 
         try {
             inMemoryUtxoRetainerBatchRunner.waitUntilFinished();
             onDiskUtxoPreDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoDeleteBatchRunner.waitUntilFinished();
+            onDiskUtxoPostDeleteBatchRunner.waitUntilFinished();
             onDiskUtxoInsertBatchRunner.waitUntilFinished();
         }
         catch (final Exception exception) {
@@ -351,12 +378,13 @@ public class UnspentTransactionOutputDatabaseManager {
         );
 
         Logger.info(
-            "  Commit Utxo Timer:\n +" +
-            "    inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getTotalItemCount() + " in " + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms\n" +
-            "    onDiskUtxoPreDeleteBatchRunner=" + onDiskUtxoPreDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoPreDeleteBatchRunner.getExecutionTime() + "ms\n" +
-            "    onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms\n" +
-            "    onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getTotalItemCount() + " in " + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms\n" +
-            "    rotateTablesTimer=" + rotateTablesExecutionTime + "ms"
+            "Commit Utxo Timer:\n" +
+            "    Commit inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getTotalItemCount() + " in " + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms\n" +
+            "    Commit onDiskUtxoPreDeleteBatchRunner=" + onDiskUtxoPreDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoPreDeleteBatchRunner.getExecutionTime() + "ms\n" +
+            "    Commit onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms\n" +
+            "    Commit onDiskUtxoPostDeleteBatchRunner=" + onDiskUtxoPostDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoPostDeleteBatchRunner.getExecutionTime() + "ms\n" +
+            "    Commit onDiskUtxoInsertBatchRunner=" + onDiskUtxoInsertBatchRunner.getTotalItemCount() + " in " + onDiskUtxoInsertBatchRunner.getExecutionTime() + "ms\n" +
+            "    Commit rotateTablesTimer=" + rotateTablesExecutionTime + "ms"
         );
     }
 
@@ -745,5 +773,9 @@ public class UnspentTransactionOutputDatabaseManager {
         finally {
             UTXO_WRITE_MUTEX.unlock();
         }
+    }
+
+    public void cleanupSpentTransactionOutputs() throws DatabaseException {
+
     }
 }

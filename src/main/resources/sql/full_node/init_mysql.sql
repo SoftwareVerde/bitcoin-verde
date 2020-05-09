@@ -151,6 +151,12 @@ CREATE TABLE committed_unspent_transaction_outputs (
     PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
+CREATE TABLE stale_committed_unspent_transaction_outputs (
+    transaction_hash BINARY(32) NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (transaction_hash, `index`)
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
 CREATE TABLE unconfirmed_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
