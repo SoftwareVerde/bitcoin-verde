@@ -181,8 +181,8 @@ public class UnspentTransactionOutputManager {
             }
 
             final List<Transaction> transactions = block.getTransactions();
-            final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-            final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+            final MutableList<TransactionOutputIdentifier> previousOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+            final MutableList<TransactionOutputIdentifier> newOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
             for (int i = 0; i < transactions.getCount(); ++i) {
                 final Transaction transaction = transactions.get(i);
 
@@ -190,17 +190,16 @@ public class UnspentTransactionOutputManager {
                 if (! isCoinbase) {
                     for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                         final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                        spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                        previousOutputIdentifiers.add(transactionOutputIdentifier);
                     }
                 }
 
                 final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
-                unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
+                newOutputIdentifiers.addAll(transactionOutputIdentifiers);
             }
 
-            // TODO: Committed state can get corrupted/weird if the cached state doesn't properly update the on-disk state...
-            unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(unspentTransactionOutputIdentifiers);
-            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(spentTransactionOutputIdentifiers, null);
+            unspentTransactionOutputDatabaseManager.undoCreatedTransactionOutputs(newOutputIdentifiers);
+            unspentTransactionOutputDatabaseManager.undoPreviousTransactionOutputs(previousOutputIdentifiers);
 
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
         }

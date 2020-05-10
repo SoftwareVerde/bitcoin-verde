@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
@@ -8,6 +10,8 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.BlockingQueueBatchRunner;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
@@ -462,6 +466,8 @@ public class UnspentTransactionOutputDatabaseManager {
 
                         query.setParameter(transactionHash);
                         query.setParameter(outputIndex);
+
+                        // Logger.trace("DELETE UTXO: " + transactionOutputIdentifier + " is_spent=?, block_height=NULL");
                     }
 
                     databaseConnection.executeSql(query);
@@ -495,6 +501,96 @@ public class UnspentTransactionOutputDatabaseManager {
                         query.setParameter(transactionHash);
                         query.setParameter(outputIndex);
                         query.setParameter(blockHeight);
+
+                        // Logger.trace("NEW UTXO: " + transactionOutputIdentifier + " is_spent=0, block_height=" + blockHeight);
+                    }
+
+                    databaseConnection.executeSql(query);
+                }
+            });
+        }
+        catch (final Exception exception) {
+            _clearUncommittedUtxoSetAndRethrow(exception);
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
+    }
+
+    /**
+     * Marks the provided UTXOs as spent, logically removing them from the UTXO set, and forces the outputs to be synchronized to disk on the next UTXO commit.
+     */
+    public void undoCreatedTransactionOutputs(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
+        if (spentTransactionOutputIdentifiers.isEmpty()) { return; }
+
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                @Override
+                public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 2) ON DUPLICATE KEY UPDATE is_spent = 2");
+                    for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
+                        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
+                        query.setParameter(transactionHash);
+                        query.setParameter(outputIndex);
+
+                        // Logger.trace("DELETE UTXO: " + transactionOutputIdentifier + " is_spent=2, block_height=NULL");
+                    }
+
+                    databaseConnection.executeSql(query);
+                }
+            });
+        }
+        catch (final Exception exception) {
+            _clearUncommittedUtxoSetAndRethrow(exception);
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
+        }
+    }
+
+    /**
+     * Re-inserts the provided UTXOs into the UTXO set and looks up their original associated blockHeight.  These UTXOs will be synchronized to disk during the next UTXO commit.
+     */
+    public void undoPreviousTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers) throws DatabaseException {
+        if (unspentTransactionOutputIdentifiers.isEmpty()) { return; }
+
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                @Override
+                public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE is_spent = 0");
+                    for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
+                        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
+                        final Long blockHeight;
+                        { // Lookup the UTXO's block height...
+                            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+                            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                        }
+                        if (blockHeight == null) { continue; } // Omit the UTXO since it wasn't added on the new main chain...
+
+                        query.setParameter(transactionHash);
+                        query.setParameter(outputIndex);
+                        query.setParameter(blockHeight);
+
+                        // Logger.trace("NEW UTXO: " + transactionOutputIdentifier + " is_spent=0, block_height=" + blockHeight);
                     }
 
                     databaseConnection.executeSql(query);

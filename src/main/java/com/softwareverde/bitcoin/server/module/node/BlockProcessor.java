@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
@@ -266,6 +267,7 @@ public class BlockProcessor {
                 final BlockchainSegmentId oldHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId); // The original BlockchainSegmentId was most likely invalidated during reordering, so reacquire the new BlockchainSegmentIds via BlockId...
                 BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(oldHeadBlockchainSegmentId);
                 long undoBlockHeight = (blockHeight);
+                Logger.trace("Utxo Reorg - 1/6 complete.");
 
                 while (nextBlockId != null) {
                     final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
@@ -292,7 +294,7 @@ public class BlockProcessor {
 
                     undoBlockHeight -= 1L;
                 }
-                Logger.trace("Utxo Reorg - 2/5 complete.");
+                Logger.trace("Utxo Reorg - 2/6 complete.");
 
                 // 2.5 Skip the shared block between the two segments (not strictly necessary, but more performant)...
                 nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
@@ -305,7 +307,7 @@ public class BlockProcessor {
 
                     nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
                 }
-                Logger.trace("Utxo Reorg - 3/5 complete.");
+                Logger.trace("Utxo Reorg - 3/6 complete.");
 
                 // 4. Validate that the transactions are still valid on the new chain...
                 final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null); // TODO: BlockOutputs and UnspentTransactionOutputSet should not both be null.
@@ -320,8 +322,7 @@ public class BlockProcessor {
                         transactionsToRemove.add(transactionId);
                     }
                 }
-
-                Logger.trace("Utxo Reorg - 4/5 complete.");
+                Logger.trace("Utxo Reorg - 4/6 complete.");
 
                 // 5. Remove transactions in UnconfirmedTransactions that depend on the removed transactions...
                 while (! transactionsToRemove.isEmpty()) {
@@ -330,6 +331,12 @@ public class BlockProcessor {
                     transactionsToRemove.clear();
                     transactionsToRemove.addAll(chainedInvalidTransactions);
                 }
+                Logger.trace("Utxo Reorg - 5/6 complete.");
+
+                // 6. Commit the UTXO set to ensure UTXOs removed by a now-undone commit are re-added...
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory.getDatabaseConnectionFactory());
+
                 timer.stop();
                 Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
             }

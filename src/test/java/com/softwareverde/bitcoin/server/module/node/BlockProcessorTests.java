@@ -1,14 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
@@ -22,14 +21,10 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.wallet.PaymentAmount;
-import com.softwareverde.bitcoin.wallet.Wallet;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.logging.Logger;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -302,8 +297,80 @@ public class BlockProcessorTests extends IntegrationTest {
 
             // The transaction spending the fork chain's UTXO should no longer be in the mempool...
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
-            Assert.assertTrue(unconfirmedTransactionIds.contains(transactionId));
-
+            Assert.assertFalse(unconfirmedTransactionIds.contains(transactionId));
         }
+    }
+
+    protected static Boolean utxoExistsInCommittedUtxoSet(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
+        final Integer committedUtxoCount = databaseConnection.query(
+            new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND is_spent = 0")
+                .setParameter(transaction.getHash())
+        ).size();
+        return (committedUtxoCount != 0);
+    }
+
+    @Test
+    public void should_handle_reorg_fork_with_utxo_committed() throws Exception {
+        // Setup
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+            final TestHarness harness = new TestHarness();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+            final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+            final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
+            final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
+
+            final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
+            {
+                final List<Transaction> transactions = forkChainBlock01.getTransactions();
+                final Transaction transaction = transactions.get(0);
+                invalidTransactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+            }
+
+            final Transaction forkChainCoinbaseTransaction = forkChainBlock01.getCoinbaseTransaction();
+
+            final Transaction transaction;
+            { // Inflate transaction that spends the coinbase of the ForkChain2.BLOCK_1...
+                final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001F2857FE43B7FE710900C50F38DEFFDEF0304D05F0911BBA7CAC9859BD0797D0E000000008B483045022100AFC23C6CB284C4897BA7EFAF867B45D0A80D60EA13B4EE97394A66A9A9DCE863022049B91D579050DC5BB3CB5767A3D0A0AB2A8E7D77B0A7C4B96C7F2EDEAD0DDB78414104369319023063307A8209C518C0E07CC27AA2502113907BEECA66DEFA0669DEA00D995BEC5AB5964368769C4A772F3B04C9DFA002A14BE8B27BD0E3A57CEBFDA9FFFFFFFF0100F2052A010000001976A91410DB8BE45C9035835DD8B31E811143166D9907EA88AC00000000"));
+            }
+
+            // Action
+            harness.processBlock(genesisBlock);
+
+            final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
+            final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+            transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
+            Assert.assertTrue(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection)); // Ensure the UTXO was actually committed...
+
+            final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
+            final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
+
+            // Assert
+            Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
+
+            // The output generated by the old chain should no longer be a UTXO...
+            final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
+            Assert.assertNull(oldTransactionOutput);
+
+            // Ensure the invalid UTXO isn't left within the on-disk UTXO set...
+            Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection));
+            Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(transaction, databaseConnection));
+
+            // The transaction spending the fork chain's UTXO should no longer be in the mempool...
+            final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+            Assert.assertFalse(unconfirmedTransactionIds.contains(transactionId));
+        }
+    }
+
+    @Test
+    public void should_handle_contentious_reorg_fork() {
+        // TODO: Create a test that ensures a contentious block can be seen as valid if it (validly) spends a UTXO spent on the main chain...
+        Assert.fail();
     }
 }
