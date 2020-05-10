@@ -59,7 +59,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
 
             final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
-            final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getSize());
+            final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getCount());
 
             for (final TransactionId transactionId : transactionIds) {
                 final BlockId blockId = transactionDatabaseManager.getBlockId(headChainSegmentId, transactionId);
@@ -81,7 +81,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
                 }
             }
 
-            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getCount());
             { // Add the Transactions in descending order by timestamp...
                 final MutableList<Long> timestamps = new MutableList<Long>(transactionTimestamps.keySet());
                 timestamps.sort(SortUtil.longComparator.reversed());

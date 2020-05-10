@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.spv;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -149,7 +149,7 @@ public class SpvTransactionValidator {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
         long total = 0L;
-        for (int i = 1; i < transactionOutputs.getSize(); ++i) {
+        for (int i = 1; i < transactionOutputs.getCount(); ++i) {
             final Long slpAmount = Util.coalesce(slpSendScript.getAmount(i));
             total += slpAmount;
         }

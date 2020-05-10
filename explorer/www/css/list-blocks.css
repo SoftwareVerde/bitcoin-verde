@@ -4,12 +4,15 @@
     font-size: 0;
 }
 
+.block-header > div:first-child {
+    padding-left: 0.5em;
+}
+
 .block-header > div {
     display: inline-block;
     box-sizing: border-box;
     border: none;
     font-size: initial;
-    padding-left: 1em;
     line-height: 2em;
 }
 
@@ -33,16 +36,25 @@
     min-width: 50%;
 }
 
-.block-header .timestamp {
+.block-header .time-diff {
     width: 12em;
     float: right;
+    text-align: right;
+    margin-right: 0.5em;
 }
 
+.block-header .byte-count,
 .block-header .transaction-count {
-    width: 6em;
+    width: 8em;
     float: right;
     margin-right: 1.5em;
     text-align: right;
+}
+
+.byte-count > span.value::after {
+    content: ' kB';
+    font-size: 0.75em;
+    color: #808080;
 }
 
 #main > div:not(.table-header) .block-header label {
@@ -58,31 +70,16 @@ span.value:not(.fixed) {
     font-size: 0.9em;
 }
 
-.block-header .difficulty {
+.block-header .difficulty,
+.block-header .previous-block-hash,
+.block-header .merkle-root,
+.block-header .nonce,
+.block-header .reward,
+.block-header .timestamp {
     display: none;
 }
 
-.block-header .previous-block-hash {
-    display: none;
-}
-
-.block-header .merkle-root {
-    display: none;
-}
-
-.block-header .nonce {
-    display: none;
-}
-
-.block-header .reward {
-    display: none;
-}
-
-.block-header .byte-count {
-    display: none;
-}
-
-@media only screen and (max-width: 1000px) {
+@media only screen and (max-width: 1234px) {
     #main {
         margin-left: 0;
         margin-right: 0;
@@ -115,6 +112,7 @@ span.value:not(.fixed) {
         box-sizing: border-box;
         line-height: 1em !important;
         margin-bottom: 0.25em;
+        padding-left: 0.25em !important;
     }
 
     .block-header label {

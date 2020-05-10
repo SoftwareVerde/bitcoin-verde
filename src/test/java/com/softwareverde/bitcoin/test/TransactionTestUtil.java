@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -69,7 +69,7 @@ public class TransactionTestUtil {
     }
 
     public static List<Sha256Hash> getTransactionHashes(final List<Transaction> transactions) {
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactions.getSize());
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             transactionHashes.add(transaction.getHash());
         }

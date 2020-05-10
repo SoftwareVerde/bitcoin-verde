@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.slp;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -29,9 +29,9 @@ public class SlpScriptInflater {
 
     protected static Boolean _matchesSlpFormat(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getSize() < 5) { return false; }
+        if (operations.getCount() < 5) { return false; }
 
-        for (int i = 0; i < operations.getSize(); ++i) {
+        for (int i = 0; i < operations.getCount(); ++i) {
             final Operation operation = operations.get(i);
 
             if (i == 0) {
@@ -77,7 +77,7 @@ public class SlpScriptInflater {
 
     protected static SlpTokenId _getTokenId(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getSize() < 5) { return null; }
+        if (operations.getCount() < 5) { return null; }
 
         final PushOperation tokenPushOperation = (PushOperation) operations.get(4);
         final ByteArray tokenIdBytes = tokenPushOperation.getValue();
@@ -86,7 +86,7 @@ public class SlpScriptInflater {
 
     protected static SlpGenesisScript _genesisScriptFromScript(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getSize() != 11) { return null; }
+        if (operations.getCount() != 11) { return null; }
 
         final MutableSlpGenesisScript slpGenesisScript = new MutableSlpGenesisScript();
 
@@ -97,7 +97,7 @@ public class SlpScriptInflater {
         slpGenesisScript.setTokenName(StringUtil.bytesToString(tokenNameValue.getBytes()));
 
         final Value tokenDocumentUrlValue = ((PushOperation) operations.get(6)).getValue();
-        slpGenesisScript.setDocumentUrl(StringUtil.bytesToString(tokenDocumentUrlValue.getBytes()));
+        slpGenesisScript.setDocumentUrl(tokenDocumentUrlValue.getByteCount() > 0 ? StringUtil.bytesToString(tokenDocumentUrlValue.getBytes()) : null);
 
         final Value tokenDocumentHashValue = ((PushOperation) operations.get(7)).getValue();
         if ( (tokenDocumentHashValue.getByteCount() != 0) && (tokenDocumentHashValue.getByteCount() != Sha256Hash.BYTE_COUNT) ) { return null; }
@@ -109,13 +109,14 @@ public class SlpScriptInflater {
         if ( (decimalCount < 0) || (decimalCount > 9) ) { return null; }
         slpGenesisScript.setDecimalCount(decimalCount);
 
-        final Value generatorOutputIndexValue = ((PushOperation) operations.get(9)).getValue();
-        if (generatorOutputIndexValue.getByteCount() > 1) { return null; }
-        final Integer generatorOutputIndex = ByteUtil.bytesToInteger(generatorOutputIndexValue.getBytes());
-        if (generatorOutputIndexValue.getByteCount() == 1) {
-            if (generatorOutputIndex < 2) { return null; }
+        final Value batonOutputIndexValue = ((PushOperation) operations.get(9)).getValue();
+        final int batonOutputByteCount = batonOutputIndexValue.getByteCount();
+        if (batonOutputByteCount > 1) { return null; }
+        final Integer batonOutputIndex = (batonOutputByteCount == 0 ? null : ByteUtil.bytesToInteger(batonOutputIndexValue.getBytes()));
+        if (batonOutputByteCount == 1) {
+            if (batonOutputIndex < 2) { return null; }
         }
-        slpGenesisScript.setGeneratorOutputIndex(generatorOutputIndex);
+        slpGenesisScript.setBatonOutputIndex(batonOutputIndex);
 
         final Value totalTokenCountValue = ((PushOperation) operations.get(10)).getValue();
         if (totalTokenCountValue.getByteCount() != 8) { return null; }
@@ -132,15 +133,15 @@ public class SlpScriptInflater {
         slpMintScript.setTokenId(tokenId);
 
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getSize() != 7) { return null; }
+        if (operations.getCount() != 7) { return null; }
 
-        final Value generatorOutputIndexValue = ((PushOperation) operations.get(5)).getValue();
-        if (generatorOutputIndexValue.getByteCount() > 1) { return null; }
-        final Integer generatorOutputIndex = ByteUtil.bytesToInteger(generatorOutputIndexValue.getBytes());
-        if (generatorOutputIndexValue.getByteCount() == 1) {
-            if (generatorOutputIndex < 2) { return null; }
+        final Value batonOutputIndexValue = ((PushOperation) operations.get(5)).getValue();
+        if (batonOutputIndexValue.getByteCount() > 1) { return null; }
+        final Integer batonOutputIndex = ByteUtil.bytesToInteger(batonOutputIndexValue.getBytes());
+        if (batonOutputIndexValue.getByteCount() == 1) {
+            if (batonOutputIndex < 2) { return null; }
         }
-        slpMintScript.setGeneratorOutputIndex(generatorOutputIndex);
+        slpMintScript.setBatonOutputIndex(batonOutputIndex);
 
         final Value totalTokenCountValue = ((PushOperation) operations.get(6)).getValue();
         if (totalTokenCountValue.getByteCount() != 8) { return null; }
@@ -157,11 +158,11 @@ public class SlpScriptInflater {
         slpSendScript.setTokenId(tokenId);
 
         final List<Operation> operations = lockingScript.getOperations();
-        final int outputCount = ((operations.getSize() - 5) + 1); // +1 for the OP_RETURN output...
+        final int outputCount = ((operations.getCount() - 5) + 1); // +1 for the OP_RETURN output...
         if (outputCount > SlpSendScript.MAX_OUTPUT_COUNT) { return null; }
 
         int transactionOutputIndex = 1;
-        for (int i = 5; i < operations.getSize(); ++i) {
+        for (int i = 5; i < operations.getCount(); ++i) {
             final PushOperation operation = (PushOperation) operations.get(i);
             final ByteArray value = operation.getValue();
             if (value.getByteCount() != 8) { return null; } // The "amount" byte count must be 8, according to the specification.
@@ -181,7 +182,7 @@ public class SlpScriptInflater {
         slpCommitScript.setTokenId(tokenId);
 
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getSize() < 9) { return null; }
+        if (operations.getCount() < 9) { return null; }
 
         { // Block Hash...
             final PushOperation operation = (PushOperation) operations.get(5);

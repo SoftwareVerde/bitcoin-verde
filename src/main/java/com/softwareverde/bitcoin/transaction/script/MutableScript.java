@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-import com.softwareverde.bitcoin.hash.ripemd160.MutableRipemd160Hash;
-import com.softwareverde.bitcoin.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.security.hash.ripemd160.MutableRipemd160Hash;
+import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
@@ -10,6 +10,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.Util;
 
 public class MutableScript implements Script {
@@ -67,7 +68,7 @@ public class MutableScript implements Script {
 
     public void removeOperations(final Opcode opcode) {
         int i = 0;
-        while (i < _operations.getSize()) {
+        while (i < _operations.getCount()) {
             final Operation operation = _operations.get(i);
             final boolean shouldRemoveOperation = opcode.matchesByte(operation.getOpcodeByte());
             if (shouldRemoveOperation) {
@@ -82,7 +83,7 @@ public class MutableScript implements Script {
 
     public void removePushOperations(final ByteArray byteArray) {
         int i = 0;
-        while (i < _operations.getSize()) {
+        while (i < _operations.getCount()) {
             final Operation operation = _operations.get(i);
             final boolean shouldRemoveOperation;
             { // Remove all push-operations containing byteArray...
@@ -120,7 +121,7 @@ public class MutableScript implements Script {
     public Ripemd160Hash getHash() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
         final ByteArray bytes = scriptDeflater.toBytes(this);
-        final byte[] hashBytes = BitcoinUtil.ripemd160(BitcoinUtil.sha256(bytes.getBytes()));
+        final byte[] hashBytes = HashUtil.ripemd160(HashUtil.sha256(bytes.getBytes()));
         return MutableRipemd160Hash.wrap(hashBytes);
     }
 

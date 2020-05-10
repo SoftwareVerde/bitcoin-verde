@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
@@ -141,7 +141,7 @@ public class RepairModule {
 
         final BitcoinNode bitcoinNode = bitcoinNodes.get(0);
 
-        if ( (_blockHashes.getSize() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
+        if ( (_blockHashes.getCount() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
             try (final DatabaseConnection databaseConnection = database.newConnection()) {
                 final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
 

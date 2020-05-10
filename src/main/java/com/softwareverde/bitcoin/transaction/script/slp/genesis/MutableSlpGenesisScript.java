@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class MutableSlpGenesisScript extends SlpGenesisScriptCore {
 
@@ -24,8 +24,8 @@ public class MutableSlpGenesisScript extends SlpGenesisScriptCore {
         _decimalCount = decimalCount;
     }
 
-    public void setGeneratorOutputIndex(final Integer generatorOutputIndex) {
-        _generatorOutputIndex = generatorOutputIndex;
+    public void setBatonOutputIndex(final Integer batonOutputIndex) {
+        _batonOutputIndex = batonOutputIndex;
     }
 
     /**

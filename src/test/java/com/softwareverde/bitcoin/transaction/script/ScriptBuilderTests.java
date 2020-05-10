@@ -30,7 +30,7 @@ public class ScriptBuilderTests {
         // Assert
         final List<Operation> operations = lockingScript.getOperations();
 
-        for (int i = 0; i < operations.getSize(); ++i) {
+        for (int i = 0; i < operations.getCount(); ++i) {
             final Operation operation = operations.get(i);
             final Operation expectedOperation = expectedOperations.get(i);
             Assert.assertEquals(expectedOperation, operation);

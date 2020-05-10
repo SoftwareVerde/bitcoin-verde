@@ -93,6 +93,16 @@ class Api {
         Http.get(Api.PREFIX + "search", apiParameters, callback);
     }
 
+    static getBlockTransactions(blockHash, parameters, callback) {
+        const defaultParameters = {
+            pageSize: 32,
+            pageNumber: 0
+        };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.get(Api.PREFIX + "blocks/" + blockHash + "/transactions", apiParameters, callback);
+    }
+
     static listBlockHeaders(parameters, callback) {
         const defaultParameters = {
             blockHeight: null,
@@ -171,10 +181,33 @@ class Ui {
         element.toggleClass("copyable", true);
     }
 
-    static inflateTransactionInput(transactionInput) {
+    static inflateTransactionInput(transactionInput, transaction) {
         const templates = $("#templates");
         const transactionInputTemplate = $("> .transaction-input", templates);
         const transactionInputUi = transactionInputTemplate.clone();
+
+        if (transactionInput.slp) {
+            const slpData = transactionInput.slp;
+            if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
+                transactionInputUi.toggleClass("slp", true);
+
+                const tokenAmountUi = $(".token-amount > span:first", transactionInputUi);
+                if (slpData.isBaton) {
+                    tokenAmountUi.text("BATON");
+                }
+                else {
+                    const decimalCount = ((transaction && transaction.slp) ? transaction.slp.decimalCount : 0);
+                    const multiplier = (Math.pow(10, decimalCount) * 1.0);
+                    const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
+                    tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+
+                const tokenNameUi = $(".token-amount > span.token-name", transactionInputUi);
+                if (transaction && transaction.slp) {
+                    tokenNameUi.text(transaction.slp.tokenAbbreviation);
+                }
+            }
+        }
 
         $("div.label", transactionInputUi).on("click", function() {
             $("> div:not(:first-child)", transactionInputUi).slideToggle(250, function() {
@@ -183,7 +216,8 @@ class Ui {
             return false;
         });
 
-        $(".address", transactionInputUi).text(transactionInput.address || "[CUSTOM SCRIPT]");
+        const addressString = ((Ui.displayCashAddressFormat ? transactionInput.cashAddress : transactionInput.address) || transactionInput.address);
+        $(".address", transactionInputUi).text(addressString || "[CUSTOM SCRIPT]");
         if (transactionInput.address) {
             Ui.makeHashCopyable($(".address", transactionInputUi));
         }
@@ -218,10 +252,33 @@ class Ui {
         return transactionInputUi;
     }
 
-    static inflateTransactionOutput(transactionOutput) {
+    static inflateTransactionOutput(transactionOutput, transaction) {
         const templates = $("#templates");
         const transactionOutputTemplate = $("> .transaction-output", templates);
         const transactionOutputUi = transactionOutputTemplate.clone();
+
+        if (transactionOutput.slp) {
+            const slpData = transactionOutput.slp;
+            if ( (slpData.isBaton) || (slpData.tokenAmount > 0) ) {
+                transactionOutputUi.toggleClass("slp", true);
+
+                const tokenAmountUi = $(".token-amount > span:first", transactionOutputUi);
+                if (slpData.isBaton) {
+                    tokenAmountUi.text("BATON");
+                }
+                else {
+                    const decimalCount = ((transaction && transaction.slp) ? transaction.slp.decimalCount : 0);
+                    const multiplier = (Math.pow(10, decimalCount) * 1.0);
+                    const displayTokenAmount = ((slpData.tokenAmount || 0) / multiplier).toFixed(decimalCount);
+                    tokenAmountUi.text(displayTokenAmount.toLocaleString());
+                }
+
+                const tokenNameUi = $(".token-amount > span.token-name", transactionOutputUi);
+                if (transaction && transaction.slp) {
+                    tokenNameUi.text(transaction.slp.tokenAbbreviation);
+                }
+            }
+        }
 
         $("div.label", transactionOutputUi).on("click", function() {
             $("> div:not(:first-child)", transactionOutputUi).slideToggle(250, function() {
@@ -230,7 +287,8 @@ class Ui {
             return false;
         });
 
-        $(".address", transactionOutputUi).text(transactionOutput.address || "[CUSTOM SCRIPT]");
+        const addressString = ((Ui.displayCashAddressFormat ? transactionOutput.cashAddress : transactionOutput.address) || transactionOutput.address);
+        $(".address", transactionOutputUi).text(addressString || "[CUSTOM SCRIPT]");
         if (transactionOutput.address) {
             Ui.makeHashCopyable($(".address", transactionOutputUi));
         }
@@ -253,6 +311,9 @@ class Ui {
     }
 
     static renderBlock(block) {
+        Ui.currentObject = block;
+        Ui.currentObjectType = Constants.BLOCK;
+
         const loadingImage = $("#search-loading-image");
 
         const blockUi = Ui.inflateBlock(block);
@@ -275,6 +336,9 @@ class Ui {
     }
 
     static renderAddress(addressObject) {
+        Ui.currentObject = addressObject;
+        Ui.currentObjectType = Constants.ADDRESS;
+
         const main = $("#main");
         main.empty();
 
@@ -346,6 +410,9 @@ class Ui {
     }
 
     static renderTransaction(transaction) {
+        Ui.currentObject = transaction;
+        Ui.currentObjectType = Constants.TRANSACTION;
+
         const transactionUi = Ui.inflateTransaction(transaction);
         transactionUi.hide();
         const main = $("#main");
@@ -373,27 +440,103 @@ class Ui {
         previousBlockHashElement.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
         $(".block-header .timestamp .value", blockUi).text(DateUtil.formatDateIso(block.timestamp.value));
+        $(".block-header .time-diff .value", blockUi).text(DateUtil.formatTimeSince(block.timestamp.value, " ago"));
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
         $(".block-header .reward .value", blockUi).text((block.reward ? (block.reward / Constants.SATOSHIS_PER_BITCOIN) : "-").toLocaleString());
-        $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
+        $(".block-header .byte-count .value.kilobytes", blockUi).text(((block.byteCount >= 0 ? (block.byteCount / 1000.0).toFixed(2) : null) || "-").toLocaleString());
+        $(".block-header .byte-count .value:not(.kilobytes)", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || (block.transactions ? block.transactions.length : null ) || "-").toLocaleString());
 
-        const loadingElement = Ui._getLoadingElement();
-        const appendTransaction = function(i, transactions) {
-            if (i >= transactions.length) {
-                loadingElement.remove();
+        const renderBlockTransactions = function(transactions) {
+            Ui.renderTransactions(transactions, function(transaction, transactionUi) {
+                $(".transactions", blockUi).append(transactionUi);
+            });
+        };
+
+        const pageSize = 32;
+        const transactionCount = block.transactionCount;
+        const pageCount = parseInt((transactionCount + pageSize - 1) / pageSize);
+        const pageNavigation = $(".transactions-nav .page-navigation", blockUi);
+
+        const changePage = function(pageNumber) {
+            Api.getBlockTransactions(block.hash, { pageSize: pageSize, pageNumber: pageNumber }, function(data) {
+                const container = $(".transactions", blockUi);
+                container.empty();
+
+                const transactions = data.transactions;
+                renderBlockTransactions(transactions);
+
+                renderPagination(pageNumber);
+            });
+        };
+
+        const createPaginationButton = function(pageNumber) {
+            pageNumber = parseInt(pageNumber);
+
+            const element = $("<a></a>");
+            element.toggleClass("value-" + pageNumber);
+            element.text(pageNumber + 1);
+
+            element.on("click", function() {
+                changePage(pageNumber);
+            });
+
+            return element;
+        };
+
+        const renderPagination = function(pageNumber) {
+            const maxButtonCount = 7;
+            pageNumber = ( (typeof pageNumber != "undefined") ? pageNumber : renderPagination.currentPageNumber );
+
+            if ( (pageNumber < 0) || (pageNumber >= pageCount) ) {
                 return;
             }
 
-            const transaction = transactions[i];
-            const transactionUi = Ui.inflateTransaction(transaction);
-            $(".transactions", blockUi).append(transactionUi);
-            $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
-            window.setTimeout(appendTransaction, 0, (i+1), transactions);
+            const buttonCount = Math.min(maxButtonCount, pageCount);
+            const halfButtonCount = parseInt(buttonCount / 2);
+            let buttonCountLeft = ((pageNumber < halfButtonCount) ? pageNumber : halfButtonCount);
+            let leftButtonStartIndex = (buttonCountLeft == 0 ? -1 : (pageNumber - buttonCountLeft));
+            const rightButtonStartIndex = (pageNumber + 1);
+            const buttonCountRight = ((rightButtonStartIndex + halfButtonCount) > pageCount ? (pageCount - pageNumber - 1) : ((2 * halfButtonCount) - buttonCountLeft));
+            if (buttonCountRight < halfButtonCount) {
+                const additionalButtonsLeft = Math.max(0, Math.min((halfButtonCount - buttonCountRight), leftButtonStartIndex));
+                buttonCountLeft += additionalButtonsLeft;
+                leftButtonStartIndex -= additionalButtonsLeft;
+            }
+
+            pageNavigation.empty();
+            const totalButtonCount = Math.min(pageCount, (buttonCountLeft + buttonCountRight + 1));
+            for (let i = 0; i < totalButtonCount; ++i) {
+                let paginationButton = null;
+                if (i < buttonCountLeft) {
+                    paginationButton = createPaginationButton(leftButtonStartIndex + i);
+                }
+                else if (i > buttonCountLeft) {
+                    paginationButton = createPaginationButton(rightButtonStartIndex + (i - buttonCountLeft - 1));
+                }
+                else {
+                    paginationButton = createPaginationButton(pageNumber);
+                    paginationButton.toggleClass("current");
+                }
+
+                pageNavigation.append(paginationButton);
+            }
+
+            renderPagination.currentPageNumber = pageNumber;
         };
+        renderPagination.currentPageNumber = 0;
+
+        const pageCarets = $("> .previous, > .next", pageNavigation.parent());
+        pageCarets.on("click", function() {
+            const direction = ($(this).hasClass("previous") ? -1 : 1);
+            const newPageNumber = (renderPagination.currentPageNumber + direction);
+            changePage(newPageNumber);
+        });
+
+        renderPagination();
 
         const transactions = (block.transactions || []);
-        appendTransaction(0, transactions);
+        renderBlockTransactions(transactions);
 
         return blockUi;
     }
@@ -414,7 +557,7 @@ class Ui {
         });
 
         transactionUi.on("click", function() {
-            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .slp", transactionUi);
+            const nonAnimatedElements = $(".version, .byte-count, .fee, .lock-time, .version, .floating-property", transactionUi);
             const elements = $(".block-hashes", transactionUi);
             elements.each(function() {
                 const element = $(this);
@@ -460,6 +603,7 @@ class Ui {
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
         $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
 
+        const slpGenesisContainer = $(".slp-genesis", transactionUi);
         const slpAttributeContainer = $(".slp", transactionUi);
         if (transaction.slp) {
             const slpAttributeValue = $(".slp .value", transactionUi);
@@ -482,9 +626,32 @@ class Ui {
             else {
                 slpAttributeContainer.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
             }
+
+            const transactionLink = $(".token-id .value", slpGenesisContainer);
+            transactionLink.text(transaction.slp.tokenId);
+            Ui.makeHashCopyable(transactionLink);
+            transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transaction.slp.tokenId));
+
+            $(".token-name .value", slpGenesisContainer).text(transaction.slp.tokenName);
+            $(".token-name img", slpGenesisContainer).attr("src", "//raw.githubusercontent.com/kosinusbch/slp-token-icons/master/32/" + transaction.slp.tokenId.toLowerCase() + ".png");
+            $(".token-abbreviation .value", slpGenesisContainer).text(transaction.slp.tokenAbbreviation);
+            $(".document-url .value", slpGenesisContainer).text(transaction.slp.documentUrl);
+
+            const documentHashLink = $(".document-hash .value", slpGenesisContainer);
+            if (transaction.slp.documentHash) {
+                documentHashLink.text(transaction.slp.documentHash);
+                Ui.makeHashCopyable(documentHashLink);
+            }
+            else {
+                documentHashLink.text("-");
+            }
+
+            $(".token-count .value", slpGenesisContainer).text((transaction.slp.tokenCount || 0).toLocaleString());
+            $(".decimal-count .value", slpGenesisContainer).text(transaction.slp.decimalCount);
         }
         else {
             slpAttributeContainer.remove();
+            slpGenesisContainer.remove();
         }
 
         const blocks = (transaction.blocks || []);
@@ -509,14 +676,14 @@ class Ui {
         const transactionInputs = (transaction.inputs || [ ]);
         for (let i = 0; i < transactionInputs.length; i += 1) {
             const transactionInput = transactionInputs[i];
-            const transactionInputUi = Ui.inflateTransactionInput(transactionInput);
+            const transactionInputUi = Ui.inflateTransactionInput(transactionInput, transaction);
             $(".io .transaction-inputs", transactionUi).append(transactionInputUi);
         }
 
         const transactionOutputs = (transaction.outputs || [ ]);
         for (let i = 0; i < transactionOutputs.length; i += 1) {
             const transactionOutput = transactionOutputs[i];
-            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput);
+            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput, transaction);
             $(".io .transaction-outputs", transactionUi).append(transactionOutputUi);
         }
 
@@ -528,7 +695,7 @@ class Ui {
         const addressTemplate = $("> .address", templates);
         const addressUi = addressTemplate.clone();
 
-        const addressString = (addressObject.base58CheckEncoded || "");
+        const addressString = ((Ui.displayCashAddressFormat ? addressObject.base32CheckEncoded : addressObject.base58CheckEncoded) || addressObject.base58CheckEncoded || "");
         const addressBalance = (addressObject.balance || 0);
         const addressTransactions = addressObject.transactions;
 
@@ -540,8 +707,27 @@ class Ui {
 
         const addressTransactionsContainer = $(".address-transactions", addressUi);
 
+        Ui.renderTransactions(addressTransactions, function(transaction, transactionUi) {
+            Ui.highlightAddress(addressString, transactionUi);
+            addressTransactionsContainer.append(transactionUi);
+        });
+
+        return addressUi;
+    }
+
+    static renderTransactions(transactions, renderedTransactionCallback) {
         const loadingElement = Ui._getLoadingElement();
-        const appendTransaction = function(i, transactions) {
+
+        const renderFunction = function(i, transactions) {
+            if (i == 0) {
+                const timeouts = Ui.appendTransactionTimeouts;
+                for (let j = 0; j < timeouts.length; ++j) {
+                    clearTimeout(timeouts[j]);
+                    timeouts[j] = 0;
+                }
+                Ui.appendTransactionTimeouts.length = transactions.length;
+            }
+
             if (i >= transactions.length) {
                 loadingElement.remove();
                 return;
@@ -549,18 +735,21 @@ class Ui {
 
             const transaction = transactions[i];
             const transactionUi = Ui.inflateTransaction(transaction);
-            Ui.highlightAddress(addressString, transactionUi);
-            addressTransactionsContainer.append(transactionUi);
+
+            if (typeof renderedTransactionCallback == "function") {
+                renderedTransactionCallback(transaction, transactionUi);
+            }
 
             $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
-            window.setTimeout(appendTransaction, 0, (i+1), transactions);
+            Ui.appendTransactionTimeouts[i] = window.setTimeout(renderFunction, 0, (i+1), transactions);
         };
-
-        appendTransaction(0, addressTransactions);
-
-        return addressUi;
+        renderFunction(0, transactions);
     }
 }
+Ui.displayCashAddressFormat = true;
+Ui.currentObject = null;
+Ui.currentObjectType = null;
+Ui.appendTransactionTimeouts = [];
 
 class DateUtil {
     static getTimeZoneAbbreviation() {
@@ -587,6 +776,50 @@ class DateUtil {
         }
         return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth() + 1) + "-" + DateUtil.padLeft(date.getDate()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
     }
+
+    static formatTimeSince(date, trailLabel) {
+        trailLabel = (trailLabel || "");
+
+        if ( (typeof date == "number") || (typeof date == "string") ) {
+            const newDate = new Date(0);
+            newDate.setUTCSeconds(date);
+            date = newDate;
+        }
+
+        const currentDate = new Date();
+        const duration = (currentDate - date);
+
+        const days = Math.floor(duration / 86400000);
+        const hours = Math.floor((duration % 86400000) / 3600000);
+        const minutes = Math.round(((duration % 86400000) % 3600000) / 60000);
+        const years = Math.floor(days / 365.25);
+
+        if (years > 0) {
+            return (years + " years" + trailLabel);
+        }
+        if (days > 29) {
+            return (Math.floor(days / 30) + " months" + trailLabel);
+        }
+        if (days > 1) {
+            return (days + " days" + trailLabel);
+        }
+        if (days == 1) {
+            return (days + " day, " + hours + " hours" + trailLabel);
+        }
+
+        let separator = "";
+        let string = "";
+        if (hours > 0) {
+            string += (hours + " hr" + (hours > 1 ? "s" : "") + trailLabel);
+            separator = ", ";
+        }
+        if (minutes > 0) {
+            return (string + separator + minutes + " min" + (minutes > 1 ? "s" : "") + trailLabel);
+        }
+        else {
+            return "now";
+        }
+    }
 }
 
 /*
@@ -609,4 +842,3 @@ class DateUtil {
         textNode.attr("y", ((height + Math.min(height, bb.height)) / 2));
     }
 */
-

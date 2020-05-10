@@ -23,7 +23,7 @@ public class SignatureContextGenerator {
         final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, useBitcoinCash), Long.MAX_VALUE);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int i = 0; i < transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getCount(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);

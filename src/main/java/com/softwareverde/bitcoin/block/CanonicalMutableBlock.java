@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
 
@@ -32,7 +32,7 @@ public class CanonicalMutableBlock extends MutableBlock {
         }
 
         boolean wasAdded = false;
-        for (int i = 1; i < _transactions.getSize(); ++i) { // Exclude coinbase...
+        for (int i = 1; i < _transactions.getCount(); ++i) { // Exclude coinbase...
             final Transaction existingTransaction = _transactions.get(i);
 
             if (! wasAdded) {
@@ -64,7 +64,7 @@ public class CanonicalMutableBlock extends MutableBlock {
         _transactions.clear();
         if (transactions.isEmpty()) { return; }
 
-        for (int i = 1; i < transactions.getSize(); ++i) { // Excludes coinbase...
+        for (int i = 1; i < transactions.getCount(); ++i) { // Excludes coinbase...
             final Transaction transaction = transactions.get(i);
             final Transaction constTransaction = transaction.asConst();
             _transactions.add(constTransaction);

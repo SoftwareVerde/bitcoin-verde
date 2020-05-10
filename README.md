@@ -1,7 +1,15 @@
-# Bitcoin Verde v1.2.2
+# Bitcoin Verde v1.3.0
 
 
 ## Updates
+
+**v1.3.0**
+- 20200515 HF support (OP_REVERSE).
+- The Explorer now returns results via pagination for better performance.
+- Added CashAddr and improved SLP support to the Explorer.
+- Misc. Wallet Updates & Bug Fixes.
+- Added Bitcoin-Sign-Message support.
+
 
 **v1.2.0**
 - 20191115 HF support (Multisig Schnorr Signatures).
@@ -147,4 +155,13 @@ resolving bugs preferrably be accepted along with a test proving their existence
 
 Feel free to contact Software Verde, LLC at any appropriate softwareverde.com email address.
 Generic enquiries may be directed to bitcoin-verde@softwareverde.com
+
+
+## Running on macOS Catalina
+
+If the embedded database fails to start due to being unable to find the SSL lib, consider
+executing the following commands and trying again:
+
+    sudo ln -s /usr/lib/libssl.dylib /usr/local/opt/openssl/lib/libssl.1.0.0.dylib
+    sudo ln -s /usr/lib/libcrypto.dylib /usr/local/opt/openssl/lib/libcrypto.1.0.0.dylib
 

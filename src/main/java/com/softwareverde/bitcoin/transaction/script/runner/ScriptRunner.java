@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.bip.HF20190515;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;

@@ -12,7 +12,8 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -89,13 +90,17 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Long getBlockHeaderTimestamp();
 
         Long getBlockTimestamp();
-        BlockHeader getBlockHeader(Long blockHeight);
 
+        BlockHeader getBlockHeader(Long blockHeight);
         BlockHeader getBlockHeader(Sha256Hash blockHash);
+
         Long getBlockHeaderHeight(final Sha256Hash blockHash);
 
         Block getBlock(Long blockHeight);
         Block getBlock(Sha256Hash blockHash);
+
+        List<Transaction> getBlockTransactions(Long blockHeight, Integer pageSize, Integer pageNumber);
+        List<Transaction> getBlockTransactions(Sha256Hash blockHash, Integer pageSize, Integer pageNumber);
 
         List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount);
 
@@ -263,6 +268,94 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         response.put("blockHeaders", blockHeadersJson);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <height | hash>, [pageSize=128], [pageNumber=0]
+    protected void _getBlockTransactions(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("hash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: [hash]");
+            return;
+        }
+
+        final Long blockHeight;
+        final Sha256Hash blockHash;
+        {
+            final boolean blockHashWasProvided = parameters.hasKey("hash");
+            final String paramBlockHashString = parameters.getString("hash");
+            blockHash = (blockHashWasProvided ? Sha256Hash.fromHexString(paramBlockHashString) : null);
+
+            final boolean blockHeightWasProvided = parameters.hasKey("blockHeight");
+            final String paramBlockHeightString = parameters.getString("blockHeight");
+            blockHeight = (blockHeightWasProvided ? Util.parseLong(paramBlockHeightString) : null);
+
+            if ( (! blockHeightWasProvided) && (! blockHashWasProvided) ) {
+                response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: [hash|blockHeight]");
+                return;
+            }
+
+            if ( blockHashWasProvided && (blockHash == null)) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid block hash: " + paramBlockHashString);
+                return;
+            }
+            else if (blockHeightWasProvided && (blockHeight < 0) ) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid block height: " + paramBlockHeightString);
+                return;
+            }
+        }
+
+        final Integer pageSize;
+        final Integer pageNumber;
+        {
+            final String paramPageSizeString = (parameters.hasKey("pageSize") ? parameters.getString("pageSize") : "128");
+            final String paramPageNumberString = (parameters.hasKey("pageNumber") ? parameters.getString("pageNumber") : "0");
+
+            pageSize = Util.parseInt(paramPageSizeString);
+            pageNumber = Util.parseInt(paramPageNumberString);
+
+            if (pageSize < 1) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid page size: " + paramPageSizeString);
+                return;
+            }
+
+            if (pageNumber < 0) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid page number: " + paramPageNumberString);
+                return;
+            }
+        }
+
+        final List<Transaction> transactions;
+        {
+            if (blockHash != null) {
+                transactions = dataHandler.getBlockTransactions(blockHash, pageSize, pageNumber);
+            }
+            else {
+                transactions = dataHandler.getBlockTransactions(blockHeight, pageSize, pageNumber);
+            }
+        }
+        if (transactions == null) {
+            response.put(ERROR_MESSAGE_KEY, "Block not found: " + blockHash);
+            return;
+        }
+
+        final Json transactionsJson = new Json(true);
+
+        final MetadataHandler metadataHandler = _metadataHandler;
+        for (final Transaction transaction : transactions) {
+            final Json transactionJson = transaction.toJson();
+            if (metadataHandler != null) {
+                metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+            }
+            transactionsJson.add(transactionJson);
+        }
+
+        response.put("transactions", transactionsJson);
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -620,7 +713,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address.");
@@ -653,7 +746,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
@@ -668,6 +761,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final Json addressJson = new Json();
+        addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
         addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
         addressJson.put("balance", queryAddressHandler.getBalance(address));
 
@@ -756,7 +850,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires GET: <slpTokenId>
+    // Requires GET: <hash>
     protected void _querySlpTokenId(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -1436,6 +1530,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "BLOCK_HEADER": {
                                 _getBlockHeader(parameters, response);
+                            } break;
+
+                            case "BLOCK_TRANSACTIONS": {
+                                _getBlockTransactions(parameters, response);
                             } break;
 
                             case "TRANSACTION": {

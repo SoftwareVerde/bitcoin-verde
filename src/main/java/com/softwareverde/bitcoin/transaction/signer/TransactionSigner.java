@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.secp256k1.Schnorr;
-import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.secp256k1.Schnorr;
+import com.softwareverde.security.secp256k1.Secp256k1;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.security.secp256k1.key.PublicKey;
+import com.softwareverde.security.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -28,6 +28,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -67,7 +68,7 @@ public class TransactionSigner {
             // for that case, which caused the "1" value to be the actual bytes that are signed for the whole transaction.
             final Mode signatureMode = hashType.getMode();
             if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
-                if (signatureContext.getInputIndexBeingSigned() >= transactionOutputs.getSize()) {
+                if (signatureContext.getInputIndexBeingSigned() >= transactionOutputs.getCount()) {
                     return INVALID_SIGNATURE_HASH_SINGLE_VALUE;
                 }
             }
@@ -77,7 +78,7 @@ public class TransactionSigner {
         mutableTransaction.setVersion(transaction.getVersion());
         mutableTransaction.setLockTime(transaction.getLockTime());
 
-        for (int inputIndex = 0; inputIndex < transactionInputs.getSize(); ++inputIndex) {
+        for (int inputIndex = 0; inputIndex < transactionInputs.getCount(); ++inputIndex) {
             if (! signatureContext.shouldInputBeSigned(inputIndex)) { continue; }
 
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
@@ -132,7 +133,7 @@ public class TransactionSigner {
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
 
-        for (int outputIndex = 0; outputIndex < transactionOutputs.getSize(); ++outputIndex) {
+        for (int outputIndex = 0; outputIndex < transactionOutputs.getCount(); ++outputIndex) {
             if (! signatureContext.shouldOutputBeSigned(outputIndex)) { continue; } // If the output should not be signed, then it is omitted from the signature completely...
 
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
@@ -163,7 +164,7 @@ public class TransactionSigner {
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(mutableTransaction);
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.toByte())), Endian.LITTLE);
         final byte[] bytes = byteArrayBuilder.build();
-        return BitcoinUtil.sha256(BitcoinUtil.sha256(bytes));
+        return HashUtil.doubleSha256(bytes);
     }
 
     protected byte[] _getBitcoinCashBytesForSigning(final SignatureContext signatureContext) {
@@ -187,7 +188,7 @@ public class TransactionSigner {
                     serializedTransactionInput.appendBytes(ByteUtil.integerToBytes(transactionInput.getPreviousOutputIndex()), Endian.LITTLE);
                 }
 
-                final byte[] bytes = BitcoinUtil.sha256(BitcoinUtil.sha256(serializedTransactionInput.build()));
+                final byte[] bytes = HashUtil.doubleSha256(serializedTransactionInput.build());
                 byteArrayBuilder.appendBytes(bytes);
             }
             else {
@@ -204,7 +205,7 @@ public class TransactionSigner {
                 for (final TransactionInput transactionInput : transactionInputs) {
                     serializedSequenceNumbers.appendBytes(transactionInput.getSequenceNumber().getBytes(), Endian.LITTLE);
                 }
-                final byte[] bytes = BitcoinUtil.sha256(BitcoinUtil.sha256(serializedSequenceNumbers.build()));
+                final byte[] bytes = HashUtil.doubleSha256(serializedSequenceNumbers.build());
                 byteArrayBuilder.appendBytes(bytes);
             }
         }
@@ -255,7 +256,7 @@ public class TransactionSigner {
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
             if (hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE) {
-                if (inputIndex >= transactionOutputs.getSize()) {
+                if (inputIndex >= transactionOutputs.getCount()) {
                     byteArrayBuilder.appendBytes(Sha256Hash.EMPTY_HASH); // NOTE: This is different behavior than Bitcoin for this error case...
                 }
                 else {
@@ -268,7 +269,7 @@ public class TransactionSigner {
                     serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
                     serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
 
-                    final byte[] bytes = BitcoinUtil.sha256(BitcoinUtil.sha256(serializedTransactionOutput.build()));
+                    final byte[] bytes = HashUtil.doubleSha256(serializedTransactionOutput.build());
                     byteArrayBuilder.appendBytes(bytes);
                 }
             }
@@ -286,7 +287,7 @@ public class TransactionSigner {
                     serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
                 }
 
-                final byte[] bytes = BitcoinUtil.sha256(BitcoinUtil.sha256(serializedTransactionOutput.build()));
+                final byte[] bytes = HashUtil.doubleSha256(serializedTransactionOutput.build());
                 byteArrayBuilder.appendBytes(bytes);
             }
         }
@@ -304,7 +305,7 @@ public class TransactionSigner {
             byteArrayBuilder.appendBytes(hashTypeWithForkId, Endian.LITTLE);
         }
 
-        return BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
+        return HashUtil.doubleSha256(byteArrayBuilder.build());
     }
 
     protected Transaction _signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey, final Boolean useCompressedPublicKey) {
@@ -327,7 +328,7 @@ public class TransactionSigner {
         final ScriptSignature scriptSignature = new ScriptSignature(signature, signatureContext.getHashType());
 
         final List<TransactionInput> transactionInputs = mutableTransaction.getTransactionInputs();
-        for (int i = 0; i < transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getCount(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             if (signatureContext.shouldInputScriptBeSigned(i)) {

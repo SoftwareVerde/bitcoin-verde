@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactio
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
@@ -47,8 +47,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
-
     public interface FailableCallback {
+
         default void onFailure() { }
     }
     public interface BlockInventoryMessageCallback extends BitcoinNode.BlockInventoryMessageCallback, FailableCallback { }
@@ -62,8 +62,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
-
     public static class Properties {
+
         public Integer maxNodeCount;
         public DatabaseManagerFactory databaseManagerFactory;
         public BitcoinNodeFactory nodeFactory;
@@ -83,6 +83,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final AtomicBoolean _hasHadActiveConnectionSinceLastDisconnect = new AtomicBoolean(false);
 
     protected Boolean _transactionRelayIsEnabled = true;
+    protected Boolean _slpValidityCheckingIsEnabled = false;
     protected MutableBloomFilter _bloomFilter = null;
 
     protected final Object _pollForReconnectionThreadMutex = new Object();
@@ -265,6 +266,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
+        if (_slpValidityCheckingIsEnabled) {
+            if (Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED), false)) {
+                bitcoinNode.enableSlpValidityChecking(true);
+            }
+        }
+
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
@@ -511,7 +518,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             @Override
             public void onFailure() {
-                Logger.debug("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
+                Logger.debug("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getCount() - 1) +")");
 
                 if (callback != null) {
                     callback.onFailure(transactionHashes);
@@ -800,6 +807,14 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public Boolean isTransactionRelayEnabled() {
         return _transactionRelayIsEnabled;
+    }
+
+    public void enableSlpValidityChecking(final Boolean shouldEnableSlpValidityChecking) {
+        _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
+    }
+
+    public Boolean isSlpValidityCheckingEnabled() {
+        return _slpValidityCheckingIsEnabled;
     }
 
     @Override

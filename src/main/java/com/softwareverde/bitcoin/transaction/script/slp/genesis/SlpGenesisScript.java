@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
@@ -16,7 +16,7 @@ public interface SlpGenesisScript extends SlpScript, Jsonable, Constable<Immutab
     String getDocumentUrl();
     Sha256Hash getDocumentHash();
     Integer getDecimalCount();
-    Integer getGeneratorOutputIndex();
+    Integer getBatonOutputIndex();
     Long getTokenCount();
 
     @Override
@@ -29,7 +29,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     protected String _documentUrl = null;
     protected Sha256Hash _documentHash = null;
     protected Integer _decimalCount = 8;
-    protected Integer _generatorOutputIndex;
+    protected Integer _batonOutputIndex;
     protected Long _tokenCount = 21000000L;
 
     public SlpGenesisScriptCore() { }
@@ -40,7 +40,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         _documentUrl = slpGenesisScript.getDocumentUrl();
         _documentHash = slpGenesisScript.getDocumentHash();
         _decimalCount = slpGenesisScript.getDecimalCount();
-        _generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
+        _batonOutputIndex = slpGenesisScript.getBatonOutputIndex();
         _tokenCount = slpGenesisScript.getTokenCount();
     }
 
@@ -51,7 +51,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
 
     @Override
     public Integer getMinimumTransactionOutputCount() {
-        return Math.max(2, (Util.coalesce(_generatorOutputIndex) + 1)); // Requires at least 1 Script Output and 1 Receiver Output...
+        return Math.max(2, (Util.coalesce(_batonOutputIndex) + 1)); // Requires at least 1 Script Output and 1 Receiver Output...
     }
 
     @Override
@@ -80,8 +80,8 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     }
 
     @Override
-    public Integer getGeneratorOutputIndex() {
-        return _generatorOutputIndex;
+    public Integer getBatonOutputIndex() {
+        return _batonOutputIndex;
     }
 
     @Override
@@ -98,7 +98,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         json.put("documentUrl", _documentUrl);
         json.put("documentHash", _documentHash);
         json.put("decimalCount", _decimalCount);
-        json.put("batonIndex", _generatorOutputIndex);
+        json.put("batonIndex", _batonOutputIndex);
         json.put("tokenCount", _tokenCount);
 
         return json;
@@ -114,7 +114,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         if (! Util.areEqual(_documentUrl, slpGenesisScript.getDocumentUrl())) { return false; }
         if (! Util.areEqual(_documentHash, slpGenesisScript.getDocumentHash())) { return false; }
         if (! Util.areEqual(_decimalCount, slpGenesisScript.getDecimalCount())) { return false; }
-        if (! Util.areEqual(_generatorOutputIndex, slpGenesisScript.getGeneratorOutputIndex())) { return false; }
+        if (! Util.areEqual(_batonOutputIndex, slpGenesisScript.getBatonOutputIndex())) { return false; }
         if (! Util.areEqual(_tokenCount, slpGenesisScript.getTokenCount())) { return false; }
 
         return true;
@@ -127,7 +127,7 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         hashCode += Util.coalesce(_documentUrl).hashCode();
         hashCode += Util.coalesce(_documentHash, Sha256Hash.EMPTY_HASH).hashCode();
         hashCode += Util.coalesce(_decimalCount).hashCode();
-        hashCode += Util.coalesce(_generatorOutputIndex).hashCode();
+        hashCode += Util.coalesce(_batonOutputIndex).hashCode();
         hashCode += Util.coalesce(_tokenCount).hashCode();
         return hashCode;
     }

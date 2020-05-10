@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.block.merkleroot;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.test.util.TestUtil;
@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -42,7 +43,7 @@ public class MerkleTreeTests {
         }
 
         int levelOffset = 0;
-        for (int levelSize = items.getSize(); levelSize > 1; levelSize = (levelSize + 1) / 2) {
+        for (int levelSize = items.getCount(); levelSize > 1; levelSize = (levelSize + 1) / 2) {
             for (int left = 0; left < levelSize; left += 2) {
                 int right = Math.min(left + 1, levelSize - 1);
                 byte[] leftBytes = ByteUtil.reverseEndian(tree.get(levelOffset + left));
@@ -71,7 +72,7 @@ public class MerkleTreeTests {
 
         @Override
         public Sha256Hash getHash() {
-            return MutableMerkleRoot.wrap(BitcoinUtil.sha256(ByteUtil.integerToBytes(_value)));
+            return MutableMerkleRoot.wrap(HashUtil.sha256(ByteUtil.integerToBytes(_value)));
         }
 
         @Override
@@ -136,7 +137,7 @@ public class MerkleTreeTests {
         final MerkleRoot spvMerkle = _calculateSpvMerkle(transactionIndex, newItem, partialMerkleTree);
 
         // Assert
-        Assert.assertEquals(expectedPartialTreeSize.intValue(), partialMerkleTree.getSize());
+        Assert.assertEquals(expectedPartialTreeSize.intValue(), partialMerkleTree.getCount());
         merkleTree.replaceItem(transactionIndex, newItem);
         final MerkleRoot expectedMerkleRoot = merkleTree.getMerkleRoot();
 
@@ -174,7 +175,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(4, transactions.getSize());
+        Assert.assertEquals(4, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);
@@ -197,7 +198,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(13, transactions.getSize());
+        Assert.assertEquals(13, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);
@@ -221,7 +222,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(1496, transactions.getSize());
+        Assert.assertEquals(1496, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);
@@ -245,7 +246,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(237, transactions.getSize());
+        Assert.assertEquals(237, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);
@@ -269,7 +270,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(27, transactions.getSize());
+        Assert.assertEquals(27, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);
@@ -293,7 +294,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(98, transactions.getSize());
+        Assert.assertEquals(98, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);
@@ -337,7 +338,7 @@ public class MerkleTreeTests {
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(63, transactions.getSize());
+        Assert.assertEquals(63, transactions.getCount());
 
         for (final Transaction transaction : transactions) {
             merkleTree.addItem(transaction);

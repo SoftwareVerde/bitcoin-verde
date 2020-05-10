@@ -41,7 +41,7 @@ public class ScriptTests {
 
         // Assert
         final List<Operation> operations = unlockingScript.getOperations();
-        Assert.assertEquals(4, operations.getSize());
+        Assert.assertEquals(4, operations.getCount());
         // (0x51 OP_PUSH-PUSH_VALUE Value: 01000000)
         Assert.assertEquals(1, ((PushOperation) operations.get(0)).getValue().asInteger().intValue());
         // (0x21 OP_PUSH-PUSH_DATA Value: 0232ABDC893E7F0631364D7FD01CB33D24DA45329A00357B3A7886211AB414D55A)

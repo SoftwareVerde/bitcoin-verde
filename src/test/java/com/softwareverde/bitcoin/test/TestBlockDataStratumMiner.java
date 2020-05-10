@@ -7,8 +7,8 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -51,9 +51,9 @@ public class TestBlockDataStratumMiner {
 
         final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
         Logger.info("Private Key: " + coinbasePrivateKey);
-        Logger.info("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey).toBase58CheckEncoded());
+        Logger.info("Address:     " + addressInflater.uncompressedFromPrivateKey(coinbasePrivateKey).toBase58CheckEncoded());
 
-        final Address address = addressInflater.fromPrivateKey(coinbasePrivateKey);
+        final Address address = addressInflater.uncompressedFromPrivateKey(coinbasePrivateKey);
 
         final Long blockHeight = 1L; // ???
         final Sha256Hash previousBlockHash = BlockHeader.GENESIS_BLOCK_HASH; // ???
@@ -162,7 +162,7 @@ class StratumMiner {
         while (i < byteCount) {
             final byte[] randomBytes = ByteUtil.integerToBytes((int) (Math.random() * Integer.MAX_VALUE));
             for (byte b : randomBytes) {
-                mutableByteArray.set(i, b);
+                mutableByteArray.setByte(i, b);
                 i += 1;
                 if (i >= byteCount) { break; }
             }

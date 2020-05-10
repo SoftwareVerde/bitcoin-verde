@@ -1,9 +1,10 @@
 package com.softwareverde.bitcoin.server.database.cache;
 
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.constable.Const;
 import com.softwareverde.util.Util;
 
-class CachedTransactionOutputIdentifier {
+class CachedTransactionOutputIdentifier implements Const {
     final TransactionId transactionId;
     final Integer transactionOutputIndex;
 

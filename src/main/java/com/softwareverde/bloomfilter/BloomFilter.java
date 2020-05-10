@@ -3,6 +3,7 @@ package com.softwareverde.bloomfilter;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.Util;
 
 public interface BloomFilter extends Constable<ImmutableBloomFilter> {
@@ -40,7 +41,7 @@ class BloomFilterCore {
         final Long bitCount = (byteCount * 8L);
 
         for (int i = 0; i < hashFunctionCount; ++i) {
-            final Long hash = BitcoinUtil.murmurHash(nonce, i, item);
+            final Long hash = HashUtil.murmurHash(nonce, i, item);
             final Long index = (hash % bitCount);
             final Boolean isSet = bytes.getBit(index);
 

@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
@@ -92,7 +92,7 @@ public class MutableBlock implements Block {
         _cachedHashCode = null;
 
         final MutableList<Transaction> oldTransactions = _transactions;
-        _transactions = new MutableList<Transaction>(_transactions.getSize());
+        _transactions = new MutableList<Transaction>(_transactions.getCount());
         for (final Transaction transaction : oldTransactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             if (! Util.areEqual(transactionHashToRemove, transactionHash)) {
@@ -209,7 +209,7 @@ public class MutableBlock implements Block {
 
     @Override
     public Integer getTransactionCount() {
-        return _transactions.getSize();
+        return _transactions.getCount();
     }
 
     @Override

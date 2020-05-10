@@ -68,7 +68,7 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Transaction (Short) Hashes...
-            final Integer transactionCount = _transactionShortHashes.getSize();
+            final Integer transactionCount = _transactionShortHashes.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
             for (final ByteArray byteArray : _transactionShortHashes) {
                 byteArrayBuilder.appendBytes(byteArray, Endian.LITTLE);
@@ -76,7 +76,7 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Known Missing Transactions...
-            final Integer missingTransactionCount = _missingTransactions.getSize();
+            final Integer missingTransactionCount = _missingTransactions.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(missingTransactionCount));
             for (final Transaction transaction : _missingTransactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));

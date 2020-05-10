@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.slp.validator;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -38,7 +38,7 @@ public class SlpTransactionValidator {
     }
 
     protected Map<Sha256Hash, Transaction> _getTransactions(final List<TransactionInput> transactionInputs, final Boolean allowUnconfirmedTransactions) {
-        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getSize());
+        final ImmutableListBuilder<Sha256Hash> transactionHashes = new ImmutableListBuilder<Sha256Hash>(transactionInputs.getCount());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             transactionHashes.add(transactionHash);
@@ -173,7 +173,7 @@ public class SlpTransactionValidator {
                 if (! Util.areEqual(slpTokenId, SlpTokenId.wrap(previousTransactionHash))) { continue; }
 
                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) previousTransactionSlpScript;
-                if (Util.areEqual(previousTransactionOutputIndex, slpGenesisScript.getGeneratorOutputIndex())) {
+                if (Util.areEqual(previousTransactionOutputIndex, slpGenesisScript.getBatonOutputIndex())) {
                     hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
                     break;
@@ -183,7 +183,7 @@ public class SlpTransactionValidator {
                 final SlpMintScript previousSlpMintScript = (SlpMintScript) previousTransactionSlpScript;
                 if (! Util.areEqual(slpTokenId, previousSlpMintScript.getTokenId())) { continue; }
 
-                if (Util.areEqual(previousTransactionOutputIndex, previousSlpMintScript.getGeneratorOutputIndex())) {
+                if (Util.areEqual(previousTransactionOutputIndex, previousSlpMintScript.getBatonOutputIndex())) {
                     hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
                     break;

@@ -1,0 +1,44 @@
+.toggle {
+    display: inline-block;
+    margin: 0.5em;
+    vertical-align: middle;
+}
+.toggle > label {
+    color: #CCCCCC;
+    font-size: 0.5em;
+    display: inline-block;
+    margin-right: 4em;
+}
+.toggle > .toggle-bar {
+    height: 1em;
+    border-radius: 1em;
+    width: 2.5em;
+    background-color: #19B325;
+    display: inline-block;
+    text-align: left;
+}
+.toggle.off > .toggle-bar {
+    background-color: #7B7B7B;
+    text-align: right;
+}
+.toggle > .toggle-bar > .toggle-knob {
+    display: inline-block;
+    background-color: #FFFFFF;
+    height: calc(1em - 2px);
+    width: calc(1em - 2px);
+    margin-top: 1px;
+    margin-left: 2px;
+    margin-right: 2px;
+    box-sizing: border-box;
+    border-radius: 1em;
+}
+.toggle > .toggle-label {
+    color: #FFFFFF;
+    font-size: 0.75em;
+}
+.toggle:not(.off) > .toggle-label > *:nth-child(2) {
+    display: none;
+}
+.toggle.off > .toggle-label > *:nth-child(1) {
+    display: none;
+}

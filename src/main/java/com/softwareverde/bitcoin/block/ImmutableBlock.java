@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
@@ -31,7 +31,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
 
-        final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<Transaction>(transactions.getSize());
+        final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<Transaction>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             immutableListBuilder.add(transaction.asConst());
         }
@@ -108,7 +108,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public Integer getTransactionCount() {
-        return _transactions.getSize();
+        return _transactions.getCount();
     }
 
     @Override

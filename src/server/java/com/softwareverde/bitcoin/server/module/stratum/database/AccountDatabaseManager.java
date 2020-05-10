@@ -114,7 +114,7 @@ public class AccountDatabaseManager {
         final Row row = rows.get(0);
         final String addressString = row.getString("payout_address");
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBase58Check(addressString);
+        return addressInflater.uncompressedFromBase58Check(addressString);
     }
 
     public void setPayoutAddress(final AccountId accountId, final Address address) throws DatabaseException {

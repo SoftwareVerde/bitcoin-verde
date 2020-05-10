@@ -31,8 +31,8 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
-    public static final InitFile BITCOIN = new InitFile("/queries/bitcoin_init.sql", BitcoinConstants.DATABASE_VERSION);
-    public static final InitFile STRATUM = new InitFile("/queries/stratum_init.sql", BitcoinConstants.DATABASE_VERSION);
+    public static final InitFile BITCOIN = new InitFile("/sql/full_node/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
+    public static final InitFile STRATUM = new InitFile("/sql/stratum/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
 
     public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties) {
         return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, new Runnable() {
@@ -48,7 +48,7 @@ public class BitcoinVerdeDatabase implements Database {
         public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
             if ( (currentVersion == 1) && (requiredVersion >= 2) ) {
                 try {
-                    final String upgradeScript = IoUtil.getResource("/queries/migration/v1_to_v2.sql");
+                    final String upgradeScript = IoUtil.getResource("/sql/full_node/migration/v1_to_v2_mysql.sql");
                     if (Util.coalesce(upgradeScript).isEmpty()) { return false; }
 
                     TransactionUtil.startTransaction(maintenanceDatabaseConnection);

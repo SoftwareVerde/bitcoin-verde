@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.merkleroot;
 
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.constable.Const;
 
 public class ImmutableMerkleRoot extends ImmutableSha256Hash implements MerkleRoot, Const {

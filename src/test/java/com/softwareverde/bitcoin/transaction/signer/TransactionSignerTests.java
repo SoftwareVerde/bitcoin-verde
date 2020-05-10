@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -84,7 +84,7 @@ public class TransactionSignerTests {
         context.setBlockHeight(0L);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int inputIndex=0; inputIndex<transactionInputs.getSize(); ++inputIndex) {
+        for (int inputIndex=0; inputIndex<transactionInputs.getCount(); ++inputIndex) {
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
             final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(inputIndex);
 

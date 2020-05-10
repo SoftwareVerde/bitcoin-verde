@@ -9,10 +9,10 @@ import com.softwareverde.json.Jsonable;
 public interface TransactionOutput extends Constable<ImmutableTransactionOutput>, Jsonable {
     static TransactionOutput createPayToAddressTransactionOutput(final Address payToAddress, final Long satoshis) {
         final LockingScript lockingScript = ScriptBuilder.payToAddress(payToAddress);
-        final MutableTransactionOutput coinbaseTransactionOutput = new MutableTransactionOutput();
-        coinbaseTransactionOutput.setLockingScript(lockingScript);
-        coinbaseTransactionOutput.setAmount(satoshis);
-        return coinbaseTransactionOutput;
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+        transactionOutput.setLockingScript(lockingScript);
+        transactionOutput.setAmount(satoshis);
+        return transactionOutput;
     }
 
     Long getAmount();

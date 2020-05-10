@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
@@ -68,7 +68,7 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                 if (blockHash == null) { continue; }
 
-                inventoryMessage.addInventoryItem(new InventoryItem(InventoryItemType.SPV_BLOCK, blockHash));
+                inventoryMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
             }
 
             bitcoinNode.queueMessage(inventoryMessage);

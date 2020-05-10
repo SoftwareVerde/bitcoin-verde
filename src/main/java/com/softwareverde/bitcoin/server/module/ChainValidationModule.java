@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -156,9 +156,6 @@ public class ChainValidationModule {
                 if ( (! blockIsCached) && (_blockCache != null) ) {
                     _blockCache.cacheBlock(block, blockHeight);
                 }
-
-                databaseManagerCache.log();
-                databaseManagerCache.resetLog();
 
                 nextBlockHash = null;
                 final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, blockId);

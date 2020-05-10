@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.CoinbaseTransactionInputInflater;
@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Constable;
@@ -19,19 +20,25 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
-public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
+public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
     Long VERSION = BitcoinConstants.getTransactionVersion();
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
     static Boolean isCoinbaseTransaction(final Transaction transaction) {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        if (transactionInputs.getSize() != 1) { return false; }
+        if (transactionInputs.getCount() != 1) { return false; }
 
         final TransactionInput transactionInput = transactionInputs.get(0);
         final boolean isCoinbaseInput = CoinbaseTransactionInputInflater.isCoinbaseInput(transactionInput);
         if (! isCoinbaseInput) { return false; }
 
         return true;
+    }
+
+    static Boolean isSlpTransaction(final Transaction transaction) {
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final TransactionOutput transactionOutput = transactionOutputs.get(0);
+        return SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
     }
 
     /**
@@ -93,5 +100,5 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     CoinbaseTransaction asCoinbase();
 
     @Override
-    ConstTransaction asConst();
+    ImmutableTransaction asConst();
 }

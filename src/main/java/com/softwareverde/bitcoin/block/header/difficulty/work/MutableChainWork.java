@@ -19,15 +19,6 @@ public class MutableChainWork extends MutableByteArray implements ChainWork {
         super(byteArray);
     }
 
-    protected void _divide(final BigInteger divisor) {
-        final byte[] bytes = new BigInteger(_bytes).divide(divisor).toByteArray();
-        final Integer skippedByteCount = (_bytes.length - bytes.length);
-        for (int i = 0; i < skippedByteCount; ++i) {
-            _bytes[i] = 0x00;
-        }
-        ByteUtil.setBytes(_bytes, bytes, skippedByteCount);
-    }
-
     public MutableChainWork() {
         super(32);
     }

@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.address.MutableSpendableTransactionOutput;
 import com.softwareverde.bitcoin.server.module.node.database.address.SpendableTransactionOutput;
@@ -251,9 +252,9 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
-        final HashMap<String, AddressId> addressIdMap = new HashMap<String, AddressId>(lockingScripts.getSize());
-        final HashMap<ScriptWrapper, String> lockingScriptAddresses = new HashMap<ScriptWrapper, String>(lockingScripts.getSize());
-        final MutableList<String> newAddresses = new MutableList<String>(lockingScripts.getSize());
+        final HashMap<String, AddressId> addressIdMap = new HashMap<String, AddressId>(lockingScripts.getCount());
+        final HashMap<ScriptWrapper, String> lockingScriptAddresses = new HashMap<ScriptWrapper, String>(lockingScripts.getCount());
+        final MutableList<String> newAddresses = new MutableList<String>(lockingScripts.getCount());
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
         for (final LockingScript lockingScript : lockingScripts) {
@@ -282,7 +283,8 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, address FROM addresses WHERE address IN (" + DatabaseUtil.createInClause(newAddresses) + ")")
+            new Query("SELECT id, address FROM addresses WHERE address IN (?)")
+                .setInClauseParameters(newAddresses, ValueExtractor.STRING)
         );
         for (final Row row : rows) {
             final AddressId addressId = AddressId.wrap(row.getLong("id"));
@@ -291,7 +293,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
             addressIdMap.put(address, addressId);
         }
 
-        final MutableList<AddressId> addressIds = new MutableList<AddressId>(lockingScripts.getSize());
+        final MutableList<AddressId> addressIds = new MutableList<AddressId>(lockingScripts.getCount());
         for (final LockingScript lockingScript : lockingScripts) {
             final String address = lockingScriptAddresses.get(new ScriptWrapper(lockingScript));
             if (address == null) {
@@ -341,7 +343,7 @@ public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
         final List<TransactionId> transactionIdsIn = _getTransactionIdsSendingTo(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
         final List<TransactionId> transactionIdsOut = _getTransactionIdsSpendingFrom(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
 
-        final int totalTransactionCount = (transactionIdsIn.getSize() + transactionIdsOut.getSize());
+        final int totalTransactionCount = (transactionIdsIn.getCount() + transactionIdsOut.getCount());
 
         final HashSet<TransactionId> existingTransactions = new HashSet<TransactionId>(totalTransactionCount);
         final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(totalTransactionCount);

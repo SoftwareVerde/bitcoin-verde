@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -56,7 +56,7 @@ public class StratumModuleTests {
 
         // Assert
         final List<Transaction> transactions = block.getTransactions();
-        Assert.assertEquals(4, transactions.getSize());
+        Assert.assertEquals(4, transactions.getCount());
 
         // Enforce LTOR...
         Assert.assertEquals(Sha256Hash.fromHexString("09DB13063DF69B27786D01A7397A46D46FE3D780A0BDDE433CDC89DA7DBFFAF8"), transactions.get(1).getHash());
@@ -65,7 +65,7 @@ public class StratumModuleTests {
 
         Assert.assertEquals(Sha256Hash.fromHexString("0000000000000000031D4DC02DF126D9C1130EAC699BC4C8E3F70767042FE72D"), block.getPreviousBlockHash());
         Assert.assertEquals(0L, block.getTimestamp().longValue());
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("180597F0")), block.getDifficulty());
+        Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("180597F0")), block.getDifficulty());
         Assert.assertEquals(0L, block.getNonce().longValue());
         Assert.assertEquals((1250000000L + 243L + 390L + 280L), block.getCoinbaseTransaction().getTransactionOutputs().get(0).getAmount().longValue());
 
@@ -89,7 +89,7 @@ public class StratumModuleTests {
         final String coinbaseTail = miningTaskParameters.getString(3);
         final Json merkleBranchesJson = miningTaskParameters.get(4);
         final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(miningTaskParameters.getString(5)));
-        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(miningTaskParameters.getString(6)));
+        final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString(miningTaskParameters.getString(6)));
         final Long timestampInSeconds = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(miningTaskParameters.getString(7)));
         final Boolean abandonOldJobs = miningTaskParameters.getBoolean(8);
 

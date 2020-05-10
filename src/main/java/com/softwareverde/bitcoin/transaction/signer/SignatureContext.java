@@ -35,7 +35,7 @@ public class SignatureContext {
         _blockHeight = blockHeight;
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int i = 0; i < transactionInputs.getSize(); ++i) {
+        for (int i = 0; i < transactionInputs.getCount(); ++i) {
             _inputScriptsToSign.add(false); // All inputs are NOT signed by default...
             _previousTransactionOutputsBeingSpent.add(null);
             _codeSeparatorIndexes.add(0);

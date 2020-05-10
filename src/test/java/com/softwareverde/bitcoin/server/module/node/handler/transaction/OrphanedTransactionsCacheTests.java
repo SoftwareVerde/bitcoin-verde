@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -59,7 +59,7 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
             transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
             transaction.addTransactionInput(transactionInput);
         }
-        transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey)));
+        transaction.addTransactionOutput(_createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey)));
 
         final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
         signatureContext.setShouldSignInputScript(0, true, transactionOutput);

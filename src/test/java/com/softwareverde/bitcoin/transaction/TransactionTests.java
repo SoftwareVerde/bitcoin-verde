@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -66,8 +66,8 @@ public class TransactionTests {
         final Sha256Hash transactionHash = transaction.getHash();
 
         // Assert
-        Assert.assertEquals(expectedInputCount, transaction.getTransactionInputs().getSize());
-        Assert.assertEquals(expectedOutputCount, transaction.getTransactionOutputs().getSize());
+        Assert.assertEquals(expectedInputCount, transaction.getTransactionInputs().getCount());
+        Assert.assertEquals(expectedOutputCount, transaction.getTransactionOutputs().getCount());
         Assert.assertEquals(transactionHash, expectedTransactionHash);
     }
 }

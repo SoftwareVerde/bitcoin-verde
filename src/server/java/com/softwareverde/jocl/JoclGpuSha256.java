@@ -1,7 +1,7 @@
 package com.softwareverde.jocl;
 
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -170,7 +170,7 @@ public class JoclGpuSha256 implements GpuSha256 {
             throw new IllegalStateException("GpuSha256 kernel has been shutdown for this instance. Be sure GpuSha256.getInstance() is called for a new reference after a call to SpuSha256.shutdown().");
         }
 
-        final int inputsCount = inputs.getSize();
+        final int inputsCount = inputs.getCount();
         if (inputsCount == 0) { return new MutableList<Sha256Hash>(); }
         final int byteCountPerInput;
         {

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -15,7 +15,7 @@ public class PartialMerkleTreeDeflater {
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(partialMerkleTree.getItemCount()), Endian.LITTLE); // Aka the BlockHeader's Transaction count...
 
         final List<Sha256Hash> hashes = partialMerkleTree.getHashes();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(hashes.getSize()));
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(hashes.getCount()));
         for (final Sha256Hash hash : hashes) {
             byteArrayBuilder.appendBytes(hash, Endian.LITTLE);
         }

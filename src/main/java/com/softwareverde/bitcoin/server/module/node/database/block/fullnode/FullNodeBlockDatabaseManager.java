@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -117,7 +117,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
         final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
-        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getCount());
         for (final TransactionId transactionId : transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, shouldUpdateUnspentOutputCache);
             if (transaction == null) { return null; }

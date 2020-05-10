@@ -10,13 +10,18 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Util;
 
 public class SlpScriptBuilder {
+    protected static final ByteArray EMPTY_BYTE_ARRAY = new ImmutableByteArray(new byte[0]);
+
     // All SLP integer values are unsigned and use big-endian encoding.
     protected static ByteArray longToBytes(final Long value) {
-        if (value == 0L) { return new MutableByteArray(0); }
+        // if (value == 0L) { return new MutableByteArray(0); }
+        if (value == 0L) { return new MutableByteArray(1); } // SLP uses non-minimally encoded values for zero.
+
         final MutableByteArray longBytes = MutableByteArray.wrap(ByteUtil.longToBytes(value));
         final int trimByteCount = (Long.numberOfLeadingZeros(value) / 8);
         return MutableByteArray.wrap(longBytes.getBytes(trimByteCount, (8 - trimByteCount)));
@@ -28,7 +33,7 @@ public class SlpScriptBuilder {
         for (int i = 0; i < byteCount; ++i) {
             int index = (byteCount - i - 1);
             final byte b = longBytes.getByte(index);
-            fixedLengthBytes.set(index, b);
+            fixedLengthBytes.setByte(index, b);
         }
         return fixedLengthBytes;
     }
@@ -42,11 +47,12 @@ public class SlpScriptBuilder {
 
         final ByteArray tokenAbbreviationBytes = MutableByteArray.wrap(StringUtil.stringToBytes(slpGenesisScript.getTokenAbbreviation()));
         final ByteArray tokenFullNameBytes = MutableByteArray.wrap(StringUtil.stringToBytes(slpGenesisScript.getTokenName()));
-        final ByteArray documentUrlBytes = MutableByteArray.wrap(StringUtil.stringToBytes(slpGenesisScript.getDocumentUrl()));
-        final ByteArray documentHashBytes = Util.coalesce(slpGenesisScript.getDocumentHash(), new MutableByteArray(0));
+        final ByteArray documentUrlBytes = MutableByteArray.wrap(StringUtil.stringToBytes(Util.coalesce(slpGenesisScript.getDocumentUrl(), "")));
+        final ByteArray documentHashBytes = Util.coalesce(slpGenesisScript.getDocumentHash(), EMPTY_BYTE_ARRAY);
 
+        final Integer batonOutputIndex = slpGenesisScript.getBatonOutputIndex();
         final ByteArray tokenDecimalBytes = SlpScriptBuilder.longToBytes(Util.coalesce(slpGenesisScript.getDecimalCount()).longValue());
-        final ByteArray generatorOutputIndexBytes = SlpScriptBuilder.longToBytes(Util.coalesce(slpGenesisScript.getGeneratorOutputIndex()).longValue());
+        final ByteArray batonOutputIndexBytes = (batonOutputIndex == null ? EMPTY_BYTE_ARRAY : SlpScriptBuilder.longToBytes(batonOutputIndex.longValue()));
         final ByteArray totalCountCountBytes = SlpScriptBuilder.longToFixedBytes(Util.coalesce(slpGenesisScript.getTokenCount()), 8);
 
         final MutableLockingScript lockingScript = new MutableLockingScript();
@@ -59,13 +65,14 @@ public class SlpScriptBuilder {
         lockingScript.addOperation(PushOperation.pushBytes(documentUrlBytes));                  // Token Document Url
         lockingScript.addOperation(PushOperation.pushBytes(documentHashBytes));                 // Document Hash
         lockingScript.addOperation(PushOperation.pushBytes(tokenDecimalBytes));                 // Decimal Count
-        lockingScript.addOperation(PushOperation.pushBytes(generatorOutputIndexBytes));         // Generator Output
+        lockingScript.addOperation(PushOperation.pushBytes(batonOutputIndexBytes));             // Baton Output
         lockingScript.addOperation(PushOperation.pushBytes(totalCountCountBytes));              // Mint Quantity
         return lockingScript;
     }
 
     public LockingScript createMintScript(final SlpMintScript slpMintScript) {
-        final ByteArray generatorOutputIndexBytes = SlpScriptBuilder.longToBytes(Util.coalesce(slpMintScript.getGeneratorOutputIndex()).longValue());
+        final Integer batonOutputIndex = slpMintScript.getBatonOutputIndex();
+        final ByteArray batonOutputIndexBytes = (batonOutputIndex == null ? EMPTY_BYTE_ARRAY : SlpScriptBuilder.longToBytes(batonOutputIndex.longValue()));
         final ByteArray totalCountCountBytes = SlpScriptBuilder.longToFixedBytes(Util.coalesce(slpMintScript.getTokenCount()), 8);
 
         final MutableLockingScript lockingScript = new MutableLockingScript();
@@ -74,7 +81,7 @@ public class SlpScriptBuilder {
         lockingScript.addOperation(PushOperation.pushBytes(SlpScriptType.TOKEN_TYPE));          // Token Type (Static Value)
         lockingScript.addOperation(PushOperation.pushBytes(SlpScriptType.MINT.getBytes()));     // Script Type (Static Value)
         lockingScript.addOperation(PushOperation.pushBytes(slpMintScript.getTokenId()));        // Token id
-        lockingScript.addOperation(PushOperation.pushBytes(generatorOutputIndexBytes));         // Generator Output
+        lockingScript.addOperation(PushOperation.pushBytes(batonOutputIndexBytes));             // Baton Output
         lockingScript.addOperation(PushOperation.pushBytes(totalCountCountBytes));              // Mint Quantity
         return lockingScript;
     }

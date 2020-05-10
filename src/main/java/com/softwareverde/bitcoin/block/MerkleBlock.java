@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.Util;
 
@@ -25,7 +25,7 @@ public class MerkleBlock extends ImmutableBlockHeader {
 
     public Integer getTransactionCount() {
         final List<Sha256Hash> transactionHashes = _partialMerkleTree.getTransactionHashes();
-        return transactionHashes.getSize();
+        return transactionHashes.getCount();
     }
 
     @Override

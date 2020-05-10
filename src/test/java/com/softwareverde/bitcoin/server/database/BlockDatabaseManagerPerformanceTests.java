@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
@@ -44,13 +44,13 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
     }
 
     public static void _createRequiredTransactionInputs(final List<Transaction> transactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
-        final HashSet<Sha256Hash> excludedTransactionHashes = new HashSet<Sha256Hash>(transactions.getSize());
+        final HashSet<Sha256Hash> excludedTransactionHashes = new HashSet<Sha256Hash>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             excludedTransactionHashes.add(transactionHash);
         }
 
-        final HashMap<Sha256Hash, TransactionId> transactionHashes = new HashMap<Sha256Hash, TransactionId>(transactions.getSize());
+        final HashMap<Sha256Hash, TransactionId> transactionHashes = new HashMap<Sha256Hash, TransactionId>(transactions.getCount());
         for (final Transaction transaction : transactions) {
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();

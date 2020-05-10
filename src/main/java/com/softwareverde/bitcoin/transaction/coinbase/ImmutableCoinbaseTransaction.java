@@ -14,7 +14,7 @@ public class ImmutableCoinbaseTransaction extends ImmutableTransaction implement
 
     @Override
     public UnlockingScript getCoinbaseScript() {
-        if (_transactionInputs.getSize() < 1) { return null; }
+        if (_transactionInputs.getCount() < 1) { return null; }
 
         final TransactionInput transactionInput = _transactionInputs.get(0);
         return transactionInput.getUnlockingScript();
@@ -22,7 +22,7 @@ public class ImmutableCoinbaseTransaction extends ImmutableTransaction implement
 
     @Override
     public Long getBlockReward() {
-        if (_transactionOutputs.getSize() < 1) { return null; }
+        if (_transactionOutputs.getCount() < 1) { return null; }
 
         final TransactionOutput transactionOutput = _transactionOutputs.get(0);
         return transactionOutput.getAmount();

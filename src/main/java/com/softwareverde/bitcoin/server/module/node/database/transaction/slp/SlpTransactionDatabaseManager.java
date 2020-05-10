@@ -2,7 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.slp;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -180,6 +181,10 @@ public class SlpTransactionDatabaseManager {
         _databaseManager = databaseManager;
     }
 
+    /**
+     * Returns the cached SLP validity of the TransactionId.
+     *  This function does run validation on the transaction and only queries its cached value.
+     */
     public Boolean getSlpTransactionValidationResult(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -293,8 +298,9 @@ public class SlpTransactionDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id IN (" + DatabaseUtil.createInClause(transactionOutputIds) + ")")
+            new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id IN (?)")
                 .setParameter(slpTokenTransactionId)
+                .setInClauseParameters(transactionOutputIds, ValueExtractor.IDENTIFIER)
         );
     }
 

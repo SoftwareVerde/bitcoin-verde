@@ -43,7 +43,8 @@ public class BlockHeaderDeflater {
             byteData.timestamp[(byteData.timestamp.length - i) - 1] = timestampBytes[(timestampBytes.length - i) - 1];
         }
 
-        ByteUtil.setBytes(byteData.difficulty, blockHeader.getDifficulty().encode().getBytes());
+        final Difficulty difficulty = blockHeader.getDifficulty();
+        ByteUtil.setBytes(MutableByteArray.wrap(byteData.difficulty), difficulty.encode());
 
         final byte[] nonceBytes = ByteUtil.longToBytes(blockHeader.getNonce());
         for (int i = 0; i < byteData.nonce.length; ++i) {

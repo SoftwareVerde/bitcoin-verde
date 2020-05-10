@@ -65,12 +65,12 @@ public class SocketServer<T extends Socket> {
     protected SocketDisconnectedCallback<T> _socketDisconnectedCallback = null;
 
     protected void _purgeDisconnectedConnections() {
-        final Integer socketCount = _connections.getSize();
+        final Integer socketCount = _connections.getCount();
         final MutableList<T> disconnectedSockets = new MutableList<T>(socketCount);
 
         synchronized (_connections) {
             int socketIndex = 0;
-            while (socketIndex < _connections.getSize()) {
+            while (socketIndex < _connections.getCount()) {
                 final T connection = _connections.get(socketIndex);
 
                 if (! connection.isConnected()) {

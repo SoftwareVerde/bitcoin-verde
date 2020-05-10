@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction;
 import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -19,13 +20,14 @@ public class TransactionDeflater {
         ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(transaction.getVersion()));
 
         final byte[] lockTimeBytes = new byte[4];
-        ByteUtil.setBytes(lockTimeBytes, transaction.getLockTime().getBytes().getBytes());
+        final LockTime lockTime = transaction.getLockTime();
+        ByteUtil.setBytes(MutableByteArray.wrap(lockTimeBytes), lockTime.getBytes());
 
         headBytesBuilder.appendBytes(versionBytes, Endian.LITTLE);
 
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        headBytesBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionInputs.getSize()), Endian.BIG);
+        headBytesBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionInputs.getCount()), Endian.BIG);
         int transactionInputIndex = 0;
         for (final TransactionInput transactionInput : transactionInputs) {
             if (transactionInputIndex == 0) {
@@ -41,7 +43,7 @@ public class TransactionDeflater {
 
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        tailBytesBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getSize()), Endian.BIG);
+        tailBytesBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getCount()), Endian.BIG);
         for (final TransactionOutput transactionOutput : transactionOutputs) {
             tailBytesBuilder.appendBytes(transactionOutputDeflater.toBytes(transactionOutput), Endian.BIG);
         }
@@ -74,7 +76,7 @@ public class TransactionDeflater {
 
             Integer byteCount = 0;
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-            byteCount += ByteUtil.variableLengthIntegerToBytes(transactionInputs.getSize()).length;
+            byteCount += ByteUtil.variableLengthIntegerToBytes(transactionInputs.getCount()).length;
             for (final TransactionInput transactionInput : transactionInputs) {
                 byteCount += transactionInputDeflater.getByteCount(transactionInput);
             }
@@ -87,7 +89,7 @@ public class TransactionDeflater {
 
             Integer byteCount = 0;
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            byteCount += ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getSize()).length;
+            byteCount += ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getCount()).length;
             for (final TransactionOutput transactionOutput : transactionOutputs) {
                 byteCount += transactionOutputDeflater.getByteCount(transactionOutput);
             }

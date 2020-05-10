@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.thin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -61,7 +61,7 @@ public class ThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Transaction (Short) Hashes...
-            final Integer transactionCount = _transactionHashes.getSize();
+            final Integer transactionCount = _transactionHashes.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
             for (final Sha256Hash transactionHash : _transactionHashes) {
                 byteArrayBuilder.appendBytes(transactionHash, Endian.LITTLE);
@@ -69,7 +69,7 @@ public class ThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Known Missing Transactions...
-            final Integer missingTransactionCount = _missingTransactions.getSize();
+            final Integer missingTransactionCount = _missingTransactions.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(missingTransactionCount));
             for (final Transaction transaction : _missingTransactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));

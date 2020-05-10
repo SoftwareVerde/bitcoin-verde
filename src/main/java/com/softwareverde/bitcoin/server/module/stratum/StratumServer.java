@@ -9,9 +9,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
-import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
@@ -107,7 +107,7 @@ public class StratumServer {
         while (i < byteCount) {
             final byte[] randomBytes = ByteUtil.integerToBytes((int) (Math.random() * Integer.MAX_VALUE));
             for (byte b : randomBytes) {
-                mutableByteArray.set(i, b);
+                mutableByteArray.setByte(i, b);
                 i += 1;
                 if (i >= byteCount) { break; }
             }
@@ -171,7 +171,7 @@ public class StratumServer {
         {
             final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
             final Json difficultyJson = nodeRpcConnection.getDifficulty();
-            difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(difficultyJson.getString("difficulty")));
+            difficulty = Difficulty.decode(ByteArray.fromHexString(difficultyJson.getString("difficulty")));
         }
 
         final Long blockReward;

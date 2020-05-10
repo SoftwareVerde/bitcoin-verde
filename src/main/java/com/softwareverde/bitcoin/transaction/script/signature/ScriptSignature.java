@@ -1,10 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.signature;
 
-import com.softwareverde.bitcoin.secp256k1.signature.EmptySignature;
-import com.softwareverde.bitcoin.secp256k1.signature.SchnorrSignature;
-import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
-import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.security.secp256k1.signature.EmptySignature;
+import com.softwareverde.security.secp256k1.signature.SchnorrSignature;
+import com.softwareverde.security.secp256k1.signature.Secp256k1Signature;
+import com.softwareverde.security.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;

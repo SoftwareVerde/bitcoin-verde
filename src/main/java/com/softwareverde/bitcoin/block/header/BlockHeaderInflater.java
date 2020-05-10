@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -27,7 +27,7 @@ public class BlockHeaderInflater {
         blockHeader._timestamp = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final byte[] difficultyBytes = byteArrayReader.readBytes(4, Endian.LITTLE);
-        blockHeader._difficulty = Difficulty.decode(difficultyBytes);
+        blockHeader._difficulty = Difficulty.decode(ByteArray.wrap(difficultyBytes));
         blockHeader._nonce = byteArrayReader.readLong(4, Endian.LITTLE);
         // blockHeader._transactionCount = byteArrayReader.readVariableSizedInteger().intValue(); // Always 0 for Block Headers...
 

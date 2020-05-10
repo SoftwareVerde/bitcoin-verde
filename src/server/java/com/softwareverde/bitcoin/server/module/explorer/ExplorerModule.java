@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer;
 
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
+import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -11,6 +12,7 @@ import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 
 public class ExplorerModule {
     protected final HttpServer _apiServer = new HttpServer();
@@ -20,7 +22,7 @@ public class ExplorerModule {
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
         final Endpoint endpoint = new Endpoint(servlet);
-        endpoint.setStrictPathEnabled(true);
+        endpoint.setStrictPathEnabled(false);
         endpoint.setPath(path);
 
         _apiServer.addEndpoint(endpoint);
@@ -43,19 +45,26 @@ public class ExplorerModule {
         _announcementsApi = new AnnouncementsApi(_explorerProperties);
 
         { // Api Endpoints
-            _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties, _threadPool));
-            _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties, _threadPool));
-            _assignEndpoint("/api/v1/transactions", new TransactionsApi(_explorerProperties, _threadPool));
-            _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties, _threadPool));
-            _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties, _threadPool));
-            _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties, _threadPool));
-        }
+            final String apiRootPath = "/api";
+            final Environment environment = new Environment(_explorerProperties, _threadPool);
 
-        { // WebSocket
-            final WebSocketEndpoint endpoint = new WebSocketEndpoint(_announcementsApi);
-            endpoint.setPath("/api/v1/announcements");
-            endpoint.setStrictPathEnabled(true);
-            _apiServer.addEndpoint(endpoint);
+            { // Api v1
+                final String v1ApiPrePath = (apiRootPath + "/v1");
+
+                _assignEndpoint((v1ApiPrePath + "/search"), new SearchApi(v1ApiPrePath, environment));
+                _assignEndpoint((v1ApiPrePath + "/blocks"), new BlocksApi(v1ApiPrePath, environment));
+                _assignEndpoint((v1ApiPrePath + "/transactions"), new TransactionsApi(v1ApiPrePath, environment));
+                _assignEndpoint((v1ApiPrePath + "/status"), new StatusApi(v1ApiPrePath, environment));
+                _assignEndpoint((v1ApiPrePath + "/nodes"), new NodesApi(v1ApiPrePath, environment));
+                _assignEndpoint((v1ApiPrePath + "/blockchain"), new BlockchainApi(v1ApiPrePath, environment));
+
+                { // WebSocket
+                    final WebSocketEndpoint endpoint = new WebSocketEndpoint(_announcementsApi);
+                    endpoint.setPath((v1ApiPrePath + "/announcements"));
+                    endpoint.setStrictPathEnabled(true);
+                    _apiServer.addEndpoint(endpoint);
+                }
+            }
         }
 
         { // Static Content
@@ -63,6 +72,7 @@ public class ExplorerModule {
             final DirectoryServlet indexServlet = new DirectoryServlet(servedDirectory);
             indexServlet.setShouldServeDirectories(true);
             indexServlet.setIndexFile("index.html");
+            indexServlet.setCacheEnabled(TimeUnit.DAYS.toSeconds(1L));
 
             final Endpoint endpoint = new Endpoint(indexServlet);
             endpoint.setPath("/");
