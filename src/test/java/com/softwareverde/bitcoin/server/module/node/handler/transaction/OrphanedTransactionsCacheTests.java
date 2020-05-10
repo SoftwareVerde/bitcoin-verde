@@ -93,7 +93,7 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
             Assert.assertNull(transactionDatabaseManager.getTransactionId(childTransaction.getHash()));
 
             // Action
-            transactionDatabaseManager.storeTransaction(parentTransaction);
+            transactionDatabaseManager.storeUnconfirmedTransaction(parentTransaction);
             final Set<Transaction> possiblyValidTransactions = orphanedTransactionsCache.onTransactionAdded(parentTransaction);
 
             // Assert

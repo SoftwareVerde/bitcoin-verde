@@ -129,7 +129,7 @@ public class TransactionProcessor extends SleepyService {
 
                     TransactionUtil.startTransaction(databaseConnection);
 
-                    final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
+                    final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
                     final Boolean transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, blockHeight, transaction, true);
 
                     if (! transactionIsValid) {

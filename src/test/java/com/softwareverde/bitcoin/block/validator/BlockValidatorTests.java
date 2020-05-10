@@ -59,34 +59,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class BlockValidatorTests extends IntegrationTest {
     final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
 
-    public static class FakeMedianBlockTime implements MedianBlockTimeWithBlocks {
-
-        @Override
-        public MedianBlockTime subset(final Integer blockCount) {
-            return MedianBlockTime.MAX_VALUE;
-        }
-
-        @Override
-        public BlockHeader getBlockHeader(final Integer indexFromTip) {
-            return new MutableMedianBlockTimeTests.FakeBlockHeader(Long.MAX_VALUE);
-        }
-
-        @Override
-        public ImmutableMedianBlockTime asConst() {
-            return MedianBlockTime.MAX_VALUE;
-        }
-
-        @Override
-        public Long getCurrentTimeInSeconds() {
-            return Long.MAX_VALUE;
-        }
-
-        @Override
-        public Long getCurrentTimeInMilliSeconds() {
-            return Long.MAX_VALUE;
-        }
-    }
-
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
         final TransactionInflater transactionInflater = new TransactionInflater();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {

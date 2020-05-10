@@ -30,30 +30,15 @@ import java.util.Map;
 public class UnconfirmedTransactionInputDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
-    protected UnconfirmedTransactionId _getUnconfirmedTransactionId(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM unconfirmed_transactions WHERE transaction_id = ?")
-                .setParameter(transactionId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return UnconfirmedTransactionId.wrap(row.getLong("id"));
-    }
-
     public UnconfirmedTransactionInputDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
     public UnconfirmedTransactionInputId getUnconfirmedTransactionInputId(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
-        if (unconfirmedTransactionId == null) { return null; }
-
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM unconfirmed_transaction_inputs WHERE unconfirmed_transaction_id = ? AND previous_transaction_hash = ? AND previous_transaction_output_index = ?")
-                .setParameter(unconfirmedTransactionId)
+            new Query("SELECT id FROM unconfirmed_transaction_inputs WHERE transaction_id = ? AND previous_transaction_hash = ? AND previous_transaction_output_index = ?")
+                .setParameter(transactionId)
                 .setParameter(transactionInput.getPreviousOutputTransactionHash())
                 .setParameter(transactionInput.getPreviousOutputIndex())
         );
@@ -64,24 +49,21 @@ public class UnconfirmedTransactionInputDatabaseManager {
     }
 
     public UnconfirmedTransactionInputId insertUnconfirmedTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
-        if (unconfirmedTransactionId == null) { return null; }
-
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Integer index;
         {
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT COUNT(*) AS `index` FROM unconfirmed_transaction_inputs WHERE unconfirmed_transaction_id = ?")
-                    .setParameter(unconfirmedTransactionId)
+                new Query("SELECT COUNT(*) AS `index` FROM unconfirmed_transaction_inputs WHERE transaction_id = ?")
+                    .setParameter(transactionId)
             );
             final Row row = rows.get(0);
             index = row.getInteger("index");
         }
 
         final Long transactionInputId = databaseConnection.executeSql(
-            new Query("INSERT INTO unconfirmed_transaction_inputs (unconfirmed_transaction_id, `index`, previous_transaction_hash, previous_transaction_output_index, sequence_number, unlocking_script) VALUES (?, ?, ?, ?, ?, ?)")
-                .setParameter(unconfirmedTransactionId)
+            new Query("INSERT INTO unconfirmed_transaction_inputs (transaction_id, `index`, previous_transaction_hash, previous_transaction_output_index, sequence_number, unlocking_script) VALUES (?, ?, ?, ?, ?, ?)")
+                .setParameter(transactionId)
                 .setParameter(index)
                 .setParameter(transactionInput.getPreviousOutputTransactionHash())
                 .setParameter(transactionInput.getPreviousOutputIndex())
@@ -93,17 +75,15 @@ public class UnconfirmedTransactionInputDatabaseManager {
     }
 
     public List<UnconfirmedTransactionInputId> insertUnconfirmedTransactionInputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unconfirmed_transaction_inputs (unconfirmed_transaction_id, `index`, previous_transaction_hash, previous_transaction_output_index, sequence_number, unlocking_script) VALUES (?, ?, ?, ?, ?, ?)");
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unconfirmed_transaction_inputs (transaction_id, `index`, previous_transaction_hash, previous_transaction_output_index, sequence_number, unlocking_script) VALUES (?, ?, ?, ?, ?, ?)");
 
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             final TransactionId transactionId = transactionIds.get(transactionHash);
-            final UnconfirmedTransactionId unconfirmedTransactionId = _getUnconfirmedTransactionId(transactionId);
-            if (unconfirmedTransactionId == null) { return null; }
 
             int index = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                batchedInsertQuery.setParameter(unconfirmedTransactionId);
+                batchedInsertQuery.setParameter(transactionId);
                 batchedInsertQuery.setParameter(index);
                 batchedInsertQuery.setParameter(transactionInput.getPreviousOutputTransactionHash());
                 batchedInsertQuery.setParameter(transactionInput.getPreviousOutputIndex());
@@ -171,7 +151,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT unconfirmed_transaction_inputs.id FROM unconfirmed_transactions INNER JOIN unconfirmed_transaction_inputs ON unconfirmed_transactions.id = unconfirmed_transaction_inputs.unconfirmed_transaction_id WHERE unconfirmed_transactions.transaction_id = ?")
+            new Query("SELECT id FROM unconfirmed_transaction_inputs WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
         if (rows.isEmpty()) { return null; }
@@ -210,7 +190,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
     public TransactionId getTransactionId(final UnconfirmedTransactionInputId unconfirmedTransactionInputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transaction_id FROM unconfirmed_transaction_inputs INNER JOIN unconfirmed_transactions ON unconfirmed_transaction_inputs.unconfirmed_transaction_id = unconfirmed_transactions.id WHERE unconfirmed_transaction_inputs.id = ?")
+            new Query("SELECT id, transaction_id FROM unconfirmed_transaction_inputs WHERE id = ?")
                 .setParameter(unconfirmedTransactionInputId)
         );
         if (rows.isEmpty()) { return null; }

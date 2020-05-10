@@ -151,7 +151,6 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         _databaseManager = databaseManager;
     }
 
-    @Override
     public TransactionId storeTransaction(final Transaction transaction) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
@@ -207,7 +206,6 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         }
     }
 
-    @Override
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         WRITE_LOCK.lock();
         try {

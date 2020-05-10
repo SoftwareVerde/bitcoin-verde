@@ -26,7 +26,6 @@ import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPe
 import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
@@ -59,14 +58,11 @@ public class BlockchainBuilder extends SleepyService {
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputSet transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
-        final ByteArray blockData = pendingBlock.getData();
-        if (blockData == null) { return false; }
-
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         final Block block = pendingBlock.inflateBlock(blockInflater);
 
         if (block == null) {
-            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
+            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + pendingBlock.getData());
             return false;
         }
 
@@ -105,11 +101,9 @@ public class BlockchainBuilder extends SleepyService {
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
         final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
-        final ByteArray blockData = pendingBlock.getData();
-        if (blockData == null) { return false; }
 
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
-        final Block block = blockInflater.fromBytes(blockData);
+        final Block block = pendingBlock.inflateBlock(blockInflater);
         if (block == null) { return false; }
 
         final BlockId blockId;

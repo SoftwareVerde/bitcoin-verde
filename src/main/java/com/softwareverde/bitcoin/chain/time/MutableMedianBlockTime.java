@@ -61,7 +61,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     }
 
     public Boolean hasRequiredBlockCount() {
-        final Boolean hasRequiredBlockCount;
+        final boolean hasRequiredBlockCount;
         try {
             _readLock.lock();
             hasRequiredBlockCount = (_previousBlocks.size() >= _requiredBlockCount);

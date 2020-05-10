@@ -492,7 +492,7 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, transactionValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockStore, synchronizationStatusHandler);
+            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockStore, synchronizationStatusHandler);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());

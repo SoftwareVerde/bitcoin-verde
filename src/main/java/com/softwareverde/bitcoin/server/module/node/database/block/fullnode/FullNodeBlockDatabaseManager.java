@@ -79,7 +79,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     protected List<TransactionId> _storeBlockTransactions(final BlockId blockId, final Block block) throws DatabaseException {
-        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final List<Transaction> transactions = block.getTransactions();
 
@@ -99,7 +99,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final List<TransactionId> transactionIds;
         storeBlockTimer.start();
         {
-            transactionIds = transactionDatabaseManager.storeTransactions(transactions);
+            transactionIds = transactionDatabaseManager.storeTransactionHashes(transactions);
             if (transactionIds == null) { throw new DatabaseException("Unable to store block transactions."); }
 
             associateTransactionsTimer.start();

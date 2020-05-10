@@ -30,7 +30,7 @@ public class SlpTransactionValidatorTests extends IntegrationTest {
         final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(_fullNodeDatabaseManagerFactory);
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             // Setup
-            final List<TransactionId> transactionIds = TransactionOutputIndexerTests.loadBvtTokens(databaseManager);
+            final List<TransactionId> transactionIds = TransactionOutputIndexerTests.loadBitcoinVerdeTestTokens(databaseManager);
 
             final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
             slpValidityMap.put(Sha256Hash.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"), true);

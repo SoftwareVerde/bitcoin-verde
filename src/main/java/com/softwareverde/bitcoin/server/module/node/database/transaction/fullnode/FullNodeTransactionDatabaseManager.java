@@ -11,7 +11,12 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseManager {
+    TransactionId storeTransactionHash(Transaction transaction) throws DatabaseException;
+    List<TransactionId> storeTransactionHashes(List<Transaction> transactions) throws DatabaseException;
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
+
+    TransactionId storeUnconfirmedTransaction(Transaction transaction) throws DatabaseException;
+    List<TransactionId> storeUnconfirmedTransactions(List<Transaction> transactions) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
     void addToUnconfirmedTransactions(List<TransactionId> transactionIds) throws DatabaseException;
     void removeFromUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;

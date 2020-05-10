@@ -1,26 +1,35 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.inflater.MasterInflater;
-import com.softwareverde.bitcoin.server.database.cache.*;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.wallet.PaymentAmount;
+import com.softwareverde.bitcoin.wallet.Wallet;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.database.DatabaseException;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.HexUtil;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -151,30 +160,150 @@ public class BlockProcessorTests extends IntegrationTest {
 //        }
 //    }
 
+    class TestHarness {
+        public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+        public final MutableNetworkTime networkTime = new MutableNetworkTime();
+        public final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
+        public final FakeUnspentTransactionOutputSet unspentTransactionOutputSet = new FakeUnspentTransactionOutputSet();
+
+        public final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(this.networkTime, this.medianBlockTime);
+        public final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(this.transactionValidatorFactory, this.networkTime, this.medianBlockTime);
+
+        public final BlockProcessor blockProcessor = new BlockProcessor(_fullNodeDatabaseManagerFactory, _masterInflater, this.blockValidatorFactory, this.medianBlockTime, this.orphanedTransactionsCache, _blockStore, _synchronizationStatus);
+
+        public TestHarness() {
+            blockProcessor.setMaxThreadCount(1);
+            blockProcessor.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
+        }
+
+        public Long processBlock(final Block block) {
+            return this.blockProcessor.processBlock(block, this.unspentTransactionOutputSet);
+        }
+
+        public Block inflateBlock(final String blockData) {
+            return this.blockInflater.fromBytes(ByteArray.fromHexString(blockData));
+        }
+
+        public UnspentTransactionOutputManager newUnspentTransactionOutputManager(final FullNodeDatabaseManager databaseManager) {
+            return new UnspentTransactionOutputManager(databaseManager, _databaseConnectionFactory, Long.MAX_VALUE);
+        }
+    }
+
     @Test
-    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_NO_CACHE() throws Exception {
-//        final MasterDatabaseManagerCache masterDatabaseManagerCache = new DisabledMasterDatabaseManagerCache();
-//        final DatabaseManagerCache localDatabaseManagerCache = new DisabledDatabaseManagerCache();
-//
-//        _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(localDatabaseManagerCache, masterDatabaseManagerCache);
+    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block() throws Exception {
         Assert.fail();
     }
 
     @Test
-    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_READONLY_CACHE() throws Exception {
-//        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
-//        final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
-//
-//        _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(databaseManagerCache, masterDatabaseManagerCache);
-        Assert.fail();
+    public void should_process_genesis_block() throws Exception {
+        /**
+         * NOTE: On the NodeModule, the blockProcessor doesn't process the genesis block, instead it is processed differently by the BlockchainBuilder...
+         */
+
+        // Setup
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final TestHarness harness = new TestHarness();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+
+            final TransactionOutputIdentifier transactionOutputIdentifier;
+            {
+                final List<Transaction> transactions = genesisBlock.getTransactions();
+                final Transaction transaction = transactions.get(0);
+                transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+            }
+
+            // Action
+            final Long blockHeight = harness.processBlock(genesisBlock);
+            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+
+            // Assert
+            Assert.assertEquals(Long.valueOf(0L), blockHeight);
+            Assert.assertNull(transactionOutput); // Outputs created by the genesis are not spendable...
+        }
     }
 
     @Test
-    public void should_maintain_correct_blockchain_segment_after_invalid_contentious_block_CACHE() throws Exception {
-//        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore();
-//        final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-//
-//        _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(databaseManagerCache, masterDatabaseManagerCache);
-        Assert.fail();
+    public void should_process_blocks_with_utxos() throws Exception {
+        // Setup
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final TestHarness harness = new TestHarness();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+            final Block block01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+
+            final TransactionOutput expectedTransactionOutput;
+            final TransactionOutputIdentifier transactionOutputIdentifier;
+            {
+                final List<Transaction> transactions = block01.getTransactions();
+                final Transaction transaction = transactions.get(0);
+                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+
+                expectedTransactionOutput = transactionOutputs.get(0);
+                transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+            }
+
+            // Action
+            harness.processBlock(genesisBlock);
+            final Long blockHeight = harness.processBlock(block01);
+            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+
+            // Assert
+            Assert.assertEquals(Long.valueOf(1L), blockHeight);
+            Assert.assertEquals(expectedTransactionOutput, transactionOutput);
+        }
+    }
+
+    @Test
+    public void should_handle_reorg_fork() throws Exception {
+        // Setup
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final TestHarness harness = new TestHarness();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
+            final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
+            final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
+            final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
+
+            final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
+            {
+                final List<Transaction> transactions = forkChainBlock01.getTransactions();
+                final Transaction transaction = transactions.get(0);
+                invalidTransactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+            }
+
+            final Transaction transaction;
+            { // Inflate transaction that spends the coinbase of the ForkChain2.BLOCK_1...
+                final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001F2857FE43B7FE710900C50F38DEFFDEF0304D05F0911BBA7CAC9859BD0797D0E000000008B483045022100AFC23C6CB284C4897BA7EFAF867B45D0A80D60EA13B4EE97394A66A9A9DCE863022049B91D579050DC5BB3CB5767A3D0A0AB2A8E7D77B0A7C4B96C7F2EDEAD0DDB78414104369319023063307A8209C518C0E07CC27AA2502113907BEECA66DEFA0669DEA00D995BEC5AB5964368769C4A772F3B04C9DFA002A14BE8B27BD0E3A57CEBFDA9FFFFFFFF0100F2052A010000001976A91410DB8BE45C9035835DD8B31E811143166D9907EA88AC00000000"));
+            }
+
+            // Action
+            harness.processBlock(genesisBlock);
+
+            final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
+            final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+            transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+
+            final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
+            final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
+
+            // Assert
+            Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
+
+            // The output generated by the old chain should no longer be a UTXO...
+            final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
+            Assert.assertNull(oldTransactionOutput);
+
+            // The transaction spending the fork chain's UTXO should no longer be in the mempool...
+            final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+            Assert.assertTrue(unconfirmedTransactionIds.contains(transactionId));
+
+        }
     }
 }

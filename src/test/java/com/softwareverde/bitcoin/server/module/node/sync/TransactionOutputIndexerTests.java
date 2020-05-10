@@ -1,33 +1,29 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
-import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import org.bouncycastle.util.Arrays;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class TransactionOutputIndexerTests extends IntegrationTest {
 
-    public static TransactionId storeTransaction(final String hexString, final TransactionDatabaseManager transactionDatabaseManager) throws DatabaseException {
+    public static TransactionId storeTransaction(final String hexString, final FullNodeTransactionDatabaseManager transactionDatabaseManager) throws DatabaseException {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(hexString));
-        return transactionDatabaseManager.storeTransaction(transaction);
+        return transactionDatabaseManager.storeTransactionHash(transaction);
     }
 
     public static void storeFakeTransactionOutputs(final String transactionHashString, final int[] outputIndices, final DatabaseManager databaseManager) throws DatabaseException {
@@ -38,6 +34,7 @@ public class TransactionOutputIndexerTests extends IntegrationTest {
                 .setParameter(Transaction.VERSION)
                 .setParameter(LockTime.MAX_TIMESTAMP_VALUE)
         );
+        // TODO: Query is no longer valid...
         for (final Integer outputIndex : outputIndices) {
             databaseConnection.executeSql(
                 new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
@@ -48,8 +45,8 @@ public class TransactionOutputIndexerTests extends IntegrationTest {
         }
     }
 
-    public static List<TransactionId> loadBvtTokens(final DatabaseManager databaseManager) throws DatabaseException {
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+    public static List<TransactionId> loadBitcoinVerdeTestTokens(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
         TransactionOutputIndexerTests.storeFakeTransactionOutputs("C5498D00002572CA9690A3520E5D12868E06BC1ED5672F5A4413C64C3F67F16A", new int[]{ 0 }, databaseManager);
         TransactionOutputIndexerTests.storeFakeTransactionOutputs("9405B76E7984D10F8079B228D1E769F103A47C8ED50A840E03514D1185655ED7", new int[]{ 0 }, databaseManager);

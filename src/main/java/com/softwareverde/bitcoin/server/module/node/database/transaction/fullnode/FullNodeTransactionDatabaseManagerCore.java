@@ -78,31 +78,28 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return blockIds;
     }
 
-    protected void _insertIntoUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
+    protected TransactionId _storeTransactionHash(final Transaction transaction) throws DatabaseException {
+        final Sha256Hash transactionHash = transaction.getHash();
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Long now = _systemTime.getCurrentTimeInSeconds();
-
-        databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO unconfirmed_transactions (transaction_id, timestamp) VALUES (?, ?)")
-                .setParameter(transactionId)
-                .setParameter(now)
-        );
-    }
-
-    protected void _insertIntoUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (transactionIds.isEmpty()) { return; }
-        final Long now = _systemTime.getCurrentTimeInSeconds();
-
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO unconfirmed_transactions (transaction_id, timestamp) VALUES (?, ?)");
-        for (final TransactionId transactionId : transactionIds) {
-            batchedInsertQuery.setParameter(transactionId);
-            batchedInsertQuery.setParameter(now);
+        { // Check if the Transaction already exists...
+            final TransactionId transactionId = _getTransactionId(transactionHash);
+            if (transactionId != null) {
+                return transactionId;
+            }
         }
 
-        databaseConnection.executeSql(batchedInsertQuery);
+        final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
+        final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
+
+        final Long transactionId = databaseConnection.executeSql(
+            new Query("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)")
+                .setParameter(transactionHash)
+                .setParameter(transactionByteCount)
+        );
+
+        return TransactionId.wrap(transactionId);
     }
 
     protected void _deleteFromUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
@@ -205,7 +202,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM unconfirmed_transactions WHERE transaction_id = ?")
+            new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
         if (! rows.isEmpty()) { return; }
@@ -258,12 +255,11 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         if (allowFromUnconfirmedTransactions) { // Attempt to load the Transaction from the Unconfirmed Transactions table...
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id, hash, version, lock_time FROM unconfirmed_transactions WHERE transaction_id = ?")
+                new Query("SELECT transactions.hash, unconfirmed_transactions.version, unconfirmed_transactions.lock_time FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id WHERE transactions.id = ?")
                     .setParameter(transactionId)
             );
             if (! rows.isEmpty()) {
                 final Row row = rows.get(0);
-                final UnconfirmedTransactionId unconfirmedTransactionId = UnconfirmedTransactionId.wrap(row.getLong("id"));
                 final Long version = row.getLong("version");
                 final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
                 final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
@@ -299,6 +295,34 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return null;
     }
 
+    protected List<TransactionId> _getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query(
+                "WITH RECURSIVE cte (transaction_id, previous_transaction_hash) AS ( " +
+                    "SELECT " +
+                        "unconfirmed_transaction_inputs.transaction_id, " +
+                        "previous_transactions.hash AS previous_transaction_hash " +
+                    "FROM " +
+                        "transactions AS previous_transactions " +
+                        "INNER JOIN unconfirmed_transaction_inputs " +
+                            "ON unconfirmed_transaction_inputs.previous_transaction_hash = previous_transactions.hash " +
+                ")" +
+                "SELECT transaction_id FROM transactions INNER JOIN cte ON cte.previous_transaction_hash = transactions.hash WHERE transactions.id IN (?) " +
+                "GROUP BY transaction_id"
+            )
+                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
+    }
+
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
         _databaseManager = databaseManager;
         _masterInflater = masterInflater;
@@ -327,6 +351,24 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         return true;
+    }
+
+    @Override
+    public TransactionId storeUnconfirmedTransaction(final Transaction transaction) throws DatabaseException {
+        final TransactionId transactionId = _storeTransactionHash(transaction);
+        _storeUnconfirmedTransaction(transactionId, transaction);
+        return transactionId;
+    }
+
+    @Override
+    public List<TransactionId> storeUnconfirmedTransactions(final List<Transaction> transactions) throws DatabaseException {
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getCount());
+        for (final Transaction transaction : transactions) {
+            final TransactionId transactionId = _storeTransactionHash(transaction);
+            _storeUnconfirmedTransaction(transactionId, transaction);
+            transactionIds.add(transactionId);
+        }
+        return transactionIds;
     }
 
     @Override
@@ -386,7 +428,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_id FROM unconfirmed_transactions")
+            new Query("SELECT transaction_id FROM unconfirmed_transactions")
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
@@ -412,54 +454,23 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
-                "SELECT " +
-                    "unconfirmed_transactions.transaction_id " +
-                "FROM " +
-                    "unconfirmed_transaction_inputs " +
-                    "INNER JOIN unconfirmed_transactions " +
-                        "ON unconfirmed_transaction_inputs.unconfirmed_transaction_id = unconfirmed_transactions.id " +
-                "WHERE " +
-                    "(unconfirmed_transaction_inputs.previous_transaction_hash, unconfirmed_transaction_inputs.previous_transaction_output_index) IN (?) " +
-                "GROUP BY unconfirmed_transactions.transaction_id"
+                "SELECT transaction_id FROM unconfirmed_transaction_inputs WHERE (previous_transaction_hash, previous_transaction_output_index) IN (?)"
             )
-                .setInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
         );
 
-        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            listBuilder.add(transactionId);
+            transactionIds.add(transactionId);
         }
-        return listBuilder.build();
+        transactionIds.addAll(_getUnconfirmedTransactionsDependingOn(transactionIds));
+        return transactionIds;
     }
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query(
-                "SELECT " +
-                    "unconfirmed_transactions.transaction_id " +
-                "FROM " +
-                    "unconfirmed_transaction_outputs " +
-                    "INNER JOIN unconfirmed_transaction_inputs " +
-                        "ON unconfirmed_transaction_outputs.id = unconfirmed_transaction_inputs.previous_transaction_output_id " +
-                    "INNER JOIN unconfirmed_transactions " +
-                        "ON unconfirmed_transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
-                "WHERE " +
-                        "unconfirmed_transaction_outputs.transaction_id IN (?) " +
-                "GROUP BY unconfirmed_transactions.transaction_id"
-            )
-                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
-        );
-
-        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
-        for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            listBuilder.add(transactionId);
-        }
-        return listBuilder.build();
+        return _getUnconfirmedTransactionsDependingOn(transactionIds);
     }
 
     @Override
@@ -510,32 +521,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public TransactionId storeTransaction(final Transaction transaction) throws DatabaseException {
-        final Sha256Hash transactionHash = transaction.getHash();
-
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        { // Check if the Transaction already exists...
-            final TransactionId transactionId = _getTransactionId(transactionHash);
-            if (transactionId != null) {
-                return transactionId;
-            }
-        }
-
-        final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
-        final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
-
-        final Long transactionId = databaseConnection.executeSql(
-            new Query("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)")
-                .setParameter(transactionHash)
-                .setParameter(transactionByteCount)
-        );
-
-        return TransactionId.wrap(transactionId);
+    public TransactionId storeTransactionHash(final Transaction transaction) throws DatabaseException {
+        return _storeTransactionHash(transaction);
     }
 
     @Override
-    public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
+    public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
 

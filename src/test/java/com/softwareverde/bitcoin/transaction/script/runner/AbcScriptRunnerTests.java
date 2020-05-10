@@ -4,8 +4,10 @@ import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -44,29 +46,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 public class AbcScriptRunnerTests {
-    public static class FakeMedianBlockTime implements MedianBlockTime {
-        protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
-
-        @Override
-        public ImmutableMedianBlockTime asConst() {
-            return ImmutableMedianBlockTime.fromSeconds(_medianBlockTime);
-        }
-
-        @Override
-        public Long getCurrentTimeInSeconds() {
-            return _medianBlockTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInMilliSeconds() {
-            return (_medianBlockTime * 1000L);
-        }
-
-        public void setMedianBlockTime(final Long medianBlockTime) {
-            _medianBlockTime = medianBlockTime;
-        }
-    }
-
     public static class TestVector {
         public static TestVector fromJson(final Json testVectorJson) {
             // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
@@ -552,7 +531,7 @@ public class AbcScriptRunnerTests {
                 // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
             }
 
-            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
+            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             final ScriptRunner scriptRunner = new ScriptRunner();
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);

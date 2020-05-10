@@ -17,4 +17,8 @@ public class BlockValidatorFactory extends BlockHeaderValidatorFactory {
         final BlockHeaderValidatorFactory blockHeaderValidatorFactory = this;
         return new BlockValidator(databaseManagerFactory, blockHeaderValidatorFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
     }
+
+    public TransactionValidatorFactory getTransactionValidatorFactory() {
+        return _transactionValidatorFactory;
+    }
 }

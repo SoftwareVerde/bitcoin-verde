@@ -130,7 +130,7 @@ CREATE TABLE unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT 'NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.',
-    block_height INT UNSIGNED COMMENT 'NULL indicates the output was not in the cache when it was marked for delete.',
+    block_height INT UNSIGNED COMMENT 'NULL indicates the output was not in the cache when it was marked for delete, or there was a rollback of the UTXO set.',
     PRIMARY KEY (transaction_hash, `index`) USING HASH,
     INDEX utxo_block_height_ix (block_height DESC) USING BTREE
 ) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
@@ -158,37 +158,36 @@ CREATE TABLE stale_committed_unspent_transaction_outputs (
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unconfirmed_transactions (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     version INT UNSIGNED NOT NULL,
     lock_time BIGINT UNSIGNED NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY unconfirmed_transaction_txid_uq (transaction_id),
+    PRIMARY KEY (transaction_id),
     FOREIGN KEY unconfirmed_transaction_transaction_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unconfirmed_transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    unconfirmed_transaction_id INT UNSIGNED NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
     locking_script BLOB NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY unconfirmed_transaction_output_tx_id_index_uq (unconfirmed_transaction_id, `index`),
-    FOREIGN KEY unconfirmed_transaction_outputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
+    UNIQUE KEY unconfirmed_transaction_output_tx_id_index_uq (transaction_id, `index`),
+    FOREIGN KEY unconfirmed_transaction_outputs_tx_id_fk (transaction_id) REFERENCES unconfirmed_transactions (transaction_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unconfirmed_transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    unconfirmed_transaction_id INT UNSIGNED NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     previous_transaction_hash BINARY(32) NOT NULL,
     previous_transaction_output_index INT UNSIGNED NOT NULL,
     sequence_number INT UNSIGNED NOT NULL,
     unlocking_script BLOB NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY transaction_inputs_tx_id_fk (unconfirmed_transaction_id) REFERENCES unconfirmed_transactions (id) ON DELETE CASCADE
+    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES unconfirmed_transactions (transaction_id) ON DELETE CASCADE,
+    INDEX unconfirmed_transaction_inputs_tx_hash_ix (previous_transaction_hash, previous_transaction_output_index) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE transaction_outputs (

@@ -151,7 +151,7 @@ public class UnspentTransactionOutputManager {
      *  This function may do a disk-commit of the in-memory UTXO set.
      *  A disk-commit is executed periodically based on block height and/or if the in-memory set grows too large.
      */
-    public void updateUtxoSetWithBlock(final Block block, final Long blockHeight) throws DatabaseException {
+    public void applyBlockToUtxoSet(final Block block, final Long blockHeight) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
@@ -161,6 +161,47 @@ public class UnspentTransactionOutputManager {
             }
 
             _updateUtxoSetWithBlock(block, blockHeight);
+            unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
+        }
+        finally {
+            UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+        }
+    }
+
+    /**
+     * Removes UTXOs generated, and re-adds UTXOs spent, by the provided Block.
+     */
+    public void removeBlockFromUtxoSet(final Block block, final Long blockHeight) throws DatabaseException {
+        UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
+        try {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final Long uncommittedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
+            if (! Util.areEqual(blockHeight, uncommittedUtxoBlockHeight)) {
+                throw new DatabaseException("Attempted to update UTXO set with out-of-order block. blockHeight=" + blockHeight + ", utxoHeight=" + uncommittedUtxoBlockHeight);
+            }
+
+            final List<Transaction> transactions = block.getTransactions();
+            final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+            final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+            for (int i = 0; i < transactions.getCount(); ++i) {
+                final Transaction transaction = transactions.get(i);
+
+                final boolean isCoinbase = (i == 0);
+                if (! isCoinbase) {
+                    for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                        final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                        spentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                    }
+                }
+
+                final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+                unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
+            }
+
+            // TODO: Committed state can get corrupted/weird if the cached state doesn't properly update the on-disk state...
+            unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(unspentTransactionOutputIdentifiers);
+            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(spentTransactionOutputIdentifiers, null);
+
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
         }
         finally {
