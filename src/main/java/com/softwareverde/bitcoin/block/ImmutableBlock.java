@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
+import com.softwareverde.bitcoin.block.merkleroot.MutableMerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
@@ -15,6 +15,7 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
@@ -22,10 +23,11 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     protected MerkleTree<Transaction> _merkleTree = null;
 
     protected void _buildMerkleTree() {
-        _merkleTree = new MerkleTreeNode<Transaction>();
+        final MutableMerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
         for (final Transaction transaction : _transactions) {
-            _merkleTree.addItem(transaction);
+            merkleTree.addItem(transaction);
         }
+        _merkleTree = merkleTree;
     }
 
     public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
@@ -74,6 +76,14 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
         final Transaction transaction = _transactions.get(0);
         return transaction.asCoinbase();
+    }
+
+    @Override
+    public MerkleTree<Transaction> getMerkleTree() {
+        if (_merkleTree == null) {
+            _buildMerkleTree();
+        }
+        return _merkleTree;
     }
 
     @Override

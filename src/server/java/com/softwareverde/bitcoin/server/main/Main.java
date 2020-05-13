@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.*;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -13,7 +12,6 @@ import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.jocl.JoclGpuSha256;
 import com.softwareverde.logging.BitcoinNodeLog;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
@@ -394,18 +392,15 @@ public class Main {
             }
 
             case "MINER": {
-                if (_arguments.length != 5) {
+                if (_arguments.length != 3) {
                     _printUsage();
                     BitcoinUtil.exitFailure();
                     break;
                 }
 
-                final String previousBlockHashString = _arguments[1];
-                final String base58CheckAddress = _arguments[2];
-                final Integer cpuThreadCount = Util.parseInt(_arguments[3]);
-                final Integer gpuThreadCount = Util.parseInt(_arguments[4]);
-                final GpuSha256 gpuSha256 = JoclGpuSha256.getInstance();
-                final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount, gpuSha256);
+                final Integer cpuThreadCount = Util.parseInt(_arguments[1]);
+                final String prototypeBlockBytes = _arguments[2];
+                final MinerModule minerModule = new MinerModule(cpuThreadCount, prototypeBlockBytes);
                 minerModule.run();
                 Logger.flush();
             } break;

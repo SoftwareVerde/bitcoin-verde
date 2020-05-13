@@ -21,4 +21,8 @@ public class BlockHasher {
         final byte[] sha256Hash = HashUtil.doubleSha256(blockHeaderBytes);
         return MutableSha256Hash.wrap(ByteUtil.reverseEndian(sha256Hash));
     }
+
+    public BlockHeaderDeflater getBlockHeaderDeflater() {
+        return _blockHeaderDeflater;
+    }
 }

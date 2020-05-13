@@ -9,11 +9,9 @@ public interface MerkleTree<T extends Hashable> {
         boolean shouldInclude(T item);
     }
 
-    void addItem(T item);
     T getItem(int index);
     List<T> getItems();
 
-    void replaceItem(int index, T item);
     int getItemCount();
     boolean isEmpty();
 

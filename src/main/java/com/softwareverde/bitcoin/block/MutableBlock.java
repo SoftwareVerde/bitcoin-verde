@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.block;
 
+import com.softwareverde.bitcoin.block.header.AbstractBlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
@@ -16,52 +18,46 @@ import com.softwareverde.json.Json;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
-public class MutableBlock implements Block {
-    protected Long _version;
-    protected Sha256Hash _previousBlockHash = Sha256Hash.EMPTY_HASH;
-    protected Long _timestamp;
-    protected Difficulty _difficulty;
-    protected Long _nonce;
-    protected MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<Transaction>();
-    protected MutableList<Transaction> _transactions = new MutableList<Transaction>();
+public class MutableBlock extends AbstractBlockHeader implements Block {
+    protected final BlockDeflater _blockDeflater;
+    protected final MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<Transaction>();
+    protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
 
     protected Integer _cachedHashCode = null;
+    protected Sha256Hash _cachedHash = null;
 
-    protected void _initFromBlockHeader(final BlockHeader blockHeader) {
-        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
-        final Difficulty difficulty = blockHeader.getDifficulty();
-
-        _version = blockHeader.getVersion();
-        _previousBlockHash = previousBlockHash.asConst();
-        _timestamp = blockHeader.getTimestamp();
-        _difficulty = difficulty.asConst();
-        _nonce = blockHeader.getNonce();
-    }
-
-    protected void _initTransactions(final List<Transaction> transactions) {
-        for (final Transaction transaction : transactions) {
-            final Transaction constTransaction = transaction.asConst();
-            _transactions.add(constTransaction);
-            _merkleTree.addItem(constTransaction);
-        }
+    protected MutableBlock(final BlockHasher blockHasher, final BlockDeflater blockDeflater) {
+        super(blockHasher);
+        _blockDeflater = blockDeflater;
     }
 
     public MutableBlock() {
-        _version = VERSION;
+        _blockDeflater = new BlockDeflater();
+        _merkleRoot = null;
     }
 
     public MutableBlock(final BlockHeader blockHeader) {
-        _initFromBlockHeader(blockHeader);
+        super(blockHeader);
+        _blockDeflater = new BlockDeflater();
+        _merkleRoot = null;
     }
 
     public MutableBlock(final Block block) {
-        _initFromBlockHeader(block);
-        _initTransactions(block.getTransactions());
+        this(block, block.getTransactions());
     }
 
     public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
-        _initFromBlockHeader(blockHeader);
-        _initTransactions(transactions);
+        super(blockHeader);
+        _blockDeflater = new BlockDeflater();
+        _merkleRoot = null;
+
+        if (transactions != null) {
+            for (final Transaction transaction : transactions) {
+                final Transaction constTransaction = transaction.asConst();
+                _transactions.add(constTransaction);
+                _merkleTree.addItem(constTransaction);
+            }
+        }
     }
 
     @Override
@@ -79,93 +75,103 @@ public class MutableBlock implements Block {
         final Transaction constTransaction = transaction.asConst();
         _transactions.add(constTransaction);
         _merkleTree.addItem(constTransaction);
+
         _cachedHashCode = null;
+        _cachedHash = null;
+        _merkleRoot = null;
     }
 
     public void replaceTransaction(final Integer index, final Transaction transaction) {
         final Transaction constTransaction = transaction.asConst();
         _transactions.set(index, constTransaction);
         _merkleTree.replaceItem(index, constTransaction);
+
         _cachedHashCode = null;
+        _cachedHash = null;
+        _merkleRoot = null;
     }
 
     public void removeTransaction(final Sha256Hash transactionHashToRemove) {
         _merkleTree.clear();
-        _cachedHashCode = null;
 
-        final MutableList<Transaction> oldTransactions = _transactions;
-        _transactions = new MutableList<Transaction>(_transactions.getCount());
-        for (final Transaction transaction : oldTransactions) {
+        int index = 0;
+        final int transactionCount = _transactions.getCount();
+        for (int i = 0; i < transactionCount; ++i) {
+            final Transaction transaction = _transactions.get(index);
             final Sha256Hash transactionHash = transaction.getHash();
-            if (! Util.areEqual(transactionHashToRemove, transactionHash)) {
-                _transactions.add(transaction);
+            if (Util.areEqual(transactionHashToRemove, transactionHash)) {
+                _transactions.remove(index);
+            }
+            else {
                 _merkleTree.addItem(transaction);
+                index += 1;
             }
         }
+
+        _cachedHashCode = null;
+        _cachedHash = null;
+        _merkleRoot = null;
     }
 
     public void clearTransactions() {
         _transactions.clear();
         _merkleTree.clear();
-        _cachedHashCode = null;
-    }
 
-    @Override
-    public Long getVersion() { return _version; }
+        _cachedHashCode = null;
+        _cachedHash = null;
+        _merkleRoot = null;
+    }
 
     public void setVersion(final Long version) {
         _version = version;
-        _cachedHashCode = null;
-    }
 
-    @Override
-    public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }
+        _cachedHashCode = null;
+        _cachedHash = null;
+    }
 
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         _previousBlockHash = previousBlockHash.asConst();
+
         _cachedHashCode = null;
+        _cachedHash = null;
     }
 
     @Override
-    public MerkleRoot getMerkleRoot() { return _merkleTree.getMerkleRoot(); }
+    public MerkleRoot getMerkleRoot() {
+        final MerkleRoot cachedMerkleRoot = _merkleRoot;
+        if (cachedMerkleRoot != null) { return cachedMerkleRoot; }
 
-    @Override
-    public Long getTimestamp() { return _timestamp; }
+        final MerkleRoot merkleRoot = _merkleTree.getMerkleRoot();
+        _merkleRoot = merkleRoot;
+        return merkleRoot;
+    }
 
     public void setTimestamp(final Long timestamp) {
         _timestamp = timestamp;
-        _cachedHashCode = null;
-    }
 
-    @Override
-    public Difficulty getDifficulty() { return _difficulty; }
+        _cachedHashCode = null;
+        _cachedHash = null;
+    }
 
     public void setDifficulty(final Difficulty difficulty) {
         _difficulty = difficulty.asConst();
-        _cachedHashCode = null;
-    }
 
-    @Override
-    public Long getNonce() { return  _nonce; }
+        _cachedHashCode = null;
+        _cachedHash = null;
+    }
 
     public void setNonce(final Long nonce) {
         _nonce = nonce;
-        _cachedHashCode = null;
-    }
 
-    @Override
-    public Sha256Hash getHash() {
-        final BlockHasher blockHasher = new BlockHasher();
-        return blockHasher.calculateBlockHash(this);
+        _cachedHashCode = null;
+        _cachedHash = null;
     }
 
     @Override
     public Boolean isValid() {
         if (_transactions.isEmpty()) { return false; }
 
-        final BlockHasher blockHasher = new BlockHasher();
-        final Sha256Hash sha256Hash = blockHasher.calculateBlockHash(this);
-        return (_difficulty.isSatisfiedBy(sha256Hash));
+        return super.isValid();
     }
 
     @Override
@@ -193,6 +199,11 @@ public class MutableBlock implements Block {
     }
 
     @Override
+    public MerkleTree<Transaction> getMerkleTree() {
+        return _merkleTree;
+    }
+
+    @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
         if (_merkleTree.isEmpty()) { return new MutableList<Sha256Hash>(); }
         return _merkleTree.getPartialTree(transactionIndex);
@@ -216,8 +227,7 @@ public class MutableBlock implements Block {
 
     @Override
     public Json toJson() {
-        final BlockDeflater blockDeflater = new BlockDeflater();
-        return blockDeflater.toJson(this);
+        return _blockDeflater.toJson(this);
     }
 
     @Override
@@ -225,8 +235,7 @@ public class MutableBlock implements Block {
         final Integer cachedHashCode = _cachedHashCode;
         if (cachedHashCode != null) { return cachedHashCode; }
 
-        final BlockHasher blockHasher = new BlockHasher();
-        final Integer hashCode = blockHasher.calculateBlockHash(this).hashCode();
+        final int hashCode = super.hashCode();
         _cachedHashCode = hashCode;
         return hashCode;
     }

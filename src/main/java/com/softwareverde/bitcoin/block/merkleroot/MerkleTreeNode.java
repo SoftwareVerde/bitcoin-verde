@@ -14,7 +14,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.security.util.HashUtil;
 
-public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
+public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> {
     protected static final ThreadLocal<MutableByteArray> _threadLocalScratchSpace = new ThreadLocal<MutableByteArray>() {
         @Override
         protected MutableByteArray initialValue() {

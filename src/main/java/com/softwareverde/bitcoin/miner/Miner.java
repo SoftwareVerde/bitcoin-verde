@@ -23,12 +23,14 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Miner {
-    protected final Container<Boolean> hasBeenFound = new Container<Boolean>(false);
+    protected final Container<Boolean> _hasBeenFound = new Container<Boolean>(false);
 
+    protected final SystemTime _systemTime = new SystemTime();
     protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final GpuSha256 _gpuSha256;
     protected final Integer _cpuThreadCount;
@@ -59,17 +61,23 @@ public class Miner {
         final Runnable hashCountPrinter = new Runnable() {
             @Override
             public synchronized void run() {
-                final long startTime = System.currentTimeMillis();
+                final long startTime = _systemTime.getCurrentTimeInMilliSeconds();
 
-                while (! hasBeenFound.value) {
-                    try { Thread.sleep(5000); } catch (final Exception e) { }
+                while (! _hasBeenFound.value) {
+                    try {
+                        Thread.sleep(5000);
+                    }
+                    catch (final Exception exception) {
+                        _hasBeenFound.value = true;
+                        break;
+                    }
 
                     long hashCount = 0;
                     for (int j = 0; j < (_cpuThreadCount + _gpuThreadCount); ++j) {
                         hashCount += hashCounts.get(j).get();
                     }
 
-                    final long now = System.currentTimeMillis();
+                    final long now = _systemTime.getCurrentTimeInMilliSeconds();
                     final long elapsed = (now - startTime) + 1;
                     final double hashesPerSecond = (((double) hashCount) / elapsed * 1000D);
                     Logger.info(String.format("%.2f h/s", hashesPerSecond));
@@ -101,13 +109,13 @@ public class Miner {
                         final UnlockingScript originalCoinbaseSignature = coinbaseTransaction.getTransactionInputs().get(0).getUnlockingScript();
 
                         if (_shouldMutateTimestamp) {
-                            mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                            mutableBlock.setTimestamp(_systemTime.getCurrentTimeInSeconds());
                         }
 
                         long nonce = (long) (Math.random() * Long.MAX_VALUE);
 
                         boolean isValidDifficulty = false;
-                        while ( (! isValidDifficulty) && (! hasBeenFound.value) ) {
+                        while ( (! isValidDifficulty) && (! _hasBeenFound.value) ) {
 
                             final MutableList<ByteArray> blockHeaderBytesList = new MutableList<ByteArray>();
                             for (int i = 0; i < hashesPerIteration; ++i) {
@@ -118,7 +126,7 @@ public class Miner {
                                     mutationCount += 1;
 
                                     if (_shouldMutateTimestamp) {
-                                        mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                                        mutableBlock.setTimestamp(_systemTime.getCurrentTimeInSeconds());
                                     }
                                     else {
                                         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(coinbaseTransaction.getTransactionInputs().get(0));
@@ -144,7 +152,7 @@ public class Miner {
                                 isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
 
                                 if (isValidDifficulty) {
-                                    hasBeenFound.value = true;
+                                    _hasBeenFound.value = true;
 
                                     final BlockHeader blockHeader = blockHeaderInflater.fromBytes(blockHeaderBytesList.get(i));
                                     blockContainer.value = new ImmutableBlock(blockHeader, mutableBlock.getTransactions());
@@ -159,7 +167,11 @@ public class Miner {
             }
         }
 
+        final long nonceCountPerThread = ((2L << 32) / _cpuThreadCount.longValue());
         for (int i = 0; i < _cpuThreadCount; ++i) {
+            final long startingNonce = (i * nonceCountPerThread);
+            final long endingNonce = (((i + 1) * nonceCountPerThread) - 1L);
+
             final Integer index = (threadIndex++);
             hashCounts.add(new AtomicLong(0L));
 
@@ -176,21 +188,22 @@ public class Miner {
                     final UnlockingScript originalCoinbaseSignature = coinbaseTransaction.getTransactionInputs().get(0).getUnlockingScript();
 
                     if (_shouldMutateTimestamp) {
-                        mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                        mutableBlock.setTimestamp(_systemTime.getCurrentTimeInSeconds());
                     }
 
-                    long nonce = (long) (Math.random() * Long.MAX_VALUE);
+                    long nonce = startingNonce;
 
                     boolean isValidDifficulty = false;
-                    while ( (! isValidDifficulty) && (! hasBeenFound.value) ) {
+                    while ( (! isValidDifficulty) && (! _hasBeenFound.value) ) {
                         nonce += 1;
                         mutableBlock.setNonce(nonce);
 
-                        if (nonce % 7777 == 0) {
+                        if (nonce == endingNonce) {
                             mutationCount += 1;
+                            nonce = startingNonce;
 
                             if (_shouldMutateTimestamp) {
-                                mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                                mutableBlock.setTimestamp(_systemTime.getCurrentTimeInSeconds());
                             }
                             else {
                                 final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(coinbaseTransaction.getTransactionInputs().get(0));
@@ -209,7 +222,7 @@ public class Miner {
                         isValidDifficulty = difficulty.isSatisfiedBy(blockHash);
 
                         if (isValidDifficulty) {
-                            hasBeenFound.value = true;
+                            _hasBeenFound.value = true;
                             blockContainer.value = mutableBlock;
                         }
 
@@ -217,6 +230,7 @@ public class Miner {
                     }
                 }
             }));
+            thread.setPriority(Thread.MAX_PRIORITY);
             threads.add(thread);
         }
 
