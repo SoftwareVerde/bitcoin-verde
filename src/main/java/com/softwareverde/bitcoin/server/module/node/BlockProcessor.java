@@ -207,7 +207,7 @@ public class BlockProcessor {
             }
             else {
                 final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block); // Ensure the the UTXOs for this block are pre-loaded into the cache...
+                final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
                 if (! unspentTransactionOutputsExistForBlock) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
@@ -310,14 +310,14 @@ public class BlockProcessor {
                 Logger.trace("Utxo Reorg - 3/6 complete.");
 
                 // 4. Validate that the transactions are still valid on the new chain...
-                final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null); // TODO: BlockOutputs and UnspentTransactionOutputSet should not both be null.
+                final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(null, null); // TODO: Neither blockOutputs nor unspentTransactionOutputSet should be null.
                 transactionValidator.setLoggingEnabled(false);
 
                 final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
                 final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>();
                 for (final TransactionId transactionId : transactionIds) {
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockchainSegmentId, blockHeight, transaction, true);
+                    final Boolean transactionIsValid = transactionValidator.validateTransaction(blockHeight, transaction, true);
                     if (! transactionIsValid) {
                         transactionsToRemove.add(transactionId);
                     }

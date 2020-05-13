@@ -60,7 +60,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
         if (unspentTransactionOutputSet != null) {
-            final TransactionOutput transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifier);
+            final TransactionOutput transactionOutput = unspentTransactionOutputSet.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) { return transactionOutput; }
         }
 

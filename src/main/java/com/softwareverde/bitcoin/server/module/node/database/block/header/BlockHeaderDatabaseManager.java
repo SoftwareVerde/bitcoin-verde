@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelation
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.Map;
+
 public interface BlockHeaderDatabaseManager {
     Object MUTEX = new Object();
 
@@ -30,6 +32,7 @@ public interface BlockHeaderDatabaseManager {
     void setBlockchainSegmentId(BlockId blockId, BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
     BlockchainSegmentId getBlockchainSegmentId(BlockId blockId) throws DatabaseException;
     Long getBlockHeight(BlockId blockId) throws DatabaseException;
+    Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException;
     Long getBlockTimestamp(BlockId blockId) throws DatabaseException;
     BlockId getChildBlockId(BlockchainSegmentId blockchainSegmentId, BlockId previousBlockId) throws DatabaseException;
     Boolean hasChildBlock(BlockId blockId) throws DatabaseException;

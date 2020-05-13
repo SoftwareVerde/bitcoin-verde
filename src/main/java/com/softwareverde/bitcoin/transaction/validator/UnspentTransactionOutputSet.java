@@ -19,5 +19,8 @@ public interface UnspentTransactionOutputSet {
         Sha256Hash.fromHexString("D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599")
     );
 
-    TransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier);
+    TransactionOutput getTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier);
+    Long getBlockHeight(TransactionOutputIdentifier transactionOutputIdentifier);
+    Sha256Hash getBlockHash(TransactionOutputIdentifier transactionOutputIdentifier);
+    Boolean isCoinbaseTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier);
 }

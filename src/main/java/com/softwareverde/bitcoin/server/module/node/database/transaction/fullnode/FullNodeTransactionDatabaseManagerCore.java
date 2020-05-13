@@ -3,12 +3,14 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
@@ -25,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -35,6 +38,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -521,6 +525,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
+    public Boolean isCoinbaseTransaction(final Sha256Hash transactionHash) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT * FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id WHERE transactions.hash = ? AND block_transactions.`index` = 0")
+                .setParameter(transactionHash)
+        );
+        return (! rows.isEmpty());
+    }
+
+    @Override
     public TransactionId storeTransactionHash(final Transaction transaction) throws DatabaseException {
         return _storeTransactionHash(transaction);
     }
@@ -617,6 +631,44 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         return null;
+    }
+
+    @Override
+    public Map<Sha256Hash, BlockId> getBlockIds(final BlockchainSegmentId blockchainSegmentId, final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = new ArrayList<Row>();
+        final HashSet<BlockchainSegmentId> blockchainSegmentIds = new HashSet<BlockchainSegmentId>();
+
+        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(1024);
+        batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
+            @Override
+            public void run(final List<Sha256Hash> transactionHashes) throws Exception {
+                rows.addAll(databaseConnection.query(
+                    new Query("SELECT transactions.hash AS transaction_hash, block_transactions.block_id, blocks.blockchain_segment_id FROM block_transactions INNER JOIN blocks ON blocks.id = block_transactions.block_id INNER JOIN transactions ON transactions.id = block_transactions.transaction_id WHERE transactions.hash IN (?)")
+                        .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
+                ));
+            }
+        });
+
+        for (final Row row : rows) {
+            final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
+            blockchainSegmentIds.add(rowBlockchainSegmentId);
+        }
+        final Map<BlockchainSegmentId, Boolean> connectedBlockchainSegments = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, JavaListWrapper.wrap(blockchainSegmentIds), BlockRelationship.ANY);
+
+        final HashMap<Sha256Hash, BlockId> transactionBlockIds = new HashMap<Sha256Hash, BlockId>();
+        for (final Row row : rows) {
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+            final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
+            final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
+
+            if (Util.coalesce(connectedBlockchainSegments.get(rowBlockchainSegmentId), false)) {
+                transactionBlockIds.put(transactionHash, blockId);
+            }
+        }
+        return transactionBlockIds;
     }
 
     @Override

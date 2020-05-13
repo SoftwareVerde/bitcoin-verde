@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.blockloader;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
 import com.softwareverde.concurrent.Pin;
@@ -17,6 +18,7 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
     protected final ConcurrentLinkedDeque<PendingBlockFuture> _predecessorBlocks = new ConcurrentLinkedDeque<PendingBlockFuture>();
 
     protected volatile PendingBlock _pendingBlock;
+    protected volatile Long _blockHeight;
     protected volatile MutableUnspentTransactionOutputSet _unspentTransactionOutputSet;
 
     public PendingBlockFuture(final Sha256Hash blockHash) {
@@ -86,10 +88,17 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
             }
 
             // Logger.trace("Updating " + _blockHash + " with outputs from " + previousBlock.getHash());
-            _unspentTransactionOutputSet.update(previousBlock);
+            final Long blockHeight = pendingBlockFuture.getBlockHeight();
+            _unspentTransactionOutputSet.update(previousBlock, blockHeight);
         }
 
         return _unspentTransactionOutputSet;
+    }
+
+    public Long getBlockHeight() {
+        if (! _pin.wasReleased()) { return null; }
+
+        return _blockHeight;
     }
 
     /**

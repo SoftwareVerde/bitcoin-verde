@@ -34,6 +34,7 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
 
@@ -615,6 +616,30 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     @Override
     public Long getBlockHeight(final BlockId blockId) throws DatabaseException {
         return _getBlockHeight(blockId);
+    }
+
+    @Override
+    public Map<BlockId, Long> getBlockHeights(final List<BlockId> blockIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final HashMap<BlockId, Long> blockHeights = new HashMap<BlockId, Long>(blockIds.getCount());
+        final BatchRunner<BlockId> batchRunner = new BatchRunner<BlockId>(1024);
+        batchRunner.run(blockIds, new BatchRunner.Batch<BlockId>() {
+            @Override
+            public void run(final List<BlockId> blockIds) throws Exception {
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id, block_height FROM blocks WHERE id IN (?)")
+                        .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
+                );
+
+                for (final Row row : rows) {
+                    final BlockId blockId = BlockId.wrap(row.getLong("id"));
+                    final Long blockHeight = row.getLong("block_height");
+                    blockHeights.put(blockId, blockHeight);
+                }
+            }
+        });
+        return blockHeights;
     }
 
     @Override

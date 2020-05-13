@@ -63,6 +63,8 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.validator.LazyLoadingMedianBlockTimeSet;
+import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -483,12 +485,17 @@ public class NodeModule {
             _transactionDownloader = new TransactionDownloader(databaseManagerFactory, _bitcoinNodeManager);
         }
 
-        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(_mutableNetworkTime, medianBlockTime);
-        final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
+        final TransactionValidatorFactory transactionValidatorFactory;
+        { // Initialize the TransactionValidatorFactory...
+            final MedianBlockTimeSet medianBlockTimeSet = new LazyLoadingMedianBlockTimeSet(databaseManagerFactory);
+            transactionValidatorFactory = new TransactionValidatorFactory(_mutableNetworkTime, medianBlockTime, medianBlockTimeSet);
+        }
 
         { // Initialize the TransactionProcessor...
             _transactionProcessor = new TransactionProcessor(databaseManagerFactory, transactionValidatorFactory);
         }
+
+        final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...

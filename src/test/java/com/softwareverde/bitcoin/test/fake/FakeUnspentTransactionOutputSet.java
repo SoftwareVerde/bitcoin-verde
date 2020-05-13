@@ -11,13 +11,31 @@ import java.util.HashMap;
 
 public class FakeUnspentTransactionOutputSet implements UnspentTransactionOutputSet {
     protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
+    protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<TransactionOutputIdentifier, Boolean>();
+    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
+    protected final HashMap<TransactionOutputIdentifier, Long> _transactionBlockHeights = new HashMap<TransactionOutputIdentifier, Long>();
 
     @Override
-    public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+    public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         return _transactionOutputs.get(transactionOutputIdentifier);
     }
 
-    public void addTransaction(final Transaction transaction) {
+    @Override
+    public Long getBlockHeight(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _transactionBlockHeights.get(transactionOutputIdentifier);
+    }
+
+    @Override
+    public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _transactionBlockHashes.get(transactionOutputIdentifier);
+    }
+
+    @Override
+    public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _transactionCoinbaseStatuses.get(transactionOutputIdentifier);
+    }
+
+    public void addTransaction(final Transaction transaction, final Sha256Hash blockHash, final Long blockHeight, final Boolean isCoinbaseTransaction) {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
         final Sha256Hash transactionHash = transaction.getHash();
@@ -25,12 +43,11 @@ public class FakeUnspentTransactionOutputSet implements UnspentTransactionOutput
         for (final TransactionOutput transactionOutput : transactionOutputs) {
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
             _transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+            _transactionBlockHeights.put(transactionOutputIdentifier, blockHeight);
+            _transactionCoinbaseStatuses.put(transactionOutputIdentifier, isCoinbaseTransaction);
+            _transactionBlockHashes.put(transactionOutputIdentifier, blockHash);
             outputIndex += 1;
         }
-    }
-
-    public void addTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionOutput transactionOutput) {
-        _transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
     }
 
     public void clear() {

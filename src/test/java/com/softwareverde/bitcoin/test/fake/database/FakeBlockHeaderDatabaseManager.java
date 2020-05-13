@@ -14,6 +14,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
+import java.util.Map;
+
 public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManager {
     static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
         return FakeFullNodeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
@@ -155,6 +157,11 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
 
     @Override
     default BlockId getBlockIdAtHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    default Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 }

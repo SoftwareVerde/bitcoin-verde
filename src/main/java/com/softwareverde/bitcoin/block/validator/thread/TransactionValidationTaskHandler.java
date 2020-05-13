@@ -45,7 +45,6 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         }
     }
 
-    protected final BlockchainSegmentId _blockchainSegmentId;
     protected final Long _blockHeight;
     protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
     protected final BlockOutputs _blockOutputs;
@@ -56,8 +55,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
 
     protected TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
-        _blockchainSegmentId = blockchainSegmentId;
+    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
         _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
@@ -68,7 +66,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
 
     @Override
     public void init(final FullNodeDatabaseManager databaseManager) {
-        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _unspentTransactionOutputSet, _blockOutputs);
+        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(_unspentTransactionOutputSet, _blockOutputs);
     }
 
     @Override
@@ -79,7 +77,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         {
             Boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockchainSegmentId, _blockHeight, transaction, false);
+                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockHeight, transaction, false);
             }
             catch (final Exception exception) { Logger.warn(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;

@@ -16,10 +16,12 @@ public class LazyMutableUnspentTransactionOutputSet extends MutableUnspentTransa
 
         final Block block;
         final TaskType taskType;
+        final Long blockHeight;
 
-        public LazyLoadTask(final TaskType taskType, final Block block) {
+        public LazyLoadTask(final TaskType taskType, final Block block, final Long blockHeight) {
             this.taskType = taskType;
             this.block = block;
+            this.blockHeight = blockHeight;
         }
     }
 
@@ -38,16 +40,17 @@ public class LazyMutableUnspentTransactionOutputSet extends MutableUnspentTransa
 
                 final Block block = lazyLoadTask.block;
                 final LazyLoadTask.TaskType taskType = lazyLoadTask.taskType;
+                final Long blockHeight = lazyLoadTask.blockHeight;
 
                 if (taskType == LazyLoadTask.TaskType.LOAD) {
-                    final Boolean outputsLoadedSuccessfully = super.loadOutputsForBlock(fullNodeDatabaseManager, block);
+                    final Boolean outputsLoadedSuccessfully = super.loadOutputsForBlock(fullNodeDatabaseManager, block, blockHeight);
                     if (! outputsLoadedSuccessfully) {
                         Logger.debug("Unable to lazily load outputs for Block: " + block.getHash());
                         return;
                     }
                 }
                 else {
-                    super.update(block);
+                    super.update(block, blockHeight);
                 }
 
                 _lazyLoadTasks.removeFirst();
@@ -63,15 +66,15 @@ public class LazyMutableUnspentTransactionOutputSet extends MutableUnspentTransa
     }
 
     @Override
-    public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block) {
+    public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight) {
         synchronized (_lazyLoadTasks) {
-            _lazyLoadTasks.addLast(new LazyLoadTask(LazyLoadTask.TaskType.LOAD, block));
+            _lazyLoadTasks.addLast(new LazyLoadTask(LazyLoadTask.TaskType.LOAD, block, blockHeight));
         }
         return true;
     }
 
     @Override
-    public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+    public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         synchronized (_lazyLoadTasks) {
             if (! _lazyLoadTasks.isEmpty()) {
                 _loadOutputsForBlocks();
@@ -80,13 +83,19 @@ public class LazyMutableUnspentTransactionOutputSet extends MutableUnspentTransa
             if (! _lazyLoadTasks.isEmpty()) { return null; } // If a task failed, then return null.
         }
 
-        return super.getUnspentTransactionOutput(transactionOutputIdentifier);
+        return super.getTransactionOutput(transactionOutputIdentifier);
     }
 
     @Override
-    public synchronized void update(final Block block) {
+    public synchronized void update(final Block block, final Long blockHeight) {
         synchronized (_lazyLoadTasks) {
-            _lazyLoadTasks.addLast(new LazyLoadTask(LazyLoadTask.TaskType.UPDATE, block));
+            _lazyLoadTasks.addLast(new LazyLoadTask(LazyLoadTask.TaskType.UPDATE, block, blockHeight));
         }
+    }
+
+    @Override
+    public synchronized void clear() {
+        _lazyLoadTasks.clear();
+        super.clear();
     }
 }

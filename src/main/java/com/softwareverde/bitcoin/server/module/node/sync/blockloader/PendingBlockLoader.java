@@ -33,7 +33,7 @@ public class PendingBlockLoader {
      * Preloads the block, specified by the nextPendingBlockId, and the unspentOutputs it requires.
      * When complete, the pin is released.
      */
-    protected PendingBlockFuture _asynchronouslyLoadNextPendingBlock(final Sha256Hash blockHash, final PendingBlockId nextPendingBlockId, final Boolean shouldLoadUnspentOutputs) {
+    protected PendingBlockFuture _asynchronouslyLoadNextPendingBlock(final Sha256Hash blockHash, final PendingBlockId nextPendingBlockId, final Long nextBlockHeight, final Boolean shouldLoadUnspentOutputs) {
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
 
         final PendingBlockFuture blockFuture = new PendingBlockFuture(blockHash, _blockInflaters.getBlockInflater());
@@ -62,12 +62,12 @@ public class PendingBlockLoader {
 
                     if (shouldLoadUnspentOutputs) {
                         final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock);
+                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock, nextBlockHeight);
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                     }
-                    else { // NOTE: Outputs are available via LazyLoading, upon demand.
+                    else { // NOTE: Outputs are available upon demand via LazyLoading.
                         final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(_databaseManagerFactory);
-                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock); // Operation is only executed on demand...
+                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock, nextBlockHeight); // Operation is only executed on demand...
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                     }
 
@@ -85,15 +85,18 @@ public class PendingBlockLoader {
         return blockFuture;
     }
 
-    protected Boolean _shouldLoadUnspentOutputs(final Sha256Hash blockHash, final DatabaseManager databaseManager) throws DatabaseException {
+    protected Long _getBlockHeight(final Sha256Hash blockHash, final DatabaseManager databaseManager) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        return blockHeaderDatabaseManager.getBlockHeight(blockId);
+    }
+
+    protected Boolean _shouldLoadUnspentOutputs(final Long blockHeight) {
         final long loadUnspentOutputsAfterBlockHeight = Util.coalesce(_loadUnspentOutputsAfterBlockHeight, 0L);
         if (loadUnspentOutputsAfterBlockHeight < 1L) {
             return true;
         }
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
         return (Util.coalesce(blockHeight, Long.MAX_VALUE) > loadUnspentOutputsAfterBlockHeight);
     }
 
@@ -119,12 +122,13 @@ public class PendingBlockLoader {
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+            final Long blockHeight = _getBlockHeight(blockHash, databaseManager);
 
             // If a matching block wasn't found, then load the requested block.
-            final Boolean shouldLoadRequestedBlockUnspentOutputs = _shouldLoadUnspentOutputs(blockHash, databaseManager);
+            final Boolean shouldLoadRequestedBlockUnspentOutputs = _shouldLoadUnspentOutputs(blockHeight);
             if (requestedBlockFuture == null) {
                 final PendingBlockId pendingBlockId = (nullablePendingBlockId != null ? nullablePendingBlockId : pendingBlockDatabaseManager.getPendingBlockId(blockHash));
-                requestedBlockFuture = _asynchronouslyLoadNextPendingBlock(blockHash, pendingBlockId, shouldLoadRequestedBlockUnspentOutputs);
+                requestedBlockFuture = _asynchronouslyLoadNextPendingBlock(blockHash, pendingBlockId, blockHeight, shouldLoadRequestedBlockUnspentOutputs);
             }
 
             if (shouldLoadRequestedBlockUnspentOutputs) { // Load the next n-blocks after the requested block, as long as they aren't contentious...  If the requested block's outputs weren't loaded then don't preload next blocks since its benefit is limited...
@@ -152,13 +156,13 @@ public class PendingBlockLoader {
                         if (futureExists) { continue; }
                     }
 
-                    final Boolean shouldLoadUnspentOutputs = _shouldLoadUnspentOutputs(blockHash, databaseManager);
+                    final Boolean shouldLoadUnspentOutputs = _shouldLoadUnspentOutputs(blockHeight);
                     if (! shouldLoadUnspentOutputs) {
                         newFutureCount += 1; // Still increment the newFutureCount in order to prevent looping through too many future blocks...
                         continue;
                     }
 
-                    final PendingBlockFuture nextBlockFuture = _asynchronouslyLoadNextPendingBlock(nextBlockHash, nextPendingBlockId, true);
+                    final PendingBlockFuture nextBlockFuture = _asynchronouslyLoadNextPendingBlock(nextBlockHash, nextPendingBlockId, blockHeight, true);
 
                     { // Add the queued blocks as dependents for the pending block's output set.
                         nextBlockFuture._predecessorBlocks.addLast(requestedBlockFuture);

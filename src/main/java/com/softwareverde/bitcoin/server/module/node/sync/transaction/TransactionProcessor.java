@@ -69,7 +69,7 @@ public class TransactionProcessor extends SleepyService {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
-            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null); // TODO: Both should not be null...
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(null, null); // TODO: unspentTransactionOutputSet should not be null...
 
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {
@@ -130,7 +130,7 @@ public class TransactionProcessor extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, blockHeight, transaction, true);
+                    final Boolean transactionIsValid = transactionValidator.validateTransaction(blockHeight, transaction, true);
 
                     if (! transactionIsValid) {
                         TransactionUtil.rollbackTransaction(databaseConnection);
@@ -142,7 +142,7 @@ public class TransactionProcessor extends SleepyService {
                         continue;
                     }
 
-                    final Boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null);
+                    final boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null);
                     if (isUnconfirmedTransaction) {
                         transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
                     }

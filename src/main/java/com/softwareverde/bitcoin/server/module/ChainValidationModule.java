@@ -25,6 +25,8 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.transaction.validator.LazyLoadingMedianBlockTimeSet;
+import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -50,10 +52,11 @@ public class ChainValidationModule {
         final MasterInflater masterInflater = new CoreInflater();
         final MutableNetworkTime mutableNetworkTime = new MutableNetworkTime();
         final MutableMedianBlockTime medianBlockTime;
+        final DatabaseManagerFactory databaseManagerFactory;
         { // Initialize MedianBlockTime...
             final Database database = _environment.getDatabase();
 
-            final DatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(database.newConnectionFactory(), null, masterInflater);
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(database.newConnectionFactory(), null, masterInflater);
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
                 try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -68,7 +71,9 @@ public class ChainValidationModule {
             }
         }
 
-        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(mutableNetworkTime, medianBlockTime);
+
+        final MedianBlockTimeSet medianBlockTimeSet = new LazyLoadingMedianBlockTimeSet(databaseManagerFactory);
+        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(mutableNetworkTime, medianBlockTime, medianBlockTimeSet);
         _blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, mutableNetworkTime, medianBlockTime);
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);

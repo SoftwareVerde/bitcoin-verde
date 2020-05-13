@@ -504,7 +504,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, null, null);
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(null, null); // TODO: unspentTransactionOutputSet should not be null...
 
             final Container<BlockchainSegmentId> blockchainSegmentIdContainer = new Container<BlockchainSegmentId>();
 
@@ -515,7 +515,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
                 transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-                final Boolean isValidTransaction =  transactionValidator.validateTransaction(blockchainSegmentIdContainer.value, blockHeight, transaction, true);
+                final Boolean isValidTransaction =  transactionValidator.validateTransaction(blockHeight, transaction, true);
                 if (! isValidTransaction) {
                     return ValidationResult.invalid("Invalid Transaction.");
                 }

@@ -40,7 +40,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     protected static final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManager _databaseManager;
 
-    protected TransactionId _getTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+    protected TransactionId _getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -51,6 +51,20 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
 
         final Row row = rows.get(0);
         return TransactionId.wrap(row.getLong("id"));
+    }
+
+    protected BlockId _getBlockId(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
+        final List<BlockId> blockIds = _getBlockIds(transactionId);
+        for (final BlockId blockId : blockIds) {
+            final Boolean isConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+            if (isConnected) {
+                return blockId;
+            }
+        }
+
+        return null;
     }
 
     protected List<BlockId> _getBlockIds(final TransactionId transactionId) throws DatabaseException {
@@ -97,7 +111,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     protected TransactionId _storeTransaction(final Transaction transaction) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final TransactionId existingTransactionId = _getTransactionIdFromHash(transactionHash);
+        final TransactionId existingTransactionId = _getTransactionId(transactionHash);
         if (existingTransactionId != null) {
             return existingTransactionId;
         }
@@ -116,7 +130,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
 
             final TransactionId transactionId;
             {
-                final TransactionId existingTransactionId = _getTransactionIdFromHash(transactionHash);
+                final TransactionId existingTransactionId = _getTransactionId(transactionHash);
                 if (existingTransactionId != null) {
                     transactionId = existingTransactionId;
                 }
@@ -225,7 +239,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
         READ_LOCK.lock();
         try {
-            return _getTransactionIdFromHash(transactionHash);
+            return _getTransactionId(transactionHash);
         }
         finally {
             READ_LOCK.unlock();
@@ -295,19 +309,26 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
 
     @Override
     public BlockId getBlockId(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-
         READ_LOCK.lock();
         try {
-            final List<BlockId> blockIds = _getBlockIds(transactionId);
-            for (final BlockId blockId : blockIds) {
-                final Boolean isConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
-                if (isConnected) {
-                    return blockId;
-                }
-            }
+            return _getBlockId(blockchainSegmentId, transactionId);
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
 
-            return null;
+    @Override
+    public Map<Sha256Hash, BlockId> getBlockIds(final BlockchainSegmentId blockchainSegmentId, final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        READ_LOCK.lock();
+        try {
+            final HashMap<Sha256Hash, BlockId> blockIds = new HashMap<Sha256Hash, BlockId>(transactionHashes.getCount());
+            for (final Sha256Hash transactionHash : transactionHashes) {
+                final TransactionId transactionId = _getTransactionId(transactionHash);
+                final BlockId blockId = _getBlockId(blockchainSegmentId, transactionId);
+                blockIds.put(transactionHash, blockId);
+            }
+            return blockIds;
         }
         finally {
             READ_LOCK.unlock();
@@ -329,7 +350,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public List<BlockId> getBlockIds(final Sha256Hash transactionHash) throws DatabaseException {
         READ_LOCK.lock();
         try {
-            final TransactionId transactionId = _getTransactionIdFromHash(transactionHash);
+            final TransactionId transactionId = _getTransactionId(transactionHash);
             if (transactionId == null) { return new MutableList<BlockId>(); }
 
             return _getBlockIds(transactionId);
