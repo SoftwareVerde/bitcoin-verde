@@ -29,6 +29,7 @@ import com.softwareverde.util.HexUtil;
 
 public class TransactionValidatorCore implements TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
+    protected static final Long COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
 
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;

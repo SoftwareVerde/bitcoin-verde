@@ -194,11 +194,13 @@ public class Miner {
                     long nonce = startingNonce;
 
                     boolean isValidDifficulty = false;
-                    while ( (! isValidDifficulty) && (! _hasBeenFound.value) ) {
+                    while (! isValidDifficulty) {
                         nonce += 1;
                         mutableBlock.setNonce(nonce);
 
                         if (nonce == endingNonce) {
+                            if (_hasBeenFound.value) { break; }
+
                             mutationCount += 1;
                             nonce = startingNonce;
 
@@ -218,7 +220,7 @@ public class Miner {
                             }
                         }
 
-                        final Sha256Hash blockHash = blockHasher.calculateBlockHash(mutableBlock);
+                        final Sha256Hash blockHash = blockHasher.calculateBlockHash(mutableBlock, (_cpuThreadCount > 8));
                         isValidDifficulty = difficulty.isSatisfiedBy(blockHash);
 
                         if (isValidDifficulty) {

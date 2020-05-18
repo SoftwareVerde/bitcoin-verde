@@ -1,11 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.*;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
@@ -26,20 +22,15 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.wallet.PaymentAmount;
-import com.softwareverde.bitcoin.wallet.Wallet;
+import com.softwareverde.bitcoin.transaction.validator.*;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.BitcoinReflectionUtil;
-import com.softwareverde.util.ReflectionUtil;
+import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
@@ -62,7 +53,7 @@ public class BlockProcessorTests extends IntegrationTest {
     @After
     public void tearDown() {
         if (BlockProcessorTests.COINBASE_MATURITY != null) {
-            BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", 0L);
+            BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", BlockProcessorTests.COINBASE_MATURITY);
         }
     }
 
@@ -212,6 +203,12 @@ public class BlockProcessorTests extends IntegrationTest {
             return this.blockProcessor.processBlock(block, this.unspentTransactionOutputSet);
         }
 
+        public Long processBlock(final Block block, final Long blockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
+            final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+            unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+            return this.blockProcessor.processBlock(block, unspentTransactionOutputSet);
+        }
+
         public Block inflateBlock(final String blockData) {
             return this.blockInflater.fromBytes(ByteArray.fromHexString(blockData));
         }
@@ -338,7 +335,7 @@ public class BlockProcessorTests extends IntegrationTest {
     }
 
     protected static Boolean utxoExistsInCommittedUtxoSet(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final Integer committedUtxoCount = databaseConnection.query(
+        final int committedUtxoCount = databaseConnection.query(
             new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND is_spent = 0")
                 .setParameter(transaction.getHash())
         ).size();
@@ -408,101 +405,30 @@ public class BlockProcessorTests extends IntegrationTest {
     public void should_handle_contentious_reorg_fork_with_shared_utxos() throws Exception {
         // Setup
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-
             final TestHarness harness = new TestHarness();
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
-            final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
-            final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2);
-            final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3);
-            // final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4);
-            final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3);
-
-            System.out.println(genesisBlock.getHash()); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
-            System.out.println(forkChain2Block01.getHash()); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
-            System.out.println(forkChain2Block02.getHash()); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
-            System.out.println(forkChain2Block03.getHash()); // 0000000092764BB13AAE7477F4AB90E2AC33D85DCECF9F92F8FC679FBF5BA842
-            // System.out.println(forkChain2Block04.getHash());
-            System.out.println(forkChain4Block03.getHash()); // 000000000B869A3A1B5A52698A0B9479F0673ECD53994B94D73CDE12A3A18828
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+            final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+            final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
+            final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
+            final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4); // 000000009F1339E2BBC655346F47CC72075ECCE61E84DF3544A54F5623BED0FE
+            final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
 
             // Action
-            harness.processBlock(genesisBlock);
+            harness.processBlock(genesisBlock, 0L, databaseManager);
 
-            final Long blockHeightStep1 = harness.processBlock(forkChain2Block01);
-            final Long blockHeightStep2 = harness.processBlock(forkChain2Block02);
-            // final Long blockHeightStep3 = harness.processBlock(forkChain4Block03);
-            final Long blockHeightStep4 = harness.processBlock(forkChain2Block03);
-            // final Long blockHeightStep5 = harness.processBlock(forkChain2Block04);
+            final Long blockHeightStep1 = harness.processBlock(forkChain2Block01, 1L, databaseManager);
+            final Long blockHeightStep2 = harness.processBlock(forkChain2Block02, 2L, databaseManager);
+            final Long blockHeightStep3 = harness.processBlock(forkChain4Block03, 3L, databaseManager);
+            final Long blockHeightStep4 = harness.processBlock(forkChain2Block03, 3L, databaseManager);
+            final Long blockHeightStep5 = harness.processBlock(forkChain2Block04);
 
             // Assert
             Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
             Assert.assertEquals(Long.valueOf(2L), blockHeightStep2);
-            // Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
+            Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
             Assert.assertEquals(Long.valueOf(3L), blockHeightStep4);
-            // Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
-        }
-    }
-
-    @Test
-    public void makeBlockPrototype() throws Exception {
-        // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-
-            final TestHarness harness = new TestHarness();
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
-            final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
-            final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2);
-            // final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3);
-            // final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3);
-
-            final Block previousBlock = forkChain2Block02;
-
-            final PrivateKey privateKey = PrivateKey.createNewKey(); // PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
-            System.out.println(privateKey);
-
-            final Transaction transaction;
-            {
-                final Address destinationAddress = addressInflater.compressedFromPrivateKey(privateKey);
-                final Wallet wallet = new Wallet();
-                ReflectionUtil.setValue(wallet, "_createBitcoinCashSignature", false);
-                wallet.setSatoshisPerByteFee(0D);
-                wallet.addPrivateKey(PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC"));
-                wallet.addTransaction(previousBlock.getCoinbaseTransaction());
-                final List<PaymentAmount> paymentAmounts = ListUtil.newMutableList(new PaymentAmount(destinationAddress, (50L * Transaction.SATOSHIS_PER_BITCOIN)));
-                transaction = wallet.createTransaction(paymentAmounts, destinationAddress);
-            }
-
-            final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-            final SystemTime systemTime = new SystemTime();
-            final MutableBlock mutableBlock = new MutableBlock();
-            mutableBlock.setVersion(BlockHeader.VERSION);
-            mutableBlock.setPreviousBlockHash(previousBlock.getHash());
-            mutableBlock.setDifficulty(previousBlock.getDifficulty());
-            mutableBlock.setTimestamp(systemTime.getCurrentTimeInSeconds());
-            mutableBlock.setNonce(0L);
-            mutableBlock.addTransaction(
-                transactionInflater.createCoinbaseTransaction(
-                    3L,
-                    privateKey.toString(),
-                    addressInflater.compressedFromPrivateKey(privateKey),
-                    (50L * Transaction.SATOSHIS_PER_BITCOIN)
-                )
-            );
-            mutableBlock.addTransaction(transaction);
-
-            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
-            System.out.println(blockDeflater.toBytes(mutableBlock));
+            Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
         }
     }
 }

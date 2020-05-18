@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -51,7 +49,6 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         }
     }
 
-    protected FullNodeDatabaseManager _databaseManager;
     protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
     protected final BlockOutputs _blockOutputs;
 
@@ -69,10 +66,6 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
             final TransactionOutput transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) { return transactionOutput; }
         }
-
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        final TransactionOutput transactionOutput = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-        if (transactionOutput != null) { return transactionOutput; }
 
         return null;
     }
@@ -110,9 +103,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     }
 
     @Override
-    public void init(final FullNodeDatabaseManager databaseManager) {
-        _databaseManager = databaseManager;
-    }
+    public void init() { }
 
     @Override
     public void executeTask(final Transaction transaction) {

@@ -1,28 +1,13 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.CoreInflater;
-import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
-import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.miner.Miner;
-import com.softwareverde.bitcoin.transaction.MutableTransaction;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
-import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
 
 public class MinerModule {

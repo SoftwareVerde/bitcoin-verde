@@ -204,19 +204,19 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final Query query;
         switch (blockRelationship) {
             case ANCESTOR: {
-                query = new Query("SELECT (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) AS are_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id IN (?)) AS B")
+                query = new Query("SELECT B.id AS blockchain_segment_id, (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) AS is_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments WHERE id IN (?)) AS B")
                     .setParameter(blockchainSegmentId)
                     .setInClauseParameters(blockchainSegmentIds, ValueExtractor.IDENTIFIER);
             } break;
 
             case DESCENDANT: {
-                query = new Query("SELECT (A.nested_set_left >= B.nested_set_left AND A.nested_set_right <= B.nested_set_right) AS are_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id IN (?)) AS B")
+                query = new Query("SELECT B.id AS blockchain_segment_id, (A.nested_set_left >= B.nested_set_left AND A.nested_set_right <= B.nested_set_right) AS is_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments WHERE id IN (?)) AS B")
                     .setParameter(blockchainSegmentId)
                     .setInClauseParameters(blockchainSegmentIds, ValueExtractor.IDENTIFIER);
             } break;
 
             default: {
-                query = new Query("SELECT (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) OR (A.nested_set_left >= B.nested_set_left AND A.nested_set_right <= B.nested_set_right) AS are_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id IN (?)) AS B")
+                query = new Query("SELECT B.id AS blockchain_segment_id, (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) OR (A.nested_set_left >= B.nested_set_left AND A.nested_set_right <= B.nested_set_right) AS is_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments WHERE id IN (?)) AS B")
                     .setParameter(blockchainSegmentId)
                     .setInClauseParameters(blockchainSegmentIds, ValueExtractor.IDENTIFIER);
             }
@@ -227,7 +227,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         for (final Row row : rows) {
             final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
             final Boolean isConnected = row.getBoolean("is_connected");
-            connectedBlockchainSegments.put(blockchainSegmentId, isConnected);
+            connectedBlockchainSegments.put(rowBlockchainSegmentId, isConnected);
         }
         return connectedBlockchainSegments;
     }

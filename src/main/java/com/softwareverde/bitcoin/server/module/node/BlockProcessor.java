@@ -29,10 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.transaction.validator.*;
 import com.softwareverde.concurrent.pool.SimpleThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -310,7 +307,15 @@ public class BlockProcessor {
                 Logger.trace("Utxo Reorg - 3/6 complete.");
 
                 // 4. Validate that the transactions are still valid on the new chain...
-                final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(null, null); // TODO: Neither blockOutputs nor unspentTransactionOutputSet should be null.
+                final BlockOutputs reorgBlockOutputs;
+                final UnspentTransactionOutputSet reorgUnspentTransactionOutputSet;
+                {
+                    final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+                    mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+                    reorgUnspentTransactionOutputSet = mutableUnspentTransactionOutputSet;
+                    reorgBlockOutputs = BlockOutputs.fromBlock(block);
+                }
+                final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(reorgUnspentTransactionOutputSet, reorgBlockOutputs);
                 transactionValidator.setLoggingEnabled(false);
 
                 final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();

@@ -61,8 +61,7 @@ public class BlockHeaderDeflater {
 
     public ByteArray toBytes(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
-        final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return _serializeByteData(blockHeaderByteData);
     }
 
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
