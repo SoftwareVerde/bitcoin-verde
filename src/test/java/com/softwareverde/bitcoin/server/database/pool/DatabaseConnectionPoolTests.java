@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.database.row.Row;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 
@@ -17,12 +18,17 @@ public class DatabaseConnectionPoolTests extends IntegrationTest {
     }
 
     @Before
-    public void setUp() {
-        _resetDatabase();
+    public void setup() {
+        super.before();
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     /**
-     * This test was originally designed specificall for the custom-written database connection pool.
+     * This test was originally designed specifically for the custom-written database connection pool.
      *  After the Hikari replacement, this test has become obsolete and no longer represents the original intent.
      *  Therefore, it has been disabled and deprecated, and will likely be removed in the future.
      */

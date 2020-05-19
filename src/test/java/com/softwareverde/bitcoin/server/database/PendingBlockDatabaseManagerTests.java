@@ -1,35 +1,27 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.server.database.query.Query;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.security.util.HashUtil;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.type.time.SystemTime;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 
 public class PendingBlockDatabaseManagerTests extends IntegrationTest {
 
     @Before
     public void setup() {
-        _resetDatabase();
+        super.before();
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     protected void _insertFakeBlock(final Sha256Hash blockHash, final Long blockHeight) throws DatabaseException {

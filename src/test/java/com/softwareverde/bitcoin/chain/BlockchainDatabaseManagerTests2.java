@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,7 +28,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
 
     @Before
     public void setup() throws Exception {
-        _resetDatabase();
+        super.before();
 
         final BlockInflater blockInflater = new BlockInflater();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
@@ -42,6 +43,11 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
                 blockDatabaseManager.insertBlock(genesisBlock);
             }
         }
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     private Sha256Hash _insertTestBlocks(final Sha256Hash startingHash, final int blockCount) throws DatabaseException {

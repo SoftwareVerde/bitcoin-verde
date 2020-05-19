@@ -44,7 +44,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
     @Before
     public void setup() {
-        _resetDatabase();
+        super.before();
 
         BlockProcessorTests.COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
         BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", 0L);
@@ -55,6 +55,8 @@ public class BlockProcessorTests extends IntegrationTest {
         if (BlockProcessorTests.COINBASE_MATURITY != null) {
             BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", BlockProcessorTests.COINBASE_MATURITY);
         }
+
+        super.after();
     }
 
 //    protected static void _should_maintain_correct_blockchain_segment_after_invalid_contentious_block(final DatabaseManagerCache databaseManagerCache, final MasterDatabaseManagerCache masterDatabaseManagerCache) throws Exception {

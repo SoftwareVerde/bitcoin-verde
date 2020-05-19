@@ -12,6 +12,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.util.HashUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -21,7 +22,12 @@ import java.util.List;
 public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTest {
     @Before
     public void setup() {
-        _resetDatabase();
+        super.before();
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     protected static final Long MAX_UTXO_COUNT = 32L;

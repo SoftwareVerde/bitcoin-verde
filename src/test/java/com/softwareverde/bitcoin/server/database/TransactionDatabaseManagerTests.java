@@ -1,33 +1,7 @@
 package com.softwareverde.bitcoin.server.database;
 
-import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorTests;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.transaction.MutableTransaction;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.signer.*;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.network.time.ImmutableNetworkTime;
-import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,12 +10,17 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
 
     @Before
     public void setup() {
-        _resetDatabase();
+        super.before();
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     @Test
     public void duplicate_transaction_should_be_rejected() throws Exception {
-
+        Assert.fail();
     }
 
     @Test

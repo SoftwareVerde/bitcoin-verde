@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +36,12 @@ import java.util.Set;
 public class OrphanedTransactionsCacheTests extends IntegrationTest {
     @Before
     public void setup() {
-        _resetDatabase();
+        super.before();
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress) {

@@ -4,19 +4,8 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.*;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.BlockProcessorTests;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
-import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
@@ -49,11 +38,10 @@ import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.HashMap;
 
 public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
@@ -81,8 +69,14 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
     @Before
     public void setup() {
-        _resetDatabase();
+        super.before();
+
         _nonce = 0L;
+    }
+
+    @After
+    public void tearDown() {
+        super.after();
     }
 
     @Test

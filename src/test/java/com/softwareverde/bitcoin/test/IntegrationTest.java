@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -21,6 +22,8 @@ import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.ReflectionUtil;
 
 import java.sql.Connection;
 
@@ -75,10 +78,10 @@ public class IntegrationTest extends UnitTest {
     }
 
     static {
-        _resetDatabase();
+        IntegrationTest.resetDatabase();
     }
 
-    protected static void _resetDatabase() {
+    public static void resetDatabase() {
         final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer("sql/full_node/init_mysql.sql", 2, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
         try {
             _database.reset();
@@ -93,9 +96,16 @@ public class IntegrationTest extends UnitTest {
         }
     }
 
-    protected void _before() {
+    public void before() {
+        IntegrationTest.resetDatabase();
+
         _synchronizationStatus.setState(State.ONLINE);
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
+
+        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputDatabaseManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
+        uncommittedUtxoBlockHeight.value = 0L;
     }
+
+    public void after() { }
 }
