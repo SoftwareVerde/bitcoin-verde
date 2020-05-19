@@ -279,7 +279,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, blockchain_segment_id FROM blocks ORDER BY chain_work DESC LIMIT 1")
+            new Query("SELECT id, blockchain_segment_id FROM blocks ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
@@ -292,7 +292,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY chain_work DESC LIMIT 1")
+            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }

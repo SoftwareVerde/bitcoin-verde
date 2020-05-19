@@ -1,6 +1,12 @@
 package com.softwareverde.bitcoin.test.util;
 
+import com.softwareverde.database.query.parameter.TypedParameter;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.ReflectionUtil;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class TestUtil {
     private static void _fail(final String message) {
@@ -45,5 +51,21 @@ public class TestUtil {
 
     public static void assertEqual(final byte[] expectedBytes, final byte[] bytes) {
         assertMatchesMaskedHexString(HexUtil.toHexString(expectedBytes), HexUtil.toHexString(bytes));
+    }
+
+    public static Map<String, Object>[] debugQuery(final java.util.List<Row> rows) {
+        final Map<String, Object>[] debugRows = new Map[rows.size()];
+        int i = 0;
+        for (final Row row : rows) {
+            final Map<String, TypedParameter> values = ReflectionUtil.getValue(row, "_columnValues");
+            final HashMap<String, Object> debugValues = new HashMap<String, Object>();
+            for (final String columnName : row.getColumnNames()) {
+                final TypedParameter typedParameter = values.get(columnName);
+                debugValues.put(columnName, typedParameter.value);
+            }
+            debugRows[i] = debugValues;
+            i += 1;
+        }
+        return debugRows;
     }
 }

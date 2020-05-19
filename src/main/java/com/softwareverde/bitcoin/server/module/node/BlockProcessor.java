@@ -175,6 +175,13 @@ public class BlockProcessor {
 
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
+        final Boolean blockIsConnectedToMainChain;
+        {
+            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            blockIsConnectedToMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+        }
+
         final NanoTimer storeBlockTimer = new NanoTimer();
         final NanoTimer blockValidationTimer = new NanoTimer();
         TransactionUtil.startTransaction(databaseConnection);
@@ -199,7 +206,7 @@ public class BlockProcessor {
 
             Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
-            if (preLoadedUnspentTransactionOutputSet != null) {
+            if ( Util.coalesce(blockIsConnectedToMainChain, true) && (preLoadedUnspentTransactionOutputSet != null) ) {
                 unspentTransactionOutputSet = preLoadedUnspentTransactionOutputSet;
             }
             else {
@@ -254,7 +261,35 @@ public class BlockProcessor {
         final boolean bestBlockchainHasChanged = ( (originalHeadBlockchainSegmentId != null) && (! Util.areEqual(newHeadBlockchainSegmentId, originalHeadBlockchainSegmentId)) );
 
         { // Maintain memory-pool correctness...
-            if (bestBlockchainHasChanged) {
+            if (blockIsConnectedToMainChain) {
+                if (blockHeight > 0L) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
+                    final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
+                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight);
+                }
+
+                { // Update mempool transactions...
+                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
+                    final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(transactionIds);
+                    mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
+
+                    { // Remove any transactions in the memory pool that were included in this block...
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
+                    }
+
+                    { // Remove any transactions in the memory pool that are now considered double-spends...
+                        final List<TransactionId> dependentUnconfirmedTransaction = transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(blockTransactions);
+                        final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(dependentUnconfirmedTransaction);
+                        while (! transactionsToRemove.isEmpty()) {
+                            transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
+                            final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
+                            transactionsToRemove.clear();
+                            transactionsToRemove.addAll(chainedInvalidTransactions);
+                        }
+                    }
+                }
+            }
+            else if (bestBlockchainHasChanged) {
                 // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
                 final MilliTimer timer = new MilliTimer();
                 Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
@@ -263,7 +298,7 @@ public class BlockProcessor {
                 // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
                 final BlockchainSegmentId oldHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId); // The original BlockchainSegmentId was most likely invalidated during reordering, so reacquire the new BlockchainSegmentIds via BlockId...
                 BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(oldHeadBlockchainSegmentId);
-                long undoBlockHeight = (blockHeight);
+                long undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
                 Logger.trace("Utxo Reorg - 1/6 complete.");
 
                 while (nextBlockId != null) {
@@ -344,34 +379,6 @@ public class BlockProcessor {
 
                 timer.stop();
                 Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
-            }
-            else {
-                if (blockHeight > 0L) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
-                    final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
-                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight);
-                }
-
-                { // Update mempool transactions...
-                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
-                    final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(transactionIds);
-                    mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
-
-                    { // Remove any transactions in the memory pool that were included in this block...
-                        transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
-                    }
-
-                    { // Remove any transactions in the memory pool that are now considered double-spends...
-                        final List<TransactionId> dependentUnconfirmedTransaction = transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(blockTransactions);
-                        final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(dependentUnconfirmedTransaction);
-                        while (! transactionsToRemove.isEmpty()) {
-                            transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
-                            final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
-                            transactionsToRemove.clear();
-                            transactionsToRemove.addAll(chainedInvalidTransactions);
-                        }
-                    }
-                }
             }
         }
 

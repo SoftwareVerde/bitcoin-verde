@@ -3,7 +3,10 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -31,17 +34,103 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     public MutableUnspentTransactionOutputSet() { }
 
     /**
+     * Populates _transactionBlockHeights and _transactionOutputs for a block on the provided blockchainSegmentId...
+     */
+    public Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId endBlockId, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs, final HashSet<Sha256Hash> transactionsWithUnknownBlockHeights) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(endBlockId);
+        final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+
+        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(endBlockId);
+        Logger.debug("Loading Outputs for Alternate Block: " + blockHash);
+
+        final UtxoUndoLog utxoUndoLog = new UtxoUndoLog(databaseManager);
+
+        final int maxDepth = 128;
+        int undoDepth = 0;
+        BlockId blockId = headBlockId;
+        while (undoDepth < maxDepth) {
+            final Block block = blockDatabaseManager.getBlock(blockId);
+            utxoUndoLog.undoBlock(block);
+
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            final List<Transaction> blockTransactions = block.getTransactions();
+            for (final Transaction transaction : blockTransactions) {
+                final Sha256Hash transactionHash = transaction.getHash();
+                if (transactionsWithUnknownBlockHeights.contains(transactionHash)) {
+                    _transactionBlockHeights.put(transactionHash, blockHeight);
+                }
+            }
+
+            blockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+            final BlockchainSegmentId blockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+            final Boolean isConnectedBlock = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, blockBlockchainSegmentId, BlockRelationship.ANY);
+            if (isConnectedBlock) {
+                break;
+            }
+
+            undoDepth += 1;
+        }
+
+        int redoDepth = 0;
+        while (redoDepth < maxDepth) {
+            blockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, blockId);
+            if ( (blockId == null) || Util.areEqual(blockId, endBlockId) ) {
+                break;
+            }
+
+            final Boolean isBlockLoaded = blockDatabaseManager.hasTransactions(blockId);
+            if (! isBlockLoaded) { break; }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+            utxoUndoLog.redoBlock(block);
+
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            final List<Transaction> blockTransactions = block.getTransactions();
+            for (final Transaction transaction : blockTransactions) {
+                final Sha256Hash transactionHash = transaction.getHash();
+                if (transactionsWithUnknownBlockHeights.contains(transactionHash)) {
+                    _transactionBlockHeights.put(transactionHash, blockHeight);
+                }
+            }
+
+            redoDepth += 1;
+        }
+
+        boolean allOutputsWereFound = true;
+        for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputs) {
+            final TransactionOutput transactionOutput = utxoUndoLog.getUnspentTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput == null) {
+                allOutputsWereFound = false;
+                continue;
+            }
+            _transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+        }
+
+        return allOutputsWereFound;
+    }
+
+    /**
      * Loads all outputs spent by the provided block.
      *  Returns true if all of the outputs were found, and false if at least one output could not be found.
      *  Outputs may not be found in the case of an invalid block, but also if its predecessor has not been validated yet.
+     *  The BlockHeader for the provided Block must have beeen stored before attempting to load its outputs.
      */
     public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        if (blockId == null) { return false; }
+
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+        final Boolean blockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
 
         _blockHashesByBlockHeight.put(blockHeight, blockHash);
 
@@ -100,6 +189,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         }
 
         requiredTransactionOutputs.removeAll(newOutputs); // New outputs created by this block are not added to this UTXO set.
+
+        if (! Util.coalesce(blockIsOnMainChain, true)) {
+            return _loadOutputsForAlternateBlock(databaseManager, blockId, requiredTransactionOutputs, transactionsWithUnknownBlockHeights);
+        }
 
         { // Load the BlockHeights for the unknown Transactions (the previous Transactions being spent by (and outside of) this block)...
             final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, JavaListWrapper.wrap(transactionsWithUnknownBlockHeights));

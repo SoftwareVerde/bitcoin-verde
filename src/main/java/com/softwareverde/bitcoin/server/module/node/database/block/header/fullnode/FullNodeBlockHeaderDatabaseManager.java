@@ -411,7 +411,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks ORDER BY chain_work DESC LIMIT 1")
+            new Query("SELECT id, hash FROM blocks ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
@@ -423,7 +423,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks ORDER BY chain_work DESC LIMIT 1")
+            new Query("SELECT id, hash FROM blocks ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 

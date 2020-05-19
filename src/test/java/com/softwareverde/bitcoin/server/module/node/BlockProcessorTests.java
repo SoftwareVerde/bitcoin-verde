@@ -1,14 +1,14 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
@@ -22,16 +22,16 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.validator.*;
+import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
+import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.BitcoinReflectionUtil;
-import com.softwareverde.util.timer.NanoTimer;
-import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -204,6 +204,11 @@ public class BlockProcessorTests extends IntegrationTest {
         }
 
         public Long processBlock(final Block block, final Long blockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                blockHeaderDatabaseManager.storeBlockHeader(block);
+            }
+
             final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
             unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
             return this.blockProcessor.processBlock(block, unspentTransactionOutputSet);
@@ -403,25 +408,53 @@ public class BlockProcessorTests extends IntegrationTest {
 
     @Test
     public void should_handle_contentious_reorg_fork_with_shared_utxos() throws Exception {
+        /**
+         * This test creates a reorg where the contentious blocks (validly) include the same transaction.
+         *  Block Height 3 is contentious between ForkChain2 and ForkChain4.
+         *  Load Order: Genesis -> Fork2#1 -> Fork2#2 -> Fork4#3 -> Fork2#3 -> Fork2#4
+         */
+
+        /**
+         * During IBD:
+         *  1. Blocks are pre-loaded from disk asynchronously.
+         *  2. Before a block is processed, all of its ancestor blocks must have already been loaded.
+         *  3. When an ancestor block is loaded, its UTXO set is used to updated descendant blocks.
+         *  4. Its header may be inserted after its UTXO set was loaded.
+         * During Live:
+         *  1. A block is received.
+         *  2.
+         */
+
         // Setup
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final TestHarness harness = new TestHarness();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
+            // 0:   MainChain Blocks
             final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+            // 1-2: ForkChain2 Blocks
             final Block forkChain2Block01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
             final Block forkChain2Block02 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_2); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
+            // 3':  ForkChain4 Blocks
+            final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
+            // 3-4: ForkChain2 Blocks
             final Block forkChain2Block03 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_3); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
             final Block forkChain2Block04 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_4); // 000000009F1339E2BBC655346F47CC72075ECCE61E84DF3544A54F5623BED0FE
-            final Block forkChain4Block03 = harness.inflateBlock(BlockData.ForkChain4.BLOCK_3); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
 
             // Action
             harness.processBlock(genesisBlock, 0L, databaseManager);
 
+            // Load Order: Genesis -> Fork2#1 -> Fork2#2 -> Fork4#3 -> Fork2#3 -> Fork2#4
             final Long blockHeightStep1 = harness.processBlock(forkChain2Block01, 1L, databaseManager);
+            Assert.assertNotNull(blockHeightStep1);
             final Long blockHeightStep2 = harness.processBlock(forkChain2Block02, 2L, databaseManager);
+            Assert.assertNotNull(blockHeightStep2);
             final Long blockHeightStep3 = harness.processBlock(forkChain4Block03, 3L, databaseManager);
+            Assert.assertNotNull(blockHeightStep3);
             final Long blockHeightStep4 = harness.processBlock(forkChain2Block03, 3L, databaseManager);
-            final Long blockHeightStep5 = harness.processBlock(forkChain2Block04);
+            Assert.assertNotNull(blockHeightStep4);
+            final Long blockHeightStep5 = harness.processBlock(forkChain2Block04, 4L, databaseManager);
+            Assert.assertNotNull(blockHeightStep5);
 
             // Assert
             Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
@@ -429,6 +462,9 @@ public class BlockProcessorTests extends IntegrationTest {
             Assert.assertEquals(Long.valueOf(3L), blockHeightStep3);
             Assert.assertEquals(Long.valueOf(3L), blockHeightStep4);
             Assert.assertEquals(Long.valueOf(4L), blockHeightStep5);
+
+            final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+            Assert.assertEquals(forkChain2Block04.getHash(), headBlockHash);
         }
     }
 }
