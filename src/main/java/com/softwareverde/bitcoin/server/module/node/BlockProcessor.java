@@ -122,7 +122,6 @@ public class BlockProcessor {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
         final BlockId originalHeadBlockId = blockDatabaseManager.getHeadBlockId(); // NOTE: Head Block is not the same as Head BlockHeader.
-        final BlockchainSegmentId originalHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId);
 
         final BlockId blockId;
         final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
@@ -258,9 +257,6 @@ public class BlockProcessor {
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         final Integer byteCount = blockDeflater.getByteCount(block);
         blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
-
-        _medianBlockTime.addBlock(block);
-
 
         final BlockchainSegmentId newHeadBlockchainSegmentId;
         {
@@ -408,6 +404,8 @@ public class BlockProcessor {
         }
 
         TransactionUtil.commitTransaction(databaseConnection);
+
+        _medianBlockTime.addBlock(block);
 
         final Integer blockTransactionCount = blockTransactions.getCount();
 
