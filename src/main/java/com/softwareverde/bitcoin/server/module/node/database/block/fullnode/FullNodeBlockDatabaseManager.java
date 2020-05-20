@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabase
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -249,23 +248,17 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return blockId;
     }
 
-    public Boolean storeBlockTransactions(final Block block) throws DatabaseException { return this.storeBlockTransactions(block, null); }
-    public Boolean storeBlockTransactions(final Block block, final MutableList<TransactionId> returnedTransactionIds) throws DatabaseException {
+    public List<TransactionId> storeBlockTransactions(final Block block) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) {
             Logger.warn("Attempting to insert transactions without BlockHeader stored: "+ blockHash);
-            return false;
+            return null;
         }
 
-        final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block);
-        if (returnedTransactionIds != null) {
-            returnedTransactionIds.addAll(transactionIds);
-        }
-
-        return true;
+        return _storeBlockTransactions(blockId, block);
     }
 
     /**

@@ -1,48 +1,37 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.inflater.BlockInflaters;
-import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.block.header.*;
+import com.softwareverde.bitcoin.block.validator.*;
+import com.softwareverde.bitcoin.chain.segment.*;
+import com.softwareverde.bitcoin.chain.time.*;
+import com.softwareverde.bitcoin.inflater.*;
+import com.softwareverde.bitcoin.server.*;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.server.database.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.*;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.*;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.*;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.*;
+import com.softwareverde.bitcoin.server.module.node.store.*;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.*;
+import com.softwareverde.bitcoin.transaction.*;
 import com.softwareverde.bitcoin.transaction.validator.*;
-import com.softwareverde.concurrent.pool.SimpleThreadPool;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Container;
-import com.softwareverde.util.RotatingQueue;
-import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
-import com.softwareverde.util.timer.NanoTimer;
+import com.softwareverde.concurrent.pool.*;
+import com.softwareverde.constable.list.*;
+import com.softwareverde.constable.list.mutable.*;
+import com.softwareverde.database.*;
+import com.softwareverde.database.util.*;
+import com.softwareverde.logging.*;
+import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.util.*;
+import com.softwareverde.util.timer.*;
 
 public class BlockProcessor {
     protected final Object _statisticsMutex = new Object();
@@ -65,7 +54,6 @@ public class BlockProcessor {
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = 0L;
 
-    protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
     public BlockProcessor(
@@ -103,124 +91,173 @@ public class BlockProcessor {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
+    protected static class ProcessBlockHeaderResult {
+        protected final BlockId _blockId;
+        protected final Long _blockHeight;
+        protected final Boolean _blockPreviouslyExisted;
+
+        public ProcessBlockHeaderResult(final BlockId blockId, final Long blockHeight, final Boolean blockWasAlreadyProcessed) {
+            _blockId = blockId;
+            _blockHeight = blockHeight;
+            _blockPreviouslyExisted = blockWasAlreadyProcessed;
+        }
+
+        public BlockId getBlockId() {
+            return _blockId;
+        }
+
+        public Boolean wasBlockAlreadyProcessed() {
+            return _blockPreviouslyExisted;
+        }
+
+        public Long getBlockHeight() {
+            return _blockHeight;
+        }
+    }
+
+    protected ProcessBlockHeaderResult _processBlockHeader(final BlockHeader blockHeader, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+        final Sha256Hash blockHash = blockHeader.getHash();
+        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+
+        final boolean blockHeaderExists = (existingBlockId != null);
+        if (blockHeaderExists) {
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
+
+            final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
+            if (blockHasTransactions) {
+                Logger.debug("Skipping known block: " + blockHash);
+                return new ProcessBlockHeaderResult(existingBlockId, blockHeight, true);
+            }
+
+            return new ProcessBlockHeaderResult(existingBlockId, blockHeight, false);
+        }
+
+        // Store the BlockHeader...
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+            final BlockId blockId;
+            final Long blockHeight;
+            TransactionUtil.startTransaction(databaseConnection);
+            {
+                Logger.debug("Processing Block: " + blockHash);
+                blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+
+                if (blockId == null) {
+                    Logger.debug("Error storing BlockHeader: " + blockHash);
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    return null;
+                }
+
+                final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager);
+                final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(blockHeader);
+                if (! blockHeaderValidationResponse.isValid) {
+                    Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    return null;
+                }
+
+                blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            }
+            TransactionUtil.commitTransaction(databaseConnection);
+            return new ProcessBlockHeaderResult(blockId, blockHeight, false);
+        }
+    }
+
     protected Long _processBlock(final Block block, final UnspentTransactionOutputSet preLoadedUnspentTransactionOutputSet, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final NanoTimer processBlockTimer = new NanoTimer();
+        final NanoTimer storeBlockTimer = new NanoTimer();
+        final NanoTimer blockValidationTimer = new NanoTimer();
         processBlockTimer.start();
 
-        final UnspentTransactionOutputSet unspentTransactionOutputSet;
-        final List<Transaction> blockTransactions = block.getTransactions();
-        final int transactionCount = blockTransactions.getCount();
-
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-        final Sha256Hash blockHash = block.getHash();
-        _processedBlockCount += 1;
-
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
-        final BlockId originalHeadBlockId = blockDatabaseManager.getHeadBlockId(); // NOTE: Head Block is not the same as Head BlockHeader.
+        // Keep a copy of the original head Block before the block is processed...
+        final BlockId originalHeadBlockId = blockDatabaseManager.getHeadBlockId(); // NOTE: Head Block is not the same as head BlockHeader.
+
+        final Sha256Hash blockHash = block.getHash();
+        final List<Transaction> blockTransactions = block.getTransactions();
+        final Integer transactionCount = blockTransactions.getCount();
 
         final BlockId blockId;
-        final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
-        if (blockHeaderExists) {
-            final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
-            if (blockHasTransactions) {
-                Logger.debug("Skipping known block: " + blockHash);
-                final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
+        final Long blockHeight;
+        { // Process the BlockHeader.
+            final ProcessBlockHeaderResult blockHeaderResult = _processBlockHeader(block, databaseManager);
+            if (blockHeaderResult == null ) { return null; }
+
+            // if the full Block has already been processed then abort processing it...
+            if (blockHeaderResult.wasBlockAlreadyProcessed()) {
+                return blockHeaderResult.getBlockHeight();
             }
 
-            blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            blockId = blockHeaderResult.getBlockId();
+            blockHeight = blockHeaderResult.getBlockHeight();
         }
-        else {
-            // Store the BlockHeader...
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                final NanoTimer storeBlockHeaderTimer = new NanoTimer();
-
-                TransactionUtil.startTransaction(databaseConnection);
-                {
-                    Logger.debug("Processing Block: " + blockHash);
-                    final Boolean blockHasTransactions = blockDatabaseManager.hasTransactions(blockHash);
-                    if (blockHasTransactions) {
-                        Logger.debug("Skipping known block: " + blockHash);
-                        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                        return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
-                    }
-
-                    storeBlockHeaderTimer.start();
-                    blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
-
-                    if (blockId == null) {
-                        Logger.debug("Error storing BlockHeader: " + blockHash);
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-                        return null;
-                    }
-
-                    final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager);
-                    final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
-                    if (! blockHeaderValidationResponse.isValid) {
-                        Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-                        return null;
-                    }
-
-                    storeBlockHeaderTimer.stop();
-                }
-                TransactionUtil.commitTransaction(databaseConnection);
-            }
-        }
-
-        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
         final Boolean blockIsConnectedToUtxoSet;
-        {
+        { // Determine if the Block should use the head Block UTXO set...
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            final Sha256Hash utxoHeadBlockHash = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHash();
-            final BlockId utxoHeadBlockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoHeadBlockHash);
-            final BlockchainSegmentId utxoHeadBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(utxoHeadBlockId);
-            blockIsConnectedToUtxoSet = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, utxoHeadBlockBlockchainSegmentId, BlockRelationship.ANY);
-        }
-
-        final NanoTimer storeBlockTimer = new NanoTimer();
-        final NanoTimer blockValidationTimer = new NanoTimer();
-        TransactionUtil.startTransaction(databaseConnection);
-        {
-            storeBlockTimer.start();
-            final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
-            final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block, transactionIds); // Store the Block's transactions (the BlockHeader should have already been stored above)...
-            if (_blockStore != null) {
-                _blockStore.storeBlock(block, blockHeight);
-            }
-            storeBlockTimer.stop();
-
-            if (! transactionsStoredSuccessfully) {
-                if (_blockStore != null) {
-                    _blockStore.removeBlock(blockHash, blockHeight);
-                }
-
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
-                return null;
-            }
-
-            Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
-
-            if ( Util.coalesce(blockIsConnectedToUtxoSet, true) && (preLoadedUnspentTransactionOutputSet != null) ) {
-                unspentTransactionOutputSet = preLoadedUnspentTransactionOutputSet;
+            final BlockchainSegmentId headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId);
+            if (headBlockchainSegmentId == null) {
+                blockIsConnectedToUtxoSet = true;
             }
             else {
-                final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
-                if (! unspentTransactionOutputsExistForBlock) {
+                blockIsConnectedToUtxoSet = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+            }
+        }
+        Logger.trace("blockIsConnectedToUtxoSet=" + blockIsConnectedToUtxoSet);
+
+        TransactionUtil.startTransaction(databaseConnection);
+        {
+            final List<TransactionId> transactionIds;
+            { // Store the Block's Transactions...
+                storeBlockTimer.start();
+
+                transactionIds = blockDatabaseManager.storeBlockTransactions(block);
+                final boolean transactionsStoredSuccessfully = (transactionIds != null);
+
+                if (transactionsStoredSuccessfully) {
+                    if (_blockStore != null) {
+                        _blockStore.storeBlock(block, blockHeight);
+                    }
+                }
+                else {
+                    if (_blockStore != null) {
+                        _blockStore.removeBlock(blockHash, blockHeight);
+                    }
+
                     TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
+                    Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return null;
                 }
-                unspentTransactionOutputSet = mutableUnspentTransactionOutputSet;
+
+                storeBlockTimer.stop();
+                Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000D)) + " tps). " + blockHash);
+            }
+
+            final UnspentTransactionOutputSet unspentTransactionOutputSet;
+            {
+                if ( blockIsConnectedToUtxoSet && (preLoadedUnspentTransactionOutputSet != null) ) {
+                    unspentTransactionOutputSet = preLoadedUnspentTransactionOutputSet;
+                }
+                else {
+                    final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+                    final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
+                    if (!unspentTransactionOutputsExistForBlock) {
+                        TransactionUtil.rollbackTransaction(databaseConnection);
+                        Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
+                        return null;
+                    }
+                    unspentTransactionOutputSet = mutableUnspentTransactionOutputSet;
+                }
             }
 
             final Boolean blockIsValid;
@@ -266,18 +303,15 @@ public class BlockProcessor {
 
         final boolean bestBlockchainHasChanged;
         {
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            final Sha256Hash utxoHeadBlock = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHash();
-            final BlockId utxoHeadBlockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoHeadBlock);
-            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(utxoHeadBlockId);
-            if ( (newHeadBlockchainSegmentId == null) || (blockchainSegmentId == null) ) {
+            if (blockIsConnectedToUtxoSet) {
                 bestBlockchainHasChanged = false;
             }
             else {
-                bestBlockchainHasChanged = (! blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, newHeadBlockchainSegmentId, BlockRelationship.ANY));
+                final BlockchainSegmentId blockchainSegmentIdOfOriginalHead = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId);
+                bestBlockchainHasChanged = (!blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentIdOfOriginalHead, newHeadBlockchainSegmentId, BlockRelationship.ANY));
             }
         }
-
+        Logger.trace("bestBlockchainHasChanged=" + bestBlockchainHasChanged);
 
         { // Maintain utxo and mempool correctness...
             if (blockIsConnectedToUtxoSet) {
@@ -407,16 +441,14 @@ public class BlockProcessor {
 
         _medianBlockTime.addBlock(block);
 
-        final Integer blockTransactionCount = blockTransactions.getCount();
-
         final float averageBlocksPerSecond;
         final float averageTransactionsPerSecond;
         synchronized (_statisticsMutex) {
             _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed()));
-            _transactionsPerBlock.add(blockTransactionCount);
+            _transactionsPerBlock.add(transactionCount);
 
-            final Integer blockCount = _blocksPerSecond.size();
-            final Long validationTimeElapsed;
+            final int blockCount = _blocksPerSecond.size();
+            final long validationTimeElapsed;
             {
                 long value = 0L;
                 for (final Long elapsed : _blocksPerSecond) {
@@ -425,7 +457,7 @@ public class BlockProcessor {
                 validationTimeElapsed = value;
             }
 
-            final Integer totalTransactionCount;
+            final int totalTransactionCount;
             {
                 int value = 0;
                 for (final Integer transactionCountPerBlock : _transactionsPerBlock) {
@@ -434,13 +466,11 @@ public class BlockProcessor {
                 totalTransactionCount = value;
             }
 
-            averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
-            averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+            averageBlocksPerSecond = ( (((float) blockCount) / ((float) validationTimeElapsed)) * 1000F );
+            averageTransactionsPerSecond = ( (((float) totalTransactionCount) / ((float) validationTimeElapsed)) * 1000F );
         }
 
-        // _averageBlocksPerSecond.value = averageBlocksPerSecond;
-        // final Long now = System.currentTimeMillis();
-        _averageBlocksPerSecond.value = averageBlocksPerSecond; // ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
+        _averageBlocksPerSecond.value = averageBlocksPerSecond;
         _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
         processBlockTimer.stop();

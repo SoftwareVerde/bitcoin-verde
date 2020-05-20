@@ -1,47 +1,33 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.block.validator.*;
+import com.softwareverde.bitcoin.chain.segment.*;
+import com.softwareverde.bitcoin.chain.time.*;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.query.Query;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
-import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
-import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.bitcoin.server.database.query.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.*;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.*;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.*;
+import com.softwareverde.bitcoin.test.*;
+import com.softwareverde.bitcoin.test.fake.*;
+import com.softwareverde.bitcoin.transaction.*;
+import com.softwareverde.bitcoin.transaction.output.*;
+import com.softwareverde.bitcoin.transaction.output.identifier.*;
+import com.softwareverde.bitcoin.transaction.validator.*;
+import com.softwareverde.constable.bytearray.*;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.BitcoinReflectionUtil;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import com.softwareverde.database.*;
+import com.softwareverde.network.time.*;
+import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.util.*;
+import org.junit.*;
 
-import java.util.HashMap;
+import java.util.*;
 
 public class BlockProcessorTests extends IntegrationTest {
     protected static Long COINBASE_MATURITY = null;
@@ -183,13 +169,15 @@ public class BlockProcessorTests extends IntegrationTest {
         // Setup
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final TestHarness harness = new TestHarness();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK);
-            final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1);
-            final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
-            final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1);
+            // Load Order: genesisBlock -> forkChainBlock01 -> mainChainBlock01 -> mainChainBlock02
+            final Block genesisBlock = harness.inflateBlock(BlockData.MainChain.GENESIS_BLOCK); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+            final Block forkChainBlock01 = harness.inflateBlock(BlockData.ForkChain2.BLOCK_1); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+            final Block mainChainBlock01 = harness.inflateBlock(BlockData.MainChain.BLOCK_1); // 00000000839A8E6886AB5951D76F411475428AFC90947EE320161BBF18EB6048
+            final Block mainChainBlock02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2); // 000000006A625F06636B8BB6AC7B960A8D03705D1ACE08B1A19DA3FDCC99DDBD
 
             final TransactionOutputIdentifier invalidTransactionOutputIdentifier;
             {
@@ -205,14 +193,23 @@ public class BlockProcessorTests extends IntegrationTest {
             }
 
             // Action
-            harness.processBlock(genesisBlock);
+            final Long blockHeightStep0 = harness.processBlock(genesisBlock);
+            Assert.assertEquals(genesisBlock.getHash(), blockDatabaseManager.getHeadBlockHash());
+            System.out.println();
 
             final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
+            Assert.assertEquals(forkChainBlock01.getHash(), blockDatabaseManager.getHeadBlockHash());
             final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
             transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+            System.out.println();
 
             final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
+            Assert.assertEquals(forkChainBlock01.getHash(), blockDatabaseManager.getHeadBlockHash());
+            System.out.println();
+
             final Long blockHeightStep3 = harness.processBlock(mainChainBlock02);
+            Assert.assertEquals(mainChainBlock02.getHash(), blockDatabaseManager.getHeadBlockHash());
+            System.out.println();
 
             // Assert
             Assert.assertEquals(Long.valueOf(2L), blockHeightStep3);
