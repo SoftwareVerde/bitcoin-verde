@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.util.ByteUtil;
@@ -10,12 +11,15 @@ public class DatabaseConfigurer {
         return ((byteCount / ByteUtil.Unit.MEGABYTES) * ByteUtil.Unit.MEGABYTES);
     }
 
-    public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Integer maxDatabaseThreadCount, final DatabaseProperties databaseProperties) {
+    public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Integer maxDatabaseThreadCount, final DatabaseProperties databaseProperties, final BitcoinProperties bitcoinProperties) {
+        final long maxHeapTableSize = ((bitcoinProperties != null ? bitcoinProperties.getMaxUtxoCacheByteCount() : 0L) + (16L * ByteUtil.Unit.MEGABYTES)); // Include 16MB for MySQL sort tmp-tables...
+        commandLineArguments.addArgument("--max_heap_table_size=" + maxHeapTableSize); // Maximum engine=MEMORY table size.
+
         if (SystemUtil.isWindowsOperatingSystem()) {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
             commandLineArguments.setInnoDbBufferPoolByteCount(Math.min(ByteUtil.Unit.GIGABYTES, databaseProperties.getMaxMemoryByteCount()));
             commandLineArguments.setQueryCacheByteCount(0L);
-            commandLineArguments.setMaxAllowedPacketByteCount(128 * ByteUtil.Unit.MEGABYTES);
+            commandLineArguments.setMaxAllowedPacketByteCount(128L * ByteUtil.Unit.MEGABYTES);
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
         }
         else {
@@ -30,15 +34,16 @@ public class DatabaseConfigurer {
 
             commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount);
 
-            commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
+            commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0"); // Write directly to disk; database crashing may result in data corruption.
             commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
+            // commandLineArguments.addArgument("--key_buffer_size=" + (1L * ByteUtil.Unit.GIGABYTES)); // MyISAM
 
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount);
 
             commandLineArguments.setQueryCacheByteCount(0L);
 
-            commandLineArguments.setMaxAllowedPacketByteCount(128 * ByteUtil.Unit.MEGABYTES);
+            commandLineArguments.setMaxAllowedPacketByteCount(128L * ByteUtil.Unit.MEGABYTES);
 
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
             commandLineArguments.addArgument("--innodb-read-io-threads=8");
@@ -49,9 +54,9 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--innodb-lru-scan-depth=256");
 
             // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
-            // commandLineArguments.addArgument("--performance_schema");
             // commandLineArguments.addArgument("--general_log_file=query.log");
             // commandLineArguments.addArgument("--general_log=1");
+            commandLineArguments.addArgument("--performance-schema=OFF");
         }
     }
 

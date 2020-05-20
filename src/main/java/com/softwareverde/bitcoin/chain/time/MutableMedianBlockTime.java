@@ -15,7 +15,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     protected final RotatingQueue<BlockHeader> _previousBlocks;
 
     protected Long _getMedianBlockTimeInMilliseconds() {
-        final Integer blockCount = _previousBlocks.size();
+        final int blockCount = _previousBlocks.size();
 
         if (blockCount < _requiredBlockCount) {
             // Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
@@ -61,7 +61,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     }
 
     public Boolean hasRequiredBlockCount() {
-        final Boolean hasRequiredBlockCount;
+        final boolean hasRequiredBlockCount;
         try {
             _readLock.lock();
             hasRequiredBlockCount = (_previousBlocks.size() >= _requiredBlockCount);

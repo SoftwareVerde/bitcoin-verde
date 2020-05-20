@@ -52,6 +52,7 @@ public enum Opcode {
     NUMBER_TO_BYTES                     (0x80),
     ENCODE_NUMBER                       (0x81),
     PUSH_1ST_BYTE_COUNT                 (0x82),
+    REVERSE_BYTES                       (0xBC),
 
     // BITWISE
     BITWISE_INVERT                      (0x83, false, true),

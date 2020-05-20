@@ -2,10 +2,10 @@ package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class ImmutableBlockHeader implements BlockHeader, Const {
@@ -20,12 +20,16 @@ public class ImmutableBlockHeader implements BlockHeader, Const {
     protected Integer _cachedHashCode = null;
 
     public ImmutableBlockHeader(final BlockHeader blockHeader) {
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final MerkleRoot merkleRoot = blockHeader.getMerkleRoot();
+        final Difficulty difficulty = blockHeader.getDifficulty();
+
         _hash = blockHeader.getHash();
-        _previousBlockHash = blockHeader.getPreviousBlockHash().asConst();
-        _merkleRoot = blockHeader.getMerkleRoot().asConst();
+        _previousBlockHash = previousBlockHash.asConst();
+        _merkleRoot = merkleRoot.asConst();
         _version = blockHeader.getVersion();
         _timestamp = blockHeader.getTimestamp();
-        _difficulty = blockHeader.getDifficulty().asConst();
+        _difficulty = difficulty.asConst();
         _nonce = blockHeader.getNonce();
     }
 

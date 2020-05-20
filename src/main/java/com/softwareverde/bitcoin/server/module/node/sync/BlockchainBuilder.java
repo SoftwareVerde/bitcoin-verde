@@ -1,13 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
-import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
@@ -23,13 +21,16 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class BlockchainBuilder extends SleepyService {
@@ -44,53 +45,55 @@ public class BlockchainBuilder extends SleepyService {
     protected final BlockProcessor _blockProcessor;
     protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
     protected final BlockDownloadRequester _blockDownloadRequester;
+    protected final PendingBlockLoader _pendingBlockLoader;
     protected Boolean _hasGenesisBlock;
     protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
 
-    protected Boolean _processPendingBlock(final PendingBlock pendingBlock) {
+    /**
+     * Stores and validates the pending Block.
+     *  If not provided, the transactionOutputSet is loaded from the database.
+     *  Returns true if the pending block was valid and stored.
+     */
+    protected Boolean _processPendingBlock(final PendingBlock pendingBlock) { return _processPendingBlock(pendingBlock, null); }
+    protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputSet transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
-        final ByteArray blockData = pendingBlock.getData();
-        if (blockData == null) { return false; }
-
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
-        final Block block = blockInflater.fromBytes(blockData);
+        final Block block = pendingBlock.inflateBlock(blockInflater);
 
-        if (block != null) {
-
-            final Long processedBlockHeight;
-            { // Maximize the Thread priority and process the block...
-                final Thread currentThread = Thread.currentThread();
-                final Integer originalThreadPriority = currentThread.getPriority();
-                try {
-                    currentThread.setPriority(Thread.MAX_PRIORITY);
-                    processedBlockHeight = _blockProcessor.processBlock(block);
-                }
-                finally {
-                    currentThread.setPriority(originalThreadPriority);
-                }
-            }
-
-            final Boolean blockWasValid = (processedBlockHeight != null);
-
-            if (blockWasValid) {
-                final NewBlockProcessedCallback newBlockProcessedCallback = _newBlockProcessedCallback;
-                if (newBlockProcessedCallback != null) {
-                    _threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            newBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
-                        }
-                    });
-                }
-            }
-
-            return blockWasValid;
-        }
-        else {
-            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + blockData);
+        if (block == null) {
+            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + pendingBlock.getData());
             return false;
         }
+
+        final Long processedBlockHeight;
+        { // Maximize the Thread priority and process the block...
+            final Thread currentThread = Thread.currentThread();
+            final int originalThreadPriority = currentThread.getPriority();
+            try {
+                currentThread.setPriority(Thread.MAX_PRIORITY);
+                processedBlockHeight = _blockProcessor.processBlock(block, transactionOutputSet);
+            }
+            finally {
+                currentThread.setPriority(originalThreadPriority);
+            }
+        }
+
+        final Boolean blockWasValid = (processedBlockHeight != null);
+
+        if (blockWasValid) {
+            final NewBlockProcessedCallback newBlockProcessedCallback = _newBlockProcessedCallback;
+            if (newBlockProcessedCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        newBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
+                    }
+                });
+            }
+        }
+
+        return blockWasValid;
     }
 
     protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final FullNodeDatabaseManager databaseManager, final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
@@ -98,11 +101,9 @@ public class BlockchainBuilder extends SleepyService {
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
         final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
-        final ByteArray blockData = pendingBlock.getData();
-        if (blockData == null) { return false; }
 
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
-        final Block block = blockInflater.fromBytes(blockData);
+        final Block block = pendingBlock.inflateBlock(blockInflater);
         if (block == null) { return false; }
 
         final BlockId blockId;
@@ -157,7 +158,7 @@ public class BlockchainBuilder extends SleepyService {
                         _hasGenesisBlock = true;
                     }
                     else {
-                        _blockDownloadRequester.requestBlock(BlockHeader.GENESIS_BLOCK_HASH);
+                        _blockDownloadRequester.requestBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
                         return false;
                     }
                 }
@@ -172,9 +173,10 @@ public class BlockchainBuilder extends SleepyService {
                     final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                     final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
                     if (nextBlockId != null) {
+                        final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
                         final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
                         Logger.debug("Requesting Block: " + nextBlockHash);
-                        _blockDownloadRequester.requestBlock(nextBlockHash);
+                        _blockDownloadRequester.requestBlock(nextBlockHash, previousBlockHash);
                     }
                     break;
                 }
@@ -200,21 +202,24 @@ public class BlockchainBuilder extends SleepyService {
                     final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
                     if (pendingBlockIds.isEmpty()) { break; }
 
-                    for (final PendingBlockId pendingBlockId : pendingBlockIds) {
-                        final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId); // NOTE: In the case of a fork, this effectively arbitrarily selects one and relies on the next iteration to process the neglected branch.
+                    for (int i = 0; i < pendingBlockIds.getCount(); ++i) {
+                        final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
+                        final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
 
-                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock);
-                        if (! processBlockWasSuccessful) {
-                            TransactionUtil.startTransaction(databaseConnection);
-                            pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
-                            TransactionUtil.commitTransaction(databaseConnection);
-                            Logger.debug("Deleted failed pending block.");
-                            break;
-                        }
+                        final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
+                        final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
+                        final UnspentTransactionOutputSet unspentTransactionOutputSet = preloadedPendingBlock.getUnspentTransactionOutputSet();
+
+                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputSet); // pendingBlock may be null; _processPendingBlock allows for this.
 
                         TransactionUtil.startTransaction(databaseConnection);
                         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                         TransactionUtil.commitTransaction(databaseConnection);
+
+                        if (! processBlockWasSuccessful) {
+                            Logger.debug("Pending block failed during processing: " + pendingBlockHash);
+                            break;
+                        }
 
                         previousPendingBlock = pendingBlock;
                     }
@@ -243,23 +248,21 @@ public class BlockchainBuilder extends SleepyService {
         }
     }
 
-    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
-        this(
-            bitcoinNodeManager,
-            databaseManagerFactory,
-            new CoreInflater(),
-            blockProcessor,
-            downloadStatusMonitor,
-            blockDownloadRequester,
-            threadPool
-        );
-    }
-
-    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+    public BlockchainBuilder(
+        final BitcoinNodeManager bitcoinNodeManager,
+        final FullNodeDatabaseManagerFactory databaseManagerFactory,
+        final BlockInflaters blockInflaters,
+        final BlockProcessor blockProcessor,
+        final PendingBlockLoader pendingBlockLoader,
+        final BlockDownloader.StatusMonitor downloadStatusMonitor,
+        final BlockDownloadRequester blockDownloadRequester,
+        final ThreadPool threadPool
+    ) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseManagerFactory = databaseManagerFactory;
         _blockInflaters = blockInflaters;
         _blockProcessor = blockProcessor;
+        _pendingBlockLoader = pendingBlockLoader;
         _downloadStatusMonitor = downloadStatusMonitor;
         _blockDownloadRequester = blockDownloadRequester;
         _threadPool = threadPool;

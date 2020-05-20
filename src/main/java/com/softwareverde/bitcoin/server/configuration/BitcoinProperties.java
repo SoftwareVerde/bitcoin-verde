@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.util.Util;
 
 public class BitcoinProperties {
@@ -17,9 +18,11 @@ public class BitcoinProperties {
     protected Long _trustedBlockHeight;
     protected Boolean _shouldSkipNetworking;
     protected Long _maxUtxoCacheByteCount;
-    protected Boolean _transactionBloomFilterIsEnabled;
+    protected Long _utxoCommitFrequency;
+    protected Float _utxoPurgePercent;
     protected Boolean _bootstrapIsEnabled;
     protected Boolean _trimBlocksIsEnabled;
+    protected Boolean _indexingModeIsEnabled;
     protected Boolean _blockCacheIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
@@ -34,9 +37,18 @@ public class BitcoinProperties {
     public Integer getMaxThreadCount() { return _maxThreadCount; }
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
     public Boolean skipNetworking() { return _shouldSkipNetworking; }
+
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
-    public Boolean isTransactionBloomFilterEnabled() { return _transactionBloomFilterIsEnabled; }
+    public Long getMaxCachedUtxoCount() {
+        final long maxUtxoCacheByteCount = (_maxUtxoCacheByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
+        // Double-buffering of retained UTXOs between purges reduces the maximum count of UTXOs cached before the purge...
+        return (long) (maxUtxoCacheByteCount * (1.0D - _utxoPurgePercent));
+    }
+    public Long getUtxoCacheCommitFrequency() { return _utxoCommitFrequency; }
+    public Float getUtxoCachePurgePercent() { return _utxoPurgePercent; }
+
     public Boolean isTrimBlocksEnabled() { return _trimBlocksIsEnabled; }
+    public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }
     public Boolean isBlockCacheEnabled() { return _blockCacheIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }

@@ -119,6 +119,71 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    protected Json _getBlockHeader(final Sha256Hash blockHash, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEADER");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getBlockHeader(final Long blockHeight, final Boolean hexFormat) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("blockHeight", blockHeight);
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEADER");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getBlockTransactions(final Sha256Hash blockHash, final Integer pageSize, final Integer pageNumber) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash);
+        if (pageSize != null) {
+            rpcParametersJson.put("pageSize", pageSize);
+        }
+        if (pageNumber != null) {
+            rpcParametersJson.put("pageNumber", pageNumber);
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_TRANSACTIONS");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    protected Json _getBlockTransactions(final Long blockHeight, final Integer pageSize, final Integer pageNumber) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("blockHeight", blockHeight);
+        if (pageSize != null) {
+            rpcParametersJson.put("pageSize", pageSize);
+        }
+        if (pageNumber != null) {
+            rpcParametersJson.put("pageNumber", pageNumber);
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_TRANSACTIONS");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     protected Json _getTransaction(final Sha256Hash transactionHash, final Boolean hexFormat) {
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("hash", transactionHash);
@@ -301,6 +366,30 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _getBlock(blockHeight, hexFormat);
     }
 
+    public Json getBlockHeader(final Sha256Hash blockHash) {
+        return _getBlockHeader(blockHash, null);
+    }
+
+    public Json getBlockHeader(final Sha256Hash blockHash, final Boolean hexFormat) {
+        return _getBlockHeader(blockHash, hexFormat);
+    }
+
+    public Json getBlockHeader(final Long blockHeight) {
+        return _getBlockHeader(blockHeight, null);
+    }
+
+    public Json getBlockHeader(final Long blockHeight, final Boolean hexFormat) {
+        return _getBlockHeader(blockHeight, hexFormat);
+    }
+
+    public Json getBlockTransactions(final Sha256Hash blockHash, final Integer pageSize, final Integer pageNumber) {
+        return _getBlockTransactions(blockHash, pageSize, pageNumber);
+    }
+
+    public Json getBlockTransactions(final Long blockHeight, final Integer pageSize, final Integer pageNumber) {
+        return _getBlockTransactions(blockHeight, pageSize, pageNumber);
+    }
+
     public Json getTransaction(final Sha256Hash transactionHash) {
         return _getTransaction(transactionHash, null);
     }
@@ -313,6 +402,22 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "STATUS");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getUtxoCacheStatus() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "UTXO_CACHE");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json commitUtxoCache() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "COMMIT_UTXO_CACHE");
 
         return _executeJsonRequest(rpcRequestJson);
     }

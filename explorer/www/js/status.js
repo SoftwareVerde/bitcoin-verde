@@ -15,6 +15,7 @@ class StatusUi {
             const wasSuccess = data.wasSuccess;
             const errorMessage = data.errorMessage;
             const status = (data.status || "OFFLINE");
+            const utxoCacheStatus = data.utxoCacheStatus;
             const statistics = data.statistics;
             const serverLoad = data.serverLoad;
             const serviceStatuses = data.serviceStatuses;
@@ -56,6 +57,15 @@ class StatusUi {
                     const percentMemoryUsage = (100.0 * (jvmMemoryUsageByteCount / jvmMemoryMaxByteCount)).toFixed(2);
                     $(".server-memory-bar .server-memory-fill").css("width", (percentMemoryUsage > 100 ? 100 : percentMemoryUsage) + "%");
                     $(".server-memory-bar .server-memory-text").text(percentMemoryUsage + "%");
+                }
+
+                { // UTXO Cache
+                    // utxoCacheStatus.utxoCacheCount, utxoCacheStatus.maxUtxoCacheCount, utxoCacheStatus.uncommittedUtxoCount, utxoCacheStatus.committedUtxoBlockHeight
+                    const utxoCacheCount = window.parseFloat(utxoCacheStatus.utxoCacheCount);
+                    const maxUtxoCacheCount = window.parseFloat(utxoCacheStatus.maxUtxoCacheCount);
+                    const percentCached = (100.0 * (utxoCacheCount / maxUtxoCacheCount)).toFixed(2);
+                    $(".utxo-cache-bar .utxo-cache-fill").css("width", (percentCached > 100 ? 100 : percentCached) + "%");
+                    $(".utxo-cache-bar .utxo-cache-text").text(percentCached + "%");
                 }
 
                 { // Sync Progress

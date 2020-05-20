@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.util.Base58Util;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -14,6 +15,22 @@ public class AddressModule {
         final AddressInflater addressInflater = new AddressInflater();
 
         final String desiredAddressPrefixLowerCase = desiredAddressPrefix.toLowerCase();
+
+        { // Ensure the address is possible...
+            for (final char desiredCharacter : desiredAddressPrefix.toCharArray()) {
+                boolean hasMatch = false;
+                for (final char availableCharacter : Base58Util.ALPHABET) {
+                    if ( (availableCharacter == desiredCharacter) || (ignoreCase && (Character.toLowerCase(availableCharacter) == Character.toLowerCase(desiredCharacter)))) {
+                        hasMatch = true;
+                        break;
+                    }
+                }
+                if (! hasMatch) {
+                    System.out.println("Desired prefix is not possible.");
+                    return;
+                }
+            }
+        }
 
         final AtomicLong hashCount = new AtomicLong(0L);
         final MilliTimer milliTimer = new MilliTimer();
@@ -44,7 +61,7 @@ public class AddressModule {
                 while ( (! Thread.interrupted()) && miningPin.get() ) {
                     final PrivateKey privateKey = PrivateKey.createNewKey();
 
-                    final String address = addressInflater.fromPrivateKey(privateKey).toBase58CheckEncoded();
+                    final String address = addressInflater.uncompressedFromPrivateKey(privateKey).toBase58CheckEncoded();
                     final String compressedAddress = addressInflater.compressedFromPrivateKey(privateKey).toBase58CheckEncoded();
 
                     boolean isMatch = false;

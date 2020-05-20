@@ -1,15 +1,9 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
 import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.*;
 import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.*;
@@ -39,11 +33,6 @@ public class Main {
         }
 
         return new Configuration(configurationFile);
-    }
-
-    protected static UnspentTransactionOutputCacheFactory getUtxoCacheFactory(final Long maxUtxoCacheByteCount) {
-        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(maxUtxoCacheByteCount);
-        return NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
     }
 
     public static void main(final String[] commandLineArguments) {
@@ -205,7 +194,7 @@ public class Main {
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, new Runnable() {
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties, new Runnable() {
                     @Override
                     public void run() {
                         final NodeModule nodeModule = nodeModuleContainer.value;
@@ -221,12 +210,9 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
 
-                final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
+                final Environment environment = new Environment(database, databaseConnectionPool);
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
@@ -280,58 +266,18 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-                final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
-                final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
+                final Environment environment = new Environment(database, databaseConnectionPool);
 
-                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash, blockValidatorFactory);
+                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
                 chainValidationModule.run();
-                Logger.flush();
-            } break;
-
-            case "REPAIR": {
-                if (_arguments.length < 3) {
-                    _printUsage();
-                    BitcoinUtil.exitFailure();
-                    break;
-                }
-
-                final String configurationFilename = _arguments[1];
-                final String[] blockHashes = new String[_arguments.length - 2];
-                for (int i = 0; i < blockHashes.length; ++i) {
-                    blockHashes[i] = _arguments[2 + i];
-                }
-
-                final Configuration configuration = _loadConfigurationFile(configurationFilename);
-
-                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
-
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
-                if (database == null) {
-                    Logger.error("Error initializing database.");
-                    BitcoinUtil.exitFailure();
-                }
-                Logger.info("[Database Online]");
-
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
-                final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-                final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
-
-                final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);
-                repairModule.run();
                 Logger.flush();
             } break;
 
@@ -355,7 +301,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final Environment environment = new Environment(database, databaseConnectionPool, null);
+                final Environment environment = new Environment(database, databaseConnectionPool);
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
                 stratumModule.loop();
@@ -399,7 +345,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final Environment environment = new Environment(database, databaseConnectionPool, null);
+                final Environment environment = new Environment(database, databaseConnectionPool);
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();
                 Logger.flush();

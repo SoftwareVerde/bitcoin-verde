@@ -1,16 +1,17 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,7 +24,6 @@ public class OrphanedTransactionsCache {
     protected final HashMap<TransactionOutputIdentifier, HashSet<Transaction>> _orphanedTransactions = new HashMap<TransactionOutputIdentifier, HashSet<Transaction>>(MAX_ORPHANED_TRANSACTION_COUNT);
     protected final HashSet<Transaction> _orphanedTransactionSet = new HashSet<Transaction>();
     protected final LinkedList<Transaction> _orphanedTransactionsByAge = new LinkedList<Transaction>();
-    protected final DatabaseManagerCache _databaseManagerCache;
 
     protected void _removeOrphanedTransaction(final Transaction transaction) {
         _orphanedTransactionSet.remove(transaction);
@@ -55,9 +55,17 @@ public class OrphanedTransactionsCache {
         }
     }
 
-    public OrphanedTransactionsCache(final DatabaseManagerCache databaseManagerCache) {
-        _databaseManagerCache = databaseManagerCache;
+    protected Boolean _transactionOutputExists(final TransactionOutputIdentifier transactionOutputIdentifier, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
+        final UnconfirmedTransactionOutputId unconfirmedTransactionOutputId = unconfirmedTransactionOutputDatabaseManager.findUnconfirmedTransactionOutput(transactionOutputIdentifier);
+        if (unconfirmedTransactionOutputId != null) { return true; }
+
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final TransactionOutput transactionOutput = transactionDatabaseManager.getTransactionOutput(transactionOutputIdentifier);
+        return (transactionOutput != null);
     }
+
+    public OrphanedTransactionsCache() { }
 
     public synchronized void add(final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
@@ -70,12 +78,10 @@ public class OrphanedTransactionsCache {
             _purgeOldTransactions();
         }
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
-
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-            final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
-            if (transactionOutputId == null) {
+            final Boolean transactionOutputBeingSpentExists = _transactionOutputExists(transactionOutputIdentifier, databaseManager);
+            if (! transactionOutputBeingSpentExists) {
                 if (! _orphanedTransactions.containsKey(transactionOutputIdentifier)) {
                     _orphanedTransactions.put(transactionOutputIdentifier, new HashSet<Transaction>());
                 }

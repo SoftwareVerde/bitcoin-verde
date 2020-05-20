@@ -18,8 +18,6 @@ import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.Comparator;
 
 public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
@@ -27,15 +25,16 @@ public class DifficultyCalculator {
 
     protected final DatabaseManager _databaseManager;
     protected final BatchedBlockHeaders _batchedBlockHeaders;
+    protected final MedianBlockHeaderSelector _medianBlockHeaderSelector;
 
     public DifficultyCalculator(final DatabaseManager databaseManager) {
-        _databaseManager = databaseManager;
-        _batchedBlockHeaders = null;
+        this(databaseManager, null);
     }
 
     public DifficultyCalculator(final DatabaseManager databaseManager, final BatchedBlockHeaders batchedBlockHeaders) {
         _databaseManager = databaseManager;
         _batchedBlockHeaders = batchedBlockHeaders;
+        _medianBlockHeaderSelector = new MedianBlockHeaderSelector();
     }
 
     protected Difficulty _calculateNewBitcoinCoreTarget(final BlockchainSegmentId blockchainSegmentId, final Long forBlockHeight, final BlockHeader nullableBlockHeader) throws DatabaseException {
@@ -59,8 +58,8 @@ public class DifficultyCalculator {
         if (lastAdjustedBlockHeader == null) { return null; }
 
         //  2. Get the current block timestamp.
-        final Long blockTimestamp = parentBlockHeader.getTimestamp();
-        final Long previousBlockTimestamp = lastAdjustedBlockHeader.getTimestamp();
+        final long blockTimestamp = parentBlockHeader.getTimestamp();
+        final long previousBlockTimestamp = lastAdjustedBlockHeader.getTimestamp();
 
         Logger.debug(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
         Logger.debug(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
@@ -70,7 +69,7 @@ public class DifficultyCalculator {
         Logger.debug("2016 blocks in " + secondsElapsed + " (" + (secondsElapsed / 60F / 60F / 24F) + " days)");
 
         //  4. Calculate the desired two-weeks elapse-time ("secondsInTwoWeeks").
-        final Long secondsInTwoWeeks = 2L * 7L * 24L * 60L * 60L; // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
+        final Long secondsInTwoWeeks = (2L * 7L * 24L * 60L * 60L); // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
 
         //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
         final double difficultyAdjustment = (secondsInTwoWeeks.doubleValue() / secondsElapsed.doubleValue());
@@ -108,14 +107,14 @@ public class DifficultyCalculator {
         final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTimeStartingWithBlock(previousBlockBlockId);
         final BlockId sixthParentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(previousBlockBlockId, 5);
         final MedianBlockTime medianBlockTimeForSixthBlock = blockHeaderDatabaseManager.calculateMedianBlockTime(sixthParentBlockId);
-        final Long secondsInTwelveHours = 43200L;
+        final long secondsInTwelveHours = 43200L;
 
         if (medianBlockTime == null || medianBlockTimeForSixthBlock == null) {
             Logger.warn("Unable to calculate difficulty for block: " + (nullableBlockHeader != null ? nullableBlockHeader.getHash() : ("Height: " + forBlockHeight)));
             return null;
         }
 
-        if (medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeForSixthBlock.getCurrentTimeInSeconds() > secondsInTwelveHours) {
+        if ((medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeForSixthBlock.getCurrentTimeInSeconds()) > secondsInTwelveHours) {
             final Difficulty newDifficulty = previousBlockHeader.getDifficulty().multiplyBy(1.25D);
 
             final Difficulty minimumDifficulty = Difficulty.BASE_DIFFICULTY;
@@ -172,7 +171,6 @@ public class DifficultyCalculator {
 
         // Set the lastBlockHeaders to be blockId's parent, its grandparent, and its great grandparent...
         for (int i = 0; i < lastBlockHeaders.length; ++i) {
-
             BlockHeader blockHeader = null;
             if (_batchedBlockHeaders != null) {
                 blockHeader = _batchedBlockHeaders.getBlockHeader(blockHeight - (1L + i));
@@ -190,7 +188,7 @@ public class DifficultyCalculator {
 
         // Set the firstBlockHeaders to be the 144th, 145th, and 146th parents of blockId's parent...
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
-            final Long parentBlockHeight = (blockHeight - 1);
+            final long parentBlockHeight = (blockHeight - 1L);
             final Long ancestorBlockHeight = (parentBlockHeight - 144L - i);
 
             BlockHeader blockHeader = null;
@@ -216,24 +214,14 @@ public class DifficultyCalculator {
     protected Difficulty _calculateNewBitcoinCashTarget(final BlockHeader[] firstBlockHeaders, final BlockHeader[] lastBlockHeaders) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
-        final Comparator<BlockHeader> sortBlockHeaderByTimestampDescending = new Comparator<BlockHeader>() {
-            @Override
-            public int compare(final BlockHeader blockHeader0, final BlockHeader blockHeader1) {
-                return (blockHeader1.getTimestamp().compareTo(blockHeader0.getTimestamp()));
-            }
-        };
+        final BlockHeader firstBlockHeader = _medianBlockHeaderSelector.selectMedianBlockHeader(firstBlockHeaders);
+        final BlockHeader lastBlockHeader = _medianBlockHeaderSelector.selectMedianBlockHeader(lastBlockHeaders);
 
-        Arrays.sort(lastBlockHeaders, sortBlockHeaderByTimestampDescending);
-        Arrays.sort(firstBlockHeaders, sortBlockHeaderByTimestampDescending);
-
-        final BlockHeader firstBlockHeader = firstBlockHeaders[1];
-        final BlockHeader lastBlockHeader = lastBlockHeaders[1];
-
-        final Long timeSpan;
+        final long timeSpan;
         {
-            final Long minimumValue = (72L * 600L);
-            final Long maximumValue = (288L * 600L);
-            final Long difference = (lastBlockHeader.getTimestamp() - firstBlockHeader.getTimestamp());
+            final long minimumValue = (72L * 600L);
+            final long maximumValue = (288L * 600L);
+            final long difference = (lastBlockHeader.getTimestamp() - firstBlockHeader.getTimestamp());
 
             if (difference < minimumValue) {
                 timeSpan = minimumValue;
@@ -354,7 +342,7 @@ public class DifficultyCalculator {
                 return _calculateNewBitcoinCashTarget(blockchainSegmentId);
             }
 
-            final Boolean requiresDifficultyEvaluation = (blockHeight % BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT == 0);
+            final boolean requiresDifficultyEvaluation = (blockHeight % BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT == 0);
             if (requiresDifficultyEvaluation) {
                 return _calculateNewBitcoinCoreTarget(blockchainSegmentId, blockHeight, null);
             }

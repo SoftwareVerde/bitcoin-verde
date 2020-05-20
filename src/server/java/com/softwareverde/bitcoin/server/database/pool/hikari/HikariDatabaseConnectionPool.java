@@ -3,18 +3,23 @@ package com.softwareverde.bitcoin.server.database.pool.hikari;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionCore;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.properties.DatabaseProperties;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.logging.LoggerInstance;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
 
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.sql.Connection;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Special thanks to Xavier Kràl for his contributions to developing this code. (2019-09-23)
+ * Special thanks to Xavier Kr&agrave;l for his contributions to developing this code. (2019-09-23)
  */
 
 public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
@@ -31,15 +36,17 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
 
     protected final HikariDataSource _dataSource = new HikariDataSource();
     protected final AtomicBoolean _isShutdown = new AtomicBoolean(false);
+    protected final LoggerInstance _logger = Logger.getInstance(this.getClass());
 
     protected void _initHikariDataSource(final DatabaseProperties databaseProperties) {
         _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
         _dataSource.setConnectionTestQuery("SELECT 1");
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
-        _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(5));
+        _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(15));
         _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
         _dataSource.setMaximumPoolSize(128); // NOTE: MySQL Default is 151.
         _dataSource.setAutoCommit(true);
+        _dataSource.setLeakDetectionThreshold(60 * 1000L);
 
         final String hostname = databaseProperties.getHostname();
         final Integer port = databaseProperties.getPort();
@@ -50,6 +57,28 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setJdbcUrl("jdbc:mariadb://" + hostname + ":" + port + "/" + schema);
         _dataSource.setUsername(username);
         _dataSource.setPassword(password);
+
+        try {
+            _dataSource.setLogWriter(new PrintWriter(new Writer() {
+                @Override
+                public void write(final char[] characterBuffer, final int readOffset, final int readByteCount) {
+                    final StringBuilder stringBuilder = new StringBuilder();
+                    for (int i = 0; i < readByteCount; ++i) {
+                        stringBuilder.append(characterBuffer[readOffset + i]);
+                    }
+                    _logger.debug(stringBuilder.toString());
+                }
+
+                @Override
+                public void flush() { }
+
+                @Override
+                public void close() { }
+            }));
+        }
+        catch (final Exception exception) {
+            throw new RuntimeException(exception);
+        }
     }
 
     public HikariDatabaseConnectionPool(final DatabaseProperties databaseProperties) {

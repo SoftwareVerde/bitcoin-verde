@@ -145,7 +145,7 @@ public class ScriptPatternMatcher {
             return addressInflater.compressedFromPublicKey(publicKey);
         }
         else {
-            return addressInflater.fromPublicKey(publicKey);
+            return addressInflater.uncompressedFromPublicKey(publicKey);
         }
     }
 
@@ -154,7 +154,7 @@ public class ScriptPatternMatcher {
         if (publicKey == null) { return null; }
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromPublicKey(publicKey.decompress());
+        return addressInflater.uncompressedFromPublicKey(publicKey.decompress());
     }
 
     protected CompressedAddress _extractCompressedAddressFromPayToPublicKey(final Script lockingScript) {

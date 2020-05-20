@@ -1,15 +1,16 @@
 package com.softwareverde.bitcoin.test;
 
+import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
-import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
+import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -18,7 +19,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 
@@ -26,23 +26,28 @@ import java.sql.Connection;
 
 public class IntegrationTest extends UnitTest {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
-    protected static final Boolean _nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
-    protected static Boolean _nativeCacheWasInitialized = false;
 
-    protected final DatabaseManagerCache _databaseManagerCache = new DisabledDatabaseManagerCache();
     protected final MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
+    protected final MasterInflater _masterInflater;
+    protected final FakeBlockStore _blockStore;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
-    protected final FullNodeDatabaseManagerFactory _readUncomittedDatabaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _readUncommittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
+    protected final FakeSynchronizationStatus _synchronizationStatus;
 
     public IntegrationTest() {
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
-        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
+        _masterInflater = new CoreInflater();
+        _blockStore = new FakeBlockStore();
+        _synchronizationStatus = new FakeSynchronizationStatus();
 
-        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-        _readUncomittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
+        _databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _blockStore, _masterInflater);
+        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory);
+
+        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
+        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _blockStore, _masterInflater);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
@@ -50,7 +55,7 @@ public class IntegrationTest extends UnitTest {
 
             @Override
             public DatabaseConnection newConnection() throws DatabaseException {
-                final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
+                final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
                 _databaseConnections.add(databaseConnection);
                 return databaseConnection;
             }
@@ -67,7 +72,6 @@ public class IntegrationTest extends UnitTest {
                 }
             }
         });
-
     }
 
     static {
@@ -83,20 +87,15 @@ public class IntegrationTest extends UnitTest {
             try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
                 databaseInitializer.initializeDatabase(databaseConnection);
             }
-
-            if (_nativeCacheIsEnabled) {
-                if (_nativeCacheWasInitialized) {
-                    NativeUnspentTransactionOutputCache.destroy();
-                }
-                NativeUnspentTransactionOutputCache.init();
-                _nativeCacheWasInitialized = true;
-            }
-            else {
-                Logger.info("NOTICE: NativeUtxoCache not enabled.");
-            }
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);
         }
+    }
+
+    protected void _before() {
+        _synchronizationStatus.setState(State.ONLINE);
+        _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
+        _blockStore.clear();
     }
 }

@@ -2,9 +2,9 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -21,6 +21,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -150,7 +151,6 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         _databaseManager = databaseManager;
     }
 
-    @Override
     public TransactionId storeTransaction(final Transaction transaction) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
@@ -206,7 +206,6 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         }
     }
 
-    @Override
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         WRITE_LOCK.lock();
         try {
@@ -246,11 +245,41 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            return Sha256Hash.fromHexString(row.getString("hash"));
+            return Sha256Hash.copyOf(row.getBytes("hash"));
         }
         finally {
             READ_LOCK.unlock();
         }
+    }
+
+    @Override
+    public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows;
+
+        READ_LOCK.lock();
+        try {
+            rows = databaseConnection.query(
+                new Query("SELECT id, hash FROM transactions WHERE hash IN(?)")
+                    .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
+            );
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+
+        final int transactionCount = transactionHashes.getCount();
+        if (rows.size() != transactionCount) { return null; }
+
+        final HashMap<Sha256Hash, TransactionId> transactionHashesMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+
+            transactionHashesMap.put(transactionHash, transactionId);
+        }
+        return transactionHashesMap;
     }
 
     @Override
@@ -397,8 +426,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
 
             final MutableList<Sha256Hash> hashes = new MutableList<Sha256Hash>(rows.size());
             for (final Row row : rows) {
-                final String hashString = row.getString("hash");
-                final Sha256Hash hash = Sha256Hash.fromHexString(hashString);
+                final Sha256Hash hash = Sha256Hash.copyOf(row.getBytes("hash"));
                 hashes.add(hash);
             }
             return hashes;

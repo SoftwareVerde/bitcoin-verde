@@ -5,6 +5,5 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface BlockDownloadRequester {
     void requestBlock(BlockHeader blockHeader);
-    void requestBlock(Sha256Hash blockHash, Long priority);
-    void requestBlock(Sha256Hash blockHash);
+    void requestBlock(Sha256Hash blockHash, Sha256Hash previousBlockHash);
 }

@@ -4,8 +4,10 @@ import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -15,6 +17,7 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -43,29 +46,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 public class AbcScriptRunnerTests {
-    public static class FakeMedianBlockTime implements MedianBlockTime {
-        protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
-
-        @Override
-        public ImmutableMedianBlockTime asConst() {
-            return new ImmutableMedianBlockTime(_medianBlockTime);
-        }
-
-        @Override
-        public Long getCurrentTimeInSeconds() {
-            return _medianBlockTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInMilliSeconds() {
-            return (_medianBlockTime * 1000L);
-        }
-
-        public void setMedianBlockTime(final Long medianBlockTime) {
-            _medianBlockTime = medianBlockTime;
-        }
-    }
-
     public static class TestVector {
         public static TestVector fromJson(final Json testVectorJson) {
             // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
@@ -484,8 +464,8 @@ public class AbcScriptRunnerTests {
         { // TransactionInput...
             final MutableTransactionInput transactionInput = new MutableTransactionInput();
             transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-            transactionInput.setPreviousOutputIndex(-1);
-            transactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
+            transactionInput.setPreviousOutputTransactionHash(TransactionOutputIdentifier.COINBASE.getTransactionHash());
+            transactionInput.setPreviousOutputIndex(TransactionOutputIdentifier.COINBASE.getOutputIndex());
             { // Unlocking Script...
                 final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
                 mutableUnlockingScript.addOperation(PushOperation.PUSH_ZERO);
@@ -551,7 +531,7 @@ public class AbcScriptRunnerTests {
                 // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
             }
 
-            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
+            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             final ScriptRunner scriptRunner = new ScriptRunner();
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);

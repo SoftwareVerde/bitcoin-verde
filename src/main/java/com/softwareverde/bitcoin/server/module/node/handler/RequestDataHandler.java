@@ -6,7 +6,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.module.node.BlockCache;
+import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -33,11 +33,11 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final BlockCache _blockCache;
+    protected final BlockStore _blockStore;
 
-    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockCache blockCache) {
+    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore) {
         _databaseManagerFactory = databaseManagerFactory;
-        _blockCache = blockCache;
+        _blockStore = blockStore;
     }
 
     @Override
@@ -77,16 +77,16 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         final Block block;
                         {
-                            if (_blockCache != null) {
+                            if (_blockStore != null) {
                                 final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                                final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
 
                                 if (cachedBlock != null) {
                                     block = cachedBlock;
                                 }
                                 else {
                                     block = blockDatabaseManager.getBlock(blockId);
-                                    _blockCache.cacheBlock(block, blockHeight);
+                                    _blockStore.storeBlock(block, blockHeight);
                                 }
                             }
                             else {

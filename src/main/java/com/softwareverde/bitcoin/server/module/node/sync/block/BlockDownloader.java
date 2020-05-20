@@ -2,19 +2,23 @@ package com.softwareverde.bitcoin.server.module.node.sync.block;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -22,6 +26,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -39,19 +44,24 @@ public class BlockDownloader extends SleepyService {
     protected final Object _downloadCallbackPin = new Object();
 
     protected final SystemTime _systemTime = new SystemTime();
+    protected final SynchronizationStatusHandler _synchronizationStatusHandler;
+    protected final BlockInflater _blockInflater;
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Map<Sha256Hash, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
+    protected final PendingBlockStore _blockStore;
 
     protected Runnable _newBlockAvailableCallback = null;
 
     protected Boolean _hasGenesisBlock = false;
     protected Long _lastGenesisDownloadTimestamp = null;
 
+    protected Long _lastFindInventoryTimestamp = null;
+    protected Thread _unsynchronizedWatcher = null;
+
     protected void _onBlockDownloaded(final Block block, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
         pendingBlockDatabaseManager.storeBlock(block);
     }
 
@@ -99,17 +109,45 @@ public class BlockDownloader extends SleepyService {
         }
     }
 
+    protected void _downloadBlock(final Sha256Hash blockHash) {
+        _downloadBlock(blockHash, null);
+    }
+
+    protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode nullableBitcoinNode) {
+        boolean pendingBlockExists = ( (_blockInflater != null) && (_blockStore != null) && (_blockStore.pendingBlockExists(blockHash)) );
+        if (pendingBlockExists) {
+            pendingBlockExists = false;
+            final ByteArray blockData = _blockStore.getPendingBlockData(blockHash);
+            if (blockData != null) {
+                final Block block = _blockInflater.fromBytes(blockData);
+                if (block != null) {
+                    pendingBlockExists = true;
+                    _blockDownloadedCallback.onResult(block);
+                }
+            }
+        }
+
+        if (! pendingBlockExists) {
+            if (nullableBitcoinNode == null) {
+                _bitcoinNodeManager.requestBlock(blockHash, _blockDownloadedCallback);
+            }
+            else {
+                _bitcoinNodeManager.requestBlock(nullableBitcoinNode, blockHash, _blockDownloadedCallback);
+            }
+        }
+    }
+
     @Override
     protected void _onStart() { }
 
     @Override
     protected Boolean _run() {
-        final Integer maximumConcurrentDownloadCount = Math.min(21, ((_bitcoinNodeManager.getActiveNodeCount() * 3) + 1) );
+        final int maximumConcurrentDownloadCount = Math.min(21, ((_bitcoinNodeManager.getActiveNodeCount() * 3) + 1) );
 
         _checkForStalledDownloads();
 
         { // Determine if routine should wait for a request to complete...
-            Integer currentDownloadCount = _currentBlockDownloadSet.size();
+            int currentDownloadCount = _currentBlockDownloadSet.size();
             while (currentDownloadCount >= maximumConcurrentDownloadCount) {
                 synchronized (_downloadCallbackPin) {
                     final MilliTimer waitTimer = new MilliTimer();
@@ -144,11 +182,11 @@ public class BlockDownloader extends SleepyService {
                 final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
                 if ( (genesisBlockId == null) || (! blockDatabaseManager.hasTransactions(genesisBlockId)) ) {
                     final Long now =_systemTime.getCurrentTimeInSeconds();
-                    final Long secondsSinceLastDownloadAttempt = (now - Util.coalesce(_lastGenesisDownloadTimestamp));
+                    final long secondsSinceLastDownloadAttempt = (now - Util.coalesce(_lastGenesisDownloadTimestamp));
 
                     if (secondsSinceLastDownloadAttempt > 30) {
                         _lastGenesisDownloadTimestamp = _systemTime.getCurrentTimeInSeconds();
-                        _bitcoinNodeManager.requestBlock(BlockHeader.GENESIS_BLOCK_HASH, _blockDownloadedCallback);
+                        _downloadBlock(BlockHeader.GENESIS_BLOCK_HASH);
                     }
                 }
                 else {
@@ -190,7 +228,7 @@ public class BlockDownloader extends SleepyService {
                 final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
                 if (blockHash == null) { continue; }
 
-                final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(blockHash);
+                final boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(blockHash);
                 if (itemIsAlreadyBeingDownloaded) { continue; }
 
                 final NodeId nodeId = downloadPlan.get(pendingBlockId);
@@ -207,7 +245,7 @@ public class BlockDownloader extends SleepyService {
                 // else {
                 //     _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
                 // }
-                _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+                _downloadBlock(blockHash, bitcoinNode);
 
                 pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
             }
@@ -225,7 +263,11 @@ public class BlockDownloader extends SleepyService {
         final List<NodeId> connectedNodeIds = _bitcoinNodeManager.getNodeIds();
         if (! connectedNodeIds.isEmpty()) {
 
-            _bitcoinNodeManager.findNodeInventory();
+            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+            if (now - Util.coalesce(_lastFindInventoryTimestamp) >= 10000L) {
+                _lastFindInventoryTimestamp = now;
+                _bitcoinNodeManager.findNodeInventory();
+            }
 
             // TODO: Re-enable and move purge logic to somewhere more appropriate.
             // Purging unlocatable blocks is disabled due to it preventing NodeInventory from being recorded.
@@ -244,11 +286,48 @@ public class BlockDownloader extends SleepyService {
             //     Logger.warn(exception);
             // }
         }
+
+        synchronized (this) {
+            final boolean isInterrupted;
+            {
+                final Thread currentThread = Thread.currentThread();
+                isInterrupted = currentThread.isInterrupted();
+            }
+
+            if ( isInterrupted && (_unsynchronizedWatcher != null) ) {
+                _unsynchronizedWatcher.interrupt();
+            }
+            else if ( (! isInterrupted) && (_unsynchronizedWatcher == null) ) {
+                _unsynchronizedWatcher = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(10000L);
+
+                            final boolean synchronizationIsComplete = _synchronizationStatusHandler.isBlockchainSynchronized();
+                            if (! synchronizationIsComplete) {
+                                BlockDownloader.this.wakeUp();
+                            }
+                        }
+                        catch (final InterruptedException exception) { }
+                        finally {
+                            synchronized (BlockDownloader.this) {
+                                _unsynchronizedWatcher = null;
+                            }
+                        }
+                    }
+                });
+                _unsynchronizedWatcher.start();
+            }
+        }
     }
 
-    public BlockDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
+    public BlockDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatusHandler synchronizationStatusHandler, final BitcoinNodeManager bitcoinNodeManager, final PendingBlockStore nullableBlockStore, final BlockInflaters nullableBlockInflaters) {
+        _synchronizationStatusHandler = synchronizationStatusHandler;
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseManagerFactory = databaseManagerFactory;
+        _blockStore = nullableBlockStore;
+        _blockInflater = (nullableBlockInflaters != null ? nullableBlockInflaters.getBlockInflater() : null);
 
         _blockDownloadedCallback = new BitcoinNodeManager.DownloadBlockCallback() {
             @Override

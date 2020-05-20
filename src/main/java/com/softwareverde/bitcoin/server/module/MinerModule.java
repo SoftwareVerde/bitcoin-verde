@@ -49,7 +49,7 @@ public class MinerModule {
             final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_previousBlockHashString);
             final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 
-            final Address address = addressInflater.fromBase58Check(_base58CheckAddress);
+            final Address address = addressInflater.uncompressedFromBase58Check(_base58CheckAddress);
             if (address == null) {
                 _printError("Invalid Bitcoin Address: "+ _base58CheckAddress);
                 BitcoinUtil.exitFailure();

@@ -4,12 +4,11 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.secp256k1.signature.BitcoinMessageSignature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.security.secp256k1.Secp256k1;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.wallet.SeedPhraseGenerator;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 
@@ -74,7 +73,7 @@ public class SignatureModule {
 
         final AddressInflater addressInflater = new AddressInflater();
 
-        System.out.println("Address:    " + (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.fromPrivateKey(privateKey)).toBase58CheckEncoded());
+        System.out.println("Address:    " + (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.uncompressedFromPrivateKey(privateKey)).toBase58CheckEncoded());
         System.out.println("Signature:  " + signature.toBase64());
         System.out.println("Message:    " + message);
     }
@@ -88,7 +87,7 @@ public class SignatureModule {
             return;
         }
 
-        final Address address = addressInflater.fromBase58Check(addressStringBase58Check);
+        final Address address = addressInflater.uncompressedFromBase58Check(addressStringBase58Check);
         if (address == null) {
             Logger.error("Invalid address.");
             return;

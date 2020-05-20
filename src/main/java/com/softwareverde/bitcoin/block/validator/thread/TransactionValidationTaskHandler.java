@@ -3,16 +3,18 @@ package com.softwareverde.bitcoin.block.validator.thread;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
     public static class TransactionValidationResult {
@@ -45,6 +47,8 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
 
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final Long _blockHeight;
+    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final BlockOutputs _blockOutputs;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
@@ -52,17 +56,19 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
 
     protected TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainSegmentId = blockchainSegmentId;
         _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
         _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
         _transactionValidatorFactory = transactionValidatorFactory;
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
+        _blockOutputs = blockOutputs;
     }
 
     @Override
     public void init(final FullNodeDatabaseManager databaseManager) {
-        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
+        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _unspentTransactionOutputSet, _blockOutputs);
     }
 
     @Override

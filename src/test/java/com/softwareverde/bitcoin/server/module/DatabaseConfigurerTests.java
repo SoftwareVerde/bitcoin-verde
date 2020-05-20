@@ -32,7 +32,7 @@ public class DatabaseConfigurerTests {
         final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
 
         // Action
-        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
+        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
         for (final String string : commandLineArguments.getArguments()) {
@@ -68,7 +68,7 @@ public class DatabaseConfigurerTests {
         final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
 
         // Action
-        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
+        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
         for (final String string : commandLineArguments.getArguments()) {
@@ -104,7 +104,7 @@ public class DatabaseConfigurerTests {
         final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
 
         // Action
-        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
+        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
         for (final String string : commandLineArguments.getArguments()) {

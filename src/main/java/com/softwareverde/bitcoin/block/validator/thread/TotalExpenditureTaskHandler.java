@@ -1,22 +1,20 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.HexUtil;
-
-import java.util.Map;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 /**
  * Calculates the total fees available for all Transactions sent to executeTask.
@@ -54,49 +52,47 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     }
 
     protected FullNodeDatabaseManager _databaseManager;
+    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final BlockOutputs _blockOutputs;
+
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    protected static TransactionOutput _getTransactionOutput(final FullNodeDatabaseManager databaseManager, final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions) {
-        try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+    protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
+        if (unspentTransactionOutputSet != null) {
+            final TransactionOutput transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) { return transactionOutput; }
+        }
 
-            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex);
-            final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
-            if (transactionOutputId != null) {
-                return transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
-            }
-            else {
-                final Transaction transactionContainingOutput = queuedTransactions.get(outputTransactionHash);
-                if (transactionContainingOutput != null) {
-                    final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
-                    final boolean transactionOutputIndexIsValid = (transactionOutputIndex < transactionOutputs.getCount());
-                    if (transactionOutputIndexIsValid) {
-                        return transactionOutputs.get(transactionOutputIndex);
-                    }
-                }
-            }
+        final BlockOutputs blockOutputs = _blockOutputs;
+        if (blockOutputs != null) {
+            final TransactionOutput transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) { return transactionOutput; }
         }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
+
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final TransactionOutput transactionOutput = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+        if (transactionOutput != null) { return transactionOutput; }
 
         return null;
     }
 
-    protected static Long _calculateTotalTransactionInputs(final FullNodeDatabaseManager databaseManager, final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions) {
+    protected Long _calculateTotalTransactionInputs(final Transaction transaction) {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
         for (int i = 0; i < transactionInputs.getCount(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final Sha256Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-            final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
-
-            final TransactionOutput transactionOutput = _getTransactionOutput(databaseManager, outputTransactionHash, transactionOutputIndex, queuedTransactions);
+            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            TransactionOutput transactionOutput = null;
+            try {
+                transactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier);
+            }
+            catch (final DatabaseException exception) { }
 
             if (transactionOutput == null) {
-                Logger.debug("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
+                Logger.debug("Tx Input, Output Not Found: " + transactionOutputIdentifier);
                 return -1L;
             }
 
@@ -106,11 +102,11 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         return totalInputValue;
     }
 
-    private final Map<Sha256Hash, Transaction> _queuedTransactionOutputs;
-    private Long _totalFees = 0L;
+    protected Long _totalFees = 0L;
 
-    public TotalExpenditureTaskHandler(final Map<Sha256Hash, Transaction> queuedTransactionOutputs) {
-        _queuedTransactionOutputs = queuedTransactionOutputs;
+    public TotalExpenditureTaskHandler(final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs) {
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
+        _blockOutputs = blockOutputs;
     }
 
     @Override
@@ -123,7 +119,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         if (! _invalidTransactions.isEmpty()) { return; }
 
         final Long totalOutputValue = transaction.getTotalOutputValue();
-        final Long totalInputValue = _calculateTotalTransactionInputs(_databaseManager, transaction, _queuedTransactionOutputs);
+        final Long totalInputValue = _calculateTotalTransactionInputs(transaction);
 
         final boolean transactionExpenditureIsValid = (totalOutputValue <= totalInputValue);
         if (! transactionExpenditureIsValid) {

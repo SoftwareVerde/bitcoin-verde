@@ -7,27 +7,22 @@ import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTimeType;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumberType;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
@@ -38,9 +33,9 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.NanoTimer;
 
 public class TransactionValidatorCore implements TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
@@ -48,6 +43,8 @@ public class TransactionValidatorCore implements TransactionValidator {
     protected final FullNodeDatabaseManager _databaseManager;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final BlockOutputs _blockOutputs;
 
     protected Boolean _shouldLogInvalidTransactions = true;
 
@@ -121,6 +118,26 @@ public class TransactionValidatorCore implements TransactionValidator {
         return true;
     }
 
+    protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
+        if (unspentTransactionOutputSet != null) {
+            final TransactionOutput transactionOutput = unspentTransactionOutputSet.getUnspentTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) { return transactionOutput; }
+        }
+
+        final BlockOutputs blockOutputs = _blockOutputs;
+        if (blockOutputs != null) {
+            final TransactionOutput transactionOutput = blockOutputs.getTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutput != null) { return transactionOutput; }
+        }
+
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final TransactionOutput transactionOutput = transactionDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+        if (transactionOutput != null) { return transactionOutput; }
+
+        return null;
+    }
+
     protected Boolean _validateSequenceNumbers(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final Long blockHeight, final Boolean validateForMemoryPool) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
@@ -183,72 +200,16 @@ public class TransactionValidatorCore implements TransactionValidator {
         return true;
     }
 
-    protected Integer _getOutputSpendCount(final BlockchainSegmentId blockchainSegmentId, final TransactionOutputId transactionOutputId, final Long blockHeight, final Boolean includeMemoryPoolTransactions) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
-
-        int spendCount = 0;
-        final List<TransactionInputId> spendingTransactionInputIds = transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputId);
-        for (final TransactionInputId spendingTransactionInputId : spendingTransactionInputIds) {
-            final TransactionId spendingTransactionInputIdTransactionId = transactionInputDatabaseManager.getTransactionId(spendingTransactionInputId);
-
-            if (includeMemoryPoolTransactions) {
-                final Boolean transactionIsInMemoryPool = transactionDatabaseManager.isUnconfirmedTransaction(spendingTransactionInputIdTransactionId);
-                if (transactionIsInMemoryPool) {
-                    spendCount += 1;
-                }
-            }
-
-            final List<BlockId> blocksSpendingOutput = transactionDatabaseManager.getBlockIds(spendingTransactionInputIdTransactionId);
-
-            for (final BlockId blockId : blocksSpendingOutput) {
-                final Long blockIdBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                if (Util.areEqual(blockHeight, blockIdBlockHeight)) { continue; }
-
-                final Boolean blockIsConnectedToThisChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
-                if (blockIsConnectedToThisChain) {
-                    spendCount += 1;
-                }
-            }
-        }
-        return spendCount;
+    protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
+        Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
-    protected Integer _getOutputMinedCount(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionOutputTransactionId, final Boolean includeMemoryPool) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-        final NanoTimer getBlockIdsTimer = new NanoTimer();
-        final NanoTimer isConnectedToChainTimer = new NanoTimer();
-
-        int minedCount = 0;
-        getBlockIdsTimer.start();
-        final List<BlockId> blockIdsMiningTransactionOutputBeingSpent = transactionDatabaseManager.getBlockIds(transactionOutputTransactionId);
-        getBlockIdsTimer.stop();
-        for (final BlockId blockId : blockIdsMiningTransactionOutputBeingSpent) {
-            isConnectedToChainTimer.start();
-            final Boolean blockIsConnectedToThisChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
-            isConnectedToChainTimer.stop();
-            if (blockIsConnectedToThisChain) {
-                minedCount += 1;
-            }
-        }
-
-        if (includeMemoryPool) {
-            final Boolean transactionOutputIsInMemoryPool = transactionDatabaseManager.isUnconfirmedTransaction(transactionOutputTransactionId);
-            if (transactionOutputIsInMemoryPool) {
-                minedCount += 1;
-            }
-        }
-
-        return minedCount;
-    }
-
-    public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidatorCore(final FullNodeDatabaseManager databaseManager, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _databaseManager = databaseManager;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
+        _blockOutputs = blockOutputs;
     }
 
     @Override
@@ -256,15 +217,9 @@ public class TransactionValidatorCore implements TransactionValidator {
         _shouldLogInvalidTransactions = shouldLogInvalidTransactions;
     }
 
-    protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
-        Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
-    }
-
     @Override
     public Boolean validateTransaction(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean validateForMemoryPool) {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
         final Sha256Hash transactionHash = transaction.getHash();
 
@@ -325,12 +280,6 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         final Long totalTransactionInputValue;
         try {
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            if (transactionId == null) {
-                Logger.debug("Could not find transaction: " + transactionHash);
-                return false;
-            }
-
             long totalInputValue = 0L;
 
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
@@ -345,18 +294,19 @@ public class TransactionValidatorCore implements TransactionValidator {
             for (int i = 0; i < transactionInputs.getCount(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
-                final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final TransactionId transactionOutputBeingSpentTransactionId = transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
-                if (transactionOutputBeingSpentTransactionId == null) {
-                    if (_shouldLogInvalidTransactions) {
-                        _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
-                    }
-                    return false;
-                }
-
                 { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
                     final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash()));
                     if (transactionOutputBeingSpentIsCoinbaseTransaction) {
+                        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+                        final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                        final TransactionId transactionOutputBeingSpentTransactionId = transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
+                        if (transactionOutputBeingSpentTransactionId == null) {
+                            if (_shouldLogInvalidTransactions) {
+                                _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
+                            }
+                            return false;
+                        }
+
                         final BlockId transactionOutputBeingSpentBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionOutputBeingSpentTransactionId);
                         final Long blockHeightOfTransactionOutputBeingSpent = blockHeaderDatabaseManager.getBlockHeight(transactionOutputBeingSpentBlockId);
                         final Long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
@@ -369,38 +319,16 @@ public class TransactionValidatorCore implements TransactionValidator {
                     }
                 }
 
-                final TransactionOutputId transactionOutputIdBeingSpent = transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
-                if (transactionOutputIdBeingSpent == null) {
+                final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+
+                final TransactionOutput transactionOutputBeingSpent = _getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
+                if (transactionOutputBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
-                        _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutputId not found.");
+                        Logger.debug("Transaction output does not exist: " + transactionOutputIdentifierBeingSpent);
+                        _logInvalidTransaction(transaction, context);
                     }
                     return false;
                 }
-
-                final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockchainSegmentId, transactionOutputBeingSpentTransactionId, validateForMemoryPool);
-
-                { // Validate the UTXO has been mined on this blockchain...
-                    if (outputBeingSpentMinedCount == 0) {
-                        if (_shouldLogInvalidTransactions) {
-                            _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutput does not exist on BlockchainSegmentId: " + blockchainSegmentId);
-                        }
-                        return false;
-                    }
-                }
-
-                final Integer outputBeingSpentSpendCount = _getOutputSpendCount(blockchainSegmentId, transactionOutputIdBeingSpent, blockHeight, validateForMemoryPool);
-
-                { // Validate TransactionOutput hasn't already been spent...
-                    // TODO: The logic currently implemented would allow for duplicate transactions to be spent (which is partially against BIP30 and is definitely counter to how the reference client handles it).  What consensus considers "correct" is that the first duplicate becomes unspendable.
-                    if (outputBeingSpentSpendCount >= outputBeingSpentMinedCount) {
-                        if (_shouldLogInvalidTransactions) {
-                            Logger.debug("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " Mined Count: " + outputBeingSpentMinedCount + " | Spend Count: " + outputBeingSpentSpendCount);
-                        }
-                        return false;
-                    }
-                }
-
-                final TransactionOutput transactionOutputBeingSpent = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputIdBeingSpent);
 
                 totalInputValue += transactionOutputBeingSpent.getAmount();
 
@@ -415,8 +343,8 @@ public class TransactionValidatorCore implements TransactionValidator {
                 if (! inputIsUnlocked) {
                     if (_shouldLogInvalidTransactions) {
                         Logger.debug("Transaction failed to verify: " + transactionHash);
+                        _logInvalidTransaction(transaction, context);
                     }
-                    _logInvalidTransaction(transaction, context);
                     return false;
                 }
             }
