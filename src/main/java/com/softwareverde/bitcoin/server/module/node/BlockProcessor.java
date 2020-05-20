@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -120,7 +121,7 @@ public class BlockProcessor {
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
-        final BlockId originalHeadBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+        final BlockId originalHeadBlockId = blockDatabaseManager.getHeadBlockId(); // NOTE: Head Block is not the same as Head BlockHeader.
         final BlockchainSegmentId originalHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId);
 
         final BlockId blockId;
@@ -175,11 +176,14 @@ public class BlockProcessor {
 
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-        final Boolean blockIsConnectedToMainChain;
+        final Boolean blockIsConnectedToUtxoSet;
         {
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            blockIsConnectedToMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final Sha256Hash utxoHeadBlockHash = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHash();
+            final BlockId utxoHeadBlockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoHeadBlockHash);
+            final BlockchainSegmentId utxoHeadBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(utxoHeadBlockId);
+            blockIsConnectedToUtxoSet = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, utxoHeadBlockBlockchainSegmentId, BlockRelationship.ANY);
         }
 
         final NanoTimer storeBlockTimer = new NanoTimer();
@@ -206,7 +210,7 @@ public class BlockProcessor {
 
             Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
-            if ( Util.coalesce(blockIsConnectedToMainChain, true) && (preLoadedUnspentTransactionOutputSet != null) ) {
+            if ( Util.coalesce(blockIsConnectedToUtxoSet, true) && (preLoadedUnspentTransactionOutputSet != null) ) {
                 unspentTransactionOutputSet = preLoadedUnspentTransactionOutputSet;
             }
             else {
@@ -257,11 +261,30 @@ public class BlockProcessor {
 
         _medianBlockTime.addBlock(block);
 
-        final BlockchainSegmentId newHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-        final boolean bestBlockchainHasChanged = ( (originalHeadBlockchainSegmentId != null) && (! Util.areEqual(newHeadBlockchainSegmentId, originalHeadBlockchainSegmentId)) );
 
-        { // Maintain memory-pool correctness...
-            if (blockIsConnectedToMainChain) {
+        final BlockchainSegmentId newHeadBlockchainSegmentId;
+        {
+            final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
+            newHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
+        }
+
+        final boolean bestBlockchainHasChanged;
+        {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final Sha256Hash utxoHeadBlock = unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHash();
+            final BlockId utxoHeadBlockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoHeadBlock);
+            final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(utxoHeadBlockId);
+            if ( (newHeadBlockchainSegmentId == null) || (blockchainSegmentId == null) ) {
+                bestBlockchainHasChanged = false;
+            }
+            else {
+                bestBlockchainHasChanged = (! blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, newHeadBlockchainSegmentId, BlockRelationship.ANY));
+            }
+        }
+
+
+        { // Maintain utxo and mempool correctness...
+            if (blockIsConnectedToUtxoSet) {
                 if (blockHeight > 0L) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
                     final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
                     final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
@@ -291,6 +314,8 @@ public class BlockProcessor {
             }
             else if (bestBlockchainHasChanged) {
                 // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
+                final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
                 final MilliTimer timer = new MilliTimer();
                 Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
                 timer.start();
@@ -303,18 +328,18 @@ public class BlockProcessor {
 
                 while (nextBlockId != null) {
                     final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
-                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
+                    if (nextBlock != null) { // If the head block was just a processed header, then continue backwards without processing its transactions...
+                        final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
 
-                    { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
-                        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
-                        final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
-                        unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
-                    }
+                        { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
+                            unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
+                        }
 
-                    { // Add non-coinbase transactions to the mempool...
-                        final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
-                        nextBlockTransactionIds.remove(0); // Exclude the coinbase...
-                        transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
+                        { // Add non-coinbase transactions to the mempool...
+                            final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+                            nextBlockTransactionIds.remove(0); // Exclude the coinbase...
+                            transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
+                        }
                     }
 
                     // 2. Continue to traverse up the chain until the block is connected to the new headBlockchain...
@@ -450,8 +475,14 @@ public class BlockProcessor {
 
             if (! _synchronizationStatus.isShuttingDown()) {
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                    final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                    final BlockchainSegmentId headBlockchainSegmentId;
+                    {
+                        final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
+                        headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
+                    }
 
                     final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
                     final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);

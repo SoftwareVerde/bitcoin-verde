@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
@@ -74,7 +75,9 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(0L);
+    protected static final Container<Sha256Hash> UNCOMMITTED_UTXO_BLOCK = new Container<Sha256Hash>(BlockHeader.GENESIS_BLOCK_HASH);
     protected static final String COMMITTED_UTXO_BLOCK_HEIGHT_KEY = "committed_utxo_block_height";
+    protected static final String COMMITTED_UTXO_BLOCK_KEY = "committed_utxo_block";
 
     /**
      * MAX_UTXO_CACHE_COUNT determines the maximum number of rows (both clean and dirty) within the unspent_transaction_outputs in-memory table.
@@ -112,7 +115,20 @@ public class UnspentTransactionOutputDatabaseManager {
         return Util.coalesce(row.getLong("value"), 0L);
     }
 
-    protected static void _commitUnspentTransactionOutputs(final Long maxUtxoCount, final Float purgePercent, final DatabaseConnection transactionalDatabaseConnection, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
+    protected static Sha256Hash _getCommittedUnspentTransactionOutputBlock(final DatabaseConnection databaseConnection) throws DatabaseException {
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, value FROM properties WHERE `key` = ?")
+                .setParameter(COMMITTED_UTXO_BLOCK_KEY)
+        );
+        if (rows.isEmpty()) { return BlockHeader.GENESIS_BLOCK_HASH; }
+
+        final Row row = rows.get(0);
+        return Util.coalesce(Sha256Hash.fromHexString(row.getString("value")), BlockHeader.GENESIS_BLOCK_HASH);
+    }
+
+    protected static void _commitUnspentTransactionOutputs(final Long maxUtxoCount, final Float purgePercent, final FullNodeDatabaseManager transactionalDatabaseManager, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
+        final DatabaseConnection transactionalDatabaseConnection = transactionalDatabaseManager.getDatabaseConnection();
+
         final long maxKeepCount = (long) (maxUtxoCount * (1.0D - purgePercent));
         final int maxUtxoPerBatch = 1024;
 
@@ -382,6 +398,18 @@ public class UnspentTransactionOutputDatabaseManager {
                 .setParameter(newCommittedBlockHeight)
         );
 
+        // Save the committed set's block hash...
+        final Sha256Hash newCommittedBlockHash;
+        {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = transactionalDatabaseManager.getBlockHeaderDatabaseManager();
+            newCommittedBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+        }
+        transactionalDatabaseConnection.executeSql(
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                .setParameter(COMMITTED_UTXO_BLOCK_KEY)
+                .setParameter(newCommittedBlockHash.toString())
+        );
+
         Logger.info(
             "Commit Utxo Timer:\n" +
             "    Commit inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getTotalItemCount() + " in " + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms\n" +
@@ -394,6 +422,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
     protected void _clearUncommittedUtxoSet() throws DatabaseException {
         UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = 0L;
+        UNCOMMITTED_UTXO_BLOCK.value = BlockHeader.GENESIS_BLOCK_HASH;
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         databaseConnection.executeSql(
@@ -539,7 +568,7 @@ public class UnspentTransactionOutputDatabaseManager {
                         query.setParameter(transactionHash);
                         query.setParameter(outputIndex);
 
-                        // Logger.trace("DELETE UTXO: " + transactionOutputIdentifier + " is_spent=2, block_height=NULL");
+                        Logger.trace("DELETE UTXO: " + transactionOutputIdentifier + " is_spent=2, block_height=NULL");
                     }
 
                     databaseConnection.executeSql(query);
@@ -590,7 +619,7 @@ public class UnspentTransactionOutputDatabaseManager {
                         query.setParameter(outputIndex);
                         query.setParameter(blockHeight);
 
-                        // Logger.trace("NEW UTXO: " + transactionOutputIdentifier + " is_spent=0, block_height=" + blockHeight);
+                        Logger.trace("NEW UTXO: " + transactionOutputIdentifier + " is_spent=0, block_height=" + blockHeight);
                     }
 
                     databaseConnection.executeSql(query);
@@ -767,8 +796,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
         UTXO_WRITE_MUTEX.lock();
         try (final DatabaseConnection nonTransactionalDatabaseConnection = databaseConnectionFactory.newConnection()) {
-            final DatabaseConnection transactionalDatabaseConnection = _databaseManager.getDatabaseConnection();
-            _commitUnspentTransactionOutputs(_maxUtxoCount, _purgePercent, transactionalDatabaseConnection, nonTransactionalDatabaseConnection, databaseConnectionFactory);
+            _commitUnspentTransactionOutputs(_maxUtxoCount, _purgePercent, _databaseManager, nonTransactionalDatabaseConnection, databaseConnectionFactory);
         }
         catch (final Exception exception) {
             _clearUncommittedUtxoSetAndRethrow(exception);
@@ -819,10 +847,11 @@ public class UnspentTransactionOutputDatabaseManager {
         }
     }
 
-    public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) throws DatabaseException {
+    public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight, final Sha256Hash blockHash) throws DatabaseException {
         UTXO_WRITE_MUTEX.lock();
         try {
             UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = blockHeight;
+            UNCOMMITTED_UTXO_BLOCK.value = blockHash;
         }
         finally {
             UTXO_WRITE_MUTEX.unlock();
@@ -842,6 +871,24 @@ public class UnspentTransactionOutputDatabaseManager {
         }
     }
 
+    public Sha256Hash getUncommittedUnspentTransactionOutputBlockHash() throws DatabaseException {
+        UTXO_READ_MUTEX.lock();
+        try {
+
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            final Long committedUtxoBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+            if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value > committedUtxoBlockHeight) {
+                return UNCOMMITTED_UTXO_BLOCK.value;
+            }
+            else {
+                return _getCommittedUnspentTransactionOutputBlock(databaseConnection);
+            }
+        }
+        finally {
+            UTXO_READ_MUTEX.unlock();
+        }
+    }
+
     public void clearCommittedUtxoSet() throws DatabaseException {
         UTXO_WRITE_MUTEX.lock();
         try {
@@ -853,6 +900,11 @@ public class UnspentTransactionOutputDatabaseManager {
                 new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
                     .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
                     .setParameter(0L)
+            );
+            databaseConnection.executeSql(
+                new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                    .setParameter(COMMITTED_UTXO_BLOCK_KEY)
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH.toString())
             );
         }
         finally {

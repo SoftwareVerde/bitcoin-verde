@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -20,6 +21,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 import com.softwareverde.util.Container;
@@ -105,6 +107,9 @@ public class IntegrationTest extends UnitTest {
 
         final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputDatabaseManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
+
+        final Container<Sha256Hash> uncommittedUtxoBlockHash = ReflectionUtil.getStaticValue(UnspentTransactionOutputDatabaseManager.class, "UNCOMMITTED_UTXO_BLOCK");
+        uncommittedUtxoBlockHash.value = BlockHeader.GENESIS_BLOCK_HASH;
     }
 
     public void after() { }
