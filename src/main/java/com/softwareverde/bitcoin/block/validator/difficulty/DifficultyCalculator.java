@@ -15,7 +15,7 @@ import java.util.*;
 
 public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWorkContext & MedianBlockTimeContext> {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
-    protected static final BigInteger TWO_RAISED_TO_256 = BigInteger.valueOf(2L).pow(256);
+    protected static final BigInteger TWO_TO_THE_POWER_OF_256 = BigInteger.valueOf(2L).pow(256);
 
     protected final MedianBlockHeaderSelector _medianBlockHeaderSelector;
     protected final Context _context;
@@ -107,12 +107,11 @@ public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWork
         final Map<Sha256Hash, Long> blockHeights = new HashMap<Sha256Hash, Long>(6);
 
         // Set the lastBlockHeaders to be the head blockId, its parent, and its grandparent...
-        lastBlockHeaders[0] = _context.getBlockHeader(forBlockHeight); // NOTE: The most-recent blockHeader is the current head Block...
-        for (int i = 1; i < lastBlockHeaders.length; ++i) { // NOTICE: i = 1, not 0...
-            final Long blockHeight = (forBlockHeight - i);
+        final long parentBlockHeight = (forBlockHeight - 1L);
+        for (int i = 0; i < lastBlockHeaders.length; ++i) {
+            final Long blockHeight = (parentBlockHeight - i);
 
-            // final BlockId ancestorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(currentHeadBlockId, i);
-            final BlockHeader blockHeader = _context.getBlockHeader(blockHeight); // blockHeaderDatabaseManager.getBlockHeader(ancestorBlockId);
+            final BlockHeader blockHeader = _context.getBlockHeader(blockHeight);
             if (blockHeader == null) { return null; }
 
             final Sha256Hash blockHash = blockHeader.getHash();
@@ -121,13 +120,11 @@ public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWork
             lastBlockHeaders[i] = blockHeader;
         }
 
-        // Set the firstBlockHeaders to be the 144th, 145th, and 146th parent of blockId's parent...
+        // Set the firstBlockHeaders to be the 144th, 145th, and 146th parent of the first block's parent...
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
-            final Long blockHeight = (forBlockHeight - 144L - i);
+            final Long blockHeight = (parentBlockHeight - 144L - i);
 
-            // final BlockId blockHeaderId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (currentHeadBlockHeight - 144L - i));
-            // if (blockHeaderId == null) { return null; }
-            final BlockHeader blockHeader = _context.getBlockHeader(blockHeight); // blockHeaderDatabaseManager.getBlockHeader(blockHeaderId);
+            final BlockHeader blockHeader = _context.getBlockHeader(blockHeight);
             if (blockHeader == null) { return null; }
 
             final Sha256Hash blockHash = blockHeader.getHash();
@@ -158,8 +155,6 @@ public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWork
             }
         }
 
-        // final BlockId firstBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getHash());
-        // final BlockId lastBlockId = blockHeaderDatabaseManager.getBlockHeaderId(lastBlockHeader.getHash());
         final ChainWork firstChainWork = _context.getChainWork(firstBlockHeight); // blockHeaderDatabaseManager.getChainWork(firstBlockId);
         final ChainWork lastChainWork = _context.getChainWork(lastBlockHeight);
 
@@ -179,7 +174,7 @@ public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWork
 
         final BigInteger targetWork;
         {
-            targetWork = TWO_RAISED_TO_256
+            targetWork = TWO_TO_THE_POWER_OF_256
                 .subtract(projectedWork)
                 .divide(projectedWork);
         }

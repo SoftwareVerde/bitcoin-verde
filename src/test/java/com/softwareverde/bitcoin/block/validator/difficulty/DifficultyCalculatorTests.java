@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -182,8 +183,8 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             // Hack the block so that its hash looks like the block479790's previousBlockHash...
             databaseConnection.executeSql(
                 new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter("0000000000000000045A0372DFB07E71CFEE86C282800660AB73EA66BE3F8545")
-                    .setParameter("000000000000000000735904147ECF02E80B5F092B08961ECCD68A6A02EDF409")
+                    .setParameter(Sha256Hash.fromHexString("0000000000000000045A0372DFB07E71CFEE86C282800660AB73EA66BE3F8545"))
+                    .setParameter(Sha256Hash.fromHexString("000000000000000000735904147ECF02E80B5F092B08961ECCD68A6A02EDF409"))
             );
         }
 
@@ -438,7 +439,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
                 databaseConnection.executeSql(
                     new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                        .setParameter("00000000000000000435BC5750DAF2D9840D6CC670CC539D67B565B3F175EF40")
+                        .setParameter(Sha256Hash.fromHexString("00000000000000000435BC5750DAF2D9840D6CC670CC539D67B565B3F175EF40"))
                         .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
@@ -468,7 +469,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 if (blockHeight == 503884L) {
                     databaseConnection.executeSql(
                         new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                            .setParameter("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743")
+                            .setParameter(ChainWork.fromHexString("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743"))
                             .setParameter(blockHeader.getHash())
                     );
                 }
@@ -491,8 +492,8 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 // Hack the block so that its hash looks like the next block's previousBlockHash...
                 databaseConnection.executeSql(
                     new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                        .setParameter("0000000000000000004AB6CD0EC46F050566B7CA9E556CA6825039078E5CC4D3")
-                        .setParameter("000000000000000007C927A6A203FB2CCCA31D3AFA56EA54429576925CE07995")
+                        .setParameter(Sha256Hash.fromHexString("0000000000000000004AB6CD0EC46F050566B7CA9E556CA6825039078E5CC4D3"))
+                        .setParameter(Sha256Hash.fromHexString("000000000000000007C927A6A203FB2CCCA31D3AFA56EA54429576925CE07995"))
                 );
             }
 
@@ -518,7 +519,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 if (blockHeight == 504028L) {
                     databaseConnection.executeSql(
                         new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                            .setParameter("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3")
+                            .setParameter(ChainWork.fromHexString("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3"))
                             .setParameter(blockHeader.getHash())
                     );
                 }
@@ -611,7 +612,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 if (blockHeight == 503884L) {
                     databaseConnection.executeSql(
                         new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                            .setParameter("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743")
+                            .setParameter(ChainWork.fromHexString("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743"))
                             .setParameter(blockHeader.getHash())
                     );
                 }
@@ -664,7 +665,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 if (blockHeight == 504028L) {
                     databaseConnection.executeSql(
                         new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                            .setParameter("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3")
+                            .setParameter(ChainWork.fromHexString("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3"))
                             .setParameter(blockHeader.getHash())
                     );
                 }
@@ -750,7 +751,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 if (blockHeight == 504940L) {
                     databaseConnection.executeSql(
                         new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                            .setParameter("0000000000000000000000000000000000000000007D3EACCB1F141B6BA962F8")
+                            .setParameter(ChainWork.fromHexString("0000000000000000000000000000000000000000007D3EACCB1F141B6BA962F8"))
                             .setParameter(blockHeader.getHash())
                     );
                 }
@@ -798,7 +799,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 if (blockHeight == 505085L) {
                     databaseConnection.executeSql(
                         new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                            .setParameter("0000000000000000000000000000000000000000007D54E1FD313DB21DF0DE08")
+                            .setParameter(ChainWork.fromHexString("0000000000000000000000000000000000000000007D54E1FD313DB21DF0DE08"))
                             .setParameter(blockHeader.getHash())
                     );
                 }
@@ -844,9 +845,6 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
             final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
             final Long blockHeight = 547204L;
@@ -875,9 +873,9 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             }
             databaseConnection.executeSql(
                 new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
-                    .setParameter("00000000000000000054658037E3307ADEDCE4C9B3893EA9194519151BB2FBB5")
+                    .setParameter(Sha256Hash.fromHexString("00000000000000000054658037E3307ADEDCE4C9B3893EA9194519151BB2FBB5"))
                     .setParameter(547056L)
-                    .setParameter("000000000000000000000000000000000000000000C06C4B44874C9B9A130D94")
+                    .setParameter(Sha256Hash.fromHexString("000000000000000000000000000000000000000000C06C4B44874C9B9A130D94"))
                     .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
             );
 
@@ -890,10 +888,10 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             }
             databaseConnection.executeSql(
                 new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
-                    .setParameter("000000000000000001043BACDCB59CED6726FCFDD199F20F2D22EDDB02C3BBDE")
+                    .setParameter(Sha256Hash.fromHexString("000000000000000001043BACDCB59CED6726FCFDD199F20F2D22EDDB02C3BBDE"))
                     .setParameter(547200L)
-                    .setParameter("000000000000000000000000000000000000000000C0B356BB448CE8066B2F93")
-                    .setParameter("0000000000000000004129906FC0D6496A4194CD97251260FCF7F202A494DB92")
+                    .setParameter(Sha256Hash.fromHexString("000000000000000000000000000000000000000000C0B356BB448CE8066B2F93"))
+                    .setParameter(Sha256Hash.fromHexString("0000000000000000004129906FC0D6496A4194CD97251260FCF7F202A494DB92"))
             );
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -907,6 +905,10 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
                 validationBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             }
+
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
 
             // Action
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(validationBlockHeight);
