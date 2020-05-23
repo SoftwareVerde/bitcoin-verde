@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
@@ -23,7 +24,6 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -55,7 +55,7 @@ public class BlockchainBuilder extends SleepyService {
      *  Returns true if the pending block was valid and stored.
      */
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock) { return _processPendingBlock(pendingBlock, null); }
-    protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputSet transactionOutputSet) {
+    protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputContext transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
         final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
@@ -208,9 +208,9 @@ public class BlockchainBuilder extends SleepyService {
 
                         final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
                         final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
-                        final UnspentTransactionOutputSet unspentTransactionOutputSet = preloadedPendingBlock.getUnspentTransactionOutputSet();
+                        final UnspentTransactionOutputContext unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
 
-                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputSet); // pendingBlock may be null; _processPendingBlock allows for this.
+                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.
 
                         TransactionUtil.startTransaction(databaseConnection);
                         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);

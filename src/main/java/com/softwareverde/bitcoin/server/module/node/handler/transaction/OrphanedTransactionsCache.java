@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -57,7 +56,7 @@ public class OrphanedTransactionsCache {
 
     protected Boolean _transactionOutputExists(final TransactionOutputIdentifier transactionOutputIdentifier, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
-        final UnconfirmedTransactionOutputId unconfirmedTransactionOutputId = unconfirmedTransactionOutputDatabaseManager.findUnconfirmedTransactionOutput(transactionOutputIdentifier);
+        final UnconfirmedTransactionOutputId unconfirmedTransactionOutputId = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(transactionOutputIdentifier);
         if (unconfirmedTransactionOutputId != null) { return true; }
 
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();

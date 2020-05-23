@@ -141,12 +141,12 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 
     @Override
-    default MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+    default MedianBlockTime calculateMedianBlockTimeBefore(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    default MedianBlockTime calculateMedianBlockTimeStartingWithBlock(final BlockId blockId) throws DatabaseException {
+    default MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 

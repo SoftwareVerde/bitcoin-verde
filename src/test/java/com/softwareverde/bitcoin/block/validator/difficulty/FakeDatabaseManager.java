@@ -109,13 +109,13 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
             }
 
             @Override
-            public MedianBlockTime calculateMedianBlockTimeStartingWithBlock(final BlockId blockId) throws DatabaseException {
+            public MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
                 final Sha256Hash blockHash = this.getBlockHash(blockId);
                 return FakeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(this, blockHash);
             }
 
             @Override
-            public MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+            public MedianBlockTime calculateMedianBlockTimeBefore(final BlockId blockId) throws DatabaseException {
                 final BlockId previousBlockId = this.getAncestorBlockId(blockId, 1);
                 final Sha256Hash blockHash = this.getBlockHash(previousBlockId);
                 return FakeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(this, blockHash);

@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Jsonable;
 
-public interface Context extends Constable<ImmutableContext>, Jsonable {
+public interface TransactionContext extends Constable<ImmutableTransactionContext>, Jsonable {
     Long getBlockHeight();
     MedianBlockTime getMedianBlockTime();
     TransactionInput getTransactionInput();

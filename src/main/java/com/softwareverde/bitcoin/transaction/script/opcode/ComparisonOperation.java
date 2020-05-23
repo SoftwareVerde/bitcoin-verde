@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -48,12 +48,12 @@ public class ComparisonOperation extends SubTypedOperation {
         super(value, TYPE, opcode);
     }
 
-    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final Context context) {
+    protected Tuple<Long, Long> _popNumericTuple(final Stack stack, final TransactionContext transactionContext) {
         final Value value0 = stack.pop();
-        if (! Operation.validateMinimalEncoding(value0, context)) { return null; }
+        if (! Operation.validateMinimalEncoding(value0, transactionContext)) { return null; }
 
         final Value value1 = stack.pop();
-        if (! Operation.validateMinimalEncoding(value1, context)) { return null; }
+        if (! Operation.validateMinimalEncoding(value1, transactionContext)) { return null; }
 
         if (stack.didOverflow()) { return null; }
 
@@ -73,15 +73,15 @@ public class ComparisonOperation extends SubTypedOperation {
         return ByteUtil.areEqual(value0, value1);
     }
 
-    protected Boolean _opIsNumericallyEqual(final Stack stack, final Context context) {
-        final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, context);
+    protected Boolean _opIsNumericallyEqual(final Stack stack, final TransactionContext transactionContext) {
+        final Tuple<Long, Long> numericTuple = _popNumericTuple(stack, transactionContext);
         if (numericTuple == null) { return null; }
 
         return Util.areEqual(numericTuple.first, numericTuple.second);
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
         switch (_opcode) {
             case IS_EQUAL: {
                 final Boolean areEqual = _opIsEqual(stack);

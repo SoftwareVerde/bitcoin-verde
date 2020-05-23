@@ -11,8 +11,8 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.transaction.validator.LazyMutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;

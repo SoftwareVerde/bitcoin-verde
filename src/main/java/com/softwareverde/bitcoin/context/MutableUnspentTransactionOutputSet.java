@@ -1,31 +1,30 @@
-package com.softwareverde.bitcoin.transaction.validator;
+package com.softwareverde.bitcoin.context;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.constable.list.JavaListWrapper;
+import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.chain.segment.*;
+import com.softwareverde.bitcoin.context.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.*;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.*;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.*;
+import com.softwareverde.bitcoin.transaction.*;
+import com.softwareverde.bitcoin.transaction.input.*;
+import com.softwareverde.bitcoin.transaction.output.*;
+import com.softwareverde.bitcoin.transaction.output.identifier.*;
+import com.softwareverde.bitcoin.transaction.validator.*;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Util;
+import com.softwareverde.constable.list.*;
+import com.softwareverde.constable.list.mutable.*;
+import com.softwareverde.database.*;
+import com.softwareverde.logging.*;
+import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.util.*;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
-public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputSet {
+public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputContext {
     protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
     protected final HashMap<Sha256Hash, Long> _transactionBlockHeights = new HashMap<Sha256Hash, Long>();
     protected final HashMap<Long, Sha256Hash> _coinbaseTransactionHashesByBlockHeight = new HashMap<Long, Sha256Hash>();

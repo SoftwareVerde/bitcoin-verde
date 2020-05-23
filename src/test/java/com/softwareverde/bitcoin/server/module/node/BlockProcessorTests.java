@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.*;
 import com.softwareverde.bitcoin.block.validator.*;
 import com.softwareverde.bitcoin.chain.segment.*;
 import com.softwareverde.bitcoin.chain.time.*;
+import com.softwareverde.bitcoin.context.*;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.*;
 import com.softwareverde.bitcoin.server.module.node.database.block.*;
@@ -48,7 +49,7 @@ public class BlockProcessorTests extends IntegrationTest {
         public final FakeUnspentTransactionOutputSet unspentTransactionOutputSet = new FakeUnspentTransactionOutputSet();
         public final HashMap<Sha256Hash, MedianBlockTime> medianBlockTimes = new HashMap<Sha256Hash, MedianBlockTime>();
 
-        public final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(this.networkTime, this.medianBlockTime, new MedianBlockTimeSet() {
+        public final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(this.networkTime, this.medianBlockTime, new MedianBlockTimeContext() {
             @Override
             public MedianBlockTime getMedianBlockTime(final Sha256Hash blockHash) {
                 return TestHarness.this.medianBlockTimes.get(blockHash);

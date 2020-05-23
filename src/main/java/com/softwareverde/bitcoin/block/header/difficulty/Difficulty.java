@@ -1,16 +1,13 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.*;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.Constable;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.HexUtil;
+import com.softwareverde.constable.*;
+import com.softwareverde.constable.bytearray.*;
+import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.util.*;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.math.*;
 
 public interface Difficulty extends Constable<ImmutableDifficulty> {
     Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
@@ -53,7 +50,7 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     }
 
     static BigDecimal calculateHashesPerSecond(final Difficulty difficulty) {
-        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), BigDecimal.ROUND_HALF_UP));
+        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), RoundingMode.HALF_UP));
     }
 
     static ImmutableDifficulty decode(final ByteArray encodedBytes) {

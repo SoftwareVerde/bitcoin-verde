@@ -1,17 +1,15 @@
 package com.softwareverde.bitcoin.block.header;
 
-import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.block.header.difficulty.*;
+import com.softwareverde.bitcoin.merkleroot.*;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.json.Json;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.DateUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.*;
+import com.softwareverde.json.*;
+import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.util.*;
+import com.softwareverde.util.bytearray.*;
 
-import java.math.BigDecimal;
+import java.math.*;
 
 public class BlockHeaderDeflater {
     public static class BlockHeaderByteData {
@@ -90,7 +88,7 @@ public class BlockHeaderDeflater {
             final Difficulty difficulty = blockHeader.getDifficulty();
 
             final Json difficultyJson = new Json();
-            difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, BigDecimal.ROUND_HALF_UP));
+            difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, RoundingMode.HALF_UP));
             difficultyJson.put("value", difficulty.encode());
             difficultyJson.put("mask", difficulty.getBytes());
             json.put("difficulty", difficultyJson);

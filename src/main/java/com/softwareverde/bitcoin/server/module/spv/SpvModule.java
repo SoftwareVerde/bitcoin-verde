@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.block.validator.BlockHeaderValidatorFactory;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
@@ -674,8 +673,7 @@ public class SpvModule {
         }
 
         { // Initialize BlockHeaderDownloader...
-            final BlockHeaderValidatorFactory blockHeaderValidatorFactory = new BlockHeaderValidatorFactory(_mutableNetworkTime, medianBlockHeaderTime);
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, blockHeaderValidatorFactory, null, _mainThreadPool);
+            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, _mutableNetworkTime, null, _mainThreadPool);
             _blockHeaderDownloader.setMaxHeaderBatchSize(100);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }

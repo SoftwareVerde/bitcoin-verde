@@ -2,9 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.sync.blockloader;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
-import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;

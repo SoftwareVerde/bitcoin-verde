@@ -3,11 +3,10 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.validator.BlockHeaderValidatorFactory;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.BlockValidatorContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
@@ -37,7 +36,11 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.SpentTransactionOutputsCleanupService;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.handler.*;
+import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlockHandler;
@@ -45,14 +48,32 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Orphaned
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
-import com.softwareverde.bitcoin.server.module.node.manager.*;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
+import com.softwareverde.bitcoin.server.module.node.manager.RequestDataHandlerMonitor;
+import com.softwareverde.bitcoin.server.module.node.manager.TransactionRelay;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.DisabledBanFilter;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.NodeHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryAddressHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryBlockchainHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcDataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ServiceInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
-import com.softwareverde.bitcoin.server.module.node.sync.*;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequesterCore;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.DisabledTransactionOutputIndexer;
+import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
+import com.softwareverde.bitcoin.server.module.node.sync.TransactionOutputIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -63,9 +84,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.validator.LazyLoadingMedianBlockTimeSet;
-import com.softwareverde.bitcoin.transaction.validator.MedianBlockTimeSet;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -336,7 +354,7 @@ public class NodeModule {
             final String dataCacheDirectory = bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME;
             final File file = new File(dataCacheDirectory);
             if (! file.exists()) {
-                final Boolean wasSuccessful = file.mkdirs();
+                final boolean wasSuccessful = file.mkdirs();
                 if (! wasSuccessful) {
                     Logger.warn("Unable to create data cache directory: " + dataCacheDirectory);
                 }
@@ -344,22 +362,18 @@ public class NodeModule {
         }
 
         final MutableMedianBlockTime medianBlockTime;
-        final MutableMedianBlockTime medianBlockHeaderTime;
         { // Initialize MedianBlockTime...
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
-                MutableMedianBlockTime newMedianBlockHeaderTime = null;
                 try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                     newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
-                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.initializeMedianBlockHeaderTime();
                 }
                 catch (final DatabaseException exception) {
                     Logger.error(exception);
                     BitcoinUtil.exitFailure();
                 }
                 medianBlockTime = newMedianBlockTime;
-                medianBlockHeaderTime = newMedianBlockHeaderTime;
             }
         }
 
@@ -485,21 +499,13 @@ public class NodeModule {
             _transactionDownloader = new TransactionDownloader(databaseManagerFactory, _bitcoinNodeManager);
         }
 
-        final TransactionValidatorFactory transactionValidatorFactory;
-        { // Initialize the TransactionValidatorFactory...
-            final MedianBlockTimeSet medianBlockTimeSet = new LazyLoadingMedianBlockTimeSet(databaseManagerFactory);
-            transactionValidatorFactory = new TransactionValidatorFactory(_mutableNetworkTime, medianBlockTime, medianBlockTimeSet);
-        }
-
         { // Initialize the TransactionProcessor...
-            _transactionProcessor = new TransactionProcessor(databaseManagerFactory, transactionValidatorFactory);
+            _transactionProcessor = new TransactionProcessor(databaseManagerFactory, medianBlockTime, _mutableNetworkTime);
         }
-
-        final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, blockValidatorFactory, medianBlockTime, orphanedTransactionsCache, _blockStore, synchronizationStatusHandler);
+            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, orphanedTransactionsCache, _blockStore, synchronizationStatusHandler, _mutableNetworkTime);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
@@ -512,8 +518,7 @@ public class NodeModule {
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
 
         { // Initialize BlockHeaderDownloader...
-            final BlockHeaderValidatorFactory blockHeaderValidatorFactory = new BlockHeaderValidatorFactory(_mutableNetworkTime, medianBlockHeaderTime); // NOTICE: Uses block header time, not block time...
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, blockHeaderValidatorFactory, blockDownloadRequester, _mainThreadPool);
+            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, _mutableNetworkTime, blockDownloadRequester, _mainThreadPool);
         }
 
         { // Initialize BlockchainBuilder...
@@ -712,8 +717,7 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final BlockValidator blockValidator = blockValidatorFactory.newBlockValidator(databaseManagerFactory);
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime, _blockStore);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime, _blockStore);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);

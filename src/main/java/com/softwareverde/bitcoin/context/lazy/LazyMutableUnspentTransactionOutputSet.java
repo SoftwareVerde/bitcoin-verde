@@ -1,6 +1,7 @@
-package com.softwareverde.bitcoin.transaction.validator;
+package com.softwareverde.bitcoin.context.lazy;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -59,6 +60,10 @@ public class LazyMutableUnspentTransactionOutputSet extends MutableUnspentTransa
         catch (final DatabaseException exception) {
             Logger.debug(exception);
         }
+    }
+
+    public LazyMutableUnspentTransactionOutputSet() {
+        this(null);
     }
 
     public LazyMutableUnspentTransactionOutputSet(final FullNodeDatabaseManagerFactory databaseManagerFactory) {

@@ -1,18 +1,18 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.constable.util.*;
+import com.softwareverde.bitcoin.context.*;
+import com.softwareverde.bitcoin.transaction.*;
+import com.softwareverde.bitcoin.transaction.input.*;
+import com.softwareverde.bitcoin.transaction.output.*;
+import com.softwareverde.bitcoin.transaction.output.identifier.*;
+import com.softwareverde.bitcoin.transaction.validator.*;
+import com.softwareverde.constable.list.*;
+import com.softwareverde.constable.list.immutable.*;
+import com.softwareverde.constable.list.mutable.*;
+import com.softwareverde.database.*;
+import com.softwareverde.logging.*;
+import com.softwareverde.security.hash.sha256.*;
 
 /**
  * Calculates the total fees available for all Transactions sent to executeTask.
@@ -49,13 +49,13 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         }
     }
 
-    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final UnspentTransactionOutputContext _unspentTransactionOutputSet;
     protected final BlockOutputs _blockOutputs;
 
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
     protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
+        final UnspentTransactionOutputContext unspentTransactionOutputSet = _unspentTransactionOutputSet;
         if (unspentTransactionOutputSet != null) {
             final TransactionOutput transactionOutput = unspentTransactionOutputSet.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) { return transactionOutput; }
@@ -97,7 +97,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
 
     protected Long _totalFees = 0L;
 
-    public TotalExpenditureTaskHandler(final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs) {
+    public TotalExpenditureTaskHandler(final UnspentTransactionOutputContext unspentTransactionOutputSet, final BlockOutputs blockOutputs) {
         _unspentTransactionOutputSet = unspentTransactionOutputSet;
         _blockOutputs = blockOutputs;
     }

@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.logging.Logger;
@@ -39,7 +39,7 @@ public class ControlOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean shouldExecute(final Stack stack, final ControlState controlState, final Context context) {
+    public Boolean shouldExecute(final Stack stack, final ControlState controlState, final TransactionContext transactionContext) {
         // NOTE: IF, NOT_IF, ELSE, and END_IF are always "executed", but their encapsulated operations may not be...
         switch (_opcode) {
             case IF:
@@ -52,13 +52,13 @@ public class ControlOperation extends SubTypedOperation {
             }
 
             default: {
-                return super.shouldExecute(stack, controlState, context);
+                return super.shouldExecute(stack, controlState, transactionContext);
             }
         }
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
         if (! _opcode.isEnabled()) {
             Logger.debug("Opcode is disabled: " + _opcode);
             return false;

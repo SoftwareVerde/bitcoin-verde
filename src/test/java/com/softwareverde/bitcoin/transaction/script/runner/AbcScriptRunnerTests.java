@@ -4,8 +4,6 @@ import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
@@ -22,11 +20,10 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -545,7 +542,7 @@ public class AbcScriptRunnerTests {
             transactionInput.setPreviousOutputTransactionHash(transactionBeingSpent.getHash());
             transaction.setTransactionInput(0, transactionInput);
 
-            final MutableContext context = new MutableContext();
+            final MutableTransactionContext context = new MutableTransactionContext();
             context.setTransaction(transaction); // Set the LockTime to zero...
             context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
             context.setTransactionInput(transactionInput);

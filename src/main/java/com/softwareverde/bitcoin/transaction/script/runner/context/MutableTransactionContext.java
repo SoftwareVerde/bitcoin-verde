@@ -11,16 +11,16 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
-public class MutableContext implements Context, Const {
-    public static MutableContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent) {
-        return MutableContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE);
+public class MutableTransactionContext implements TransactionContext, Const {
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent) {
+        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE);
     }
 
-    public static MutableContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime) {
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime) {
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         final TransactionInput signedTransactionInput = signedTransactionInputs.get(transactionInputIndex);
 
-        final MutableContext mutableContext = new MutableContext();
+        final MutableTransactionContext mutableContext = new MutableTransactionContext();
         mutableContext.setCurrentScript(null);
         mutableContext.setTransactionInputIndex(transactionInputIndex);
         mutableContext.setTransactionInput(signedTransactionInput);
@@ -44,20 +44,20 @@ public class MutableContext implements Context, Const {
     protected Integer _currentScriptIndex = 0;
     protected Integer _scriptLastCodeSeparatorIndex = 0;
 
-    public MutableContext() { }
+    public MutableTransactionContext() { }
 
-    public MutableContext(final Context context) {
-        _blockHeight = context.getBlockHeight();
-        _medianBlockTime = context.getMedianBlockTime();
-        _transaction = ConstUtil.asConstOrNull(context.getTransaction());
-        _transactionInputIndex = context.getTransactionInputIndex();
-        _transactionInput = ConstUtil.asConstOrNull(context.getTransactionInput());
-        _transactionOutput = ConstUtil.asConstOrNull(context.getTransactionOutput());
+    public MutableTransactionContext(final TransactionContext transactionContext) {
+        _blockHeight = transactionContext.getBlockHeight();
+        _medianBlockTime = transactionContext.getMedianBlockTime();
+        _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
+        _transactionInputIndex = transactionContext.getTransactionInputIndex();
+        _transactionInput = ConstUtil.asConstOrNull(transactionContext.getTransactionInput());
+        _transactionOutput = ConstUtil.asConstOrNull(transactionContext.getTransactionOutput());
 
-        final Script currentScript = context.getCurrentScript();
+        final Script currentScript = transactionContext.getCurrentScript();
         _currentScript = ConstUtil.asConstOrNull(currentScript);
-        _currentScriptIndex = context.getScriptIndex();
-        _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
+        _currentScriptIndex = transactionContext.getScriptIndex();
+        _scriptLastCodeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
     }
 
     public void setBlockHeight(final Long blockHeight) {
@@ -147,8 +147,8 @@ public class MutableContext implements Context, Const {
     }
 
     @Override
-    public ImmutableContext asConst() {
-        return new ImmutableContext(this);
+    public ImmutableTransactionContext asConst() {
+        return new ImmutableTransactionContext(this);
     }
 
     @Override

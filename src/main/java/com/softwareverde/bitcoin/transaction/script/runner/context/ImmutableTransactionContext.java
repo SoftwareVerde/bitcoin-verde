@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
 
-public class ImmutableContext implements Context, Const {
+public class ImmutableTransactionContext implements TransactionContext, Const {
     protected Long _blockHeight;
     protected MedianBlockTime _medianBlockTime;
     protected Transaction _transaction;
@@ -22,18 +22,18 @@ public class ImmutableContext implements Context, Const {
     protected Integer _currentScriptIndex;
     protected Integer _scriptLastCodeSeparatorIndex;
 
-    public ImmutableContext(final Context context) {
-        _blockHeight = context.getBlockHeight();
-        _medianBlockTime = ConstUtil.asConstOrNull(context.getMedianBlockTime());
-        _transaction = ConstUtil.asConstOrNull(context.getTransaction());
-        _transactionInputIndex = context.getTransactionInputIndex();
-        _transactionInput = ConstUtil.asConstOrNull(context.getTransactionInput());
-        _transactionOutput = ConstUtil.asConstOrNull(context.getTransactionOutput());
+    public ImmutableTransactionContext(final TransactionContext transactionContext) {
+        _blockHeight = transactionContext.getBlockHeight();
+        _medianBlockTime = ConstUtil.asConstOrNull(transactionContext.getMedianBlockTime());
+        _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
+        _transactionInputIndex = transactionContext.getTransactionInputIndex();
+        _transactionInput = ConstUtil.asConstOrNull(transactionContext.getTransactionInput());
+        _transactionOutput = ConstUtil.asConstOrNull(transactionContext.getTransactionOutput());
 
-        final Script currentScript = context.getCurrentScript();
+        final Script currentScript = transactionContext.getCurrentScript();
         _currentScript = (currentScript != null ? ConstUtil.asConstOrNull(currentScript) : null);
-        _currentScriptIndex = context.getScriptIndex();
-        _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
+        _currentScriptIndex = transactionContext.getScriptIndex();
+        _scriptLastCodeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
     }
 
     @Override
@@ -82,7 +82,7 @@ public class ImmutableContext implements Context, Const {
     }
 
     @Override
-    public ImmutableContext asConst() {
+    public ImmutableTransactionContext asConst() {
         return this;
     }
 

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
@@ -27,7 +27,7 @@ public class NothingOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
         if (! _opcode.isEnabled()) {
             Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
             return false;

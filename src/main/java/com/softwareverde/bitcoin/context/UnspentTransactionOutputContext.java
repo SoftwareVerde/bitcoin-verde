@@ -1,12 +1,12 @@
-package com.softwareverde.bitcoin.transaction.validator;
+package com.softwareverde.bitcoin.context;
 
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.output.*;
+import com.softwareverde.bitcoin.transaction.output.identifier.*;
+import com.softwareverde.constable.list.*;
+import com.softwareverde.constable.list.immutable.*;
+import com.softwareverde.security.hash.sha256.*;
 
-public interface UnspentTransactionOutputSet {
+public interface UnspentTransactionOutputContext {
 
     /**
      * Two sets of coinbase transactions share duplicate hashes.  Before Bip34 it was trivially possible to create

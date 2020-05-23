@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -19,7 +19,7 @@ public class BitwiseOperationTests {
         stack.push(Value.fromBytes(HexUtil.hexStringToByteArray(startingValueHexString)));
         stack.push(Value.fromInteger(bitShiftCount));
 
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         context.setBlockHeight(556767L);
         final ControlState controlState = new ControlState();
 

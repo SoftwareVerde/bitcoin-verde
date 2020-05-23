@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.test.fake;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputSet;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
