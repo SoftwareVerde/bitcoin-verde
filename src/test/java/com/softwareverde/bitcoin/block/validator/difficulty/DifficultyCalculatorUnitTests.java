@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeBlockHeaderStub;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -166,7 +167,8 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         // Setup
         final FakeDatabaseManager databaseManager = new FakeDatabaseManager();
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+        final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(null, databaseManager);
+        final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         {
@@ -206,7 +208,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         }
 
         // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(587198L);
 
         // Assert
         Assert.assertEquals(blockHeader.getDifficulty(), difficulty);

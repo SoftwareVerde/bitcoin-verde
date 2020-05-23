@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.fake.database.FakeBlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
@@ -109,13 +109,13 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
             }
 
             @Override
-            public MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+            public MutableMedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
                 final Sha256Hash blockHash = this.getBlockHash(blockId);
                 return FakeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(this, blockHash);
             }
 
             @Override
-            public MedianBlockTime calculateMedianBlockTimeBefore(final BlockId blockId) throws DatabaseException {
+            public MutableMedianBlockTime calculateMedianBlockTimeBefore(final BlockId blockId) throws DatabaseException {
                 final BlockId previousBlockId = this.getAncestorBlockId(blockId, 1);
                 final Sha256Hash blockHash = this.getBlockHash(previousBlockId);
                 return FakeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(this, blockHash);

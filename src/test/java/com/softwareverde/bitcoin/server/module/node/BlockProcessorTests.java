@@ -1,34 +1,41 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.block.validator.*;
-import com.softwareverde.bitcoin.chain.segment.*;
-import com.softwareverde.bitcoin.chain.time.*;
-import com.softwareverde.bitcoin.context.*;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.query.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.*;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.*;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.*;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.*;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.*;
-import com.softwareverde.bitcoin.test.*;
-import com.softwareverde.bitcoin.test.fake.*;
-import com.softwareverde.bitcoin.transaction.*;
-import com.softwareverde.bitcoin.transaction.output.*;
-import com.softwareverde.bitcoin.transaction.output.identifier.*;
-import com.softwareverde.bitcoin.transaction.validator.*;
-import com.softwareverde.constable.bytearray.*;
+import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.test.BlockData;
+import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.database.*;
-import com.softwareverde.network.time.*;
-import com.softwareverde.security.hash.sha256.*;
-import com.softwareverde.util.*;
-import org.junit.*;
-
-import java.util.*;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.BitcoinReflectionUtil;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 public class BlockProcessorTests extends IntegrationTest {
     protected static Long COINBASE_MATURITY = null;
@@ -44,20 +51,10 @@ public class BlockProcessorTests extends IntegrationTest {
     protected class TestHarness {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
-        public final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         public final FakeUnspentTransactionOutputSet unspentTransactionOutputSet = new FakeUnspentTransactionOutputSet();
-        public final HashMap<Sha256Hash, MedianBlockTime> medianBlockTimes = new HashMap<Sha256Hash, MedianBlockTime>();
 
-        public final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory(this.networkTime, this.medianBlockTime, new MedianBlockTimeContext() {
-            @Override
-            public MedianBlockTime getMedianBlockTime(final Sha256Hash blockHash) {
-                return TestHarness.this.medianBlockTimes.get(blockHash);
-            }
-        });
-        public final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactory(this.transactionValidatorFactory, this.networkTime, this.medianBlockTime);
-
-        public final BlockProcessor blockProcessor = new BlockProcessor(_fullNodeDatabaseManagerFactory, _masterInflater, this.blockValidatorFactory, this.medianBlockTime, this.orphanedTransactionsCache, _blockStore, _synchronizationStatus);
+        public final BlockProcessor blockProcessor = new BlockProcessor(_fullNodeDatabaseManagerFactory, _masterInflater, this.orphanedTransactionsCache, _blockStore, _synchronizationStatus, this.networkTime);
 
         public TestHarness() {
             blockProcessor.setMaxThreadCount(1);

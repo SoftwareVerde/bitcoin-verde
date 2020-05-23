@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -14,8 +16,8 @@ import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -648,7 +650,9 @@ public class HistoricTransactionsTests {
         final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
         final NetworkTime networkTime = ImmutableNetworkTime.fromSeconds(1529680230L);
 
-        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(null, null, null, networkTime, medianBlockTime);
+        final UnspentTransactionOutputContext unspentTransactionOutputContext = null; // TODO
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unspentTransactionOutputContext);
+        final TransactionValidatorCore<?> transactionValidator = new TransactionValidatorCore<>(transactionValidatorContext);
 
         // Action
         final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(transactionContext.getTransaction());
