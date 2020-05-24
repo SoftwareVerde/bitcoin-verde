@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
@@ -501,7 +501,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet();
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
-                    final BlockValidatorContext blockValidatorContext = new BlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, databaseManager, _networkTime);
                     final BlockValidator<?> blockValidator = new BlockValidator<>(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }

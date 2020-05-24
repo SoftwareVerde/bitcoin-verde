@@ -5,11 +5,12 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 
-public class FakeUnspentTransactionOutputSet implements UnspentTransactionOutputContext {
+public class FakeUnspentTransactionOutputContext implements UnspentTransactionOutputContext {
     protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
     protected final HashMap<TransactionOutputIdentifier, Boolean> _transactionCoinbaseStatuses = new HashMap<TransactionOutputIdentifier, Boolean>();
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _transactionBlockHashes = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
@@ -17,21 +18,36 @@ public class FakeUnspentTransactionOutputSet implements UnspentTransactionOutput
 
     @Override
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        if (! _transactionOutputs.containsKey(transactionOutputIdentifier)) {
+            Logger.debug("Requested non-existent output: " + transactionOutputIdentifier);
+        }
         return _transactionOutputs.get(transactionOutputIdentifier);
     }
 
     @Override
     public Long getBlockHeight(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
+            Logger.debug("Requested non-existent output blockHeight: " + transactionOutputIdentifier);
+        }
+
         return _transactionBlockHeights.get(transactionOutputIdentifier);
     }
 
     @Override
     public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
+            Logger.debug("Requested non-existent output Block hash: " + transactionOutputIdentifier);
+        }
+
         return _transactionBlockHashes.get(transactionOutputIdentifier);
     }
 
     @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
+            Logger.debug("Requested non-existent coinbase output: " + transactionOutputIdentifier);
+        }
+
         return _transactionCoinbaseStatuses.get(transactionOutputIdentifier);
     }
 

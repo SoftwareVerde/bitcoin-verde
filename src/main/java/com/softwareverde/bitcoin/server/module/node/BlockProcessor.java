@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.BlockHeaderValidatorContext;
-import com.softwareverde.bitcoin.context.BlockValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
@@ -279,7 +279,7 @@ public class BlockProcessor {
                 final BlockValidator<?> blockValidator;
                 {
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                    final BlockValidatorContext blockValidatorContext = new BlockValidatorContext(blockchainSegmentId, unspentTransactionOutputContext, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputContext, databaseManager, _networkTime);
                     blockValidatorContext.loadBlock(blockHeight, blockId, block);
                     blockValidator = new BlockValidator<>(blockValidatorContext);
                 }

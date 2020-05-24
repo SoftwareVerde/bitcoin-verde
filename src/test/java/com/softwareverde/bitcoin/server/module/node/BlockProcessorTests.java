@@ -19,7 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -52,7 +52,7 @@ public class BlockProcessorTests extends IntegrationTest {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
         public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
-        public final FakeUnspentTransactionOutputSet unspentTransactionOutputSet = new FakeUnspentTransactionOutputSet();
+        public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
 
         public final BlockProcessor blockProcessor = new BlockProcessor(_fullNodeDatabaseManagerFactory, _masterInflater, this.orphanedTransactionsCache, _blockStore, _synchronizationStatus, this.networkTime);
 
