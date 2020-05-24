@@ -8,6 +8,14 @@ public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTim
     Long GENESIS_BLOCK_TIMESTAMP = 1231006505L; // In seconds.
     ImmutableMedianBlockTime MAX_VALUE = new ImmutableMedianBlockTime(Long.MAX_VALUE);
 
+    static MedianBlockTime fromSeconds(final Long medianBlockTimeInSeconds) {
+        return ImmutableMedianBlockTime.fromSeconds(medianBlockTimeInSeconds);
+    }
+
+    static MedianBlockTime fromMilliseconds(final Long medianBlockTimeInMilliseconds) {
+        return ImmutableMedianBlockTime.fromMilliseconds(medianBlockTimeInMilliseconds);
+    }
+
     @Override
     ImmutableMedianBlockTime asConst();
 }
