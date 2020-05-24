@@ -52,8 +52,8 @@ public class Secp256k1Tests {
             // Action
             final Signature signature = Secp256k1.sign(privateKey, message);
             long start = System.currentTimeMillis();
-            final Boolean signatureIsValid = NativeSecp256k1.verifySignature(message, signature.encode().getBytes(), publicKey.getBytes());
-            elapsed += System.currentTimeMillis() - start;
+            final boolean signatureIsValid = NativeSecp256k1.verifySignature(message, signature.encode().getBytes(), publicKey.getBytes());
+            elapsed += (System.currentTimeMillis() - start);
 
             // Assert
             Assert.assertTrue(signatureIsValid);
