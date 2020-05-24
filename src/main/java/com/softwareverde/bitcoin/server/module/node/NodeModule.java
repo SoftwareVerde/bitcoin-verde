@@ -3,10 +3,10 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockValidatorContext;
+import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
@@ -536,7 +536,8 @@ public class NodeModule {
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
-            _transactionOutputIndexer = new TransactionOutputIndexer(databaseManagerFactory);
+            final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory);
+            _transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
             _transactionOutputIndexer.setOnSleepCallback(new Runnable() {
                 @Override
                 public void run() {
