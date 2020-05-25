@@ -27,8 +27,6 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
@@ -39,31 +37,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.sql.Connection;
-import java.util.concurrent.atomic.AtomicInteger;
-
 public class BlockValidatorTests extends UnitTest {
     protected static final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
-
-//    private void _storeBlocks(final Integer blockCount, final Long blockHeight, final Long timestamp, final FakeBlockValidatorContext blockValidatorContext) throws Exception {
-//        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-//        final AddressInflater addressInflater = new AddressInflater();
-//        final TransactionInflater transactionInflater = new TransactionInflater();
-//
-//        for (int i = 0; i < blockCount; ++i) {
-//            MutableBlock block;
-//            final BlockHeader blockHeader = inflateBlockHeader(blockHeaderInflater, BlockData.MainChain.GENESIS_BLOCK);
-//            final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
-//            listBuilder.add(transactionInflater.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.uncompressedFromPrivateKey(_privateKey), (50 * Transaction.SATOSHIS_PER_BITCOIN)));
-//            block = new MutableBlock(blockHeader, listBuilder.build());
-//
-//            block.setPreviousBlockHash(Sha256Hash.EMPTY_HASH);
-//            block.setNonce(block.getNonce() + 1);
-//            block.setTimestamp(timestamp + i);
-//
-//            blockValidatorContext.addBlock(block, blockHeight, null, null);
-//        }
-//    }
 
     protected static MutableBlock createFakeBlockWithTimestamp(final Long timestamp, final Long blockHeight) throws Exception {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
@@ -130,40 +105,69 @@ public class BlockValidatorTests extends UnitTest {
         Assert.assertTrue(blockIsValid);
     }
 
-    // Test disabled on 2019-02-16.
-    //   The following Test is disabled because the test block (ForkChain4.BLOCK_1) was mined with an invalid coinbase TransactionInput (prevoutIndex is 0, not -1).
-    //   To re-enable this test, a block must be mined that spends its own coinbase.
-    //   Mining this custom block cannot be done via Stratum since Stratum mutates the coinbase transaction hash via extraNonce2.  Instead, the CPU miner
-    //   must be used.
-    // @Test
-    // public void should_validate_transactions_that_spend_its_coinbase() throws Exception {
-    //     // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
-    //
-    //     try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-    //         // Setup
-    //         final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-    //
-    //         final BlockInflater blockInflater = new BlockInflater();
-    //         final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
-    //
-    //         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-    //         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-    //             final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-    //         }
-    //
-    //         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
-    //         final BlockId blockId;
-    //         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-    //             blockId = blockDatabaseManager.insertBlock(block);
-    //         }
-    //
-    //         // Action
-    //         final BlockValidationResult blockIsValid = blockValidator.validateBlock(blockId, block);
-    //
-    //         // Assert
-    //         Assert.assertTrue(blockIsValid.isValid);
-    //     }
-    // }
+    @Test
+    public void should_not_validate_block_that_spends_its_own_coinbase() {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+
+        final Block genesisBlock = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
+
+        final Block originalBlock01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+        final MutableBlock modifiedBlock01 = new MutableBlock(originalBlock01) {
+            @Override
+            public Sha256Hash getHash() {
+                return originalBlock01.getHash();
+            }
+
+            @Override
+            public Boolean isValid() {
+                return originalBlock01.isValid();
+            }
+        };
+
+        { // Assert the Block is valid without the Transaction spending its coinbase...
+            final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+            final BlockValidator<?> blockValidator = new BlockValidator<>(blockValidatorContext);
+            blockValidatorContext.addBlock(genesisBlock, 0L);
+            blockValidatorContext.addBlock(modifiedBlock01, 1L);
+
+            final BlockValidationResult blockIsValid = blockValidator.validateBlock(modifiedBlock01, 1L);
+            Assert.assertTrue(blockIsValid.isValid);
+        }
+
+        final Transaction signedTransaction;
+        {
+            final AddressInflater addressInflater = new AddressInflater();
+            final Transaction transactionToSpend = modifiedBlock01.getCoinbaseTransaction();
+            final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
+            transactionOutputRepository.put(new TransactionOutputIdentifier(transactionToSpend.getHash(), 0), transactionToSpend.getTransactionOutputs().get(0));
+
+            final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
+            final MutableTransaction unsignedTransaction = TransactionValidatorTests.createTransactionContaining(
+                TransactionValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
+                TransactionValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
+            );
+
+            // Sign the transaction...
+            final TransactionSigner transactionSigner = new TransactionSigner();
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+        }
+
+        modifiedBlock01.addTransaction(signedTransaction);
+
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final BlockValidator<?> blockValidator = new BlockValidator<>(blockValidatorContext);
+        blockValidatorContext.addBlock(genesisBlock, 0L);
+        blockValidatorContext.addBlock(modifiedBlock01, 1L);
+
+        // Action
+        final BlockValidationResult blockIsValid = blockValidator.validateBlock(modifiedBlock01, 1L);
+
+        // Assert
+        Assert.assertFalse(blockIsValid.isValid);
+    }
 
     @Test
     public void block_should_be_invalid_if_its_input_only_exists_within_a_different_chain() throws Exception {
@@ -260,8 +264,6 @@ public class BlockValidatorTests extends UnitTest {
         final BlockValidator<?> blockValidator = new BlockValidator<>(blockValidatorContext);
 
         final Block genesisBlock = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
-        blockValidatorContext.addBlock(genesisBlock, 0L);
-
         blockValidatorContext.addBlock(genesisBlock, 0L);
 
         { // Store the block that is 2016 blocks before the firstBlockWithDifficultyAdjustment
@@ -482,7 +484,7 @@ public class BlockValidatorTests extends UnitTest {
                 were broadcast as a block (with ordering being [<Coinbase>, B1, C1, B2]), would it be considered a valid
                 block? If so, what happens if/when CTOR is implemented?
 
-            Until clear consensus is decided to handle this situation, Bitcoin-Verde considers duplicate transactions in the
+            Until clear consensus is decided to handle this situation, Bitcoin Verde considers duplicate transactions in the
             same block an invalid block.
 
          */
@@ -799,114 +801,5 @@ public class BlockValidatorTests extends UnitTest {
 //            }
 //        }
         Assert.fail();
-    }
-
-    @Test
-    public void block_validator_should_close_all_database_connections_when_multithreaded_validation_is_executed() throws Exception {
-//        // This test stores a "big block" (1,000+ Txns) and then validates it multiple times with a DatabaseConnectionPool, a DatabaseCache, and a varying number of validation threads.
-//        // The Block should be validated correctly and all of its transactions should closed after closing the pool (no DatabaseConnections were leaked).
-//        // The DatabaseConnectionPool is configured to provide less DatabaseConnections (16) than is required for the BlockValidator with 32 threads.  This tests that the Validator
-//        //  properly waits for a connection to become available.  Alternatively, the DeadlockTimeout property of the DatabaseConnectionPool can be configured to surpass the maximum connection count.
-//
-//        // Setup
-//        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(UtxoCount.wrap(1048576L));
-//        try (
-//                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-//                final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-//                final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()
-//        ) {
-//            final BlockInflater blockInflater = new BlockInflater();
-//            final DatabaseConnection databaseConnection = _database.newConnection();
-//            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-//            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-//
-//            final DatabaseConnectionFactory coreDatabaseConnectionFactory = _database.getDatabaseConnectionFactory();
-//            final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory() {
-//                @Override
-//                public DatabaseConnection newConnection() throws DatabaseException {
-//                    return new MysqlDatabaseConnectionWrapper(new MonitoredDatabaseConnection(coreDatabaseConnectionFactory.newConnection().getRawConnection()));
-//                }
-//
-//                @Override
-//                public void close() throws DatabaseException {
-//                    coreDatabaseConnectionFactory.close();
-//                }
-//            };
-//            // final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
-//            final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-//            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
-//
-//            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-//            final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
-//            blockValidator.setMaxThreadCount(8);
-//
-//            final String bigBlockPreRequisite = IoUtil.getResource("/blocks/0000000000000000013C4F15DDF9040B6210DC86DFBE7371417EF83EA7BFBA34");
-//            final String bigBlock = IoUtil.getResource("/blocks/00000000000000000051CFB8C9B8191EC4EF14F8F44F3E2290D67A8A0A29DD05");
-//
-//            Block lastBlock = null;
-//            BlockId lastBlockId = null;
-//            int i = 0;
-//            for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, bigBlockPreRequisite, bigBlock }) {
-//                final MutableBlock block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    if (i == 3) {
-//                        databaseConnection.executeSql(new Query("UPDATE blocks SET hash = ? WHERE id = ?").setParameter(block.getPreviousBlockHash()).setParameter(lastBlockId));
-//
-//                        lastBlockId = blockHeaderDatabaseManager.storeBlockHeader(block);
-//                        lastBlock = block;
-//                        i += 1;
-//                        continue;
-//                    }
-//                    else if (i == 4) {
-//                        boolean isCoinbase = true;
-//                        for (final Transaction transaction : block.getTransactions()) {
-//                            if (! isCoinbase) {
-//                                TransactionTestUtil.createRequiredTransactionInputs(databaseManager, BlockchainSegmentId.wrap(1L), transaction);
-//                            }
-//                            isCoinbase = false;
-//                        }
-//                    }
-//                    lastBlockId = blockDatabaseManager.storeBlock(block);
-//                    lastBlock = block;
-//                    i += 1;
-//                }
-//            }
-//
-//            for (int j = 0; j < 6; ++j) {
-//                final int threadCount = (int) Math.pow(2, j);
-//                Logger.info("");
-//                Logger.info("Validating Block w/ " + threadCount + " threads.");
-//                blockValidator.setMaxThreadCount(threadCount);
-//                blockValidator.validateBlock(lastBlockId, lastBlock);
-//
-//                Assert.assertEquals(0, MonitoredDatabaseConnection.databaseConnectionCount.get());
-//            }
-//
-//            // Action
-//            final BlockValidationResult blockValidationResult = blockValidator.validateBlock(lastBlockId, lastBlock);
-//            final Boolean blockIsValid = blockValidationResult.isValid;
-//
-//            // Assert
-//            Assert.assertTrue(blockIsValid);
-//
-//            readUncommittedDatabaseConnectionFactory.close();
-//            Assert.assertEquals(0, MonitoredDatabaseConnection.databaseConnectionCount.get());
-//        }
-        Assert.fail();
-    }
-}
-
-class MonitoredDatabaseConnection extends MysqlDatabaseConnection {
-    public static final AtomicInteger databaseConnectionCount = new AtomicInteger(0);
-
-    public MonitoredDatabaseConnection(final Connection rawConnection) {
-        super(rawConnection);
-        databaseConnectionCount.incrementAndGet();
-    }
-
-    @Override
-    public void close() throws DatabaseException {
-        databaseConnectionCount.decrementAndGet();
-        super.close();
     }
 }

@@ -55,7 +55,7 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public MedianBlockTime getMedianBlockTime(final Long blockHeight) {
         if (! _medianBlockTimes.containsKey(blockHeight)) {
-            Logger.debug("Requested non-existent MedianBlockTime: " + blockHeight);
+            Logger.debug("Requested non-existent MedianBlockTime: " + blockHeight, new Exception());
         }
 
         return _medianBlockTimes.get(blockHeight);
@@ -64,7 +64,7 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public ChainWork getChainWork(final Long blockHeight) {
         if (! _chainWorks.containsKey(blockHeight)) {
-            Logger.debug("Requested non-existent ChainWork: " + blockHeight);
+            Logger.debug("Requested non-existent ChainWork: " + blockHeight, new Exception());
         }
 
         return _chainWorks.get(blockHeight);
@@ -73,7 +73,7 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public BlockHeader getBlockHeader(final Long blockHeight) {
         if (! _medianBlockTimes.containsKey(blockHeight)) {
-            Logger.debug("Requested non-existent BlockHeader: " + blockHeight);
+            Logger.debug("Requested non-existent BlockHeader: " + blockHeight, new Exception());
         }
 
         return _blocks.get(blockHeight);

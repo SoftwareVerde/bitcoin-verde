@@ -57,10 +57,12 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
     protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        final Boolean wasSpent = _spentOutputsTracker.markOutputAsSpent(transactionOutputIdentifier);
-        if (Util.coalesce(wasSpent, false)) {
-            Logger.debug("Output already spent within Block: " + transactionOutputIdentifier);
-            return null;
+        { // Ensure the output hasn't been spent already by this block...
+            final Boolean wasAlreadySpent = _spentOutputsTracker.markOutputAsSpent(transactionOutputIdentifier);
+            if (wasAlreadySpent) {
+                Logger.debug("Output already spent within Block: " + transactionOutputIdentifier);
+                return null;
+            }
         }
 
         final UnspentTransactionOutputContext unspentTransactionOutputSet = _unspentTransactionOutputSet;

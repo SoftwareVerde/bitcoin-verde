@@ -19,7 +19,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     @Override
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if (! _transactionOutputs.containsKey(transactionOutputIdentifier)) {
-            Logger.debug("Requested non-existent output: " + transactionOutputIdentifier);
+            Logger.debug("Requested non-existent output: " + transactionOutputIdentifier, new Exception());
         }
         return _transactionOutputs.get(transactionOutputIdentifier);
     }
@@ -27,7 +27,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     @Override
     public Long getBlockHeight(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
-            Logger.debug("Requested non-existent output blockHeight: " + transactionOutputIdentifier);
+            Logger.debug("Requested non-existent output blockHeight: " + transactionOutputIdentifier, new Exception());
         }
 
         return _transactionBlockHeights.get(transactionOutputIdentifier);
@@ -36,7 +36,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     @Override
     public Sha256Hash getBlockHash(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
-            Logger.debug("Requested non-existent output Block hash: " + transactionOutputIdentifier);
+            Logger.debug("Requested non-existent output Block hash: " + transactionOutputIdentifier, new Exception());
         }
 
         return _transactionBlockHashes.get(transactionOutputIdentifier);
@@ -45,7 +45,7 @@ public class FakeUnspentTransactionOutputContext implements UnspentTransactionOu
     @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if (! _transactionBlockHeights.containsKey(transactionOutputIdentifier)) {
-            Logger.debug("Requested non-existent coinbase output: " + transactionOutputIdentifier);
+            Logger.debug("Requested non-existent coinbase output: " + transactionOutputIdentifier, new Exception());
         }
 
         return _transactionCoinbaseStatuses.get(transactionOutputIdentifier);
