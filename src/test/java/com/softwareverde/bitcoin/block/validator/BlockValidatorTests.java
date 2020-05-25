@@ -9,11 +9,22 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeBlockValidatorContext;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.signer.HashMapTransactionOutputRepository;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -354,108 +365,102 @@ public class BlockValidatorTests extends UnitTest {
 
     @Test
     public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
-//        // Setup
-//        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-//            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-//            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-//
-//            final BlockInflater blockInflater = new BlockInflater();
-//            final AddressInflater addressInflater = new AddressInflater();
-//            final TransactionSigner transactionSigner = new TransactionSigner();
-//            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-//            final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, NetworkTime.MAX_VALUE, MedianBlockTime.MAX_VALUE);
-//            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
-//
-//            final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
-//
-//            Block lastBlock = null;
-//            BlockId lastBlockId = null;
-//            for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
-//                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    lastBlockId = blockDatabaseManager.storeBlock(block);
-//                }
-//                lastBlock = block;
-//            }
-//            Assert.assertNotNull(lastBlock);
-//            Assert.assertNotNull(lastBlockId);
-//
-//            final PrivateKey privateKey = PrivateKey.createNewKey();
-//
-//            final Transaction transactionToSpend;
-//            final MutableBlock mutableBlock = new MutableBlock() {
-//                @Override
-//                public Sha256Hash getHash() {
-//                    return Sha256Hash.fromHexString("0000000082B5015589A3FDF2D4BAFF403E6F0BE035A5D9742C1CAE6295464449"); // Block 3's hash...
-//                }
-//
-//                @Override
-//                public Boolean isValid() {
-//                    return true;
-//                }
-//            };
-//
-//            {
-//                mutableBlock.setDifficulty(lastBlock.getDifficulty());
-//                mutableBlock.setNonce(lastBlock.getNonce());
-//                mutableBlock.setTimestamp(lastBlock.getTimestamp());
-//                mutableBlock.setPreviousBlockHash(lastBlock.getHash());
-//                mutableBlock.setVersion(lastBlock.getVersion());
-//
-//                // Create a transaction that will be spent in our signed transaction.
-//                //  This transaction will create an output that can be spent by our private key.
-//                transactionToSpend = TransactionValidatorTests._createTransactionContaining(
-//                    TransactionValidatorTests._createCoinbaseTransactionInput(),
-//                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
-//                );
-//
-//                mutableBlock.addTransaction(transactionToSpend);
-//
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    blockDatabaseManager.storeBlock(mutableBlock);
-//                }
-//            }
-//
-//            final Transaction signedTransaction;
-//            {
-//                final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
-//                    TransactionValidatorTests._createTransactionInputThatSpendsTransaction(transactionToSpend),
-//                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 1L * Transaction.SATOSHIS_PER_BITCOIN)
-//                );
-//
-//                // Sign the transaction..
-//                final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
-//                final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
-//                signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
-//
-//                transactionDatabaseManager.storeTransaction(signedTransaction);
-//            }
-//
-//            { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
-//                final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests.calculateBlockHeight(databaseManager), signedTransaction, false);
-//                Assert.assertTrue(isValid);
-//            }
-//
-//            mutableBlock.addTransaction(signedTransaction);
-//            mutableBlock.addTransaction(signedTransaction); // Add the valid transaction twice...
-//
-//            final BlockId blockId;
-//            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                try {
-//                    blockId = blockDatabaseManager.storeBlock(mutableBlock);
-//                }
-//                catch (final DatabaseException exception) {
-//                    return; // Failing to insert the duplicate transaction is sufficient to pass the test...
-//                }
-//            }
-//
-//            // Action
-//            final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
-//
-//            // Assert
-//            Assert.assertFalse(blockIsValid);
-//        }
-        Assert.fail();
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final BlockValidator<?> blockValidator = new BlockValidator<>(blockValidatorContext);
+
+        final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
+
+        {
+            final Block block = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
+            blockValidatorContext.addBlock(block, 0L);
+        }
+
+        final Block modifiedBlock01;
+        final Transaction transactionToSpend;
+        final TransactionOutputIdentifier outputIdentifierToSpend;
+        final TransactionOutput outputToSpend;
+        { // Inflate a modified version of block 1 with a UTXO we can spend...
+            final TransactionInflater transactionInflater = new TransactionInflater();
+            // This transaction is actually the coinbase from ForkChain2.Block1. It is unlocked via 697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC.
+            //  The transaction spent in the block-under-test should not be a coinbase since it would not validate due to the maturity rule...
+            transactionToSpend = transactionInflater.fromBytes(ByteArray.fromHexString("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF230101172F706F6F6C2E626974636F696E76657264652E6F72672F08631A5438BF010000FFFFFFFF0100F2052A010000001976A9147E2277B34EE9E690F696DE9286D2CD5CD84D0FF788AC00000000"));
+            outputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+            outputToSpend = transactionToSpend.getTransactionOutputs().get(0);
+
+            final Block originalBlock01 = inflateBlock(blockInflater, BlockData.MainChain.BLOCK_1);
+
+            final Sha256Hash blockHash = originalBlock01.getHash();
+            final MutableBlock mutableBlock = new MutableBlock(originalBlock01) {
+                @Override
+                public Sha256Hash getHash() {
+                    return blockHash;
+                }
+
+                @Override
+                public Boolean isValid() {
+                    return true;
+                }
+            };
+
+            mutableBlock.addTransaction(transactionToSpend);
+            blockValidatorContext.addBlock(mutableBlock, 1L, MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP), null);
+            modifiedBlock01 = mutableBlock;
+        }
+
+        transactionOutputRepository.put(outputIdentifierToSpend, outputToSpend);
+
+        final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
+        final MutableBlock mutableBlock;
+        {
+            mutableBlock = new MutableBlock(inflateBlock(blockInflater, BlockData.MainChain.BLOCK_2)) {
+                @Override
+                public Sha256Hash getHash() {
+                    return Sha256Hash.fromHexString("0000000082B5015589A3FDF2D4BAFF403E6F0BE035A5D9742C1CAE6295464449"); // Block 3's hash (arbitrary)...
+                }
+
+                @Override
+                public Boolean isValid() {
+                    return true;
+                }
+            };
+
+            mutableBlock.setPreviousBlockHash(modifiedBlock01.getHash());
+        }
+
+        final Transaction signedTransaction;
+        {
+            final MutableTransaction unsignedTransaction = TransactionValidatorTests.createTransactionContaining(
+                TransactionValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
+                TransactionValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
+            );
+
+            // Sign the transaction...
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+        }
+
+        { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
+            final TransactionValidator transactionValidator = new TransactionValidatorCore<>(blockValidatorContext);
+            final Boolean isValid = transactionValidator.validateTransaction(2L, signedTransaction, true);
+            Assert.assertTrue(isValid);
+        }
+
+        mutableBlock.addTransaction(signedTransaction);
+        mutableBlock.addTransaction(signedTransaction); // Add the valid transaction twice...
+
+        blockValidatorContext.addBlock(mutableBlock, 2L);
+
+        // Action
+        final Boolean blockIsValid = blockValidator.validateBlock(mutableBlock, 2L).isValid;
+
+        // Assert
+        Assert.assertFalse(blockIsValid);
     }
 
     @Test

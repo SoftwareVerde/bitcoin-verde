@@ -1,14 +1,18 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.constable.util.*;
-import com.softwareverde.bitcoin.context.*;
-import com.softwareverde.bitcoin.transaction.*;
-import com.softwareverde.bitcoin.transaction.validator.*;
-import com.softwareverde.constable.list.*;
-import com.softwareverde.constable.list.immutable.*;
-import com.softwareverde.constable.list.mutable.*;
-import com.softwareverde.logging.*;
-import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class TransactionValidationTaskHandler<Context extends NetworkTimeContext & MedianBlockTimeContext & UnspentTransactionOutputContext> implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
     public static class TransactionValidationResult {

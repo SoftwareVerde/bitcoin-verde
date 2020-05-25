@@ -238,7 +238,7 @@ public class TransactionValidatorCore<Context extends NetworkTimeContext & Media
 
         final ScriptRunner scriptRunner = new ScriptRunner();
 
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight); // TODO: Unsure if blockHeight or previousBlockHeight...
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight - 1L); // TODO: Unsure if blockHeight or previousBlockHeight...
 
         final MutableTransactionContext transactionContext = new MutableTransactionContext();
         transactionContext.setBlockHeight(blockHeight);

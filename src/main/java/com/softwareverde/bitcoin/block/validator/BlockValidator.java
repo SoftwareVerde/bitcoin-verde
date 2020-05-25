@@ -1,28 +1,40 @@
 package com.softwareverde.bitcoin.block.validator;
 
-import com.softwareverde.bitcoin.bip.*;
-import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.block.header.*;
-import com.softwareverde.bitcoin.block.header.difficulty.*;
-import com.softwareverde.bitcoin.block.validator.thread.*;
-import com.softwareverde.bitcoin.context.*;
-import com.softwareverde.bitcoin.transaction.*;
-import com.softwareverde.bitcoin.transaction.coinbase.*;
-import com.softwareverde.bitcoin.transaction.input.*;
-import com.softwareverde.bitcoin.transaction.output.*;
-import com.softwareverde.bitcoin.transaction.output.identifier.*;
-import com.softwareverde.bitcoin.transaction.script.opcode.*;
-import com.softwareverde.bitcoin.transaction.script.unlocking.*;
-import com.softwareverde.bitcoin.transaction.validator.*;
-import com.softwareverde.concurrent.pool.*;
-import com.softwareverde.constable.list.*;
-import com.softwareverde.constable.list.immutable.*;
-import com.softwareverde.constable.list.mutable.*;
-import com.softwareverde.logging.*;
-import com.softwareverde.security.hash.sha256.*;
-import com.softwareverde.util.*;
-import com.softwareverde.util.timer.*;
-import com.softwareverde.util.type.time.*;
+import com.softwareverde.bitcoin.bip.Bip34;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
+import com.softwareverde.bitcoin.block.validator.thread.ParalleledTaskSpawner;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
+import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
+import com.softwareverde.bitcoin.context.BlockHeaderContext;
+import com.softwareverde.bitcoin.context.ChainWorkContext;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 public class BlockValidator
     <Context extends
@@ -65,22 +77,6 @@ public class BlockValidator
         final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
         threadPool.setThreadPriority(currentThread.getPriority());
 
-        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool);
-        totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
-            @Override
-            public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
-                return new TotalExpenditureTaskHandler(_context, blockOutputs);
-            }
-        });
-
-        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool);
-        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
-            @Override
-            public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler<>(_context, blockHeight, blockOutputs);
-            }
-        });
-
         final int threadCount;
         final boolean executeBothTasksAsynchronously;
         {
@@ -94,6 +90,23 @@ public class BlockValidator
                 threadCount = Math.max((_maxThreadCount / 2), 1);
             }
         }
+
+        final SpentOutputsTracker spentOutputsTracker = new SpentOutputsTracker(blockOutputs.getOutputCount(), threadCount);
+        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool);
+        totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
+            @Override
+            public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
+                return new TotalExpenditureTaskHandler(_context, blockOutputs, spentOutputsTracker);
+            }
+        });
+
+        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool);
+        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
+            @Override
+            public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
+                return new TransactionValidationTaskHandler<>(_context, blockHeight, blockOutputs);
+            }
+        });
 
         if (executeBothTasksAsynchronously) {
             transactionValidationTaskSpawner.executeTasks(transactions, threadCount);

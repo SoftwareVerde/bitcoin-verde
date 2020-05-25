@@ -54,4 +54,8 @@ public class BlockOutputs {
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         return Util.areEqual(_coinbaseTransactionHash, transactionHash);
     }
+
+    public Integer getOutputCount() {
+        return _transactionOutputs.size();
+    }
 }

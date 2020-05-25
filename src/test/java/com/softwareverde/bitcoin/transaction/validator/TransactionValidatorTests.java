@@ -65,7 +65,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
     }
 
-    public static MutableTransactionOutput _createTransactionOutput(final Address payToAddress, final Long amount) {
+    public static MutableTransactionOutput createTransactionOutput(final Address payToAddress, final Long amount) {
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
         transactionOutput.setAmount(amount);
         transactionOutput.setIndex(0);
@@ -73,7 +73,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return transactionOutput;
     }
 
-    public static TransactionInput _createCoinbaseTransactionInput() {
+    public static TransactionInput createCoinbaseTransactionInput() {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setPreviousOutputTransactionHash(new MutableSha256Hash());
         mutableTransactionInput.setPreviousOutputIndex(-1);
@@ -82,7 +82,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransactionInput;
     }
 
-    public static MutableTransactionInput _createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
+    public static MutableTransactionInput createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
         mutableTransactionInput.setPreviousOutputIndex(0);
@@ -91,7 +91,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransactionInput;
     }
 
-    public static MutableTransaction _createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
+    public static MutableTransaction createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction.setVersion(1L);
         mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
