@@ -1,14 +1,19 @@
 package com.softwareverde.bitcoin.block.validator;
 
-import com.softwareverde.bitcoin.bip.*;
-import com.softwareverde.bitcoin.block.header.*;
-import com.softwareverde.bitcoin.block.header.difficulty.*;
-import com.softwareverde.bitcoin.block.validator.difficulty.*;
-import com.softwareverde.bitcoin.chain.time.*;
-import com.softwareverde.bitcoin.context.*;
-import com.softwareverde.network.time.*;
+import com.softwareverde.bitcoin.bip.Bip113;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.BlockHeaderContext;
+import com.softwareverde.bitcoin.context.ChainWorkContext;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.network.time.NetworkTime;
 
-public class BlockHeaderValidator<Context extends NetworkTimeContext & BlockHeaderContext & ChainWorkContext & MedianBlockTimeContext> {
+public class BlockHeaderValidator {
+    public interface Context extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext { }
+
     public static class BlockHeaderValidationResult {
         public static BlockHeaderValidationResult valid() {
             return new BlockHeaderValidationResult(true, null);

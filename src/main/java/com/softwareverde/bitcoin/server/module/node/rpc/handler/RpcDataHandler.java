@@ -10,8 +10,8 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
-import com.softwareverde.bitcoin.context.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
@@ -502,7 +502,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, databaseManager, _networkTime);
-                    final BlockValidator<?> blockValidator = new BlockValidator<>(blockValidatorContext);
+                    final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }
             }
@@ -526,7 +526,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_networkTime, _medianBlockTime, unconfirmedTransactionUtxoSet);
-            final TransactionValidator transactionValidator = new TransactionValidatorCore<>(transactionValidatorContext);
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             final Container<BlockchainSegmentId> blockchainSegmentIdContainer = new Container<BlockchainSegmentId>();
 

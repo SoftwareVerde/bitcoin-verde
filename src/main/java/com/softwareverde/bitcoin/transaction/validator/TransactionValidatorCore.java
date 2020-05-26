@@ -5,9 +5,6 @@ import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-import com.softwareverde.bitcoin.context.NetworkTimeContext;
-import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -30,7 +27,7 @@ import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 
-public class TransactionValidatorCore<Context extends NetworkTimeContext & MedianBlockTimeContext & UnspentTransactionOutputContext> implements TransactionValidator {
+public class TransactionValidatorCore implements TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
     protected static final Long COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
 
@@ -212,10 +209,6 @@ public class TransactionValidatorCore<Context extends NetworkTimeContext & Media
         }
 
         return true;
-    }
-
-    protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
-        Logger.debug("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
     public TransactionValidatorCore(final Context context) {

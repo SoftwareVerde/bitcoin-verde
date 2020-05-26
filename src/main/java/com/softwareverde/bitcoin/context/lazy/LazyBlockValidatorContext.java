@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
@@ -26,7 +27,7 @@ import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 
-public class LazyBlockValidatorContext implements BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext, UnspentTransactionOutputContext {
+public class LazyBlockValidatorContext implements BlockValidator.Context { // BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext, UnspentTransactionOutputContext {
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
     protected final NetworkTime _networkTime;

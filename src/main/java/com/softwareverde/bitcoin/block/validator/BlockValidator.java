@@ -11,11 +11,6 @@ import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
 import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
 import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
 import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
-import com.softwareverde.bitcoin.context.BlockHeaderContext;
-import com.softwareverde.bitcoin.context.ChainWorkContext;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-import com.softwareverde.bitcoin.context.NetworkTimeContext;
-import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -26,6 +21,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
@@ -36,18 +32,13 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class BlockValidator
-    <Context extends
-        BlockHeaderContext &
-        ChainWorkContext &
-        MedianBlockTimeContext &
-        NetworkTimeContext &
-        UnspentTransactionOutputContext
-    > {
+public class BlockValidator {
+    public interface Context extends BlockHeaderValidator.Context, TransactionValidator.Context { }
 
     public static final Long DO_NOT_TRUST_BLOCKS = -1L;
 
     protected final Context _context;
+
     protected final SystemTime _systemTime = new SystemTime();
 
     protected Boolean _shouldLogValidBlocks = true;
@@ -104,7 +95,7 @@ public class BlockValidator
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler<>(_context, blockHeight, blockOutputs);
+                return new TransactionValidationTaskHandler(_context, blockHeight, blockOutputs);
             }
         });
 
@@ -245,7 +236,7 @@ public class BlockValidator
     }
 
     protected BlockValidationResult _validateBlock(final Block block, final Long blockHeight) {
-        final BlockHeaderValidator<?> blockHeaderValidator = new BlockHeaderValidator<Context>(_context);
+        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_context);
         final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(block, blockHeight);
         if (! blockHeaderValidationResult.isValid) {
             return BlockValidationResult.invalid(blockHeaderValidationResult.errorMessage);
@@ -276,7 +267,14 @@ public class BlockValidator
         return BlockValidationResult.valid();
     }
 
+    // public <Ctx extends BlockHeaderContext & ChainWorkContext & MedianBlockTimeContext & NetworkTimeContext & UnspentTransactionOutputContext> BlockValidator(final Ctx context) {
     public BlockValidator(final Context context) {
+//        _blockHeaderContext = context;
+//        _chainWorkContext = context;
+//        _medianBlockTimeContext = context;
+//        _networkTimeContext = context;
+//        _unspentTransactionOutputContext = context;
+
         _context = context;
     }
 

@@ -145,11 +145,11 @@ public class ChainValidationModule {
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
 
-                final BlockValidator<?> blockValidator;
+                final BlockValidator blockValidator;
                 {
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, databaseManager, networkTime);
-                    blockValidator = new BlockValidator<>(blockValidatorContext);
+                    blockValidator = new BlockValidator(blockValidatorContext);
                     blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
                     blockValidator.setShouldLogValidBlocks(true);
                     blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);

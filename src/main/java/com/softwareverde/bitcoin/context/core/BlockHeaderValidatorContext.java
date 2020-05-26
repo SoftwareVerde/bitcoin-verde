@@ -1,10 +1,11 @@
-package com.softwareverde.bitcoin.context;
+package com.softwareverde.bitcoin.context.core;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
@@ -18,7 +19,7 @@ import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 
-public class BlockHeaderValidatorContext implements BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext {
+public class BlockHeaderValidatorContext implements BlockHeaderValidator.Context {
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
     protected final NetworkTime _networkTime;

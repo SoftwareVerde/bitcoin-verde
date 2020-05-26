@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.context;
+package com.softwareverde.bitcoin.context.core;
 
 import com.softwareverde.bitcoin.block.*;
 import com.softwareverde.bitcoin.chain.segment.*;

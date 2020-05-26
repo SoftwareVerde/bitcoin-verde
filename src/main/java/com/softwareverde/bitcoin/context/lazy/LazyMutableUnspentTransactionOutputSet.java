@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.context.lazy;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;

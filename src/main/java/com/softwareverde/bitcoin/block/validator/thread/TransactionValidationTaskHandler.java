@@ -1,9 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-import com.softwareverde.bitcoin.context.NetworkTimeContext;
-import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -14,7 +11,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
-public class TransactionValidationTaskHandler<Context extends NetworkTimeContext & MedianBlockTimeContext & UnspentTransactionOutputContext> implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
+public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
     public static class TransactionValidationResult {
         public static TransactionValidationResult invalid(final Transaction invalidTransaction) {
             final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
@@ -44,13 +41,13 @@ public class TransactionValidationTaskHandler<Context extends NetworkTimeContext
     }
 
     protected final Long _blockHeight;
-    protected final Context _context;
+    protected final TransactionValidator.Context _context;
     protected final BlockOutputs _blockOutputs;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
     protected TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final Context context, final Long blockHeight, final BlockOutputs blockOutputs) {
+    public TransactionValidationTaskHandler(final TransactionValidator.Context context, final Long blockHeight, final BlockOutputs blockOutputs) {
         _context = context;
         _blockHeight = blockHeight;
         _blockOutputs = blockOutputs;
@@ -58,7 +55,7 @@ public class TransactionValidationTaskHandler<Context extends NetworkTimeContext
 
     @Override
     public void init() {
-        _transactionValidator = new TransactionValidatorCore<Context>(_blockOutputs, _context);
+        _transactionValidator = new TransactionValidatorCore(_blockOutputs, _context);
     }
 
     @Override

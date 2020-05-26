@@ -9,11 +9,11 @@ import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockHeaderValidatorContext;
-import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
-import com.softwareverde.bitcoin.context.MutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.context.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
+import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -168,7 +168,7 @@ public class BlockProcessor {
 
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, _networkTime);
-                final BlockHeaderValidator<?> blockHeaderValidator = new BlockHeaderValidator<>(blockHeaderValidatorContext);
+                final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
                 final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
                 if (! blockHeaderValidationResult.isValid) {
                     Logger.debug("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage + " (" + blockHash + ")");
@@ -276,12 +276,12 @@ public class BlockProcessor {
 
             final Boolean blockIsValid;
             {
-                final BlockValidator<?> blockValidator;
+                final BlockValidator blockValidator;
                 {
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputContext, databaseManager, _networkTime);
                     blockValidatorContext.loadBlock(blockHeight, blockId, block);
-                    blockValidator = new BlockValidator<>(blockValidatorContext);
+                    blockValidator = new BlockValidator(blockValidatorContext);
                 }
 
                 blockValidator.setMaxThreadCount(_maxThreadCount);
@@ -425,7 +425,7 @@ public class BlockProcessor {
 
                 final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
                 final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_networkTime, medianBlockTime, reorgUnspentTransactionOutputContext);
-                final TransactionValidator transactionValidator = new TransactionValidatorCore<>(reorgBlockOutputs, transactionValidatorContext);
+                final TransactionValidator transactionValidator = new TransactionValidatorCore(reorgBlockOutputs, transactionValidatorContext);
                 transactionValidator.setLoggingEnabled(false);
 
                 final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();

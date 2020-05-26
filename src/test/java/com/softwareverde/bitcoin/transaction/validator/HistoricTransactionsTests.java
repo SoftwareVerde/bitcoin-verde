@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -652,7 +652,7 @@ public class HistoricTransactionsTests {
 
         final UnspentTransactionOutputContext unspentTransactionOutputContext = null; // TODO
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unspentTransactionOutputContext);
-        final TransactionValidatorCore<?> transactionValidator = new TransactionValidatorCore<>(transactionValidatorContext);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         // Action
         final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(transactionContext.getTransaction());
