@@ -4,17 +4,22 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
+import com.softwareverde.bitcoin.context.core.NodeModuleContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -71,6 +76,7 @@ import com.softwareverde.bitcoin.server.module.node.rpc.handler.ServiceInquisito
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequesterCore;
@@ -107,6 +113,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -503,6 +510,8 @@ public class NodeModule {
             _bitcoinNodeManager = new BitcoinNodeManager(properties);
         }
 
+        // final NodeModuleContext context = new NodeModuleContext(_masterInflater, _blockStore, databaseManagerFactory, _bitcoinNodeManager, synchronizationStatusHandler, _medianBlockTime, _systemTime, _mainThreadPool, _mutableNetworkTime);
+
         { // Initialize the TransactionDownloader...
             _transactionDownloader = new TransactionDownloader(databaseManagerFactory, _bitcoinNodeManager);
         }
@@ -564,15 +573,36 @@ public class NodeModule {
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setSynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
-                public void onNewBlock(final Long blockHeight, final Block block) {
-                    _blockStore.storeBlock(block, blockHeight);
-                    _medianBlockTime.addBlock(block);
+                public void onNewBlock(final ProcessBlockResult processBlockResult) {
+                    if (! processBlockResult.isValid) { return; }
+
+                    _blockStore.storeBlock(processBlockResult.block, processBlockResult.blockHeight);
+
+                    if (! processBlockResult.bestBlockchainHasChanged) {
+                        _medianBlockTime.addBlock(processBlockResult.block);
+                    }
+                    else {
+                        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                            final MedianBlockTimeWithBlocks newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
+                            _medianBlockTime.setTo(newMedianBlockTime);
+                        }
+                        catch (final DatabaseException exception) {
+                            Logger.error(exception);
+                            _medianBlockTime.clear();
+                        }
+                    }
                 }
             });
 
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
-                public void onNewBlock(final Long blockHeight, final Block block) {
+                public void onNewBlock(final ProcessBlockResult processBlockResult) {
+                    if (! processBlockResult.isValid) { return; }
+
+                    final Block block = processBlockResult.block;
+                    final Long blockHeight = processBlockResult.blockHeight;
+
                     final Sha256Hash blockHash = block.getHash();
 
                     _transactionOutputIndexer.wakeUp();

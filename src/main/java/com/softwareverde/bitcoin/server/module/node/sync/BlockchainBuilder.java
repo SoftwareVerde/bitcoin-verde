@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.ProcessBlockResult;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -41,7 +42,7 @@ public class BlockchainBuilder extends SleepyService {
     public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext { }
 
     public interface NewBlockProcessedCallback {
-        void onNewBlock(Long blockHeight, Block block);
+        void onNewBlock(ProcessBlockResult processBlockResult);
     }
 
     protected final Context _context;
@@ -70,25 +71,23 @@ public class BlockchainBuilder extends SleepyService {
             return false;
         }
 
-        final Long processedBlockHeight;
+        final ProcessBlockResult processBlockResult;
         { // Maximize the Thread priority and process the block...
             final Thread currentThread = Thread.currentThread();
             final int originalThreadPriority = currentThread.getPriority();
             try {
                 currentThread.setPriority(Thread.MAX_PRIORITY);
-                processedBlockHeight = _blockProcessor.processBlock(block, transactionOutputSet);
+                processBlockResult = _blockProcessor.processBlock(block, transactionOutputSet);
             }
             finally {
                 currentThread.setPriority(originalThreadPriority);
             }
         }
 
-        final Boolean blockWasValid = (processedBlockHeight != null);
-
-        if (blockWasValid) {
+        if (processBlockResult.isValid) {
             final NewBlockProcessedCallback synchronousNewBlockProcessedCallback = _synchronousNewBlockProcessedCallback;
             if (synchronousNewBlockProcessedCallback != null) {
-                synchronousNewBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
+                synchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
             }
 
             final NewBlockProcessedCallback asynchronousNewBlockProcessedCallback = _asynchronousNewBlockProcessedCallback;
@@ -97,13 +96,13 @@ public class BlockchainBuilder extends SleepyService {
                 threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        asynchronousNewBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
+                        asynchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
                     }
                 });
             }
         }
 
-        return blockWasValid;
+        return processBlockResult.isValid;
     }
 
     protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final FullNodeDatabaseManager databaseManager, final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {

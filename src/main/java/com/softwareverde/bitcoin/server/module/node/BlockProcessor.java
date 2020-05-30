@@ -48,7 +48,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
@@ -174,7 +173,7 @@ public class BlockProcessor {
         }
     }
 
-    protected Long _processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected ProcessBlockResult _processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockDeflater blockDeflater = _context.getBlockDeflater();
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final BlockStore blockStore = _context.getBlockStore();
@@ -207,7 +206,8 @@ public class BlockProcessor {
 
             // if the full Block has already been processed then abort processing it...
             if (blockHeaderResult.wasBlockAlreadyProcessed()) {
-                return blockHeaderResult.getBlockHeight();
+                blockHeight = blockHeaderResult.getBlockHeight();
+                return new ProcessBlockResult(block, blockHeight, true, false);
             }
 
             blockId = blockHeaderResult.getBlockId();
@@ -491,7 +491,7 @@ public class BlockProcessor {
         processBlockTimer.stop();
         Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
         Logger.debug("Block Height: " + blockHeight);
-        return blockHeight;
+        return new ProcessBlockResult(block, blockHeight, true, bestBlockchainHasChanged);
     }
 
     /**
@@ -499,22 +499,20 @@ public class BlockProcessor {
      * If the block fails to validates, the block and its transactions are not stored.
      * If provided, the UnspentTransactionOutputSet must include every output spent by the block.
      * If not provided, the UnspentTransactionOutputSet is loaded from the database at validation time.
-     * Returns the block height of the block if validation was successful, otherwise returns null.
      */
-    public Long processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
+    public ProcessBlockResult processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
         final SynchronizationStatus synchronizationStatus = _context.getSynchronizationStatus();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final Long newBlockHeight = _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
-            final boolean blockWasValid = (newBlockHeight != null);
-            if ((blockWasValid) && (_orphanedTransactionsCache != null)) {
+            final ProcessBlockResult processBlockResult = _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
+            if ((processBlockResult.isValid) && (_orphanedTransactionsCache != null)) {
                 for (final Transaction transaction : block.getTransactions()) {
                     _orphanedTransactionsCache.onTransactionAdded(transaction);
                 }
             }
 
-            return newBlockHeight;
+            return processBlockResult;
         }
         catch (final Exception exception) {
             Logger.info("ERROR VALIDATING BLOCK: " + block.getHash(), exception);
@@ -550,7 +548,7 @@ public class BlockProcessor {
             }
         }
 
-        return null;
+        return new ProcessBlockResult(block, null, false, false);
     }
 
     public Container<Float> getAverageBlocksPerSecondContainer() {
