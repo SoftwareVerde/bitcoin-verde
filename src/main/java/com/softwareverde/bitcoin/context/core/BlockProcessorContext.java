@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
 
 public class BlockProcessorContext implements BlockProcessor.Context {
