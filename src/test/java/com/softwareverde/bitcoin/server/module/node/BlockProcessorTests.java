@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -54,7 +55,7 @@ public class BlockProcessorTests extends IntegrationTest {
         public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
 
-        public final BlockProcessor blockProcessor = new BlockProcessor(_fullNodeDatabaseManagerFactory, _masterInflater, this.orphanedTransactionsCache, _blockStore, _synchronizationStatus, this.networkTime);
+        public final BlockProcessor blockProcessor = new BlockProcessor(new BlockProcessorContext(_masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus), this.orphanedTransactionsCache);
 
         public TestHarness() {
             blockProcessor.setMaxThreadCount(1);

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.context;
 
-import com.softwareverde.network.time.*;
+import com.softwareverde.network.time.VolatileNetworkTime;
 
 public interface NetworkTimeContext {
-    NetworkTime getNetworkTime();
+    VolatileNetworkTime getNetworkTime();
 }

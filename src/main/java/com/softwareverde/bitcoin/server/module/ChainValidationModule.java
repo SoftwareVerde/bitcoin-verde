@@ -1,33 +1,39 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.bitcoin.*;
-import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.block.header.*;
-import com.softwareverde.bitcoin.block.validator.*;
-import com.softwareverde.bitcoin.chain.segment.*;
-import com.softwareverde.bitcoin.context.lazy.*;
-import com.softwareverde.bitcoin.inflater.*;
-import com.softwareverde.bitcoin.server.*;
-import com.softwareverde.bitcoin.server.configuration.*;
+import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.pool.*;
-import com.softwareverde.bitcoin.server.module.node.database.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.*;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.*;
-import com.softwareverde.bitcoin.server.module.node.store.*;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
-import com.softwareverde.bitcoin.util.*;
-import com.softwareverde.database.*;
-import com.softwareverde.logging.*;
-import com.softwareverde.network.time.*;
-import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.*;
-import com.softwareverde.util.type.time.*;
+import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
@@ -88,7 +94,7 @@ public class ChainValidationModule {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final SystemTime systemTime = new SystemTime();
-            final NetworkTime networkTime = ImmutableNetworkTime.fromSeconds(systemTime.getCurrentTimeInSeconds());
+            final VolatileNetworkTime networkTime = NetworkTime.fromSystemTime(systemTime);
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 

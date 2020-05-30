@@ -14,7 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -22,7 +22,7 @@ import java.util.HashMap;
 public class BlockHeaderValidatorContext implements BlockHeaderValidator.Context {
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
-    protected final NetworkTime _networkTime;
+    protected final VolatileNetworkTime _networkTime;
 
     protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
@@ -46,7 +46,7 @@ public class BlockHeaderValidatorContext implements BlockHeaderValidator.Context
         return blockId;
     }
 
-    public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final NetworkTime networkTime) {
+    public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
         _blockchainSegmentId = blockchainSegmentId;
         _databaseManager = databaseManager;
         _networkTime = networkTime;
@@ -125,7 +125,7 @@ public class BlockHeaderValidatorContext implements BlockHeaderValidator.Context
     }
 
     @Override
-    public NetworkTime getNetworkTime() {
+    public VolatileNetworkTime getNetworkTime() {
         return _networkTime;
     }
 

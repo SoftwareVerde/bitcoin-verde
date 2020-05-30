@@ -47,7 +47,8 @@ public class BlockchainBuilder extends SleepyService {
     protected final BlockDownloadRequester _blockDownloadRequester;
     protected final PendingBlockLoader _pendingBlockLoader;
     protected Boolean _hasGenesisBlock;
-    protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
+    protected NewBlockProcessedCallback _asynchronousNewBlockProcessedCallback = null;
+    protected NewBlockProcessedCallback _synchronousNewBlockProcessedCallback = null;
 
     /**
      * Stores and validates the pending Block.
@@ -82,12 +83,17 @@ public class BlockchainBuilder extends SleepyService {
         final Boolean blockWasValid = (processedBlockHeight != null);
 
         if (blockWasValid) {
-            final NewBlockProcessedCallback newBlockProcessedCallback = _newBlockProcessedCallback;
-            if (newBlockProcessedCallback != null) {
+            final NewBlockProcessedCallback synchronousNewBlockProcessedCallback = _synchronousNewBlockProcessedCallback;
+            if (synchronousNewBlockProcessedCallback != null) {
+                synchronousNewBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
+            }
+
+            final NewBlockProcessedCallback asynchronousNewBlockProcessedCallback = _asynchronousNewBlockProcessedCallback;
+            if (asynchronousNewBlockProcessedCallback != null) {
                 _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        newBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
+                        asynchronousNewBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
                     }
                 });
             }
@@ -277,7 +283,18 @@ public class BlockchainBuilder extends SleepyService {
         }
     }
 
-    public void setNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
-        _newBlockProcessedCallback = newBlockProcessedCallback;
+    /**
+     * Sets a callback to be executed at some point after a new valid Block has been processed.
+     *  This callback, if set, is scheduled for execution via the ThreadPool.
+     */
+    public void setAsynchronousNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
+        _asynchronousNewBlockProcessedCallback = newBlockProcessedCallback;
+    }
+
+    /**
+     * Sets a callback to be executed immediately after a new valid Block has been processed.
+     */
+    public void setSynchronousNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
+        _synchronousNewBlockProcessedCallback = newBlockProcessedCallback;
     }
 }

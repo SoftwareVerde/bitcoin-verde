@@ -8,18 +8,19 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 
 public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputContext implements BlockValidator.Context {
-    protected final NetworkTime _networkTime;
+    protected final VolatileNetworkTime _networkTime;
     protected final HashMap<Long, BlockHeader> _blocks = new HashMap<Long, BlockHeader>();
     protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
 
     public FakeBlockValidatorContext(final NetworkTime networkTime) {
-        _networkTime = networkTime;
+        _networkTime = VolatileNetworkTimeWrapper.wrap(networkTime);
     }
 
     public void addBlockHeader(final BlockHeader block, final Long blockHeight) {
@@ -48,7 +49,7 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     }
 
     @Override
-    public NetworkTime getNetworkTime() {
+    public VolatileNetworkTime getNetworkTime() {
         return _networkTime;
     }
 

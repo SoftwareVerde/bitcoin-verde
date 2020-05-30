@@ -5,6 +5,11 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.MultiConnectionDatabaseContext;
+import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.context.NodeManagerContext;
+import com.softwareverde.bitcoin.context.SystemTimeContext;
+import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -17,7 +22,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
@@ -27,17 +32,17 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BlockHeaderDownloader extends SleepyService {
+    public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext { }
+
     public static final Long MAX_TIMEOUT_MS = (15L * 1000L); // 15 Seconds...
 
-    protected final SystemTime _systemTime = new SystemTime();
-    protected final DatabaseManagerFactory _databaseManagerFactory;
-    protected final NetworkTime _networkTime;
-    protected final BitcoinNodeManager _nodeManager;
+    protected final Context _context;
+
     protected final BlockDownloadRequester _blockDownloadRequester;
-    protected final ThreadPool _threadPool;
-    protected final MilliTimer _timer;
     protected final BitcoinNodeManager.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
+
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
+    protected final MilliTimer _timer;
 
     protected final Object _headersDownloadedPin = new Object();
     protected final AtomicBoolean _isProcessingHeaders = new AtomicBoolean(false);
@@ -49,13 +54,14 @@ public class BlockHeaderDownloader extends SleepyService {
     protected Long _headBlockHeight = 0L;
     protected Sha256Hash _lastBlockHash = BlockHeader.GENESIS_BLOCK_HASH;
     protected BlockHeader _lastBlockHeader = null;
-    protected Long _minBlockTimestamp = (_systemTime.getCurrentTimeInSeconds() - 3600L); // Default to an hour ago...
+    protected Long _minBlockTimestamp;
     protected Long _blockHeaderCount = 0L;
 
     protected Runnable _newBlockHeaderAvailableCallback = null;
 
     protected Boolean _checkForGenesisBlockHeader() {
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final Sha256Hash lastKnownHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
 
@@ -81,22 +87,26 @@ public class BlockHeaderDownloader extends SleepyService {
             }
         };
 
-        _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNodeManager.DownloadBlockCallback() {
+        final BitcoinNodeManager nodeManager = _context.getNodeManager();
+        nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNodeManager.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
                 final Sha256Hash blockHash = block.getHash();
                 Logger.trace("GENESIS RECEIVED: " + blockHash);
                 if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
 
+                final ThreadPool threadPool = _context.getThreadPool();
+                final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
                 boolean genesisBlockWasStored = false;
-                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                     genesisBlockWasStored = _validateAndStoreBlockHeader(block, _headBlockHeight, databaseManager);
                 }
                 catch (final DatabaseException databaseException) {
                     Logger.debug(databaseException);
                 }
                 if (! genesisBlockWasStored) {
-                    _threadPool.execute(retry);
+                    threadPool.execute(retry);
                     return;
                 }
 
@@ -110,7 +120,8 @@ public class BlockHeaderDownloader extends SleepyService {
 
             @Override
             public void onFailure(final Sha256Hash blockHash) {
-                _threadPool.execute(retry);
+                final ThreadPool threadPool = _context.getThreadPool();
+                threadPool.execute(retry);
             }
         });
     }
@@ -133,6 +144,7 @@ public class BlockHeaderDownloader extends SleepyService {
             return false;
         }
 
+        final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
@@ -147,7 +159,7 @@ public class BlockHeaderDownloader extends SleepyService {
             }
 
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, _networkTime);
+            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime);
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
 
             final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
@@ -168,6 +180,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected Boolean _validateAndStoreBlockHeaders(final List<BlockHeader> blockHeaders, final DatabaseManager databaseManager) throws DatabaseException {
         if (blockHeaders.isEmpty()) { return true; }
 
+        final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
@@ -222,7 +235,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(firstBlockHeaderId);
 
-            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, _networkTime);
+            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime);
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
 
             long nextBlockHeight = firstBlockHeight;
@@ -253,14 +266,17 @@ public class BlockHeaderDownloader extends SleepyService {
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
         Logger.debug("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getCount());
 
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        final ThreadPool threadPool = _context.getThreadPool();
+        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
+        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager);
             if (! headersAreValid) { return; } // TODO: Prevent attempting to reprocess invalid Block Headers (e.g. DOS)...
 
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
 
-                _threadPool.execute(new Runnable() {
+                threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
                         if (_blockDownloadRequester != null) {
@@ -287,13 +303,14 @@ public class BlockHeaderDownloader extends SleepyService {
         Logger.info("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
-    public BlockHeaderDownloader(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager nodeManager, final NetworkTime networkTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _nodeManager = nodeManager;
-        _networkTime = networkTime;
+    public BlockHeaderDownloader(final Context context, final BlockDownloadRequester blockDownloadRequester) {
+        _context = context;
+
         _blockDownloadRequester = blockDownloadRequester;
         _timer = new MilliTimer();
-        _threadPool = threadPool;
+
+        final SystemTime systemTime = _context.getSystemTime();
+        _minBlockTimestamp = (systemTime.getCurrentTimeInSeconds() - 3600L); // Default to an hour ago...
 
         _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
@@ -305,7 +322,8 @@ public class BlockHeaderDownloader extends SleepyService {
 
                     final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
                     if (newBlockHeaderAvailableCallback != null) {
-                        _threadPool.execute(newBlockHeaderAvailableCallback);
+                        final ThreadPool threadPool = _context.getThreadPool();
+                        threadPool.execute(newBlockHeaderAvailableCallback);
                     }
                 }
                 finally {
@@ -332,7 +350,8 @@ public class BlockHeaderDownloader extends SleepyService {
         _timer.start();
         _blockHeaderCount = 0L;
 
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -364,7 +383,8 @@ public class BlockHeaderDownloader extends SleepyService {
             }
         }
 
-        _nodeManager.requestBlockHeadersAfter(_lastBlockHash, _downloadBlockHeadersCallback);
+        final BitcoinNodeManager nodeManager = _context.getNodeManager();
+        nodeManager.requestBlockHeadersAfter(_lastBlockHash, _downloadBlockHeadersCallback);
 
         synchronized (_headersDownloadedPin) {
             final MilliTimer timer = new MilliTimer();

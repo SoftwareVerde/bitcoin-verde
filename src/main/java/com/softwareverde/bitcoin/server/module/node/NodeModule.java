@@ -6,6 +6,10 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
+import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
+import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
+import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
@@ -105,6 +109,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 import java.nio.file.DirectoryStream;
@@ -118,6 +123,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class NodeModule {
     protected final Boolean _rebuildUtxoSet = false;
 
+    protected final SystemTime _systemTime;
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final PendingBlockStoreCore _blockStore;
@@ -137,6 +143,7 @@ public class NodeModule {
     protected final SlpTransactionProcessor _slpTransactionProcessor;
     protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
+    protected final MutableMedianBlockTime _medianBlockTime;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -303,6 +310,7 @@ public class NodeModule {
     public NodeModule(final BitcoinProperties bitcoinProperties, final Environment environment) {
         final Thread mainThread = Thread.currentThread();
 
+        _systemTime = new SystemTime();
         _masterInflater = new CoreInflater();
 
         { // Initialize the BlockCache...
@@ -361,7 +369,6 @@ public class NodeModule {
             }
         }
 
-        final MutableMedianBlockTime medianBlockTime;
         { // Initialize MedianBlockTime...
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
@@ -373,7 +380,7 @@ public class NodeModule {
                     Logger.error(exception);
                     BitcoinUtil.exitFailure();
                 }
-                medianBlockTime = newMedianBlockTime;
+                _medianBlockTime = newMedianBlockTime;
             }
         }
 
@@ -500,29 +507,30 @@ public class NodeModule {
         }
 
         { // Initialize the TransactionProcessor...
-            _transactionProcessor = new TransactionProcessor(databaseManagerFactory, medianBlockTime, _mutableNetworkTime);
+            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(databaseManagerFactory, _medianBlockTime, _mutableNetworkTime, _systemTime);
+            _transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         }
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseManagerFactory, _masterInflater, orphanedTransactionsCache, _blockStore, synchronizationStatusHandler, _mutableNetworkTime);
+            final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler);
+            blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
 
-        { // Initialize the BlockDownloader...
-            _blockDownloader = new BlockDownloader(databaseManagerFactory, synchronizationStatusHandler, _bitcoinNodeManager, _blockStore, _masterInflater);
-        }
-
-        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
-
-        { // Initialize BlockHeaderDownloader...
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, _mutableNetworkTime, blockDownloadRequester, _mainThreadPool);
+        final BlockDownloadRequester blockDownloadRequester;
+        { // Initialize the BlockHeaderDownloader/BlockDownloader...
+            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _mainThreadPool);
+            _blockDownloader = new BlockDownloader(blockDownloaderContext);
+            blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
+            _blockHeaderDownloader = new BlockHeaderDownloader(blockDownloaderContext, blockDownloadRequester);
         }
 
         { // Initialize BlockchainBuilder...
-            final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(3, databaseManagerFactory, _mainThreadPool, _masterInflater);
+            final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, databaseManagerFactory, _mainThreadPool);
+            final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 3);
             final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
             pendingBlockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, _masterInflater, blockProcessor, pendingBlockLoader, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
@@ -550,12 +558,19 @@ public class NodeModule {
         _spentTransactionOutputsCleanupService = new SpentTransactionOutputsCleanupService(databaseManagerFactory);
 
         { // Set the synchronization elements to cascade to each component...
-            _blockchainBuilder.setNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
+            _blockchainBuilder.setSynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
+                @Override
+                public void onNewBlock(final Long blockHeight, final Block block) {
+                    _blockStore.storeBlock(block, blockHeight);
+                    _medianBlockTime.addBlock(block);
+                }
+            });
+
+            _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
                 public void onNewBlock(final Long blockHeight, final Block block) {
                     final Sha256Hash blockHash = block.getHash();
 
-                    _blockStore.storeBlock(block, blockHeight);
                     _transactionOutputIndexer.wakeUp();
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
@@ -718,7 +733,7 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime, _blockStore);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, _medianBlockTime, _blockStore);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);

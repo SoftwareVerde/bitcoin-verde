@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.context;
 
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 
 public interface MultiConnectionDatabaseContext {
-    FullNodeDatabaseManagerFactory getDatabaseManagerFactory();
+    DatabaseManagerFactory getDatabaseManagerFactory();
 }
