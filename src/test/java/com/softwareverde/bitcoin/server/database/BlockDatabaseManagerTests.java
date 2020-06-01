@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -14,6 +15,9 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.util.IoUtil;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
@@ -394,49 +398,49 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void should_inflate_block_00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7() throws Exception {
-//        // Setup
-//        final BlockInflater blockInflater = new BlockInflater();
-//        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-//            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-//            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-//
-//            { // Store genesis block...
-//                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    blockDatabaseManager.insertBlock(block);
-//                }
-//            }
-//
-//            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-//
-//            final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
-//            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
-//            final Block block = blockInflater.fromBytes(blockBytes);
-//            final List<Sha256Hash> excludedHashes = TransactionTestUtil.getTransactionHashes(block.getTransactions());
-//            for (final Transaction transaction : block.getTransactions()) {
-//                TransactionTestUtil.createRequiredTransactionInputs(databaseManager, blockchainSegmentId, transaction, excludedHashes);
-//            }
-//
-//            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
-//            databaseConnection.executeSql(
-//                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-//                    .setParameter(block.getPreviousBlockHash())
-//                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
-//            );
-//
-//            final BlockId blockId;
-//            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                blockId = blockDatabaseManager.insertBlock(block);
-//            }
-//
-//            // Action
-//            final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
-//
-//            // Assert
-//            Assert.assertNotNull(inflatedBlock);
-//            Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
-//        }
-        Assert.fail();
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+            final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
+            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+            final Block block = blockInflater.fromBytes(blockBytes);
+            Assert.assertNotNull(block);
+
+            { // Store genesis block...
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.insertBlock(genesisBlock);
+                }
+            }
+
+            { // Store the first block to be used to bridge the GenesisBlock with the block under test...
+                final Block block01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.insertBlock(block01);
+                }
+
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter(block.getPreviousBlockHash())
+                        .setParameter(block01.getHash())
+                );
+            }
+
+            final BlockId blockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.insertBlock(block);
+            }
+
+            // Action
+            final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
+
+            // Assert
+            Assert.assertNotNull(inflatedBlock);
+            Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
+        }
     }
 
     @Test

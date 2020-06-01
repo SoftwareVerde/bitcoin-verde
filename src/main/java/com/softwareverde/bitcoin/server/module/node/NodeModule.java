@@ -767,7 +767,7 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, _medianBlockTime, _blockStore);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, _medianBlockTime);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);

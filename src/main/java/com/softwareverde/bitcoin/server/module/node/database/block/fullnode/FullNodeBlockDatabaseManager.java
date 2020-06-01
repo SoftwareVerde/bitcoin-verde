@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -29,6 +30,7 @@ import com.softwareverde.util.timer.MilliTimer;
 
 public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
+    protected final BlockStore _blockStore;
 
     protected void _associateTransactionToBlock(final TransactionId transactionId, final Long diskOffset, final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -115,7 +117,6 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            // new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
             new Query("SELECT id, transaction_count FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
@@ -184,6 +185,12 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
+        if (_blockStore != null) {
+            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            return _blockStore.getBlock(blockHash, blockHeight);
+        }
+
         final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
 
         if (blockHeader == null) {
@@ -210,6 +217,12 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
     public FullNodeBlockDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
+        _blockStore = null;
+    }
+
+    public FullNodeBlockDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore) {
+        _databaseManager = databaseManager;
+        _blockStore = blockStore;
     }
 
     public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
@@ -245,6 +258,11 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             returnedTransactionIds.addAll(transactionIds);
         }
 
+        if (_blockStore != null) {
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            _blockStore.storeBlock(block, blockHeight);
+        }
+
         return blockId;
     }
 
@@ -258,7 +276,14 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             return null;
         }
 
-        return _storeBlockTransactions(blockId, block);
+        final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block);
+
+        if (_blockStore != null) {
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            _blockStore.storeBlock(block, blockHeight);
+        }
+
+        return transactionIds;
     }
 
     /**
@@ -281,6 +306,11 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block);
         if (returnedTransactionIds != null) {
             returnedTransactionIds.addAll(transactionIds);
+        }
+
+        if (_blockStore != null) {
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            _blockStore.storeBlock(block, blockHeight);
         }
 
         return blockId;

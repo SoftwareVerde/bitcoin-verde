@@ -56,7 +56,6 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final MedianBlockTime _medianBlockTime;
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
-    protected final BlockStore _blockStore;
 
     protected Block _getBlock(final BlockId blockId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         if (blockId == null) { return null; }
@@ -64,24 +63,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final Long blockHeight = (_blockStore != null ? blockHeaderDatabaseManager.getBlockHeight(blockId) : null);
-        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-
-        if (_blockStore != null) {
-            final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
-            if (cachedBlock != null) {
-                return cachedBlock;
-            }
-        }
-
-        final Block block = blockDatabaseManager.getBlock(blockId);
-        if (block == null) { return null; }
-
-        if (_blockStore != null) {
-            _blockStore.storeBlock(block, blockHeight);
-        }
-
-        return block;
+        return blockDatabaseManager.getBlock(blockId);
     }
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Integer pageSize, final Integer pageNumber, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
@@ -102,14 +84,13 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return returnedTransactions;
     }
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final MedianBlockTime medianBlockTime, final BlockStore blockStore) {
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _databaseManagerFactory = databaseManagerFactory;
 
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
-        _blockStore = blockStore;
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.store;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.util.ByteBuffer;
 import com.softwareverde.bitcoin.util.IoUtil;
@@ -84,7 +85,7 @@ public class BlockStoreCore implements BlockStore {
     }
 
     @Override
-    public Block getBlock(final Sha256Hash blockHash, final Long blockHeight) {
+    public MutableBlock getBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return null; }
 
         final String blockPath = _getBlockDataPath(blockHash, blockHeight);
