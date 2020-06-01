@@ -63,7 +63,7 @@ public class BlockProcessorTests extends IntegrationTest {
         }
 
         public Long processBlock(final Block block) {
-            return this.blockProcessor.processBlock(block, this.unspentTransactionOutputSet);
+            return this.blockProcessor.processBlock(block, this.unspentTransactionOutputSet).blockHeight;
         }
 
         public Long processBlock(final Block block, final Long blockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
@@ -74,7 +74,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
             final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
             unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
-            return this.blockProcessor.processBlock(block, unspentTransactionOutputSet);
+            return this.blockProcessor.processBlock(block, unspentTransactionOutputSet).blockHeight;
         }
 
         public Block inflateBlock(final String blockData) {
