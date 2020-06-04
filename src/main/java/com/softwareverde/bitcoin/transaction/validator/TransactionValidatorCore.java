@@ -26,6 +26,9 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
+
+import java.util.HashSet;
 
 public class TransactionValidatorCore implements TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
@@ -170,7 +173,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         return null;
     }
 
-    protected Boolean _validateSequenceNumbers(final Transaction transaction, final Long blockHeight, final Boolean validateForMemoryPool) {
+    protected Boolean _validateSequenceNumbers(final Transaction transaction, final Long blockHeight) {
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
             if (sequenceNumber.isDisabled()) { continue; }
@@ -195,7 +198,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
             else {
                 final Long blockHeightContainingOutputBeingSpent = _getTransactionOutputBlockHeight(previousTransactionOutputIdentifier, blockHeight);
-                final long blockCount = ( (blockHeight - blockHeightContainingOutputBeingSpent) + (validateForMemoryPool ? 1 : 0) );
+                final long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
                 final Long requiredBlockCount = sequenceNumber.asBlockCount();
 
                 final boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
@@ -226,7 +229,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     }
 
     @Override
-    public Boolean validateTransaction(final Long blockHeight, final Transaction transaction, final Boolean validateForMemoryPool) {
+    public Boolean validateTransaction(final Long blockHeight, final Transaction transaction) {
         final Sha256Hash transactionHash = transaction.getHash();
 
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -268,7 +271,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
-                final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(transaction, blockHeight, validateForMemoryPool);
+                final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(transaction, blockHeight);
                 if (! sequenceNumbersAreValid) {
                     if (_shouldLogInvalidTransactions) {
                         Logger.debug("Transaction SequenceNumber validation failed.");
@@ -292,14 +295,31 @@ public class TransactionValidatorCore implements TransactionValidator {
                 return false;
             }
 
-            for (int i = 0; i < transactionInputs.getCount(); ++i) {
+            final int transactionInputCount = transactionInputs.getCount();
+            final HashSet<TransactionOutputIdentifier> spentOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionInputCount);
+
+            for (int i = 0; i < transactionInputCount; ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
+                final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                final boolean previousOutputIsUniqueToTransaction = spentOutputIdentifiers.add(transactionOutputIdentifierBeingSpent);
+                if (! previousOutputIsUniqueToTransaction) { // The transaction attempted to spend the same previous output twice...
+                    if (_shouldLogInvalidTransactions) {
+                        Logger.debug("Invalid Transaction. Transaction spends same previous output twice. " + transactionHash);
+                    }
+                    return false;
+                }
 
                 { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
-                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = _isTransactionOutputCoinbase(transactionOutputIdentifier);
+                    final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = _isTransactionOutputCoinbase(transactionOutputIdentifierBeingSpent);
+                    if (transactionOutputBeingSpentIsCoinbaseTransaction == null) {
+                        if (_shouldLogInvalidTransactions) {
+                            Logger.debug("Invalid Transaction.  Previous output does not exist. " + transactionOutputIdentifierBeingSpent);
+                        }
+                        return false;
+                    }
+
                     if (transactionOutputBeingSpentIsCoinbaseTransaction) {
-                        final Long blockHeightOfTransactionOutputBeingSpent = _getTransactionOutputBlockHeight(transactionOutputIdentifier, blockHeight);
+                        final Long blockHeightOfTransactionOutputBeingSpent = _getTransactionOutputBlockHeight(transactionOutputIdentifierBeingSpent, blockHeight);
                         final long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
                         if (coinbaseMaturity <= COINBASE_MATURITY) {
                             if (_shouldLogInvalidTransactions) {
@@ -309,8 +329,6 @@ public class TransactionValidatorCore implements TransactionValidator {
                         }
                     }
                 }
-
-                final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
 
                 final TransactionOutput transactionOutputBeingSpent = _getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                 if (transactionOutputBeingSpent == null) {
@@ -360,8 +378,6 @@ public class TransactionValidatorCore implements TransactionValidator {
                         return false;
                     }
                     totalOutputValue += transactionOutputAmount;
-
-                    // TODO: Validate that the output indices are sequential and start at 0... (Must check reference client if it does the same.)
                 }
                 totalTransactionOutputValue = totalOutputValue;
             }

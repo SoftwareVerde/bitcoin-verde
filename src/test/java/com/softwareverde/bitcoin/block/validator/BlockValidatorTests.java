@@ -80,15 +80,6 @@ public class BlockValidatorTests extends UnitTest {
         return mutableTransaction;
     }
 
-    public static Long calculateBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-        return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
-    }
-
-    public static Long calculateStartingDiskOffset(final Integer totalTransactionCount) {
-        return (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT.longValue() + ByteUtil.variableLengthIntegerToBytes(totalTransactionCount).length);
-    }
-
     protected static BlockHeader inflateBlockHeader(final BlockHeaderInflater blockInflater, final String blockData) {
         return blockInflater.fromBytes(ByteArray.fromHexString(blockData));
     }
@@ -222,7 +213,7 @@ public class BlockValidatorTests extends UnitTest {
             }
 
             final TransactionValidator transactionValidator = new TransactionValidatorCore(blockValidatorContext);
-            final Boolean isValid = transactionValidator.validateTransaction(102L, signedTransaction, true);
+            final Boolean isValid = transactionValidator.validateTransaction(102L, signedTransaction);
             Assert.assertTrue(isValid);
         }
 
@@ -398,7 +389,7 @@ public class BlockValidatorTests extends UnitTest {
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
             final TransactionValidator transactionValidator = new TransactionValidatorCore(blockValidatorContext);
-            final Boolean isValid = transactionValidator.validateTransaction(2L, signedTransaction, true);
+            final Boolean isValid = transactionValidator.validateTransaction(2L, signedTransaction);
             Assert.assertTrue(isValid);
         }
 
@@ -412,6 +403,11 @@ public class BlockValidatorTests extends UnitTest {
 
         // Assert
         Assert.assertFalse(blockIsValid);
+    }
+
+    @Test
+    public void should_not_validate_block_that_has_two_transactions_spending_the_same_output() {
+        Assert.fail();
     }
 
     // @Test

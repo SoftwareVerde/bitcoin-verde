@@ -66,7 +66,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         {
             Boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockHeight, transaction, false);
+                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockHeight, transaction);
             }
             catch (final Exception exception) { Logger.warn(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;

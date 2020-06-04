@@ -429,7 +429,7 @@ public class BlockProcessor {
                 final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>();
                 for (final TransactionId transactionId : transactionIds) {
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(blockHeight, transaction, true);
+                    final Boolean transactionIsValid = transactionValidator.validateTransaction((blockHeight + 1L), transaction);
                     if (! transactionIsValid) {
                         transactionsToRemove.add(transactionId);
                     }

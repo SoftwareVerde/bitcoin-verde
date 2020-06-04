@@ -515,10 +515,10 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 TransactionUtil.startTransaction(databaseConnection);
                 blockchainSegmentIdContainer.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
                 final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+                final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
                 transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-                final Boolean isValidTransaction =  transactionValidator.validateTransaction(blockHeight, transaction, true);
+                final Boolean isValidTransaction =  transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
                 if (! isValidTransaction) {
                     return ValidationResult.invalid("Invalid Transaction.");
                 }

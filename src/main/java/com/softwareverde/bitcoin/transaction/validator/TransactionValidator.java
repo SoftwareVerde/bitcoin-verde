@@ -10,6 +10,10 @@ public interface TransactionValidator {
 
     Long COINBASE_MATURITY = 100L; // Number of Blocks before a coinbase transaction may be spent.
 
-    Boolean validateTransaction(Long blockHeight, Transaction transaction, Boolean validateForMemoryPool);
+    /**
+     * Returns true iff the transaction would be valid for the provided blockHeight.
+     *  For acceptance into the mempool, blockHeight should be 1 greater than the current blockchain's head blockHeight.
+     */
+    Boolean validateTransaction(Long blockHeight, Transaction transaction);
     void setLoggingEnabled(Boolean shouldLogInvalidTransactions);
 }

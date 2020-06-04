@@ -128,7 +128,7 @@ public class TransactionProcessor extends SleepyService {
 
                 final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                 final MutableList<Transaction> validTransactions = new MutableList<Transaction>(transactionsToStore.getCount());
                 final MutableList<TransactionId> validTransactionIds = new MutableList<TransactionId>(transactionsToStore.getCount());
@@ -146,7 +146,7 @@ public class TransactionProcessor extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(blockHeight, transaction, true);
+                    final Boolean transactionIsValid = transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
 
                     if (! transactionIsValid) {
                         TransactionUtil.rollbackTransaction(databaseConnection);
