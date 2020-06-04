@@ -69,6 +69,7 @@ public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTes
                 }
 
                 unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, blockHeight);
+                unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
                 blockHeight += 1L;
             }
 

@@ -75,8 +75,8 @@ public class NativeSecp256k1 {
             NativeUtil.loadLibraryFromJar("/lib/libsecp256k1." + extension);
             contextRef = secp256k1_init_context();
         }
-        catch (final Exception exception) {
-            Logger.warn("NOTICE: libsecp256k1 failed to load.");
+        catch (final Throwable exception) {
+            Logger.warn("NOTICE: libsecp256k1 failed to load.", exception);
             isEnabled = false;
         }
         _libraryLoadedCorrectly = isEnabled;

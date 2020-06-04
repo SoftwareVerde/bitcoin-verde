@@ -23,10 +23,13 @@ public class TransactionOutputIndexerTests extends IntegrationTest {
     public static TransactionId storeTransaction(final String hexString, final FullNodeTransactionDatabaseManager transactionDatabaseManager) throws DatabaseException {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(hexString));
-        return transactionDatabaseManager.storeTransactionHash(transaction);
+        final TransactionId transactionId = transactionDatabaseManager.storeTransactionHash(transaction);
+        System.out.println(transaction.getHash() + "=" + transactionId);
+        return transactionId;
     }
 
     public static void storeFakeTransactionOutputs(final String transactionHashString, final int[] outputIndices, final DatabaseManager databaseManager) throws DatabaseException {
+        if (true) { return; }
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final Long transactionId = databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")

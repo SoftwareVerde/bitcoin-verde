@@ -29,7 +29,7 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -1249,7 +1249,7 @@ class Void {
             final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
             final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
-            final MutableContext context = new MutableContext();
+            final MutableTransactionContext context = new MutableTransactionContext();
             context.setCurrentScript(null);
             context.setTransactionInputIndex(0);
             context.setTransactionInput(transactionInput);

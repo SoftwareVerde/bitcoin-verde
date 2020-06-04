@@ -3,6 +3,9 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -14,8 +17,8 @@ import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -23,7 +26,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
-import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
@@ -42,19 +45,19 @@ public class HistoricTransactionsTests {
     }
 
     public static Json toBitcoinjTestCase(final TestConfig testConfig) {
-        final Context context = initContext(testConfig);
-        return toBitcoinjTestCase(context);
+        final TransactionContext transactionContext = initContext(testConfig);
+        return toBitcoinjTestCase(transactionContext);
     }
 
-    public static Json toBitcoinjTestCase(final Context context) {
+    public static Json toBitcoinjTestCase(final TransactionContext transactionContext) {
         // ["[[[prevout hash, prevout index, prevout scriptPubKey], [input 2], ...],"], ["serializedTransaction, verifyFlags]"],
         final Json json = new Json(true);
 
         { // Transaction Output...
             final Json transactionInputsJson = new Json(true);
 
-            final TransactionInput transactionInput = context.getTransactionInput();
-            final TransactionOutput transactionOutput = context.getTransactionOutput();
+            final TransactionInput transactionInput = transactionContext.getTransactionInput();
+            final TransactionOutput transactionOutput = transactionContext.getTransactionOutput();
             final LockingScript lockingScript = transactionOutput.getLockingScript();
             final String lockingScriptString = (new ScriptDeflater()).toStandardString(lockingScript);
 
@@ -68,7 +71,7 @@ public class HistoricTransactionsTests {
         }
 
         { // Transaction Data...
-            final Transaction transaction = context.getTransaction();
+            final Transaction transaction = transactionContext.getTransaction();
             final ByteArray transactionBytes = (new TransactionDeflater().toBytes(transaction));
             json.add(transactionBytes);
         }
@@ -80,7 +83,7 @@ public class HistoricTransactionsTests {
         return json;
     }
 
-    public static Context initContext(final TestConfig testConfig) {
+    public static TransactionContext initContext(final TestConfig testConfig) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(testConfig.transactionBytes));
 
@@ -106,7 +109,7 @@ public class HistoricTransactionsTests {
             }
         }
 
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         {
             context.setBlockHeight(testConfig.blockHeight);
             context.setTransaction(transaction);
@@ -121,7 +124,7 @@ public class HistoricTransactionsTests {
 
     public static void runScripts(final TestConfig testConfig) {
         // Setup
-        final Context context = initContext(testConfig);
+        final TransactionContext transactionContext = initContext(testConfig);
 
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
@@ -129,7 +132,7 @@ public class HistoricTransactionsTests {
         final ScriptRunner scriptRunner = new ScriptRunner();
 
         // Action
-        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
 
         // Assert
         Assert.assertTrue(inputIsUnlocked);
@@ -643,15 +646,17 @@ public class HistoricTransactionsTests {
         testConfig.transactionBytes = "0100000001FEF8D1C268874475E874A2A3A664A4EB6F98D1D258B62A2800E4BEFA069C57AD010000008B483045022100B482783530D3EC73C97A5DC147EE3CF1705E355C17DD9DF7AD30D8E49712260D022059750222B33F45D80F5DC49C732786EBAED6C6FA72162A4632FEA7231339C15C0141045D443089B4587D355B4CB5AC39B0156AFC92152627693149DE16D0D2269CEA2417010C0BC6930E9B47573DAB76A951E01D884B2BED9EAF92CC2369B6DDC7F98CFFFFFFFF0200000000000000000B6A0942454E2072756C657A306F0100000000001976A9147038DC3B8533A422D1225ECBCC3C85E282FD92B388ACE4670600";
         testConfig.blockHeight = 419808L;
 
-        final Context context = initContext(testConfig);
+        final TransactionContext transactionContext = initContext(testConfig);
 
         final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
-        final NetworkTime networkTime = ImmutableNetworkTime.fromSeconds(1529680230L);
+        final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1529680230L));
 
-        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(null, null, null, networkTime, medianBlockTime);
+        final UnspentTransactionOutputContext unspentTransactionOutputContext = null; // TODO
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unspentTransactionOutputContext);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         // Action
-        final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(context.getTransaction());
+        final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(transactionContext.getTransaction());
 
         // Assert
         Assert.assertFalse(shouldValidateLockTime);

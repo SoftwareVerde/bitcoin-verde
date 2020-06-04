@@ -80,7 +80,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockDatabaseManager getBlockDatabaseManager() {
         if (_blockDatabaseManager == null) {
-            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this);
+            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this, _blockStore);
         }
 
         return _blockDatabaseManager;

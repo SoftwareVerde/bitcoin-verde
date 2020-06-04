@@ -3,6 +3,10 @@ package com.softwareverde.bitcoin.server.module.node.sync.blockloader;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
+import com.softwareverde.bitcoin.context.ThreadPoolContext;
+import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -11,8 +15,6 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.transaction.validator.LazyMutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.transaction.validator.MutableUnspentTransactionOutputSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -23,9 +25,9 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class PendingBlockLoader {
-    protected final BlockInflaters _blockInflaters;
-    protected final ThreadPool _threadPool;
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    public interface Context extends BlockInflaters, ThreadPoolContext, MultiConnectionFullDatabaseContext { }
+
+    protected final Context _context;
     protected final CircleBuffer<PendingBlockFuture> _pendingBlockFutures;
     protected Long _loadUnspentOutputsAfterBlockHeight = null;
 
@@ -34,13 +36,15 @@ public class PendingBlockLoader {
      * When complete, the pin is released.
      */
     protected PendingBlockFuture _asynchronouslyLoadNextPendingBlock(final Sha256Hash blockHash, final PendingBlockId nextPendingBlockId, final Long nextBlockHeight, final Boolean shouldLoadUnspentOutputs) {
-        final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
+        final BlockInflater blockInflater = _context.getBlockInflater();
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+        final ThreadPool threadPool = _context.getThreadPool();
 
-        final PendingBlockFuture blockFuture = new PendingBlockFuture(blockHash, _blockInflaters.getBlockInflater());
-        _threadPool.execute(new Runnable() {
+        final PendingBlockFuture blockFuture = new PendingBlockFuture(blockHash, blockInflater);
+        threadPool.execute(new Runnable() {
             @Override
             public void run() {
-                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                     final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
                     final MilliTimer milliTimer = new MilliTimer();
@@ -66,7 +70,7 @@ public class PendingBlockLoader {
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                     }
                     else { // NOTE: Outputs are available upon demand via LazyLoading.
-                        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(_databaseManagerFactory);
+                        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
                         unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock, nextBlockHeight); // Operation is only executed on demand...
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                     }
@@ -100,14 +104,14 @@ public class PendingBlockLoader {
         return (Util.coalesce(blockHeight, Long.MAX_VALUE) > loadUnspentOutputsAfterBlockHeight);
     }
 
-    public PendingBlockLoader(final Integer queueCount, final FullNodeDatabaseManagerFactory databaseManagerFactory, final ThreadPool threadPool, final BlockInflaters blockInflaters) {
-        _blockInflaters = blockInflaters;
-        _threadPool = threadPool;
-        _databaseManagerFactory = databaseManagerFactory;
+    public PendingBlockLoader(final Context context, final Integer queueCount) {
+        _context = context;
         _pendingBlockFutures = new CircleBuffer<PendingBlockFuture>(queueCount);
     }
 
     public synchronized PreloadedPendingBlock getBlock(final Sha256Hash blockHash, final PendingBlockId nullablePendingBlockId) {
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
         // Find the requested block in the queue, emptying/discarding the queue until a match is found.
         PendingBlockFuture requestedBlockFuture = null;
         while (_pendingBlockFutures.getCount() > 0) {
@@ -120,7 +124,7 @@ public class PendingBlockLoader {
             Logger.trace("Discarding preloaded block: " + pendingBlockFuture.getBlockHash());
         }
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             final Long blockHeight = _getBlockHeight(blockHash, databaseManager);
 

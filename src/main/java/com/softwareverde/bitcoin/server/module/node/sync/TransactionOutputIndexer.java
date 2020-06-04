@@ -2,11 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -23,8 +20,6 @@ import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
@@ -44,25 +39,24 @@ public class TransactionOutputIndexer extends SleepyService {
         TransactionId slpTransactionId;
     }
 
+    protected final TransactionOutputIndexerContext _context;
     protected final ScriptPatternMatcher _scriptPatternMatcher = new ScriptPatternMatcher();
     protected final SlpScriptInflater _slpScriptInflater = new SlpScriptInflater();
 
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected Runnable _onSleepCallback;
 
-    protected AddressId _getAddressId(final LockingScript lockingScript, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected AddressId _getAddressId(final LockingScript lockingScript) throws ContextException {
         final ScriptType scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
         final Address address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) { return null; }
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
-        final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
+        final AddressId addressId = _context.getAddressId(address);
         if (addressId != null) { return addressId; }
 
-        return transactionOutputDatabaseManager.storeAddress(address);
+        return _context.storeAddress(address);
     }
 
-    protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript) throws ContextException {
         final SlpTokenId slpTokenId;
         switch (slpScript.getType()) {
             case GENESIS: {
@@ -91,11 +85,10 @@ public class TransactionOutputIndexer extends SleepyService {
 
         if (slpTokenId == null) { return null; }
 
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        return transactionDatabaseManager.getTransactionId(slpTokenId);
+        return _context.getTransactionId(slpTokenId);
     }
 
-    protected void _indexTransactionOutputs(final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData, final TransactionId transactionId, final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected void _indexTransactionOutputs(final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData, final TransactionId transactionId, final Transaction transaction) throws ContextException {
         final Sha256Hash transactionHash = transaction.getHash();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int transactionOutputCount = transactionOutputs.getCount();
@@ -117,7 +110,7 @@ public class TransactionOutputIndexer extends SleepyService {
                 indexData.outputIndex = outputIndex;
                 indexData.amount = transactionOutput.getAmount();
                 indexData.scriptType = ScriptType.UNKNOWN;
-                indexData.addressId = _getAddressId(lockingScript, databaseManager);
+                indexData.addressId = _getAddressId(lockingScript);
                 indexData.slpTransactionId = null;
 
                 outputIndexData.put(transactionOutputIdentifier, indexData);
@@ -138,7 +131,7 @@ public class TransactionOutputIndexer extends SleepyService {
 
             if (slpTransactionIsValid) {
                 ScriptType outputScriptType = ScriptType.CUSTOM_SCRIPT;
-                final TransactionId slpTokenTransactionId = _getSlpTokenTransactionId(transactionId, slpScript, databaseManager);
+                final TransactionId slpTokenTransactionId = _getSlpTokenTransactionId(transactionId, slpScript);
 
                 switch (slpScript.getType()) {
                     case GENESIS: {
@@ -224,8 +217,8 @@ public class TransactionOutputIndexer extends SleepyService {
         }
     }
 
-    public TransactionOutputIndexer(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
-        _databaseManagerFactory = databaseManagerFactory;
+    public TransactionOutputIndexer(final TransactionOutputIndexerContext context) {
+        _context = context;
     }
 
     @Override
@@ -237,45 +230,40 @@ public class TransactionOutputIndexer extends SleepyService {
     protected Boolean _run() {
         Logger.trace("AddressProcessor Running.");
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final AutoCloseable context = _context.startDatabaseTransaction()) {
             final MilliTimer processTimer = new MilliTimer();
-
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
             int outputCount = 0;
             processTimer.start();
-            TransactionUtil.startTransaction(databaseConnection);
-            {
-                final List<TransactionId> queuedTransactionIds = transactionOutputDatabaseManager.getUnprocessedTransactions(BATCH_SIZE);
-                if (queuedTransactionIds.isEmpty()) { return false; }
+            final List<TransactionId> queuedTransactionIds = _context.getUnprocessedTransactions(BATCH_SIZE);
+            if (queuedTransactionIds.isEmpty()) { return false; }
 
-                for (final TransactionId transactionId : queuedTransactionIds) {
-                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    if (transaction == null) {
-                        Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
-                        return false;
-                    }
-
-                    final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<TransactionOutputIdentifier, OutputIndexData>();
-                    _indexTransactionOutputs(outputIndexData, transactionId, transaction, databaseManager);
-
-                    for (final OutputIndexData indexData : outputIndexData.values()) {
-                        transactionOutputDatabaseManager.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
-                        outputCount += 1;
-                    }
+            for (final TransactionId transactionId : queuedTransactionIds) {
+                final Transaction transaction = _context.getTransaction(transactionId);
+                if (transaction == null) {
+                    Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
+                    return false;
                 }
 
-                transactionOutputDatabaseManager.dequeueTransactionsForProcessing(queuedTransactionIds);
+                final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<TransactionOutputIdentifier, OutputIndexData>();
+                _indexTransactionOutputs(outputIndexData, transactionId, transaction);
+
+                for (final OutputIndexData indexData : outputIndexData.values()) {
+                    _context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
+                    outputCount += 1;
+                }
             }
-            TransactionUtil.commitTransaction(databaseConnection);
+
+            _context.dequeueTransactionsForProcessing(queuedTransactionIds);
+            _context.commitDatabaseTransaction();
             processTimer.stop();
 
             Logger.info("Indexed " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
         }
-        catch (final DatabaseException exception) {
+        catch (final Exception exception) {
             Logger.warn(exception);
+            _context.rollbackDatabaseTransaction();
+
             return false;
         }
 

@@ -1,17 +1,14 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
@@ -44,27 +41,21 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     }
 
     protected final Long _blockHeight;
-    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final TransactionValidator.Context _context;
     protected final BlockOutputs _blockOutputs;
-    protected final NetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
-    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
     protected TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final Long blockHeight, final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidationTaskHandler(final TransactionValidator.Context context, final Long blockHeight, final BlockOutputs blockOutputs) {
+        _context = context;
         _blockHeight = blockHeight;
-        _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
-        _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
-        _transactionValidatorFactory = transactionValidatorFactory;
-        _unspentTransactionOutputSet = unspentTransactionOutputSet;
         _blockOutputs = blockOutputs;
     }
 
     @Override
     public void init() {
-        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(_unspentTransactionOutputSet, _blockOutputs);
+        _transactionValidator = new TransactionValidatorCore(_blockOutputs, _context);
     }
 
     @Override
@@ -75,7 +66,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         {
             Boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockHeight, transaction, false);
+                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockHeight, transaction);
             }
             catch (final Exception exception) { Logger.warn(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;

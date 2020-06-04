@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.UnconfirmedTransactionId;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
@@ -141,7 +140,7 @@ public class UnconfirmedTransactionInputDatabaseManager {
         final Integer previousTransactionOutputIndex = row.getInteger("previous_transaction_output_index");
 
         final UnconfirmedTransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
-        return transactionOutputDatabaseManager.findUnconfirmedTransactionOutput(new TransactionOutputIdentifier(previousTransactionHash, previousTransactionOutputIndex));
+        return transactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(new TransactionOutputIdentifier(previousTransactionHash, previousTransactionOutputIndex));
     }
 
     public List<UnconfirmedTransactionInputId> getUnconfirmedTransactionInputIds(final TransactionId transactionId) throws DatabaseException {

@@ -4,6 +4,7 @@
 /build
 bin
 out
+keys
 
 .idea
 *.iml

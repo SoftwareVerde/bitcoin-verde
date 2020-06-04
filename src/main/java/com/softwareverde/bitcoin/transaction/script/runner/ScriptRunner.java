@@ -10,8 +10,8 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -32,8 +32,8 @@ public class ScriptRunner {
 
     public ScriptRunner() { }
 
-    public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
-        final MutableContext mutableContext = new MutableContext(context);
+    public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final TransactionContext transactionContext) {
+        final MutableTransactionContext mutableContext = new MutableTransactionContext(transactionContext);
 
         final ControlState controlState = new ControlState();
 
@@ -50,7 +50,7 @@ public class ScriptRunner {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
                 if (unlockingScriptOperations == null) { return false; }
 
-                if (HF20181115.isEnabled(context.getBlockHeight())) {
+                if (HF20181115.isEnabled(transactionContext.getBlockHeight())) {
                     final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
                     if (unlockingScriptContainsNonPushOperations) { return false; } // Only push operations are allowed in the unlocking script. (BIP 62)
                 }
@@ -159,10 +159,10 @@ public class ScriptRunner {
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
 
         // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
-        if ( (HF20181115.isEnabled(context.getBlockHeight())) && (! HF20181115SV.isEnabled(context.getBlockHeight())) ) {
+        if ( (HF20181115.isEnabled(transactionContext.getBlockHeight())) && (! HF20181115SV.isEnabled(transactionContext.getBlockHeight())) ) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) {
-                if (HF20190515.isEnabled(context.getMedianBlockTime())) {
+                if (HF20190515.isEnabled(transactionContext.getMedianBlockTime())) {
                     final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                     final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
                     if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }

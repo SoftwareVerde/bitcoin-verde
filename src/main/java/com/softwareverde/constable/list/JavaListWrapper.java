@@ -35,6 +35,7 @@ public class JavaListWrapper<T> implements List<T> {
         throw new IndexOutOfBoundsException();
     }
 
+    @Deprecated
     @Override
     public int getSize() {
         int i = 0;

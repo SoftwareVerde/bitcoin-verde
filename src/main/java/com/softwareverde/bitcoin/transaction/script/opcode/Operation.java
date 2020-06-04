@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.constable.Const;
@@ -78,8 +78,8 @@ public abstract class Operation implements Const {
         return (byteArray.getByteCount() == minimallyEncodedByteArray.getByteCount());
     }
 
-    protected static Boolean validateMinimalEncoding(final Value value, final Context context) {
-        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
+    protected static Boolean validateMinimalEncoding(final Value value, final TransactionContext transactionContext) {
+        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
         if (! HF20191115.isEnabled(medianBlockTime)) { return true; }
 
         return Operation.isMinimallyEncoded(value);
@@ -101,9 +101,9 @@ public abstract class Operation implements Const {
         return _type;
     }
 
-    public abstract Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) throws ScriptOperationExecutionException;
+    public abstract Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) throws ScriptOperationExecutionException;
 
-    public Boolean shouldExecute(final Stack stack, final ControlState controlState, final Context context) {
+    public Boolean shouldExecute(final Stack stack, final ControlState controlState, final TransactionContext transactionContext) {
         if (controlState.isInCodeBlock()) {
             final CodeBlock codeBlock = controlState.getCodeBlock();
             return Util.coalesce(codeBlock.condition, false);

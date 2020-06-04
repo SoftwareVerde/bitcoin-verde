@@ -4,10 +4,9 @@ import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -22,11 +21,10 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -425,10 +423,17 @@ public class AbcScriptRunnerTests {
             AbcScriptRunnerTests.originalNativeSecp256k1Value = NativeSecp256k1.isEnabled();
         }
 
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
-        BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
+        try {
+            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
+            BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
+        }
+        catch (final Exception exception) {
+            // Can happen as of Java 11, but ReflectionUtil also removes the need for
+            //  setting volatile due to its usage of sun.misc.Unsafe when using Java 11...
+            Logger.debug("Unable to set volatile modifier.", exception);
+        }
 
         _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
@@ -545,7 +550,7 @@ public class AbcScriptRunnerTests {
             transactionInput.setPreviousOutputTransactionHash(transactionBeingSpent.getHash());
             transaction.setTransactionInput(0, transactionInput);
 
-            final MutableContext context = new MutableContext();
+            final MutableTransactionContext context = new MutableTransactionContext();
             context.setTransaction(transaction); // Set the LockTime to zero...
             context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
             context.setTransactionInput(transactionInput);

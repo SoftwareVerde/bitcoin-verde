@@ -1,16 +1,13 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
-import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.Const;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.block.header.difficulty.work.*;
+import com.softwareverde.bitcoin.constable.util.*;
+import com.softwareverde.bitcoin.util.*;
+import com.softwareverde.constable.*;
+import com.softwareverde.constable.bytearray.*;
+import com.softwareverde.security.hash.sha256.*;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.math.*;
 
 public class ImmutableDifficulty implements Difficulty, Const {
     protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
@@ -36,7 +33,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
         // NOTE: Invoking the BigDecimal constructor with the scale provided is NOT the same as setting its scale afterwards.
         //  Therefore, think twice before changing/condensing this.
         //  The BigDecimal(BigInteger, Scale) constructor sets the value to 10^Scale less than what is perceived.
-        return bigDecimal.setScale(4, BigDecimal.ROUND_UNNECESSARY); // setScale(4);
+        return bigDecimal.setScale(4, RoundingMode.UNNECESSARY); // setScale(4);
     }
 
     protected ByteArray _encode() {
@@ -118,7 +115,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public BigDecimal getDifficultyRatio() {
         final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal baseDifficultyValue = Difficulty.BASE_DIFFICULTY._toBigDecimal();
-        return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
+        return baseDifficultyValue.divide(currentValue, RoundingMode.HALF_UP);
     }
 
     @Override
@@ -131,7 +128,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     @Override
     public Difficulty divideBy(final double difficultyAdjustment) {
         final BigDecimal currentValue = _toBigDecimal();
-        final BigDecimal bigDecimal = currentValue.divide(BigDecimal.valueOf(difficultyAdjustment), BigDecimal.ROUND_HALF_UP);
+        final BigDecimal bigDecimal = currentValue.divide(BigDecimal.valueOf(difficultyAdjustment), RoundingMode.HALF_UP);
         return Difficulty.fromBigInteger(bigDecimal.toBigInteger());
     }
 

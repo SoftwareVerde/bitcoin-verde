@@ -96,6 +96,7 @@ public class IntegrationTest extends UnitTest {
         }
     }
 
+    @Override
     public void before() {
         IntegrationTest.resetDatabase();
 
@@ -107,5 +108,6 @@ public class IntegrationTest extends UnitTest {
         uncommittedUtxoBlockHeight.value = 0L;
     }
 
+    @Override
     public void after() { }
 }

@@ -91,7 +91,7 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         return transactionOutputIds;
     }
 
-    public UnconfirmedTransactionOutputId findUnconfirmedTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    public UnconfirmedTransactionOutputId getUnconfirmedTransactionOutputId(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionOutputIdentifier.getTransactionHash());
         if (transactionId == null) { return null; }

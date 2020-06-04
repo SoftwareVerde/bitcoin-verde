@@ -1,18 +1,19 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
-import com.softwareverde.bitcoin.transaction.validator.UnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Util;
 
 /**
  * Calculates the total fees available for all Transactions sent to executeTask.
@@ -49,13 +50,22 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         }
     }
 
-    protected final UnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected final UnspentTransactionOutputContext _unspentTransactionOutputSet;
     protected final BlockOutputs _blockOutputs;
+    protected final SpentOutputsTracker _spentOutputsTracker;
 
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        final UnspentTransactionOutputSet unspentTransactionOutputSet = _unspentTransactionOutputSet;
+    protected TransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        { // Ensure the output hasn't been spent already by this block...
+            final Boolean wasAlreadySpent = _spentOutputsTracker.markOutputAsSpent(transactionOutputIdentifier);
+            if (wasAlreadySpent) {
+                Logger.debug("Output already spent within Block: " + transactionOutputIdentifier);
+                return null;
+            }
+        }
+
+        final UnspentTransactionOutputContext unspentTransactionOutputSet = _unspentTransactionOutputSet;
         if (unspentTransactionOutputSet != null) {
             final TransactionOutput transactionOutput = unspentTransactionOutputSet.getTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput != null) { return transactionOutput; }
@@ -78,11 +88,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-            TransactionOutput transactionOutput = null;
-            try {
-                transactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier);
-            }
-            catch (final DatabaseException exception) { }
+            final TransactionOutput transactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier);
 
             if (transactionOutput == null) {
                 Logger.debug("Tx Input, Output Not Found: " + transactionOutputIdentifier);
@@ -97,9 +103,10 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
 
     protected Long _totalFees = 0L;
 
-    public TotalExpenditureTaskHandler(final UnspentTransactionOutputSet unspentTransactionOutputSet, final BlockOutputs blockOutputs) {
+    public TotalExpenditureTaskHandler(final UnspentTransactionOutputContext unspentTransactionOutputSet, final BlockOutputs blockOutputs, final SpentOutputsTracker spentOutputsTracker) {
         _unspentTransactionOutputSet = unspentTransactionOutputSet;
         _blockOutputs = blockOutputs;
+        _spentOutputsTracker = spentOutputsTracker;
     }
 
     @Override

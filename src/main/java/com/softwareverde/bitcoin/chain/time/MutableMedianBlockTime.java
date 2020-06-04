@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, MedianBlockTimeWithBlocks {
+public class MutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, MedianBlockTimeWithBlocks, VolatileMedianBlockTime {
     protected final Integer _requiredBlockCount;
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
@@ -51,8 +51,8 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     }
 
     public void addBlock(final BlockHeader blockHeader) {
+        _writeLock.lock();
         try {
-            _writeLock.lock();
             _previousBlocks.add(blockHeader);
         }
         finally {
@@ -62,8 +62,8 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
 
     public Boolean hasRequiredBlockCount() {
         final boolean hasRequiredBlockCount;
+        _readLock.lock();
         try {
-            _readLock.lock();
             hasRequiredBlockCount = (_previousBlocks.size() >= _requiredBlockCount);
         }
         finally {
@@ -71,6 +71,37 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         }
 
         return hasRequiredBlockCount;
+    }
+
+    public void clear() {
+        _writeLock.lock();
+
+        try {
+            _previousBlocks.clear();
+        }
+        finally {
+            _writeLock.unlock();
+        }
+    }
+
+    public void setTo(final MedianBlockTimeWithBlocks medianBlockTime) {
+        _writeLock.lock();
+
+        try {
+            _previousBlocks.clear();
+
+            if (medianBlockTime == null) { return; }
+            for (int i = 0; i < _requiredBlockCount; ++i) {
+                final int index = (_requiredBlockCount - i - 1);
+                final BlockHeader blockHeader = medianBlockTime.getBlockHeader(index);
+                if (blockHeader == null) { break; }
+
+                _previousBlocks.add(blockHeader);
+            }
+        }
+        finally {
+            _writeLock.unlock();
+        }
     }
 
     @Override
@@ -99,8 +130,8 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     @Override
     public Long getCurrentTimeInSeconds() {
         final Long medianBlockTime;
+        _readLock.lock();
         try {
-            _readLock.lock();
             medianBlockTime = _getMedianBlockTimeInMilliseconds();
         }
         finally {
@@ -113,8 +144,8 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     @Override
     public Long getCurrentTimeInMilliSeconds() {
         final Long medianBlockTime;
+        _readLock.lock();
         try {
-            _readLock.lock();
             medianBlockTime = _getMedianBlockTimeInMilliseconds();
         }
         finally {

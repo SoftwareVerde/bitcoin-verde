@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -141,12 +140,12 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 
     @Override
-    default MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+    default MutableMedianBlockTime calculateMedianBlockTimeBefore(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    default MedianBlockTime calculateMedianBlockTimeStartingWithBlock(final BlockId blockId) throws DatabaseException {
+    default MutableMedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
