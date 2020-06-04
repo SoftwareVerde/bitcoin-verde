@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.validator;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -10,22 +11,36 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeBlockValidatorContext;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.HashMapTransactionOutputRepository;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
@@ -37,7 +52,42 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class BlockValidatorTests extends UnitTest {
-    protected static final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
+    public static MutableTransactionOutput createTransactionOutput(final Address payToAddress, final Long amount) {
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+        transactionOutput.setAmount(amount);
+        transactionOutput.setIndex(0);
+        transactionOutput.setLockingScript((ScriptBuilder.payToAddress(payToAddress)));
+        return transactionOutput;
+    }
+
+    public static MutableTransactionInput createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
+        final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+        mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
+        mutableTransactionInput.setPreviousOutputIndex(0);
+        mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+        mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
+        return mutableTransactionInput;
+    }
+
+    public static MutableTransaction createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
+        final MutableTransaction mutableTransaction = new MutableTransaction();
+        mutableTransaction.setVersion(1L);
+        mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
+
+        mutableTransaction.addTransactionInput(transactionInput);
+        mutableTransaction.addTransactionOutput(transactionOutput);
+
+        return mutableTransaction;
+    }
+
+    public static Long calculateBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
+    }
+
+    public static Long calculateStartingDiskOffset(final Integer totalTransactionCount) {
+        return (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT.longValue() + ByteUtil.variableLengthIntegerToBytes(totalTransactionCount).length);
+    }
 
     protected static BlockHeader inflateBlockHeader(final BlockHeaderInflater blockInflater, final String blockData) {
         return blockInflater.fromBytes(ByteArray.fromHexString(blockData));
@@ -122,19 +172,40 @@ public class BlockValidatorTests extends UnitTest {
             final AddressInflater addressInflater = new AddressInflater();
             final Transaction transactionToSpend = modifiedBlock01.getCoinbaseTransaction();
             final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
-            transactionOutputRepository.put(new TransactionOutputIdentifier(transactionToSpend.getHash(), 0), transactionToSpend.getTransactionOutputs().get(0));
+            {
+                final Sha256Hash transactionToSpendHash = transactionToSpend.getHash();
+                int outputIndex = 0;
+                for (final TransactionOutput transactionOutput : transactionToSpend.getTransactionOutputs()) {
+                    final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = new TransactionOutputIdentifier(transactionToSpendHash, outputIndex);
+                    transactionOutputRepository.put(transactionOutputIdentifierBeingSpent, transactionOutput);
+                    outputIndex += 1;
+                }
+            }
 
             final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
-            final MutableTransaction unsignedTransaction = TransactionValidatorTests.createTransactionContaining(
-                TransactionValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
-                TransactionValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
+            final MutableTransaction unsignedTransaction = BlockValidatorTests.createTransactionContaining(
+                BlockValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
+                BlockValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
             );
 
-            // Sign the transaction...
-            final TransactionSigner transactionSigner = new TransactionSigner();
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
-            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
-            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+            { // Sign the transaction...
+                Transaction partiallySignedTransaction = unsignedTransaction;
+                final TransactionSigner transactionSigner = new TransactionSigner();
+                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
+
+                int inputIndex = 0;
+                final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
+                for (final TransactionInput transactionInput : transactionInputs) {
+                    final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                    final TransactionOutput transactionOutputBeingSpent = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
+
+                    signatureContext.setInputIndexBeingSigned(inputIndex);
+                    signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
+                    partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey, false);
+                }
+
+                signedTransaction = partiallySignedTransaction;
+            }
         }
 
         modifiedBlock01.addTransaction(signedTransaction);
@@ -143,6 +214,17 @@ public class BlockValidatorTests extends UnitTest {
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
         blockValidatorContext.addBlock(genesisBlock, 0L);
         blockValidatorContext.addBlock(modifiedBlock01, 1L);
+
+        { // Ensure the fake transaction that would normally be valid on its own...
+            { // Add the 101st block so so that the signed transaction has a medianBlockTime when bypassing the coinbase maturity validation...
+                final Block block101 = blockInflater.fromBytes(ByteArray.fromHexString("010000009A22DB7FD25E719ABF9E8CCF869FBBC1E22FA71822A37EFAE054C17B00000000F7A5D0816883EC2F4D237082B47B4D3A6A26549D65AC50D8527B67AB4CB7E6CFADAA6949FFFF001D15FA87F60101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D014EFFFFFFFF0100F2052A01000000434104181D31D7160779E75231F7647F91E53D633839EB9CE3FE096EC522719CC1B9DA0237CB9941A059579BEE26692A90344417069391A6AA1E4680CAA4580A7AB9F3AC00000000"));
+                blockValidatorContext.addBlock(block101, 101L);
+            }
+
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(blockValidatorContext);
+            final Boolean isValid = transactionValidator.validateTransaction(102L, signedTransaction, true);
+            Assert.assertTrue(isValid);
+        }
 
         // Action
         final BlockValidationResult blockIsValid = blockValidator.validateBlock(modifiedBlock01, 1L);
@@ -224,7 +306,6 @@ public class BlockValidatorTests extends UnitTest {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
-        final TransactionSigner transactionSigner = new TransactionSigner();
 
         final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
         final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
@@ -290,15 +371,29 @@ public class BlockValidatorTests extends UnitTest {
 
         final Transaction signedTransaction;
         {
-            final MutableTransaction unsignedTransaction = TransactionValidatorTests.createTransactionContaining(
-                TransactionValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
-                TransactionValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
+            final MutableTransaction unsignedTransaction = BlockValidatorTests.createTransactionContaining(
+                BlockValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
+                BlockValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
             );
 
-            // Sign the transaction...
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
-            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
-            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+            { // Sign the transaction...
+                Transaction partiallySignedTransaction = unsignedTransaction;
+                final TransactionSigner transactionSigner = new TransactionSigner();
+                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
+
+                int inputIndex = 0;
+                final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
+                for (final TransactionInput transactionInput : transactionInputs) {
+                    final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                    final TransactionOutput transactionOutputBeingSpent = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
+
+                    signatureContext.setInputIndexBeingSigned(inputIndex);
+                    signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
+                    partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+                }
+
+                signedTransaction = partiallySignedTransaction;
+            }
         }
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
