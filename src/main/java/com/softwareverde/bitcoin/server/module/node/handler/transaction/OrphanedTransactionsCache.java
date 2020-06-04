@@ -64,6 +64,7 @@ public class OrphanedTransactionsCache {
         return (transactionOutput != null);
     }
 
+    // TODO: This class, despite being important to handling orphaned transactions, never appears to be read from--only written to.
     public OrphanedTransactionsCache() { }
 
     public synchronized void add(final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {

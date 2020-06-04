@@ -1,11 +1,32 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
+import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
+import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
+import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.test.BlockData;
+import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -35,68 +56,52 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
     @Test
     public void should_synchronize_pending_blocks() throws Exception {
-//        // Setup
-//        try (final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-//             final MasterDatabaseManagerCache masterCache = new MasterDatabaseManagerCacheCore();
-//             final DatabaseManagerCache databaseCache = new ReadOnlyLocalDatabaseManagerCache(masterCache);
-//             final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
-//             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseCache);
-//        ) {
-//            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, databaseCache);
-//
-//            final BlockInflater blockInflater = new BlockInflater();
-//            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-//
-//            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-//            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-//
-//            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                blockDatabaseManager.storeBlock(genesisBlock);
-//            }
-//
-//            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-//            for (final String blockData : new String[] { BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4, BlockData.MainChain.BLOCK_5 }) {
-//                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-//                pendingBlockDatabaseManager.storeBlock(block);
-//            }
-//
-//            final BlockchainBuilder blockchainBuilder;
-//            {
-//                final NetworkTime networkTime = new MutableNetworkTime();
-//                final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
-//                final BitcoinNodeManager nodeManager = new FakeBitcoinNodeManager();
-//
-//                final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseCache);
-//
-//                final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-//                final BlockProcessor blockProcessor = new BlockProcessor(databaseManagerFactory, masterCache, transactionValidatorFactory, networkTime, medianBlockTime, orphanedTransactionsCache, null);
-//                final SleepyService.StatusMonitor blockDownloaderStatusMonitor = new SleepyService.StatusMonitor() {
-//                    @Override
-//                    public SleepyService.Status getStatus() {
-//                        return SleepyService.Status.ACTIVE;
-//                    }
-//                };
-//                blockchainBuilder = new BlockchainBuilder(nodeManager, databaseManagerFactory, blockProcessor, blockDownloaderStatusMonitor, new FakeBlockDownloadRequester(), _threadPool);
-//            }
-//
-//            Assert.assertTrue(blockchainBuilder._hasGenesisBlock);
-//
-//            // Action
-//            blockchainBuilder.start();
-//            Thread.sleep(1000L);
-//            blockchainBuilder.stop();
-//
-//            // Assert
-//            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-//            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 1L));
-//            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 2L));
-//            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 3L));
-//            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 4L));
-//            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 5L));
-//        }
-        Assert.fail();
-    }
+        final FakeBlockStore blockStore = new FakeBlockStore();
+        final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
+        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
+        final BlockDownloader.StatusMonitor downloadStatusMonitor = new SleepyService.StatusMonitor() {
+            @Override
+            public SleepyService.Status getStatus() {
+                return SleepyService.Status.ACTIVE;
+            }
+        };
 
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus);
+        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, _fullNodeDatabaseManagerFactory, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
+
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, downloadStatusMonitor, null);
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4, BlockData.MainChain.BLOCK_5 }) {
+                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
+        }
+
+        // Action
+        blockchainBuilder.start();
+        Thread.sleep(1000L);
+        blockchainBuilder.stop();
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 0L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 1L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 2L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 3L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 4L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 5L));
+        }
+    }
 
     @Test
     public void should_not_be_invalid_if_spent_on_different_chain() throws Exception {
