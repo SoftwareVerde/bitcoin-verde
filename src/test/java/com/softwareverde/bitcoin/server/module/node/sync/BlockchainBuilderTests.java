@@ -1,15 +1,24 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -19,13 +28,28 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
@@ -33,16 +57,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class BlockchainBuilderTests extends IntegrationTest {
-//    static class FakeBlockDownloadRequester implements BlockDownloadRequester {
-//        @Override
-//        public void requestBlock(final BlockHeader blockHeader) { }
-//
-//        @Override
-//        public void requestBlock(final Sha256Hash blockHash, final Long priority) { }
-//
-//        @Override
-//        public void requestBlock(final Sha256Hash blockHash) { }
-//    }
 
     @Before @Override
     public void before() {
@@ -104,139 +118,244 @@ public class BlockchainBuilderTests extends IntegrationTest {
     }
 
     @Test
-    public void should_not_be_invalid_if_spent_on_different_chain() throws Exception {
-//        // Setup
-//        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-//            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-//            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-//
-//            final BlockInflater blockInflater = new BlockInflater();
-//            final AddressInflater addressInflater = new AddressInflater();
-//            final TransactionSigner transactionSigner = new TransactionSigner();
-//            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-//            final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, NetworkTime.MAX_VALUE, MedianBlockTime.MAX_VALUE);
-//            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
-//            final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
-//
-//            Sha256Hash lastBlockHash = null;
-//            Block lastBlock = null;
-//            BlockId lastBlockId = null;
-//            for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
-//                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    lastBlockId = blockDatabaseManager.storeBlock(block);
-//                }
-//                lastBlock = block;
-//                lastBlockHash = block.getHash();
-//            }
-//            Assert.assertNotNull(lastBlock);
-//            Assert.assertNotNull(lastBlockId);
-//            Assert.assertNotNull(lastBlockHash);
-//
-//            final PrivateKey privateKey = PrivateKey.createNewKey();
-//
-//            final Transaction spendableCoinbase;
-//            final MutableBlock blockWithSpendableCoinbase = new MutableBlock() {
-//                @Override
-//                public Boolean isValid() { return true; } // Disables basic header validation...
-//            };
-//
-//            {
-//                blockWithSpendableCoinbase.setDifficulty(lastBlock.getDifficulty());
-//                blockWithSpendableCoinbase.setNonce(lastBlock.getNonce());
-//                blockWithSpendableCoinbase.setTimestamp(lastBlock.getTimestamp());
-//                blockWithSpendableCoinbase.setVersion(lastBlock.getVersion());
-//
-//                // Create a transaction that will be spent in our signed transaction.
-//                //  This transaction will create an output that can be spent by our private key.
-//                spendableCoinbase = TransactionValidatorTests._createTransactionContaining(
-//                    TransactionValidatorTests._createCoinbaseTransactionInput(),
-//                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
-//                );
-//
-//                blockWithSpendableCoinbase.addTransaction(spendableCoinbase);
-//
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    blockWithSpendableCoinbase.setPreviousBlockHash(lastBlockHash);
-//                    final BlockId blockId = blockDatabaseManager.storeBlock(blockWithSpendableCoinbase); // Block3
-//                    lastBlockHash = blockWithSpendableCoinbase.getHash();
-//
-//                    final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase).isValid;
-//                    Assert.assertTrue(blockIsValid);
-//                }
-//            }
-//
-//            final Transaction signedTransactionSpendingDuplicateCoinbase;
-//            {
-//                final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
-//                        TransactionValidatorTests._createTransactionInputThatSpendsTransaction(spendableCoinbase),
-//                        TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
-//                );
-//
-//                // Sign the transaction..
-//                final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
-//                final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
-//                signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
-//
-//                transactionDatabaseManager.storeTransaction(signedTransactionSpendingDuplicateCoinbase);
-//            }
-//
-//            { // Ensure the transaction would normally be valid on its own...
-//                final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests.calculateBlockHeight(databaseManager), signedTransactionSpendingDuplicateCoinbase, false);
-//                Assert.assertTrue(isValid);
-//            }
-//
-//            { // Spend the coinbase...
-//                final MutableBlock mutableBlock = new MutableBlock(blockWithSpendableCoinbase) {
-//                    @Override
-//                    public Boolean isValid() { return true; }
-//                };
-//                mutableBlock.clearTransactions();
-//
-//                final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
-//                        TransactionValidatorTests._createCoinbaseTransactionInput(),
-//                        TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
-//                );
-//
-//                mutableBlock.addTransaction(regularCoinbaseTransaction);
-//                mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
-//
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    mutableBlock.setPreviousBlockHash(lastBlockHash);
-//                    final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
-//                    lastBlockHash = mutableBlock.getHash();
-//
-//                    final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
-//                    Assert.assertTrue(blockIsValid);
-//                }
-//            }
-//
-//            { // Spend the coinbase on a separate chain...
-//                final MutableBlock mutableBlock = new MutableBlock(blockWithSpendableCoinbase) {
-//                    @Override
-//                    public Boolean isValid() { return true; }
-//                };
-//                mutableBlock.clearTransactions();
-//
-//                final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
-//                    TransactionValidatorTests._createCoinbaseTransactionInput(),
-//                    TransactionValidatorTests._createTransactionOutput(addressInflater.uncompressedFromBase58Check("1DgiazmkoTEdvTa6ErdzrqvmnenGS11RU2"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
-//                );
-//
-//                mutableBlock.addTransaction(regularCoinbaseTransaction);
-//                mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
-//
-//                synchronized (BlockHeaderDatabaseManager.MUTEX) {
-//                    mutableBlock.setPreviousBlockHash(blockWithSpendableCoinbase.getHash());
-//                    final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4Prime
-//                    lastBlockHash = mutableBlock.getHash();
-//
-//                    final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
-//                    Assert.assertTrue(blockIsValid);
-//                }
-//            }
-//        }
-        Assert.fail();
+    public void block_should_be_valid_if_output_is_spent_only_on_a_different_chain() throws Exception {
+        // This test creates a (fake) Block03 with a spendable coinbase, then creates two contentious (fake) Block04s.
+        //  Both versions of Block04 spend the coinbase of Block03, and both chains should be valid. (Coinbase maturity must be disabled.)
+
+        final FakeBlockStore blockStore = new FakeBlockStore();
+        final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
+        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
+        final BlockDownloader.StatusMonitor downloadStatusMonitor = new SleepyService.StatusMonitor() {
+            @Override
+            public SleepyService.Status getStatus() {
+                return SleepyService.Status.ACTIVE;
+            }
+        };
+
+        final BlockInflaters blockInflaters = new BlockInflaters() {
+            @Override
+            public BlockInflater getBlockInflater() {
+                return new BlockInflater() {
+                    @Override
+                    protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+                        final Block originalBlock = super._fromByteArrayReader(byteArrayReader);
+                        return new MutableBlock(originalBlock) {
+                            @Override
+                            public Boolean isValid() {
+                                return true;
+                            }
+                        };
+                    }
+                };
+            }
+
+            @Override
+            public BlockDeflater getBlockDeflater() {
+                return new BlockDeflater();
+            }
+        };
+
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus);
+        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
+
+        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester() {
+            @Override
+            public void requestBlock(final BlockHeader blockHeader) { }
+
+            @Override
+            public void requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) { }
+        };
+
+        final Sha256Hash block02Hash;
+        {
+            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+            block02Hash = block.getHash();
+        }
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Block fakeBlock03ContainingSpendableCoinbase;
+        {
+            final MutableBlock mutableBlock = new MutableBlock() {
+                @Override
+                public Boolean isValid() { return true; } // Disables basic header validation...
+            };
+
+            mutableBlock.setDifficulty(Difficulty.BASE_DIFFICULTY);
+            mutableBlock.setNonce(0L);
+            mutableBlock.setTimestamp(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+            mutableBlock.setVersion(Block.VERSION);
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            final Transaction transactionToSpend = TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey);
+            mutableBlock.addTransaction(transactionToSpend);
+            System.out.println("transactionToSpend=" + transactionToSpend.getHash());
+
+            mutableBlock.setPreviousBlockHash(block02Hash);
+            fakeBlock03ContainingSpendableCoinbase = mutableBlock;
+        }
+
+        final Transaction signedTransactionSpendingCoinbase;
+        {
+            final AddressInflater addressInflater = new AddressInflater();
+
+            final Transaction transactionToSpend = fakeBlock03ContainingSpendableCoinbase.getCoinbaseTransaction();
+
+            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            final Transaction unsignedTransaction;
+            {
+                final MutableTransaction mutableTransaction = new MutableTransaction();
+                mutableTransaction.setVersion(Transaction.VERSION);
+                mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+
+                final TransactionInput transactionInput;
+                {
+                    final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+                    mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+                    mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
+                    mutableTransactionInput.setPreviousOutputIndex(0);
+                    mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
+                    transactionInput = mutableTransactionInput;
+                }
+                mutableTransaction.addTransactionInput(transactionInput);
+
+                final TransactionOutput transactionOutput;
+                {
+                    final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+                    mutableTransactionOutput.setIndex(0);
+                    mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+
+                    final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"));
+                    mutableTransactionOutput.setLockingScript(lockingScript);
+                    transactionOutput = mutableTransactionOutput;
+                }
+                mutableTransaction.addTransactionOutput(transactionOutput);
+
+                unsignedTransaction = mutableTransaction;
+            }
+
+            signedTransactionSpendingCoinbase = TransactionValidatorTests.signTransaction(transactionToSpend, unsignedTransaction, privateKey);
+
+            { // Ensure the transaction would normally be valid on its own...
+                final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
+                unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 2L, false);
+
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+                final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+
+                final Boolean isValid = transactionValidator.validateTransaction(3L, signedTransactionSpendingCoinbase);
+                Assert.assertTrue(isValid);
+            }
+        }
+
+        final Block fakeBlock04SpendingBlock03Coinbase;
+        { // Spend the coinbase in a block...
+            final MutableBlock mutableBlock = new MutableBlock() {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+
+            mutableBlock.setDifficulty(Difficulty.BASE_DIFFICULTY);
+            mutableBlock.setNonce(0L);
+            mutableBlock.setTimestamp(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+            mutableBlock.setVersion(Block.VERSION);
+            mutableBlock.setPreviousBlockHash(fakeBlock03ContainingSpendableCoinbase.getHash());
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests.createTransactionSpendableByPrivateKey(PrivateKey.createNewKey());
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingCoinbase);
+
+            fakeBlock04SpendingBlock03Coinbase = mutableBlock;
+        }
+
+        final Block fakeBlock04PrimeSpendingBlock03Coinbase;
+        { // Spend the coinbase on a separate chain by creating another modified block #3 ...
+            final MutableBlock mutableBlock = new MutableBlock() {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+
+            mutableBlock.setDifficulty(Difficulty.BASE_DIFFICULTY);
+            mutableBlock.setNonce(0L);
+            mutableBlock.setTimestamp(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+            mutableBlock.setVersion(Block.VERSION);
+            mutableBlock.setPreviousBlockHash(fakeBlock03ContainingSpendableCoinbase.getHash());
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests.createTransactionSpendableByPrivateKey(PrivateKey.createNewKey());
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingCoinbase);
+
+            fakeBlock04PrimeSpendingBlock03Coinbase = mutableBlock;
+        }
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+            long nextBlockHeight = 0L;
+            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                pendingBlockDatabaseManager.storeBlock(block);
+                nextBlockHeight += 1L;
+            }
+
+            for (final Block block : new Block[] { fakeBlock03ContainingSpendableCoinbase }) {
+                pendingBlockDatabaseManager.storeBlock(block);
+                nextBlockHeight += 1L;
+            }
+
+            for (final Block block : new Block[] { fakeBlock04SpendingBlock03Coinbase, fakeBlock04PrimeSpendingBlock03Coinbase }) {
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
+        }
+
+        // NOTE: The blockchainBuilder checks for the Genesis block upon instantiation.
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, downloadStatusMonitor, blockDownloadRequester);
+
+        // Action
+        blockchainBuilder.start();
+        Thread.sleep(1000L);
+        blockchainBuilder.stop();
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+
+            final BlockchainSegmentId mainBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            {
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 0L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 1L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 2L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 3L));
+
+                final BlockId block4aId = blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 4L);
+                Assert.assertNotNull(block4aId);
+                final Sha256Hash block4aHash = blockHeaderDatabaseManager.getBlockHash(block4aId);
+                Assert.assertEquals(fakeBlock04SpendingBlock03Coinbase.getHash(), block4aHash);
+            }
+
+            {
+                final BlockId block4bId = blockHeaderDatabaseManager.getBlockHeaderId(fakeBlock04PrimeSpendingBlock03Coinbase.getHash());
+                Assert.assertNotNull(block4bId);
+
+                final BlockchainSegmentId altBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(block4bId);
+                Assert.assertNotEquals(mainBlockchainSegmentId, altBlockchainSegmentId); // The original blockHeader should not have been usurped by its contentious brother...
+
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(altBlockchainSegmentId, 0L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(altBlockchainSegmentId, 1L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(altBlockchainSegmentId, 2L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(altBlockchainSegmentId, 3L));
+                Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(altBlockchainSegmentId, 4L));
+            }
+        }
     }
 
     @Test

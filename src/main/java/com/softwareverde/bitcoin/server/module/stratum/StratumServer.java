@@ -566,7 +566,7 @@ public class StratumServer {
 
                             { // Handle Response Messages...
                                 final ResponseMessage responseMessage = ResponseMessage.parse(message);
-                                if (responseMessage != null) { System.out.println(responseMessage); }
+                                if (responseMessage != null) { Logger.debug(responseMessage); }
                             }
                         }
                     });

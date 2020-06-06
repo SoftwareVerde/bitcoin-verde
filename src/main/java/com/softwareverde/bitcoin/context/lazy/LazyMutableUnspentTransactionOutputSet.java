@@ -1,13 +1,16 @@
 package com.softwareverde.bitcoin.context.lazy;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.LinkedList;
 
@@ -35,16 +38,32 @@ public class LazyMutableUnspentTransactionOutputSet extends MutableUnspentTransa
      *  If a task fails, the function aborts and _lazyLoadTasks is not emptied.
      */
     protected void _loadOutputsForBlocks() {
-        try (final FullNodeDatabaseManager fullNodeDatabaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             while (! _lazyLoadTasks.isEmpty()) { // NOTE: Constant time for LinkedList...
                 final LazyLoadTask lazyLoadTask = _lazyLoadTasks.peekFirst();
 
                 final Block block = lazyLoadTask.block;
                 final LazyLoadTask.TaskType taskType = lazyLoadTask.taskType;
-                final Long blockHeight = lazyLoadTask.blockHeight;
+
+                final Long blockHeight;
+                if (lazyLoadTask.blockHeight != null) {
+                    blockHeight = lazyLoadTask.blockHeight;
+                }
+                else {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+                    final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(previousBlockHash);
+                    final Long previousBlockHeight = blockHeaderDatabaseManager.getBlockHeight(previousBlockId);
+                    if (previousBlockHeight == null) {
+                        Logger.debug("Unable to lazily load blockHeight for Block: " + block.getHash());
+                        return;
+                    }
+
+                    blockHeight = (previousBlockHeight + 1L);
+                }
 
                 if (taskType == LazyLoadTask.TaskType.LOAD) {
-                    final Boolean outputsLoadedSuccessfully = super.loadOutputsForBlock(fullNodeDatabaseManager, block, blockHeight);
+                    final Boolean outputsLoadedSuccessfully = super.loadOutputsForBlock(databaseManager, block, blockHeight);
                     if (! outputsLoadedSuccessfully) {
                         Logger.debug("Unable to lazily load outputs for Block: " + block.getHash());
                         return;

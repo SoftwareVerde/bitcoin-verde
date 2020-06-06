@@ -32,10 +32,12 @@ public class PendingBlockLoader {
     protected Long _loadUnspentOutputsAfterBlockHeight = null;
 
     /**
-     * Preloads the block, specified by the nextPendingBlockId, and the unspentOutputs it requires.
+     * Preloads the block, specified by the pendingBlockId, and the unspentOutputs it requires.
      * When complete, the pin is released.
+     * blockHeight may be null; this usually indicates the blockHeader has not been loaded yet.
+     *  If the blockHeight is not provided, then outputs are not pre-loaded, and the outputs and blockHeight are determined on-demand.
      */
-    protected PendingBlockFuture _asynchronouslyLoadNextPendingBlock(final Sha256Hash blockHash, final PendingBlockId nextPendingBlockId, final Long nextBlockHeight, final Boolean shouldLoadUnspentOutputs) {
+    protected PendingBlockFuture _asynchronouslyLoadNextPendingBlock(final Sha256Hash blockHash, final PendingBlockId pendingBlockId, final Long blockHeight, final Boolean shouldLoadUnspentOutputs) {
         final BlockInflater blockInflater = _context.getBlockInflater();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final ThreadPool threadPool = _context.getThreadPool();
@@ -50,29 +52,31 @@ public class PendingBlockLoader {
                     final MilliTimer milliTimer = new MilliTimer();
                     milliTimer.start();
 
-                    final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(nextPendingBlockId);
+                    final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
                     if (pendingBlock == null) {
-                        Logger.debug("Unable to load pending block: " + nextPendingBlockId);
+                        Logger.debug("Unable to load pending block: " + pendingBlockId);
                         return;
                     }
 
-                    final Block nextBlock = pendingBlock.inflateBlock(blockInflater);
-                    if (nextBlock == null) {
+                    final Block block = pendingBlock.inflateBlock(blockInflater);
+                    if (block == null) {
                         Logger.debug("Unable to inflate pending block: " + pendingBlock.getBlockHash());
                         return;
                     }
 
                     blockFuture._pendingBlock = pendingBlock;
 
-                    if (shouldLoadUnspentOutputs) {
+                    if ( shouldLoadUnspentOutputs && (blockHeight != null) ) {
                         final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock, nextBlockHeight);
+                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
+                        Logger.trace("Loaded UTXOs for " + blockHeight);
                     }
                     else { // NOTE: Outputs are available upon demand via LazyLoading.
                         final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
-                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, nextBlock, nextBlockHeight); // Operation is only executed on demand...
+                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Operation is only executed on demand, including blockHeight lookup if null...
                         blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
+                        Logger.trace("Lazy-loading UTXOs for " + block.getHash() + "(" + blockHeight + ")");
                     }
 
                     milliTimer.stop();

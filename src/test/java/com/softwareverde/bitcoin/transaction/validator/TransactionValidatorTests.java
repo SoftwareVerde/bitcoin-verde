@@ -35,11 +35,11 @@ import org.junit.Test;
 
 public class TransactionValidatorTests extends UnitTest {
 
-    protected static Transaction createTransactionSpendableByPrivateKey(final PrivateKey privateKey) {
+    public static Transaction createTransactionSpendableByPrivateKey(final PrivateKey privateKey) {
         return TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey, (50L * Transaction.SATOSHIS_PER_BITCOIN));
     }
 
-    protected static Transaction createTransactionSpendableByPrivateKey(final PrivateKey privateKey, final Long outputAmount) {
+    public static Transaction createTransactionSpendableByPrivateKey(final PrivateKey privateKey, final Long outputAmount) {
         final AddressInflater addressInflater = new AddressInflater();
 
         final MutableTransaction mutableTransaction = new MutableTransaction();
@@ -72,7 +72,7 @@ public class TransactionValidatorTests extends UnitTest {
         return mutableTransaction;
     }
 
-    protected static Transaction signTransaction(final Transaction transactionToSpend, final Transaction unsignedTransaction, final PrivateKey privateKey) {
+    public static Transaction signTransaction(final Transaction transactionToSpend, final Transaction unsignedTransaction, final PrivateKey privateKey) {
         final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
         int outputIndex = 0;
         for (final TransactionOutput transactionOutput : transactionToSpend.getTransactionOutputs()) {

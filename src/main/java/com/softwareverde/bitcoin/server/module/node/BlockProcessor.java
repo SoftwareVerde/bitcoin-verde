@@ -259,16 +259,18 @@ public class BlockProcessor {
             {
                 if ( blockIsConnectedToUtxoSet && (preLoadedUnspentTransactionOutputContext != null) ) {
                     unspentTransactionOutputContext = preLoadedUnspentTransactionOutputContext;
+                    Logger.debug("Using preLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
                 }
                 else {
                     final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                     final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
-                    if (!unspentTransactionOutputsExistForBlock) {
+                    if (! unspentTransactionOutputsExistForBlock) {
                         TransactionUtil.rollbackTransaction(databaseConnection);
                         Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
                         return null;
                     }
                     unspentTransactionOutputContext = mutableUnspentTransactionOutputSet;
+                    Logger.debug("Using liveLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
                 }
             }
 
