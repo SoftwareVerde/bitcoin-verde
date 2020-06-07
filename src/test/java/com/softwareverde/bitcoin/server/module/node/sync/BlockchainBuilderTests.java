@@ -559,4 +559,176 @@ public class BlockchainBuilderTests extends IntegrationTest {
             Assert.assertFalse(block3bWasValid);
         }
     }
+
+    @Test
+    public void should_not_validate_block_that_has_two_transactions_spending_the_same_output() throws Exception {
+        // This test creates a (fake) Block03, with a spendable coinbase, then creates a (fake) Block04 that spends the Block03's coinbase twice, which is invalid.
+
+        final FakeBlockStore blockStore = new FakeBlockStore();
+        final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
+        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
+        final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
+
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus);
+        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
+
+        final Sha256Hash block02Hash;
+        {
+            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+            block02Hash = block.getHash();
+        }
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Block fakeBlock03;
+        {
+            final MutableBlock mutableBlock = BlockTestUtil.createBlock();
+            mutableBlock.setPreviousBlockHash(block02Hash);
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
+            mutableBlock.addTransaction(transactionToSpend);
+
+            fakeBlock03 = mutableBlock;
+        }
+
+        final Transaction signedTransactionSpendingBlock03CoinbaseA;
+        final Transaction signedTransactionSpendingBlock03CoinbaseB;
+        {
+            final AddressInflater addressInflater = new AddressInflater();
+
+            final Transaction transactionToSpend = fakeBlock03.getCoinbaseTransaction();
+
+            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            final Transaction unsignedTransactionA;
+            {
+                final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
+
+                final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+                final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
+                mutableTransaction.addTransactionInput(transactionInput);
+
+                final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
+                    addressInflater.uncompressedFromPrivateKey(PrivateKey.createNewKey())
+                );
+                mutableTransaction.addTransactionOutput(transactionOutput);
+
+                unsignedTransactionA = mutableTransaction;
+            }
+
+            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            final Transaction unsignedTransactionB;
+            {
+                final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
+
+                final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+                final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
+                mutableTransaction.addTransactionInput(transactionInput);
+
+                final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
+                    addressInflater.uncompressedFromPrivateKey(PrivateKey.createNewKey())
+                );
+                mutableTransaction.addTransactionOutput(transactionOutput);
+
+                unsignedTransactionB = mutableTransaction;
+            }
+
+            {
+                final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
+                signedTransactionSpendingBlock03CoinbaseA = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransactionA, privateKey);
+            }
+
+            {
+                final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
+                signedTransactionSpendingBlock03CoinbaseB = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransactionB, privateKey);
+            }
+
+            Assert.assertNotEquals(signedTransactionSpendingBlock03CoinbaseA.getHash(), signedTransactionSpendingBlock03CoinbaseB.getHash()); // Sanity check to ensure they are different transactions...
+
+            { // Ensure the transactions would normally be valid on their own...
+                final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
+                unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 4L, false);
+
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+                final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+
+                {
+                    final Boolean isValid = transactionValidator.validateTransaction(4L, signedTransactionSpendingBlock03CoinbaseA);
+                    Assert.assertTrue(isValid);
+                }
+
+                {
+                    final Boolean isValid = transactionValidator.validateTransaction(4L, signedTransactionSpendingBlock03CoinbaseB);
+                    Assert.assertTrue(isValid);
+                }
+            }
+        }
+
+        final Block fakeBlock04;
+        { // Spend the coinbase twice from different transactions within the same block...
+            final MutableBlock mutableBlock = BlockTestUtil.createBlock();
+            mutableBlock.setPreviousBlockHash(block02Hash);
+
+            final Transaction regularCoinbaseTransaction = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(PrivateKey.createNewKey());
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingBlock03CoinbaseA);
+            mutableBlock.addTransaction(signedTransactionSpendingBlock03CoinbaseB);
+
+            fakeBlock04 = mutableBlock;
+        }
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+            for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
+
+            for (final Block block : new Block[] { fakeBlock03, fakeBlock04 }) {
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
+        }
+
+        // NOTE: The blockchainBuilder checks for the Genesis block upon instantiation.
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
+
+        // Action
+        blockchainBuilder.start();
+        Thread.sleep(1000L);
+        blockchainBuilder.stop();
+
+        // Assert
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+
+            final BlockchainSegmentId mainBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 0L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 1L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 2L));
+            Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(mainBlockchainSegmentId, 3L));
+
+            final BlockId block04Id = blockHeaderDatabaseManager.getBlockHeaderId(fakeBlock04.getHash());
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final Boolean block04WasValid = blockDatabaseManager.hasTransactions(block04Id);
+            Assert.assertFalse(block04WasValid);
+
+            { // Assert the Block03 coinbase is still in the UTXO set since Block04 was invalid.
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+                final Transaction transaction = fakeBlock03.getCoinbaseTransaction();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transaction.getHash(), 0);
+                final TransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+                Assert.assertNotNull(unspentTransactionOutput);
+            }
+        }
+    }
 }

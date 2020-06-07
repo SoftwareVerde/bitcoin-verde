@@ -405,11 +405,6 @@ public class BlockValidatorTests extends UnitTest {
         Assert.assertFalse(blockIsValid);
     }
 
-    @Test
-    public void should_not_validate_block_that_has_two_transactions_spending_the_same_output() {
-        Assert.fail();
-    }
-
     // @Test
     public void should_be_allowed_to_spend_transactions_with_duplicate_identifiers_in_the_same_block() throws Exception {
         // TODO
