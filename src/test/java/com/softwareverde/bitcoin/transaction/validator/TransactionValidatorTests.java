@@ -5,24 +5,15 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
-import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
-import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.HashMapTransactionOutputRepository;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.TransactionOutputRepository;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
@@ -34,73 +25,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TransactionValidatorTests extends UnitTest {
-
-    public static Transaction createTransactionSpendableByPrivateKey(final PrivateKey privateKey) {
-        return TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey, (50L * Transaction.SATOSHIS_PER_BITCOIN));
-    }
-
-    public static Transaction createTransactionSpendableByPrivateKey(final PrivateKey privateKey, final Long outputAmount) {
-        final AddressInflater addressInflater = new AddressInflater();
-
-        final MutableTransaction mutableTransaction = new MutableTransaction();
-        mutableTransaction.setVersion(Transaction.VERSION);
-        mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
-
-        final TransactionInput transactionInput;
-        {
-            final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-            mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-            mutableTransactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
-            mutableTransactionInput.setPreviousOutputIndex(-1);
-            mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-            transactionInput = mutableTransactionInput;
-        }
-        mutableTransaction.addTransactionInput(transactionInput);
-
-        final TransactionOutput transactionOutput;
-        {
-            final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-            mutableTransactionOutput.setIndex(0);
-            mutableTransactionOutput.setAmount(outputAmount);
-
-            final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.compressedFromPrivateKey(privateKey));
-            mutableTransactionOutput.setLockingScript(lockingScript);
-            transactionOutput = mutableTransactionOutput;
-        }
-        mutableTransaction.addTransactionOutput(transactionOutput);
-
-        return mutableTransaction;
-    }
-
-    public static Transaction signTransaction(final Transaction transactionToSpend, final Transaction unsignedTransaction, final PrivateKey privateKey) {
-        final HashMapTransactionOutputRepository transactionOutputRepository = new HashMapTransactionOutputRepository();
-        int outputIndex = 0;
-        for (final TransactionOutput transactionOutput : transactionToSpend.getTransactionOutputs()) {
-            final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), outputIndex);
-            transactionOutputRepository.put(transactionOutputIdentifierToSpend, transactionOutput);
-            outputIndex += 1;
-        }
-
-        Transaction partiallySignedTransaction = unsignedTransaction;
-        final TransactionSigner transactionSigner = new TransactionSigner();
-
-        int inputIndex = 0;
-        final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
-        for (final TransactionInput transactionInput : transactionInputs) {
-            final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-            final TransactionOutput transactionOutputBeingSpent = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
-
-            final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
-            signatureContext.setInputIndexBeingSigned(inputIndex);
-            signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
-            partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey, true);
-
-            inputIndex += 1;
-        }
-
-        return partiallySignedTransaction;
-    }
-
     @Before
     public void before() {
         super.before();
@@ -146,43 +70,26 @@ public class TransactionValidatorTests extends UnitTest {
 
         // Create a transaction that will be spent in our signed transaction.
         //  This transaction creates an output that can be spent by our private key.
-        final Transaction transactionToSpend = TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey);
+        final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction;
         {
-            final MutableTransaction mutableTransaction = new MutableTransaction();
-            mutableTransaction.setVersion(Transaction.VERSION);
-            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+            final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
 
-            final TransactionInput transactionInput;
-            {
-                final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-                mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-                mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
-                mutableTransactionInput.setPreviousOutputIndex(0);
-                mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-                transactionInput = mutableTransactionInput;
-            }
+            final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+            final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput;
-            {
-                final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-                mutableTransactionOutput.setIndex(0);
-                mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-
-                final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.compressedFromPrivateKey(privateKey));
-                mutableTransactionOutput.setLockingScript(lockingScript);
-                transactionOutput = mutableTransactionOutput;
-            }
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
         }
 
-        final Transaction signedTransaction = TransactionValidatorTests.signTransaction(transactionToSpend, unsignedTransaction, privateKey);
+        final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
+        final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
         final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(1L, signedTransaction);
@@ -203,44 +110,27 @@ public class TransactionValidatorTests extends UnitTest {
 
         // Create a transaction that will be spent in our signed transaction.
         //  This transaction output is being sent to an address we don't have access to.
-        final Transaction transactionToSpend = TransactionValidatorTests.createTransactionSpendableByPrivateKey(PrivateKey.createNewKey());
+        final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(PrivateKey.createNewKey());
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction;
         {
-            final MutableTransaction mutableTransaction = new MutableTransaction();
-            mutableTransaction.setVersion(Transaction.VERSION);
-            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+            final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
 
-            final TransactionInput transactionInput;
-            {
-                final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-                mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-                mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
-                mutableTransactionInput.setPreviousOutputIndex(0);
-                mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-                transactionInput = mutableTransactionInput;
-            }
+            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+            final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifier);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput;
-            {
-                final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-                mutableTransactionOutput.setIndex(0);
-                mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-
-                final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.compressedFromPrivateKey(privateKey));
-                mutableTransactionOutput.setLockingScript(lockingScript);
-                transactionOutput = mutableTransactionOutput;
-            }
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
         }
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
-        final Transaction signedTransaction = TransactionValidatorTests.signTransaction(transactionToSpend, unsignedTransaction, privateKey);
+        final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
+        final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
         final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(1L, signedTransaction);
@@ -261,47 +151,29 @@ public class TransactionValidatorTests extends UnitTest {
 
         // Create a transaction that will be spent in our signed transaction.
         //  This transaction will create an output that can be spent by our private key.
-        final Transaction transactionToSpend = TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey);
+        final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction;
         {
-            final MutableTransaction mutableTransaction = new MutableTransaction();
-            mutableTransaction.setVersion(Transaction.VERSION);
-            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+            final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
 
             // Add two inputs that attempt to spend the same output...
-            for (int i = 0; i < 2; ++i) {
-                final TransactionInput transactionInput;
-                {
-                    final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-                    mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-                    mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
-                    mutableTransactionInput.setPreviousOutputIndex(0);
-                    mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-                    transactionInput = mutableTransactionInput;
-                }
-                mutableTransaction.addTransactionInput(transactionInput);
-            }
+            final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+            final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
+            mutableTransaction.addTransactionInput(transactionInput);
+            mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput;
-            {
-                final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-                mutableTransactionOutput.setIndex(0);
-                mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-
-                final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.compressedFromPrivateKey(privateKey));
-                mutableTransactionOutput.setLockingScript(lockingScript);
-                transactionOutput = mutableTransactionOutput;
-            }
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
         }
 
         // Sign the unsigned transaction.
-        final Transaction signedTransaction = TransactionValidatorTests.signTransaction(transactionToSpend, unsignedTransaction, privateKey);
+        final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
+        final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
         final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(1L, signedTransaction);
@@ -320,43 +192,27 @@ public class TransactionValidatorTests extends UnitTest {
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
-        final Transaction transactionToSpend = TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey, (10L * Transaction.SATOSHIS_PER_BITCOIN));
+        final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey, (10L * Transaction.SATOSHIS_PER_BITCOIN));
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
         // Create an unsigned transaction that spends more than our previous transaction provides...
         final Transaction unsignedTransaction;
         {
-            final MutableTransaction mutableTransaction = new MutableTransaction();
-            mutableTransaction.setVersion(Transaction.VERSION);
-            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+            final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
 
-            final TransactionInput transactionInput;
-            {
-                final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-                mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-                mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
-                mutableTransactionInput.setPreviousOutputIndex(0);
-                mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-                transactionInput = mutableTransactionInput;
-            }
+            final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
+            final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput;
-            {
-                final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-                mutableTransactionOutput.setIndex(0);
-                mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-
-                final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.compressedFromPrivateKey(privateKey));
-                mutableTransactionOutput.setLockingScript(lockingScript);
-                transactionOutput = mutableTransactionOutput;
-            }
+            // NOTE: The output amount is greater than the coinbase amount.
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput((50L * Transaction.SATOSHIS_PER_BITCOIN), addressInflater.compressedFromPrivateKey(privateKey));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
         }
 
-        final Transaction signedTransaction = TransactionValidatorTests.signTransaction(transactionToSpend, unsignedTransaction, privateKey);
+        final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
+        final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
         final Boolean isValid = transactionValidator.validateTransaction(1L, signedTransaction);
@@ -375,7 +231,7 @@ public class TransactionValidatorTests extends UnitTest {
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
-        final Transaction transactionToSpend = TransactionValidatorTests.createTransactionSpendableByPrivateKey(privateKey);
+        final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
         final int outputIndexToSpend = 1; // Is greater than the number of outputs within transactionToSpend...
@@ -383,31 +239,13 @@ public class TransactionValidatorTests extends UnitTest {
         // Create an unsigned transaction that spends an unknown/unavailable output (previous output index does not exist)...
         final Transaction unsignedTransaction;
         {
-            final MutableTransaction mutableTransaction = new MutableTransaction();
-            mutableTransaction.setVersion(Transaction.VERSION);
-            mutableTransaction.setLockTime(LockTime.MAX_TIMESTAMP);
+            final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
 
-            final TransactionInput transactionInput;
-            {
-                final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-                mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-                mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
-                mutableTransactionInput.setPreviousOutputIndex(outputIndexToSpend); // NOTE: Output index does not exist.
-                mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-                transactionInput = mutableTransactionInput;
-            }
+            final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(transactionToSpend.getHash(), outputIndexToSpend);  // NOTE: Output index does not exist.
+            final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput;
-            {
-                final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-                mutableTransactionOutput.setIndex(0);
-                mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-
-                final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.uncompressedFromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF"));
-                mutableTransactionOutput.setLockingScript(lockingScript);
-                transactionOutput = mutableTransactionOutput;
-            }
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.uncompressedFromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF"));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
@@ -419,24 +257,7 @@ public class TransactionValidatorTests extends UnitTest {
             final List<TransactionOutput> transactionOutputsToSpend = transactionToSpend.getTransactionOutputs();
             transactionOutputRepository.put(new TransactionOutputIdentifier(transactionToSpend.getHash(), outputIndexToSpend), transactionOutputsToSpend.get(0));
 
-            Transaction partiallySignedTransaction = unsignedTransaction;
-            final TransactionSigner transactionSigner = new TransactionSigner();
-
-            int inputIndex = 0;
-            final List<TransactionInput> transactionInputs = unsignedTransaction.getTransactionInputs();
-            for (final TransactionInput transactionInput : transactionInputs) {
-                final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                final TransactionOutput transactionOutputBeingSpent = transactionOutputRepository.get(transactionOutputIdentifierBeingSpent);
-
-                final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
-                signatureContext.setInputIndexBeingSigned(inputIndex);
-                signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
-                partiallySignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey, true);
-
-                inputIndex += 1;
-            }
-
-            signedTransaction = partiallySignedTransaction;
+            signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
         }
 
         // Action
