@@ -202,12 +202,12 @@ public class BlockProcessor {
         final Long blockHeight;
         { // Process the BlockHeader.
             final ProcessBlockHeaderResult blockHeaderResult = _processBlockHeader(block, databaseManager);
-            if (blockHeaderResult == null ) { return null; }
+            if (blockHeaderResult == null ) { return ProcessBlockResult.invalid(block, null, "Unable to process block header."); }
 
             // if the full Block has already been processed then abort processing it...
             if (blockHeaderResult.wasBlockAlreadyProcessed()) {
                 blockHeight = blockHeaderResult.getBlockHeight();
-                return new ProcessBlockResult(block, blockHeight, true, false);
+                return ProcessBlockResult.valid(block, blockHeight, false);
             }
 
             blockId = blockHeaderResult.getBlockId();
@@ -225,7 +225,6 @@ public class BlockProcessor {
                 blockIsConnectedToUtxoSet = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
             }
         }
-        Logger.trace("blockIsConnectedToUtxoSet=" + blockIsConnectedToUtxoSet);
 
         TransactionUtil.startTransaction(databaseConnection);
         {
@@ -248,7 +247,7 @@ public class BlockProcessor {
 
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
-                    return null;
+                    return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
                 }
 
                 storeBlockTimer.stop();
@@ -267,7 +266,7 @@ public class BlockProcessor {
                     if (! unspentTransactionOutputsExistForBlock) {
                         TransactionUtil.rollbackTransaction(databaseConnection);
                         Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
-                        return null;
+                        return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
                     }
                     unspentTransactionOutputContext = mutableUnspentTransactionOutputSet;
                     Logger.debug("Using liveLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
@@ -300,7 +299,7 @@ public class BlockProcessor {
             if (! blockIsValid) {
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 Logger.debug("Invalid block. Transactions did not validate for block: " + blockHash);
-                return null;
+                return ProcessBlockResult.invalid(block, blockHeight, "Transactions did not validate for block.");
             }
 
             { // Queue the transactions for processing...
@@ -493,7 +492,7 @@ public class BlockProcessor {
         processBlockTimer.stop();
         Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
         Logger.debug("Block Height: " + blockHeight);
-        return new ProcessBlockResult(block, blockHeight, true, bestBlockchainHasChanged);
+        return ProcessBlockResult.valid(block, blockHeight, bestBlockchainHasChanged);
     }
 
     /**
@@ -548,9 +547,9 @@ public class BlockProcessor {
                     Logger.debug("Error rebuilding UTXO set.", rebuildUtxoSetException);
                 }
             }
-        }
 
-        return new ProcessBlockResult(block, null, false, false);
+            return ProcessBlockResult.invalid(block, null, "Exception encountered validating block.");
+        }
     }
 
     public Container<Float> getAverageBlocksPerSecondContainer() {
