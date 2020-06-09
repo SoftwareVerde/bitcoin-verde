@@ -142,13 +142,10 @@ public class TransactionProcessor extends SleepyService {
                     final PendingTransactionId pendingTransactionId = pendingTransactionIdMap.get(transactionHash);
                     if (pendingTransactionId == null) { continue; }
 
-                    TransactionUtil.startTransaction(databaseConnection);
-
+                    // NOTE: The transaction cannot be stored before it is validated, otherwise the LazyUtxoSet will believe the output has already been spent (by itself).
                     final Boolean transactionIsValid = transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
 
                     if (! transactionIsValid) {
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-
                         _deletePendingTransaction(databaseManager, pendingTransactionId);
 
                         invalidTransactionCount += 1;
@@ -156,6 +153,7 @@ public class TransactionProcessor extends SleepyService {
                         continue;
                     }
 
+                    TransactionUtil.startTransaction(databaseConnection);
                     final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
                     final boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null); // TODO: This check is likely redundant...
                     if (isUnconfirmedTransaction) {
