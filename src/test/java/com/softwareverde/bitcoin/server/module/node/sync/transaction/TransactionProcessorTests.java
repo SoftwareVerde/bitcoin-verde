@@ -180,7 +180,7 @@ public class TransactionProcessorTests extends IntegrationTest {
             final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
             final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
             blockchainBuilder.start();
-            final int maxSleepCount = 1000;
+            final int maxSleepCount = 10;
             int sleepCount = 0;
             do {
                 Thread.sleep(250L);
