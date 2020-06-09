@@ -5,11 +5,10 @@ import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
@@ -31,6 +30,8 @@ import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.BitcoinReflectionUtil;
 import com.softwareverde.util.Util;
@@ -43,7 +44,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.HashSet;
 
-public class AbcScriptRunnerTests {
+public class AbcScriptRunnerTests extends UnitTest {
     public static class TestVector {
         public static TestVector fromJson(final Json testVectorJson) {
             // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
@@ -417,8 +418,10 @@ public class AbcScriptRunnerTests {
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
     }
 
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+
         if (AbcScriptRunnerTests.originalNativeSecp256k1Value == null) {
             AbcScriptRunnerTests.originalNativeSecp256k1Value = NativeSecp256k1.isEnabled();
         }
@@ -440,9 +443,11 @@ public class AbcScriptRunnerTests {
     }
 
     @After
-    public void teardown() {
+    public void after() throws Exception {
         _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
+
+        super.after();
     }
 
     @Test

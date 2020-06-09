@@ -86,16 +86,16 @@ public class BlockProcessorTests extends IntegrationTest {
         }
     }
 
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
 
         BlockProcessorTests.COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
         BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", 0L);
     }
 
-    @After
-    public void tearDown() {
+    @Override @After
+    public void after() throws Exception {
         if (BlockProcessorTests.COINBASE_MATURITY != null) {
             BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", BlockProcessorTests.COINBASE_MATURITY);
         }
@@ -450,8 +450,6 @@ public class BlockProcessorTests extends IntegrationTest {
             final Block block02 = harness.inflateBlock(BlockData.MainChain.BLOCK_2);
             final Block block03 = harness.inflateBlock(BlockData.MainChain.BLOCK_3);
             final Block invalidBlock01Prime = harness.inflateBlock("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D619000000000073387C6C752B492D7D6DA0CA48715EE10394683D4421B602E80B754657B2E0A79130D05DFFFF001DE339AB7E0201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0104FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC0000000002000000013BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A0000000000FFFFFFFF0100F2052A0100000043410496B538E853519C726A2C91E61EC11600AE1390813A627C66FB8BE7947BE63C52DA7589379515D4E0A604F8141781E62294721166BF621E73A82CBF2342C858EEAC00000000");
-
-
 
             // Action
             harness.processBlock(genesisBlock, 0L, databaseManager);

@@ -24,10 +24,10 @@ public class TestUtil {
         }
 
         final String uppercaseString = string.toUpperCase();
-        final Integer uppercaseStringLength = uppercaseString.length();
+        final int uppercaseStringLength = uppercaseString.length();
 
         final String uppercaseStrippedStringMask = stringMask.replaceAll("\\s+", "").toUpperCase();
-        final Integer uppercaseStrippedStringMaskLength = uppercaseStrippedStringMask.length();
+        final int uppercaseStrippedStringMaskLength = uppercaseStrippedStringMask.length();
 
         for (int i = 0; i < uppercaseStrippedStringMask.length(); ++i) {
             final char maskCharacter = uppercaseStrippedStringMask.charAt(i);

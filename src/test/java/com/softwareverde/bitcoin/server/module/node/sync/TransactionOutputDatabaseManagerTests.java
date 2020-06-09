@@ -18,12 +18,12 @@ import org.junit.Test;
 public class TransactionOutputDatabaseManagerTests extends UnitTest {
 
     @Override @Before
-    public void before() {
+    public void before() throws Exception {
         super.before();
     }
 
     @Override @After
-    public void after() {
+    public void after() throws Exception {
         super.after();
     }
 

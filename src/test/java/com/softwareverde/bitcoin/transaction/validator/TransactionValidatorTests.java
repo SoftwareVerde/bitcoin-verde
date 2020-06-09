@@ -25,13 +25,13 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TransactionValidatorTests extends UnitTest {
-    @Before
-    public void before() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
     }
 
-    @After
-    public void after() {
+    @Override @After
+    public void after() throws Exception {
         super.after();
     }
 
@@ -68,12 +68,12 @@ public class TransactionValidatorTests extends UnitTest {
         final AddressInflater addressInflater = new AddressInflater();
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
-        // Create a transaction that will be spent in our signed transaction.
-        //  This transaction creates an output that can be spent by our private key.
+        // Create a transaction that will be spent in the test's signed transaction.
+        //  This transaction creates an output that can be spent by the test's private key.
         final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
-        // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+        // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
         final Transaction unsignedTransaction;
         {
             final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
@@ -108,12 +108,12 @@ public class TransactionValidatorTests extends UnitTest {
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
-        // Create a transaction that will be spent in our signed transaction.
+        // Create a transaction that will be spent in the test's signed transaction.
         //  This transaction output is being sent to an address we don't have access to.
         final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(PrivateKey.createNewKey());
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
-        // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+        // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
         final Transaction unsignedTransaction;
         {
             final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
@@ -128,7 +128,7 @@ public class TransactionValidatorTests extends UnitTest {
             unsignedTransaction = mutableTransaction;
         }
 
-        // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
+        // Sign the unsigned transaction with the test's key that does not match the address given to transactionToSpend.
         final TransactionOutputRepository transactionOutputRepository = TransactionTestUtil.createTransactionOutputRepository(transactionToSpend);
         final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
@@ -149,12 +149,12 @@ public class TransactionValidatorTests extends UnitTest {
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
-        // Create a transaction that will be spent in our signed transaction.
-        //  This transaction will create an output that can be spent by our private key.
+        // Create a transaction that will be spent in the test's signed transaction.
+        //  This transaction will create an output that can be spent by the test's private key.
         final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
-        // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+        // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
         final Transaction unsignedTransaction;
         {
             final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
@@ -195,7 +195,7 @@ public class TransactionValidatorTests extends UnitTest {
         final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey, (10L * Transaction.SATOSHIS_PER_BITCOIN));
         unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 1L, false);
 
-        // Create an unsigned transaction that spends more than our previous transaction provides...
+        // Create an unsigned transaction that spends more than the test's previous transaction provides...
         final Transaction unsignedTransaction;
         {
             final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();

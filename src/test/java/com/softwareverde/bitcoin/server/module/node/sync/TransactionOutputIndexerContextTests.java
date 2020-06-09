@@ -9,13 +9,13 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TransactionOutputIndexerContextTests extends IntegrationTest {
-    @Before
-    public void before() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
     }
 
-    @After
-    public void after() {
+    @Override @After
+    public void after() throws Exception {
         super.after();
     }
 

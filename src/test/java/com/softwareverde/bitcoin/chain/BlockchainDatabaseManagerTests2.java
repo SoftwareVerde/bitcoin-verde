@@ -26,8 +26,8 @@ import java.util.Random;
 // NOTE: These tests were back-ported from DocChain...
 public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
 
-    @Before
-    public void setup() throws Exception {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
 
         final BlockInflater blockInflater = new BlockInflater();
@@ -46,7 +46,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
     }
 
     @After
-    public void tearDown() {
+    public void after() throws Exception {
         super.after();
     }
 

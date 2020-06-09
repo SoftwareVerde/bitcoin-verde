@@ -10,7 +10,7 @@ public class UnitTest {
         Logger.setLogLevel(LogLevel.ON);
     }
 
-    public void before() { }
+    public void before() throws Exception { }
 
-    public void after() { }
+    public void after() throws Exception { }
 }

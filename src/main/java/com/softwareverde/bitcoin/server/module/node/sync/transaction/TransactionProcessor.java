@@ -97,7 +97,6 @@ public class TransactionProcessor extends SleepyService {
                 _lastOrphanPurgeTime = systemTime.getCurrentTimeInMilliSeconds();
             }
 
-
             while (! thread.isInterrupted()) {
                 final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.selectCandidatePendingTransactionIds();
                 if (pendingTransactionIds.isEmpty()) { return false; }

@@ -71,15 +71,15 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(expectedValue, blockHeight);
     }
 
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
 
         _nonce = 0L;
     }
 
-    @After
-    public void tearDown() {
+    @Override @After
+    public void after() throws Exception {
         super.after();
     }
 

@@ -97,7 +97,7 @@ public class IntegrationTest extends UnitTest {
     }
 
     @Override
-    public void before() {
+    public void before() throws Exception {
         IntegrationTest.resetDatabase();
 
         _synchronizationStatus.setState(State.ONLINE);
@@ -109,5 +109,5 @@ public class IntegrationTest extends UnitTest {
     }
 
     @Override
-    public void after() { }
+    public void after() throws Exception { }
 }

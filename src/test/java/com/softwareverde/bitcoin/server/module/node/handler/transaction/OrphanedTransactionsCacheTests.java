@@ -34,13 +34,13 @@ import org.junit.Test;
 import java.util.Set;
 
 public class OrphanedTransactionsCacheTests extends IntegrationTest {
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
     }
 
-    @After
-    public void tearDown() {
+    @Override @After
+    public void after() throws Exception {
         super.after();
     }
 

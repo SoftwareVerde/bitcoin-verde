@@ -354,6 +354,8 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
 
     @Override
     public void queueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
+        if (transactionIds.isEmpty()) { return; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE transaction_output_processor_queue (transaction_id) VALUES (?)");

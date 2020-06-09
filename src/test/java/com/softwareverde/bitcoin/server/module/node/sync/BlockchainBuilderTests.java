@@ -131,13 +131,13 @@ public class BlockchainBuilderTests extends IntegrationTest {
         public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) { }
     }
 
-    @Before @Override
-    public void before() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
     }
 
     @After @Override
-    public void after() {
+    public void after() throws Exception {
         super.after();
     }
 
@@ -232,8 +232,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
             final MutableBlock mutableBlock = BlockTestUtil.createBlock();
             mutableBlock.setPreviousBlockHash(block02Hash);
 
-            // Create a transaction that will be spent in our signed transaction.
-            //  This transaction will create an output that can be spent by our private key.
+            // Create a transaction that will be spent in the test's signed transaction.
+            //  This transaction will create an output that can be spent by the test's private key.
             final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
             mutableBlock.addTransaction(transactionToSpend);
 
@@ -245,7 +245,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         {
             final Transaction transactionToSpend = fakeBlock03.getCoinbaseTransaction();
 
-            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
             final Transaction unsignedTransaction;
             {
                 spentTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionToSpend.getHash(), 0);
@@ -458,8 +458,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
             final MutableBlock mutableBlock = BlockTestUtil.createBlock();
             mutableBlock.setPreviousBlockHash(block02Hash);
 
-            // Create a transaction that will be spent in our signed transaction.
-            //  This transaction will create an output that can be spent by our private key.
+            // Create a transaction that will be spent in the test's signed transaction.
+            //  This transaction will create an output that can be spent by the test's private key.
             final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
             mutableBlock.addTransaction(transactionToSpend);
 
@@ -472,7 +472,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
             final Transaction transactionToSpend = fakeBlock03a.getCoinbaseTransaction();
 
-            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
             final Transaction unsignedTransaction;
             {
                 final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
@@ -590,8 +590,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
             final MutableBlock mutableBlock = BlockTestUtil.createBlock();
             mutableBlock.setPreviousBlockHash(block02Hash);
 
-            // Create a transaction that will be spent in our signed transaction.
-            //  This transaction will create an output that can be spent by our private key.
+            // Create a transaction that will be spent in the test's signed transaction.
+            //  This transaction will create an output that can be spent by the test's private key.
             final Transaction transactionToSpend = TransactionTestUtil.createCoinbaseTransactionSpendableByPrivateKey(privateKey);
             mutableBlock.addTransaction(transactionToSpend);
 
@@ -605,7 +605,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
             final Transaction transactionToSpend = fakeBlock03.getCoinbaseTransaction();
 
-            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
             final Transaction unsignedTransactionA;
             {
                 final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
@@ -622,7 +622,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 unsignedTransactionA = mutableTransaction;
             }
 
-            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            // Create an unsigned transaction that spends the test's previous transaction, and send the test's payment to an irrelevant address.
             final Transaction unsignedTransactionB;
             {
                 final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();

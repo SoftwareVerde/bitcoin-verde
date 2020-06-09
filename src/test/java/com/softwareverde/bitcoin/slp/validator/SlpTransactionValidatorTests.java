@@ -25,12 +25,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SlpTransactionValidatorTests extends UnitTest {
 
     @Override @Before
-    public void before() {
+    public void before() throws Exception {
         super.before();
     }
 
     @Override @After
-    public void after() {
+    public void after() throws Exception {
         super.after();
     }
 

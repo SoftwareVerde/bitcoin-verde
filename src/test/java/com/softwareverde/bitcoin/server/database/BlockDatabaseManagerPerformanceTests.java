@@ -7,106 +7,19 @@ import org.junit.Before;
 
 public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
 
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
         super.before();
     }
 
-    @After
-    public void tearDown() {
+    @Override @After
+    public void after() throws Exception {
         super.after();
     }
 
-//    public static void _createRequiredTransactionInputs(final List<Transaction> transactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
-//        final HashSet<Sha256Hash> excludedTransactionHashes = new HashSet<Sha256Hash>(transactions.getCount());
-//        for (final Transaction transaction : transactions) {
-//            final Sha256Hash transactionHash = transaction.getHash();
-//            excludedTransactionHashes.add(transactionHash);
-//        }
-//
-//        final HashMap<Sha256Hash, TransactionId> transactionHashes = new HashMap<Sha256Hash, TransactionId>(transactions.getCount());
-//        for (final Transaction transaction : transactions) {
-//            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-//                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-//                if (excludedTransactionHashes.contains(previousOutputTransactionHash)) { continue; }
-//
-//                transactionHashes.put(previousOutputTransactionHash, null);
-//            }
-//        }
-//
-//        {
-//            long transactionId;
-//            {
-//                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS count FROM transactions"));
-//                final Row row = rows.get(0);
-//                transactionId = (row.getLong("count") + 1);
-//            }
-//
-//            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
-//            for (final Sha256Hash transactionHash : transactionHashes.keySet()) {
-//                batchedInsertQuery.setParameter(transactionHash);
-//                batchedInsertQuery.setParameter(Transaction.VERSION);
-//                batchedInsertQuery.setParameter(LockTime.MIN_TIMESTAMP.getValue());
-//
-//                transactionHashes.put(transactionHash, TransactionId.wrap(transactionId));
-//                transactionId += 1L;
-//            }
-//            databaseConnection.executeSql(batchedInsertQuery);
-//        }
-//
-//        {
-//            int sortOrder = 0;
-//            final BlockId genesisBlockId = BlockId.wrap(1L);
-//            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, `index`) VALUES (?, ?, ?)");
-//            for (final Sha256Hash transactionHash : transactionHashes.keySet()) {
-//                final TransactionId transactionId = transactionHashes.get(transactionHash);
-//
-//                batchedInsertQuery.setParameter(genesisBlockId);
-//                batchedInsertQuery.setParameter(transactionId);
-//                batchedInsertQuery.setParameter(sortOrder);
-//
-//                sortOrder += 1;
-//            }
-//            databaseConnection.executeSql(batchedInsertQuery);
-//        }
-//
-//        {
-//            long transactionOutputId;
-//            {
-//                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS count FROM transaction_outputs"));
-//                final Row row = rows.get(0);
-//                transactionOutputId = (row.getLong("count") + 1);
-//            }
-//
-//            int transactionIndex = 0;
-//            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)");
-//            for (final Transaction transaction : transactions) {
-//                final boolean isGenesisTransaction = (transactionIndex == 0);
-//                transactionIndex += 1;
-//
-//                if (isGenesisTransaction) { continue; }
-//
-//                for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-//                    final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-//                    final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
-//                    if (excludedTransactionHashes.contains(previousOutputTransactionHash)) { continue; }
-//
-//                    final TransactionId transactionId = transactionHashes.get(previousOutputTransactionHash);
-//
-//                    batchedInsertQuery.setParameter(transactionId);
-//                    batchedInsertQuery.setParameter(previousOutputIndex);
-//                    batchedInsertQuery.setParameter(Long.MAX_VALUE);
-//
-//                    transactionOutputId += 1L;
-//                }
-//            }
-//            databaseConnection.executeSql(batchedInsertQuery);
-//        }
-//    }
-
     // TODO: Create a test that has a transaction whose transactionInputs spends a previousOutputTransactionHash of EMPTY_HASH and whose index is -1, but is not a coinbase transaction... (Probably fails...)
 
-    // @Test
+//    @Test
     public void should_store_giant_block_quickly() throws Exception {
 //        // Setup
 //        final MilliTimer setupTimer = new MilliTimer();
