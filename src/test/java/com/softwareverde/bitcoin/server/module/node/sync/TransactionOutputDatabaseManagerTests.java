@@ -1,18 +1,21 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.slp.validator.FakeTransactionOutputIndexerContext;
-import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeAtomicTransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.test.fake.FakeTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TransactionOutputDatabaseManagerTests extends IntegrationTest {
+public class TransactionOutputDatabaseManagerTests extends UnitTest {
 
     @Override @Before
     public void before() {
@@ -27,26 +30,25 @@ public class TransactionOutputDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_store_script_addresses() throws Exception {
         // Setup
+        final AddressInflater addressInflater = new AddressInflater();
         final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
+        final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
+
         final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();
-            lockingScripts.add(ScriptBuilder.payToAddress("1CujTANFTa9YqSd9S6k3yCehoF2BBKs6ht"));
-            lockingScripts.add(ScriptBuilder.payToAddress("15iUw9oLzsdQNQreGQZ6aPvM5b73BneGKy"));
+        final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();
+        lockingScripts.add(ScriptBuilder.payToAddress("1CujTANFTa9YqSd9S6k3yCehoF2BBKs6ht"));
+        lockingScripts.add(ScriptBuilder.payToAddress("15iUw9oLzsdQNQreGQZ6aPvM5b73BneGKy"));
 
-            final MutableList<AddressId> addressIds = new MutableList<AddressId>();
-
-            // Action
-            for (final LockingScript lockingScript : lockingScripts) {
-                final AddressId addressId = transactionOutputIndexer._getAddressId(lockingScript);
-                addressIds.add(addressId);
-            }
-
-            // Assert
-            Assert.assertEquals(2, addressIds.getCount());
-            Assert.assertEquals(1L, addressIds.get(0).longValue());
-            Assert.assertEquals(2L, addressIds.get(1).longValue());
+        // Action
+        for (final LockingScript lockingScript : lockingScripts) {
+            final AddressId addressId = transactionOutputIndexer._getAddressId(lockingScript);
         }
+
+        // Assert
+        final List<Address> storedAddresses = atomicTransactionOutputIndexerContext.getStoredAddresses();
+        Assert.assertEquals(2, storedAddresses.getCount());
+        Assert.assertTrue(storedAddresses.contains(addressInflater.fromBase58Check("1CujTANFTa9YqSd9S6k3yCehoF2BBKs6ht")));
+        Assert.assertTrue(storedAddresses.contains(addressInflater.fromBase58Check("15iUw9oLzsdQNQreGQZ6aPvM5b73BneGKy")));
     }
 }

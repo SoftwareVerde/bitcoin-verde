@@ -253,7 +253,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(spentTransactionOutputIdentifier);
                 final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
                     (50L * Transaction.SATOSHIS_PER_BITCOIN),
-                    addressInflater.compressedFromPrivateKey(privateKey)
+                    addressInflater.fromPrivateKey(privateKey, true)
                 );
 
                 final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
@@ -282,7 +282,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
             final TransactionOutputIdentifier transactionOutputIdentifierToSpend = new TransactionOutputIdentifier(signedTransactionSpendingCoinbase.getHash(), 0);
 
             final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromPrivateKey(privateKey, true));
 
             final MutableTransaction mutableTransaction = TransactionTestUtil.createTransaction();
             mutableTransaction.addTransactionInput(transactionInput);
@@ -482,7 +482,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 mutableTransaction.addTransactionInput(transactionInput);
 
                 final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
-                    addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW")
+                    addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW")
                 );
                 mutableTransaction.addTransactionOutput(transactionOutput);
 
@@ -615,7 +615,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 mutableTransaction.addTransactionInput(transactionInput);
 
                 final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
-                    addressInflater.uncompressedFromPrivateKey(PrivateKey.createNewKey())
+                    addressInflater.fromPrivateKey(PrivateKey.createNewKey(), false)
                 );
                 mutableTransaction.addTransactionOutput(transactionOutput);
 
@@ -632,7 +632,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 mutableTransaction.addTransactionInput(transactionInput);
 
                 final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(
-                    addressInflater.uncompressedFromPrivateKey(PrivateKey.createNewKey())
+                    addressInflater.fromPrivateKey(PrivateKey.createNewKey(), false)
                 );
                 mutableTransaction.addTransactionOutput(transactionOutput);
 

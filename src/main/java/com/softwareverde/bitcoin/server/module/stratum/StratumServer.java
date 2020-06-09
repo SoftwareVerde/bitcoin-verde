@@ -9,9 +9,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
@@ -19,7 +17,11 @@ import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.server.stratum.task.*;
+import com.softwareverde.bitcoin.server.stratum.task.ConfigurableStratumMineBlockTaskBuilder;
+import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
+import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilder;
+import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
+import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
@@ -33,6 +35,8 @@ import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -149,7 +153,7 @@ public class StratumServer {
 
         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.compressedFromPrivateKey(_privateKey);
+        final Address address = addressInflater.fromPrivateKey(_privateKey, true);
 
         final BlockHeader previousBlockHeader;
         {
@@ -493,7 +497,7 @@ public class StratumServer {
 
         _privateKey = PrivateKey.createNewKey();
         Logger.info("Private Key: " + _privateKey);
-        Logger.info("Address:     " + addressInflater.compressedFromPrivateKey(_privateKey).toBase58CheckEncoded());
+        Logger.info("Address:     " + addressInflater.fromPrivateKey(_privateKey, true).toBase58CheckEncoded());
 
         _extraNonce = _createRandomBytes(_extraNonceByteCount);
 

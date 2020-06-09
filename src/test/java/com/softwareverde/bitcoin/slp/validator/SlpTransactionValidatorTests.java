@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.slp.validator;
 
 import com.softwareverde.bitcoin.server.module.node.sync.TransactionOutputIndexer;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeAtomicTransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.test.fake.FakeTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -35,7 +37,10 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Test
     public void should_validate_slp_transactions() throws Exception {
         // Setup
-        final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = BitcoinVerdeTestToken.loadBitcoinVerdeTestTokens();
+        final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
+        final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
+
+        BitcoinVerdeTestToken.loadBitcoinVerdeTestTokens(atomicTransactionOutputIndexerContext);
         final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
 
         final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
@@ -73,7 +78,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                 final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
                 for (final Sha256Hash transactionHash : transactionHashes) {
-                    final Transaction transaction = transactionOutputIndexerContext.getTransaction(transactionHash);
+                    final Transaction transaction = atomicTransactionOutputIndexerContext.getTransaction(transactionHash);
                     transactions.put(transactionHash, transaction);
                 }
                 return transactions;
@@ -82,7 +87,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
 
         // Assert
         for (final Sha256Hash transactionHash : slpValidityMap.keySet()) {
-            final Transaction transaction = transactionOutputIndexerContext.getTransaction(transactionHash);
+            final Transaction transaction = atomicTransactionOutputIndexerContext.getTransaction(transactionHash);
             final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
             Logger.info(transactionHash + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
             Assert.assertEquals(slpValidityMap.get(transactionHash), isValid);
@@ -230,8 +235,9 @@ public class SlpTransactionValidatorTests extends UnitTest {
         validHashes.add(Sha256Hash.fromHexString("28F42D363686880D1181B1FCE947FBE8122C7AA4F12D1AE57F6908D081A5DC01"));
 
         final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
+        final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
         for (final Transaction transaction : transactions.values()) {
-            transactionOutputIndexerContext.addTransaction(transaction);
+            atomicTransactionOutputIndexerContext.addTransaction(transaction);
         }
 
         final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
@@ -255,7 +261,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
                 public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
                     final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
                     for (final Sha256Hash transactionHash : transactionHashes) {
-                        returnedTransactions.put(transactionHash, transactionOutputIndexerContext.getTransaction(transactionHash));
+                        returnedTransactions.put(transactionHash, atomicTransactionOutputIndexerContext.getTransaction(transactionHash));
                     }
                     return returnedTransactions;
                 }

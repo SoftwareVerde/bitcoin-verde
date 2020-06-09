@@ -2,8 +2,6 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.address.CompressedAddress;
-import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -18,6 +16,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.security.secp256k1.key.PublicKey;
 
 public class ScriptPatternMatcher {
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;
@@ -131,8 +130,7 @@ public class ScriptPatternMatcher {
 
         final PushOperation pushOperation = (PushOperation) operation;
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
-        final PublicKey publicKey = PublicKey.fromBytes(bytes);
-        return publicKey;
+        return PublicKey.fromBytes(bytes);
     }
 
 
@@ -141,31 +139,10 @@ public class ScriptPatternMatcher {
         if (publicKey == null) { return null; }
 
         final AddressInflater addressInflater = new AddressInflater();
-        if (publicKey.isCompressed()) {
-            return addressInflater.compressedFromPublicKey(publicKey);
-        }
-        else {
-            return addressInflater.uncompressedFromPublicKey(publicKey);
-        }
+        return addressInflater.fromPublicKey(publicKey);
     }
 
-    protected Address _extractDecompressedAddressFromPayToPublicKey(final Script lockingScript) {
-        final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
-        if (publicKey == null) { return null; }
-
-        final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.uncompressedFromPublicKey(publicKey.decompress());
-    }
-
-    protected CompressedAddress _extractCompressedAddressFromPayToPublicKey(final Script lockingScript) {
-        final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
-        if (publicKey == null) { return null; }
-
-        final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.compressedFromPublicKey(publicKey);
-    }
-
-    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript) {
+    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript, final Boolean isCompressed) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getCount() != PAY_TO_PUBLIC_KEY_HASH_PATTERN.getCount()) { return null; }
@@ -179,10 +156,10 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(bytes);
+        return addressInflater.fromBytes(bytes, isCompressed);
     }
 
-    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript) {
+    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript, final Boolean isCompressed) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getCount() != PAY_TO_SCRIPT_HASH_PATTERN.getCount()) { return null; }
@@ -196,7 +173,7 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(bytes);
+        return addressInflater.fromBytes(bytes, isCompressed);
     }
 
     /**
@@ -224,11 +201,11 @@ public class ScriptPatternMatcher {
                 } break;
 
                 case PAY_TO_PUBLIC_KEY_HASH: {
-                    address = _extractAddressFromPayToPublicKeyHash(lockingScript);
+                    address = _extractAddressFromPayToPublicKeyHash(lockingScript, false);
                 } break;
 
                 case PAY_TO_SCRIPT_HASH: {
-                    address = _extractAddressFromPayToScriptHash(lockingScript);
+                    address = _extractAddressFromPayToScriptHash(lockingScript, false);
                 } break;
 
                 default: {
@@ -243,21 +220,16 @@ public class ScriptPatternMatcher {
         return _extractAddressFromPayToPublicKey(lockingScript);
     }
 
-    public Address extractDecompressedAddressFromPayToPublicKey(final LockingScript lockingScript) {
-        return _extractDecompressedAddressFromPayToPublicKey(lockingScript);
-    }
-
-    public CompressedAddress extractCompressedAddressFromPayToPublicKey(final LockingScript lockingScript) {
-        return _extractCompressedAddressFromPayToPublicKey(lockingScript);
-    }
-
     public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToPublicKeyHash(lockingScript);
+        return _extractAddressFromPayToPublicKeyHash(lockingScript, false);
     }
 
+    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript, final Boolean isCompressed) {
+        return _extractAddressFromPayToPublicKeyHash(lockingScript, isCompressed);
+    }
 
     public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToScriptHash(lockingScript);
+        return _extractAddressFromPayToScriptHash(lockingScript, false);
     }
 
     /**

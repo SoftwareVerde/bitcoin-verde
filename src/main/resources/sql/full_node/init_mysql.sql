@@ -190,7 +190,7 @@ CREATE TABLE unconfirmed_transaction_inputs (
     INDEX unconfirmed_transaction_inputs_tx_hash_ix (previous_transaction_hash, previous_transaction_output_index) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE transaction_outputs (
+CREATE TABLE indexed_transaction_outputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     output_index INT UNSIGNED NOT NULL,
@@ -206,7 +206,7 @@ CREATE TABLE transaction_outputs (
     FOREIGN KEY transaction_output_addresses_slp_tx_fk (slp_transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE transaction_inputs (
+CREATE TABLE indexed_transaction_inputs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     input_index INT UNSIGNED NOT NULL,
@@ -228,12 +228,10 @@ CREATE TABLE transaction_output_processor_queue (
 CREATE TABLE validated_slp_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
-    blockchain_segment_id INT UNSIGNED NOT NULL,
     is_valid TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY valid_slp_transactions_uq (transaction_id, blockchain_segment_id),
-    FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
-    FOREIGN KEY valid_slp_transactions_blockchain_segment_id_fk (blockchain_segment_id) REFERENCES blockchain_segments (id)
+    UNIQUE KEY valid_slp_transactions_uq (transaction_id),
+    FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE hosts (

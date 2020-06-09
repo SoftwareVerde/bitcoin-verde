@@ -70,7 +70,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
     public List<AddressId> getAddressIds(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT address_id FROM transaction_outputs WHERE transaction_id = ?")
+            new Query("SELECT address_id FROM indexed_transaction_outputs WHERE transaction_id = ?")
         );
         rows.addAll(databaseConnection.query(
             new Query("SELECT address_id FROM transaction_inputs WHERE transaction_id = ?")
@@ -101,11 +101,11 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
     }
 
     /**
-     * Returns a list of rows of {blockchain_segment_id, transaction_id} from transaction_outputs for the provided addressId.
+     * Returns a list of rows of {blockchain_segment_id, transaction_id} from indexed_transaction_outputs for the provided addressId.
      */
     protected java.util.List<Row> _getTransactionIdsSendingTo(final AddressId addressId, final DatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(
-            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_outputs.address_id = ? GROUP BY transaction_outputs.transaction_id, blocks.blockchain_segment_id")
+            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address_id = ? GROUP BY indexed_transaction_outputs.transaction_id, blocks.blockchain_segment_id")
                 .setParameter(addressId)
         );
     }
@@ -218,7 +218,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         final HashMap<TransactionId, MutableList<Integer>> outputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
         { // Load debits, with output_indexes...
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, transaction_outputs.transaction_id, transaction_outputs.output_index FROM transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_outputs.address_id = ?")
+                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_outputs.transaction_id, indexed_transaction_outputs.output_index FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address_id = ?")
                     .setParameter(addressId)
             );
             if (transactionOutputRows.isEmpty()) { return 0L; }
@@ -326,7 +326,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transactions.hash FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.slp_transaction_id WHERE transaction_outputs.transaction_id = ?")
+            new Query("SELECT transactions.hash FROM indexed_transaction_outputs INNER JOIN transactions ON transactions.id = indexed_transaction_outputs.slp_transaction_id WHERE indexed_transaction_outputs.transaction_id = ?")
                 .setParameter(transactionId)
         );
         if (rows.isEmpty()) { return null; }
@@ -340,7 +340,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transaction_outputs.transaction_id FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.slp_transaction_id WHERE transactions.hash = ?")
+            new Query("SELECT indexed_transaction_outputs.transaction_id FROM indexed_transaction_outputs INNER JOIN transactions ON transactions.id = indexed_transaction_outputs.slp_transaction_id WHERE transactions.hash = ?")
                 .setParameter(slpTokenId)
         );
 
@@ -394,7 +394,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address_id = VALUES(address_id), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)")
+            new Query("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address_id = VALUES(address_id), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)")
                 .setParameter(transactionId)
                 .setParameter(outputIndex)
                 .setParameter(amount)

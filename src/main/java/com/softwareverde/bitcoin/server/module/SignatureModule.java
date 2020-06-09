@@ -73,7 +73,7 @@ public class SignatureModule {
 
         final AddressInflater addressInflater = new AddressInflater();
 
-        System.out.println("Address:    " + (useCompressedAddress ? addressInflater.compressedFromPrivateKey(privateKey) : addressInflater.uncompressedFromPrivateKey(privateKey)).toBase58CheckEncoded());
+        System.out.println("Address:    " + addressInflater.fromPrivateKey(privateKey, useCompressedAddress));
         System.out.println("Signature:  " + signature.toBase64());
         System.out.println("Message:    " + message);
     }
@@ -87,7 +87,7 @@ public class SignatureModule {
             return;
         }
 
-        final Address address = addressInflater.uncompressedFromBase58Check(addressStringBase58Check);
+        final Address address = addressInflater.fromBase58Check(addressStringBase58Check);
         if (address == null) {
             Logger.error("Invalid address.");
             return;

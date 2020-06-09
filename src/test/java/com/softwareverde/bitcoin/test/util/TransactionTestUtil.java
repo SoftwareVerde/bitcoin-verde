@@ -133,7 +133,7 @@ public class TransactionTestUtil {
             mutableTransactionOutput.setIndex(0);
             mutableTransactionOutput.setAmount(outputAmount);
 
-            final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.compressedFromPrivateKey(privateKey));
+            final LockingScript lockingScript = ScriptBuilder.payToAddress(addressInflater.fromPrivateKey(privateKey, true));
             mutableTransactionOutput.setLockingScript(lockingScript);
             transactionOutput = mutableTransactionOutput;
         }

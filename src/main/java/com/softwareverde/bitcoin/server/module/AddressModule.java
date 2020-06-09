@@ -61,8 +61,8 @@ public class AddressModule {
                 while ( (! Thread.interrupted()) && miningPin.get() ) {
                     final PrivateKey privateKey = PrivateKey.createNewKey();
 
-                    final String address = addressInflater.uncompressedFromPrivateKey(privateKey).toBase58CheckEncoded();
-                    final String compressedAddress = addressInflater.compressedFromPrivateKey(privateKey).toBase58CheckEncoded();
+                    final String address = addressInflater.fromPrivateKey(privateKey, false).toBase58CheckEncoded();
+                    final String compressedAddress = addressInflater.fromPrivateKey(privateKey, true).toBase58CheckEncoded();
 
                     boolean isMatch = false;
                     isMatch = (isMatch || address.startsWith(desiredAddressPrefix));

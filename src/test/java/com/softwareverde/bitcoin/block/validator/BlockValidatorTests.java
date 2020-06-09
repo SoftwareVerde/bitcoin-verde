@@ -176,7 +176,7 @@ public class BlockValidatorTests extends UnitTest {
             final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
             final MutableTransaction unsignedTransaction = BlockValidatorTests.createTransactionContaining(
                 BlockValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
-                BlockValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
+                BlockValidatorTests.createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
             );
 
             { // Sign the transaction...
@@ -364,7 +364,7 @@ public class BlockValidatorTests extends UnitTest {
         {
             final MutableTransaction unsignedTransaction = BlockValidatorTests.createTransactionContaining(
                 BlockValidatorTests.createTransactionInputThatSpendsTransaction(transactionToSpend),
-                BlockValidatorTests.createTransactionOutput(addressInflater.uncompressedFromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
+                BlockValidatorTests.createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), (1L * Transaction.SATOSHIS_PER_BITCOIN))
             );
 
             { // Sign the transaction...

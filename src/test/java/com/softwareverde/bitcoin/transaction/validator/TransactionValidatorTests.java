@@ -82,7 +82,7 @@ public class TransactionValidatorTests extends UnitTest {
             final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromPrivateKey(privateKey, true));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
@@ -122,7 +122,7 @@ public class TransactionValidatorTests extends UnitTest {
             final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifier);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromPrivateKey(privateKey, true));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
@@ -165,7 +165,7 @@ public class TransactionValidatorTests extends UnitTest {
             mutableTransaction.addTransactionInput(transactionInput);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.compressedFromPrivateKey(privateKey));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromPrivateKey(privateKey, true));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
@@ -205,7 +205,7 @@ public class TransactionValidatorTests extends UnitTest {
             mutableTransaction.addTransactionInput(transactionInput);
 
             // NOTE: The output amount is greater than the coinbase amount.
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput((50L * Transaction.SATOSHIS_PER_BITCOIN), addressInflater.compressedFromPrivateKey(privateKey));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput((50L * Transaction.SATOSHIS_PER_BITCOIN), addressInflater.fromPrivateKey(privateKey, true));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;
@@ -245,7 +245,7 @@ public class TransactionValidatorTests extends UnitTest {
             final TransactionInput transactionInput = TransactionTestUtil.createTransactionInput(transactionOutputIdentifierToSpend);
             mutableTransaction.addTransactionInput(transactionInput);
 
-            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.uncompressedFromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF"));
+            final TransactionOutput transactionOutput = TransactionTestUtil.createTransactionOutput(addressInflater.fromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF", false));
             mutableTransaction.addTransactionOutput(transactionOutput);
 
             unsignedTransaction = mutableTransaction;

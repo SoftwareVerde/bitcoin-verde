@@ -134,7 +134,7 @@ public class WalletTests extends UnitTest {
         // Setup
         final PrivateKey privateKey = PrivateKey.createNewKey();
         final AddressInflater addressInflater = new AddressInflater();
-        final Address address = addressInflater.compressedFromPrivateKey(privateKey);
+        final Address address = addressInflater.fromPrivateKey(privateKey, true);
 
         final SlpTokenId slpTokenId = SlpTokenId.wrap(HashUtil.sha256(new MutableByteArray(4)));
 

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -50,10 +51,12 @@ public class TransactionOutputIndexer extends SleepyService {
         final Address address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) { return null; }
 
-        final AddressId addressId = _context.getAddressId(address);
-        if (addressId != null) { return addressId; }
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            final AddressId addressId = context.getAddressId(address);
+            if (addressId != null) { return addressId; }
 
-        return _context.storeAddress(address);
+            return context.storeAddress(address);
+        }
     }
 
     protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript) throws ContextException {
@@ -85,7 +88,9 @@ public class TransactionOutputIndexer extends SleepyService {
 
         if (slpTokenId == null) { return null; }
 
-        return _context.getTransactionId(slpTokenId);
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            return context.getTransactionId(slpTokenId);
+        }
     }
 
     protected void _indexTransactionOutputs(final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData, final TransactionId transactionId, final Transaction transaction) throws ContextException {
@@ -230,16 +235,16 @@ public class TransactionOutputIndexer extends SleepyService {
     protected Boolean _run() {
         Logger.trace("AddressProcessor Running.");
 
-        try (final AutoCloseable context = _context.startDatabaseTransaction()) {
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final MilliTimer processTimer = new MilliTimer();
 
             int outputCount = 0;
             processTimer.start();
-            final List<TransactionId> queuedTransactionIds = _context.getUnprocessedTransactions(BATCH_SIZE);
+            final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(BATCH_SIZE);
             if (queuedTransactionIds.isEmpty()) { return false; }
 
             for (final TransactionId transactionId : queuedTransactionIds) {
-                final Transaction transaction = _context.getTransaction(transactionId);
+                final Transaction transaction = context.getTransaction(transactionId);
                 if (transaction == null) {
                     Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
                     return false;
@@ -249,21 +254,19 @@ public class TransactionOutputIndexer extends SleepyService {
                 _indexTransactionOutputs(outputIndexData, transactionId, transaction);
 
                 for (final OutputIndexData indexData : outputIndexData.values()) {
-                    _context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
+                    context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
                     outputCount += 1;
                 }
             }
 
-            _context.dequeueTransactionsForProcessing(queuedTransactionIds);
-            _context.commitDatabaseTransaction();
+            context.dequeueTransactionsForProcessing(queuedTransactionIds);
+            context.commitDatabaseTransaction();
             processTimer.stop();
 
             Logger.info("Indexed " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final Exception exception) {
             Logger.warn(exception);
-            _context.rollbackDatabaseTransaction();
-
             return false;
         }
 
