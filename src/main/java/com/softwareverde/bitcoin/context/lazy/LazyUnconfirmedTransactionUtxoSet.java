@@ -18,23 +18,40 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutputContext {
-    final FullNodeDatabaseManager _databaseManager;
+    protected final FullNodeDatabaseManager _databaseManager;
+    protected final Boolean _includeUnconfirmedTransactions;
 
     public LazyUnconfirmedTransactionUtxoSet(final FullNodeDatabaseManager databaseManager) {
+        this(databaseManager, false);
+    }
+
+    public LazyUnconfirmedTransactionUtxoSet(final FullNodeDatabaseManager databaseManager, final Boolean includeUnconfirmedTransactions) {
         _databaseManager = databaseManager;
+        _includeUnconfirmedTransactions = includeUnconfirmedTransactions;
     }
 
     @Override
     public TransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
-            final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
-            final UnconfirmedTransactionOutputId transactionOutputId = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(transactionOutputIdentifier);
-            if (transactionOutputId != null) {
-                return unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
+            if (_includeUnconfirmedTransactions) {
+                final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
+                final Boolean transactionOutputIsSpentWithinMempool = unconfirmedTransactionOutputDatabaseManager.isTransactionOutputSpent(transactionOutputIdentifier);
+                if (transactionOutputIsSpentWithinMempool) { return null; }
             }
 
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-            return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+            if (! _includeUnconfirmedTransactions) {
+                return transactionOutput;
+            }
+            else if (transactionOutput == null) {
+                final UnconfirmedTransactionOutputDatabaseManager unconfirmedTransactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
+                final UnconfirmedTransactionOutputId transactionOutputId = unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutputId(transactionOutputIdentifier);
+                return unconfirmedTransactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
+            }
+            else {
+                return transactionOutput;
+            }
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

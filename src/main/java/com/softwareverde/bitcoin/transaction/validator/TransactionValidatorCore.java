@@ -67,9 +67,9 @@ public class TransactionValidatorCore implements TransactionValidator {
             Logger.debug("Tx Output:\t\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
             Logger.debug("Block Height:\t\t" + transactionContext.getBlockHeight());
             Logger.debug("Tx Input Index\t\t" + transactionInputIndex);
-            Logger.debug("Locking Script:\t\t" + lockingScript);
-            Logger.debug("Unlocking Script:\t\t" + unlockingScript);
-            Logger.debug("Median Block Time:\t\t" + medianBlockTime.getCurrentTimeInSeconds());
+            Logger.debug("Locking Script:\t" + lockingScript);
+            Logger.debug("Unlocking Script:\t" + unlockingScript);
+            Logger.debug("Median Block Time:\t" + medianBlockTime.getCurrentTimeInSeconds());
             Logger.debug("Network Time:\t\t" + networkTime.getCurrentTimeInSeconds());
             Logger.debug("\n------------\n");
         }

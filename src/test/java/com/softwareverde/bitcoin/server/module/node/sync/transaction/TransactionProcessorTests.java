@@ -180,7 +180,7 @@ public class TransactionProcessorTests extends IntegrationTest {
             final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
             final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
             blockchainBuilder.start();
-            final int maxSleepCount = 10;
+            final int maxSleepCount = 1000;
             int sleepCount = 0;
             do {
                 Thread.sleep(250L);
@@ -192,7 +192,6 @@ public class TransactionProcessorTests extends IntegrationTest {
         }
 
         final MutableList<Transaction> processedTransactions = new MutableList<Transaction>();
-
         final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_fullNodeDatabaseManagerFactory, new MutableMedianBlockTime(), new MutableNetworkTime(), new SystemTime());
         final TransactionProcessor transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {

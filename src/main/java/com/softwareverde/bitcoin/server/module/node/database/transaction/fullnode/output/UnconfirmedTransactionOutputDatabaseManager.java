@@ -107,6 +107,16 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         return UnconfirmedTransactionOutputId.wrap(row.getLong("id"));
     }
 
+    public Boolean isTransactionOutputSpent(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT * FROM unconfirmed_transaction_inputs WHERE previous_transaction_hash = ? AND previous_transaction_output_index = ?")
+                .setParameter(transactionOutputIdentifier.getTransactionHash())
+                .setParameter(transactionOutputIdentifier.getOutputIndex())
+        );
+        return (! rows.isEmpty());
+    }
+
     public TransactionOutput getUnconfirmedTransactionOutput(final UnconfirmedTransactionOutputId transactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
