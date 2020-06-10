@@ -23,17 +23,17 @@ public class LazyTransactionOutputIndexerContext implements TransactionOutputInd
             databaseManager = _databaseManagerFactory.newDatabaseManager();
             return new LazyAtomicTransactionOutputIndexerContext(databaseManager);
         }
-        catch (final Exception databaseException) {
+        catch (final Exception exception) {
             try {
                 if (databaseManager != null) {
                     databaseManager.close();
                 }
             }
-            catch (final DatabaseException exception) {
-                databaseException.addSuppressed(exception);
+            catch (final DatabaseException databaseException) {
+                exception.addSuppressed(databaseException);
             }
 
-            throw new ContextException(databaseException);
+            throw new ContextException(exception);
         }
     }
 }

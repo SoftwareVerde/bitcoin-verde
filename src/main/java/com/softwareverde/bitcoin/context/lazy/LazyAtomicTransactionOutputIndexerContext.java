@@ -22,6 +22,14 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
 
     public LazyAtomicTransactionOutputIndexerContext(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
+
+        try {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            TransactionUtil.startTransaction(databaseConnection);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+        }
     }
 
     @Override

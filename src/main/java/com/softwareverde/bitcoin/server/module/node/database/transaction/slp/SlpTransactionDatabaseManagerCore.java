@@ -4,8 +4,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -25,17 +23,17 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
                 "SELECT " +
-                    "blocks.id AS block_id, transaction_outputs.transaction_id " +
+                    "blocks.id AS block_id, indexed_transaction_outputs.transaction_id " +
                 "FROM " +
-                    "transaction_outputs " +
+                    "indexed_transaction_outputs " +
                     "INNER JOIN block_transactions " +
-                        "ON (block_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                        "ON (block_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                     "INNER JOIN blocks " +
                         "ON (blocks.id = block_transactions.block_id) " +
                 "WHERE " +
-                    "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = transaction_outputs.transaction_id AND t.blockchain_segment_id = blocks.blockchain_segment_id) " +
-                    "AND transaction_outputs.slp_transaction_id IS NOT NULL " +
-                "GROUP BY blocks.id, transaction_outputs.transaction_id " +
+                    "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = indexed_transaction_outputs.transaction_id) " +
+                    "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL " +
+                "GROUP BY blocks.id, indexed_transaction_outputs.transaction_id " +
                 "ORDER BY blocks.block_height ASC " +
                 "LIMIT "+ maxCount
             )
@@ -75,17 +73,17 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
                 "SELECT " +
-                    "transaction_outputs.transaction_id " +
+                    "indexed_transaction_outputs.transaction_id " +
                 "FROM " +
-                    "transaction_outputs " +
+                    "indexed_transaction_outputs " +
                     "INNER JOIN unconfirmed_transactions " +
-                        "ON (unconfirmed_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                        "ON (unconfirmed_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                     "LEFT OUTER JOIN validated_slp_transactions " +
-                        "ON (validated_slp_transactions.transaction_id = transaction_outputs.transaction_id) " +
+                        "ON (validated_slp_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                 "WHERE " +
                     "validated_slp_transactions.id IS NULL " +
-                    "AND transaction_outputs.slp_transaction_id IS NOT NULL " +
-                "GROUP BY transaction_outputs.transaction_id ASC " +
+                    "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL " +
+                "GROUP BY indexed_transaction_outputs.transaction_id ASC " +
                 "LIMIT " + maxCount
             )
         );
@@ -108,35 +106,24 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
 
     /**
      * Returns the cached SLP validity of the TransactionId.
-     *  This function does run validation on the transaction and only queries its cached value.
+     *  This function does not run validation on the transaction and only queries its cached value.
      */
     @Override
-    public Boolean getSlpTransactionValidationResult(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {
+    public Boolean getSlpTransactionValidationResult(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, blockchain_segment_id, is_valid FROM validated_slp_transactions WHERE transaction_id = ?")
+            new Query("SELECT id, is_valid FROM validated_slp_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
         if (rows.isEmpty()) { return null; }
 
-        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
-
-        for (final Row row : rows) {
-            final BlockchainSegmentId slpBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
-
-            final Boolean isConnectedToChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, slpBlockchainSegmentId, BlockRelationship.ANY);
-            if (isConnectedToChain) {
-                return row.getBoolean("is_valid");
-            }
-        }
-
-        return null;
+        final Row row = rows.get(0);
+        return row.getBoolean("is_valid");
     }
 
     @Override
-    public void setSlpTransactionValidationResult(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId, final Boolean isValid) throws DatabaseException {
-        if (blockchainSegmentId == null) { return; }
+    public void setSlpTransactionValidationResult(final TransactionId transactionId, final Boolean isValid) throws DatabaseException {
         if (transactionId == null) { return; }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -144,9 +131,8 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
         final Integer isValidIntegerValue = ( (isValid != null) ? (isValid ? 1 : 0) : null );
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO validated_slp_transactions (transaction_id, blockchain_segment_id, is_valid) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_valid = ?")
+            new Query("INSERT INTO validated_slp_transactions (transaction_id, is_valid) VALUES (?, ?) ON DUPLICATE KEY UPDATE is_valid = ?")
                 .setParameter(transactionId)
-                .setParameter(blockchainSegmentId)
                 .setParameter(isValidIntegerValue)
                 .setParameter(isValidIntegerValue)
         );
@@ -157,7 +143,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
      *  Unconfirmed transactions are not returned by this function.
      */
     @Override
-    public LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(Integer maxCount) throws DatabaseException {
+    public LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
         return _getConfirmedPendingValidationSlpTransactions(maxCount);
     }
 
@@ -165,7 +151,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
      * Returns a list of (SLP) TransactionIds that have not been validated yet that reside in the mempool.
      */
     @Override
-    public List<TransactionId> getUnconfirmedPendingValidationSlpTransactions(Integer maxCount) throws DatabaseException {
+    public List<TransactionId> getUnconfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
         return _getUnconfirmedPendingValidationSlpTransactions(maxCount);
     }
 }

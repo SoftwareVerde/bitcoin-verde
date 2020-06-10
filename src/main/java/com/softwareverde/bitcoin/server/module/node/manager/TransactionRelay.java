@@ -1,8 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
@@ -21,7 +18,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.util.Container;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -55,15 +52,11 @@ public class TransactionRelay {
 
     public void relayTransactions(final List<Transaction> transactions) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            final Container<BlockchainSegmentId> blockchainSegmentId = new Container<BlockchainSegmentId>();
-            blockchainSegmentId.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-            final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(blockchainSegmentId, databaseManager, null);
-            final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(blockchainSegmentId, databaseManager);
+            final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(databaseManager, null);
+            final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(databaseManager);
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
 
             final List<NodeId> connectedNodes;

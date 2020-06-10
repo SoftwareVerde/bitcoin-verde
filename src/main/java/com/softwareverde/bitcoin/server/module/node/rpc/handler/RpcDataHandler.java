@@ -27,7 +27,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
@@ -48,7 +47,6 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Container;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -432,16 +430,13 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public Boolean isValidSlpTransaction(final Sha256Hash transactionHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) { return false; }
 
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-            return slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+            return slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -509,11 +504,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_networkTime, _medianBlockTime, unconfirmedTransactionUtxoSet);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
-            final Container<BlockchainSegmentId> blockchainSegmentIdContainer = new Container<BlockchainSegmentId>();
-
             try {
                 TransactionUtil.startTransaction(databaseConnection);
-                blockchainSegmentIdContainer.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
                 final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
@@ -524,8 +516,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 }
 
                 if (enableSlpValidation) {
-                    final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(blockchainSegmentIdContainer, databaseManager, null);
-                    final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(blockchainSegmentIdContainer, databaseManager);
+                    final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(databaseManager, null);
+                    final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(databaseManager);
                     final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
 
                     final Boolean isValidSlpTransaction = slpTransactionValidator.validateTransaction(transaction);

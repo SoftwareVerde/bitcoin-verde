@@ -4,12 +4,10 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
@@ -81,9 +79,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         final Boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+            isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);
         }
         else {
             isSlpValid = null;

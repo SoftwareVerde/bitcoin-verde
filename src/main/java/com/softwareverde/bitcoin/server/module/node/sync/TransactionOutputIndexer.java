@@ -27,6 +27,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class TransactionOutputIndexer extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
@@ -46,17 +47,15 @@ public class TransactionOutputIndexer extends SleepyService {
 
     protected Runnable _onSleepCallback;
 
-    protected AddressId _getAddressId(final LockingScript lockingScript) throws ContextException {
+    protected AddressId _getAddressId(final AtomicTransactionOutputIndexerContext context, final LockingScript lockingScript) throws ContextException {
         final ScriptType scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
         final Address address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) { return null; }
 
-        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
-            final AddressId addressId = context.getAddressId(address);
-            if (addressId != null) { return addressId; }
+        final AddressId addressId = context.getAddressId(address);
+        if (addressId != null) { return addressId; }
 
-            return context.storeAddress(address);
-        }
+        return context.storeAddress(address);
     }
 
     protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript) throws ContextException {
@@ -93,7 +92,9 @@ public class TransactionOutputIndexer extends SleepyService {
         }
     }
 
-    protected void _indexTransactionOutputs(final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData, final TransactionId transactionId, final Transaction transaction) throws ContextException {
+    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final AtomicTransactionOutputIndexerContext context, final TransactionId transactionId, final Transaction transaction) throws ContextException {
+        final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<TransactionOutputIdentifier, OutputIndexData>();
+
         final Sha256Hash transactionHash = transaction.getHash();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int transactionOutputCount = transactionOutputs.getCount();
@@ -115,7 +116,7 @@ public class TransactionOutputIndexer extends SleepyService {
                 indexData.outputIndex = outputIndex;
                 indexData.amount = transactionOutput.getAmount();
                 indexData.scriptType = ScriptType.UNKNOWN;
-                indexData.addressId = _getAddressId(lockingScript);
+                indexData.addressId = _getAddressId(context, lockingScript);
                 indexData.slpTransactionId = null;
 
                 outputIndexData.put(transactionOutputIdentifier, indexData);
@@ -124,7 +125,7 @@ public class TransactionOutputIndexer extends SleepyService {
 
         final ScriptType scriptType = _scriptPatternMatcher.getScriptType(slpLockingScript);
         if (! ScriptType.isSlpScriptType(scriptType)) {
-            return;
+            return outputIndexData;
         }
 
         boolean slpTransactionIsValid;
@@ -220,6 +221,8 @@ public class TransactionOutputIndexer extends SleepyService {
                 }
             }
         }
+
+        return outputIndexData;
     }
 
     public TransactionOutputIndexer(final TransactionOutputIndexerContext context) {
@@ -250,9 +253,7 @@ public class TransactionOutputIndexer extends SleepyService {
                     return false;
                 }
 
-                final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<TransactionOutputIdentifier, OutputIndexData>();
-                _indexTransactionOutputs(outputIndexData, transactionId, transaction);
-
+                final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(context, transactionId, transaction);
                 for (final OutputIndexData indexData : outputIndexData.values()) {
                     context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
                     outputCount += 1;

@@ -206,7 +206,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ?")
+            new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ? LIMIT 1")
                 .setParameter(transactionId)
         );
         if (! rows.isEmpty()) { return; }
@@ -421,7 +421,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM unconfirmed_transactions WHERE transaction_id = ?")
+            new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ? LIMIT 1")
                 .setParameter(transactionId)
         );
         return (! rows.isEmpty());

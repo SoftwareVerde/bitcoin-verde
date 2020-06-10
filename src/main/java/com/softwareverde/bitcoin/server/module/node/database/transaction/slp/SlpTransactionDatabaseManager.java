@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.slp;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -13,9 +12,9 @@ public interface SlpTransactionDatabaseManager {
      * Returns the cached SLP validity of the TransactionId.
      *  This function does run validation on the transaction and only queries its cached value.
      */
-    Boolean getSlpTransactionValidationResult(BlockchainSegmentId blockchainSegmentId, TransactionId transactionId) throws DatabaseException;
+    Boolean getSlpTransactionValidationResult(TransactionId transactionId) throws DatabaseException;
 
-    void setSlpTransactionValidationResult(BlockchainSegmentId blockchainSegmentId, TransactionId transactionId, Boolean isValid) throws DatabaseException;
+    void setSlpTransactionValidationResult(TransactionId transactionId, Boolean isValid) throws DatabaseException;
 
     /**
      * Returns a mapping of (SLP) TransactionIds that have not been validated yet, ordered by their respective block's height.

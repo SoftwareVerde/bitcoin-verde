@@ -30,6 +30,7 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.BitcoinReflectionUtil;
@@ -42,11 +43,11 @@ public class BlockProcessorTests extends IntegrationTest {
     protected static Long COINBASE_MATURITY = null;
 
     protected static Boolean utxoExistsInCommittedUtxoSet(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final int committedUtxoCount = databaseConnection.query(
-            new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND is_spent = 0")
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND is_spent = 0 LIMIT 1")
                 .setParameter(transaction.getHash())
-        ).size();
-        return (committedUtxoCount != 0);
+        );
+        return (! rows.isEmpty());
     }
 
     protected class TestHarness {

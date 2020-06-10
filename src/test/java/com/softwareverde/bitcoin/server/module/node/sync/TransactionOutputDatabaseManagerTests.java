@@ -42,7 +42,7 @@ public class TransactionOutputDatabaseManagerTests extends UnitTest {
 
         // Action
         for (final LockingScript lockingScript : lockingScripts) {
-            final AddressId addressId = transactionOutputIndexer._getAddressId(lockingScript);
+            final AddressId addressId = transactionOutputIndexer._getAddressId(atomicTransactionOutputIndexerContext, lockingScript);
         }
 
         // Assert
