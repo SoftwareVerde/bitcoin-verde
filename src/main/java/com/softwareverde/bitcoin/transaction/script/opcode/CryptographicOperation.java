@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.*;
+import com.softwareverde.bitcoin.bip.Bip66;
+import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -8,8 +12,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignatureContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;

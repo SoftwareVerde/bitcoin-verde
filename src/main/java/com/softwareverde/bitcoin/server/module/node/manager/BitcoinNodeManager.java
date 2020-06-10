@@ -43,7 +43,6 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.atomic.AtomicBoolean;

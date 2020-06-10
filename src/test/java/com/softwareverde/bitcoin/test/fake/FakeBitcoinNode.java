@@ -4,11 +4,8 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinarySocket;
 

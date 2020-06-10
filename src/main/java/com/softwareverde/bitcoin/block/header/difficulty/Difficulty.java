@@ -1,13 +1,17 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.block.header.difficulty.work.*;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.constable.*;
-import com.softwareverde.constable.bytearray.*;
-import com.softwareverde.security.hash.sha256.*;
-import com.softwareverde.util.*;
+import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.HexUtil;
 
-import java.math.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 
 public interface Difficulty extends Constable<ImmutableDifficulty> {
     Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);

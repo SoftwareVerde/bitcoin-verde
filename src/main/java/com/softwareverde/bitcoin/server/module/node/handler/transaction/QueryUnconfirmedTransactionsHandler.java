@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
@@ -11,6 +10,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class QueryUnconfirmedTransactionsHandler implements BitcoinNode.QueryUnconfirmedTransactionsCallback {
     public static final BitcoinNode.QueryUnconfirmedTransactionsCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.QueryUnconfirmedTransactionsCallback() {

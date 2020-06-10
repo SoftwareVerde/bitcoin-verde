@@ -1,8 +1,5 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -12,6 +9,9 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.util.HashUtil;
 
 public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> {

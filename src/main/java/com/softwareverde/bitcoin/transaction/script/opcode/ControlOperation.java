@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.logging.Logger;

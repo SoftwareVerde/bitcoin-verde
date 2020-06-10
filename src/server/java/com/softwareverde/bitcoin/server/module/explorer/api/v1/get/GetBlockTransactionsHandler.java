@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.explorer.api.v1.get;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.BlocksApi;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
-import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.server.servlet.request.Request;

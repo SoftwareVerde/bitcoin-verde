@@ -7,8 +7,6 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -32,6 +30,8 @@ import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 

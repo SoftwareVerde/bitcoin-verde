@@ -1,7 +1,6 @@
 package com.softwareverde.bloomfilter;
 
 import com.softwareverde.async.lock.IndexLock;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.security.util.HashUtil;

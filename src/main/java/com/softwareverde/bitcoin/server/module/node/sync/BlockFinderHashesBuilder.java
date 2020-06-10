@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -10,6 +9,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class BlockFinderHashesBuilder {
     protected final DatabaseManager _databaseManager;

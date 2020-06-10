@@ -1,7 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.pending;
 
-import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -22,6 +20,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;

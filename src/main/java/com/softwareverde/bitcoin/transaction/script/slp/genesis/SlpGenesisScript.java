@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public interface SlpGenesisScript extends SlpScript, Jsonable, Constable<ImmutableSlpGenesisScript> {

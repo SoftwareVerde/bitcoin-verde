@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.thin.request.transaction;
 
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -11,6 +9,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.Endian;
 
 public class RequestExtraThinTransactionsMessageInflater extends BitcoinProtocolMessageInflater {

@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.server.stratum.task;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface ConfigurableStratumMineBlockTaskBuilder extends StratumMineBlockTaskBuilder {
     void setBlockVersion(Long blockVersion);

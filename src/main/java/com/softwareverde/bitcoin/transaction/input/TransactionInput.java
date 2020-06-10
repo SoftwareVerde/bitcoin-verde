@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.input;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
@@ -8,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Jsonable;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface TransactionInput extends Constable<ImmutableTransactionInput>, Jsonable {
     /**

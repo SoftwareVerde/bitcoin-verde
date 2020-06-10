@@ -1,12 +1,11 @@
 package com.softwareverde.security.secp256k1;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.security.secp256k1.signature.SchnorrSignature;
 import com.softwareverde.security.secp256k1.signature.Signature;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;

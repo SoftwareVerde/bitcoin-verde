@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -16,6 +15,7 @@ import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transaction> {
     /**

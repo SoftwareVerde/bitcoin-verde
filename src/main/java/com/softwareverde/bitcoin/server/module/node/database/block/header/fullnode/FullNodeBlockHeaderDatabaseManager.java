@@ -1,30 +1,39 @@
 package com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode;
 
-import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.block.header.*;
-import com.softwareverde.bitcoin.block.header.difficulty.*;
-import com.softwareverde.bitcoin.block.header.difficulty.work.*;
-import com.softwareverde.bitcoin.chain.segment.*;
-import com.softwareverde.bitcoin.chain.time.*;
-import com.softwareverde.bitcoin.merkleroot.*;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.*;
-import com.softwareverde.bitcoin.server.database.query.*;
-import com.softwareverde.bitcoin.server.module.node.database.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.*;
-import com.softwareverde.constable.bytearray.*;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.*;
-import com.softwareverde.constable.list.mutable.*;
-import com.softwareverde.database.*;
-import com.softwareverde.database.row.*;
-import com.softwareverde.logging.*;
-import com.softwareverde.security.hash.sha256.*;
-import com.softwareverde.util.*;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.Util;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
 

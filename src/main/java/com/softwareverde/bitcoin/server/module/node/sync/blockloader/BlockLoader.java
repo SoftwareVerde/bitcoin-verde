@@ -9,11 +9,9 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockLoader {
     protected final ThreadPool _threadPool;

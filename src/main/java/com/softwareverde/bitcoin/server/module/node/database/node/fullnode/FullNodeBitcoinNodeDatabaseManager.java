@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -9,6 +8,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeBitcoinNodeDatabaseManager extends BitcoinNodeDatabaseManager {
     Boolean updateBlockInventory(BitcoinNode node, List<PendingBlockId> pendingBlockIds) throws DatabaseException;

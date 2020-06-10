@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -21,6 +20,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;

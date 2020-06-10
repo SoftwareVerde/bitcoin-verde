@@ -1,15 +1,18 @@
 package com.softwareverde.bitcoin.context.lazy;
 
-import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.chain.segment.*;
-import com.softwareverde.bitcoin.chain.time.*;
-import com.softwareverde.bitcoin.context.*;
-import com.softwareverde.bitcoin.server.module.node.database.*;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.*;
-import com.softwareverde.database.*;
-import com.softwareverde.logging.*;
-import com.softwareverde.security.hash.sha256.*;
-import com.softwareverde.util.*;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.CircleBuffer;
+import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 
 public class LazyMedianBlockTimeSet implements MedianBlockTimeContext {
     protected final BlockchainSegmentId _blockchainSegmentId;

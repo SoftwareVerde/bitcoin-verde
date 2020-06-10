@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction;
 
-import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -13,6 +12,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
+import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.util.Util;
 
 public class ImmutableTransaction implements Transaction, Const {

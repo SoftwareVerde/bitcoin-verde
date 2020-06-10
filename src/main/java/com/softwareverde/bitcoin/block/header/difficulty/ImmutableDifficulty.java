@@ -1,13 +1,17 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.block.header.difficulty.work.*;
-import com.softwareverde.bitcoin.constable.util.*;
-import com.softwareverde.bitcoin.util.*;
-import com.softwareverde.constable.*;
-import com.softwareverde.constable.bytearray.*;
-import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
-import java.math.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 
 public class ImmutableDifficulty implements Difficulty, Const {
     protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);

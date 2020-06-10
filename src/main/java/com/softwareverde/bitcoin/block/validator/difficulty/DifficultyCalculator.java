@@ -1,17 +1,22 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.*;
-import com.softwareverde.bitcoin.block.header.*;
-import com.softwareverde.bitcoin.block.header.difficulty.*;
-import com.softwareverde.bitcoin.block.header.difficulty.work.*;
-import com.softwareverde.bitcoin.chain.time.*;
-import com.softwareverde.bitcoin.context.*;
-import com.softwareverde.logging.*;
-import com.softwareverde.security.hash.sha256.*;
-import com.softwareverde.util.*;
+import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.BlockHeaderContext;
+import com.softwareverde.bitcoin.context.ChainWorkContext;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.DateUtil;
+import com.softwareverde.util.Util;
 
-import java.math.*;
-import java.util.*;
+import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWorkContext & MedianBlockTimeContext> {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;

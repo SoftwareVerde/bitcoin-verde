@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
-import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -12,6 +11,7 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 

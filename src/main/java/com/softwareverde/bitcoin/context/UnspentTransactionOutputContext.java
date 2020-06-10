@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.context;
 
-import com.softwareverde.bitcoin.transaction.output.*;
-import com.softwareverde.bitcoin.transaction.output.identifier.*;
-import com.softwareverde.constable.list.*;
-import com.softwareverde.constable.list.immutable.*;
-import com.softwareverde.security.hash.sha256.*;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface UnspentTransactionOutputContext {
 

@@ -26,7 +26,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.Util;
 
 import java.util.HashSet;
 

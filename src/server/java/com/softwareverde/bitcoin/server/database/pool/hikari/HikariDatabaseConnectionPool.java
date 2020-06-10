@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.database.pool.hikari;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionCore;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.properties.DatabaseProperties;

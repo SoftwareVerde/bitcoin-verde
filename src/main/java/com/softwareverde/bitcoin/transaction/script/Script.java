@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
+import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
 
 public interface Script extends Constable<ImmutableScript>, Jsonable {
     Integer MAX_BYTE_COUNT = 0x00100000; // 1 MB

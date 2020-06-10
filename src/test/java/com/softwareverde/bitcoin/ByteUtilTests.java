@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import org.junit.Assert;
 import org.junit.Test;
 
