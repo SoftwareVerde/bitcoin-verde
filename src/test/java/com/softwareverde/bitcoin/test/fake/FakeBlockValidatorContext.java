@@ -6,6 +6,9 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
@@ -78,5 +81,10 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
         }
 
         return _blocks.get(blockHeight);
+    }
+
+    @Override
+    public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+        return new TransactionValidatorCore(blockOutputs, transactionValidatorContext);
     }
 }

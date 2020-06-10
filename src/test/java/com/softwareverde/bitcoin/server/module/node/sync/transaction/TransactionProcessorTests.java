@@ -11,7 +11,6 @@ import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.BlockProcessorTests;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
@@ -30,14 +29,12 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.signer.HashMapTransactionOutputRepository;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
-import com.softwareverde.util.BitcoinReflectionUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
@@ -51,17 +48,10 @@ public class TransactionProcessorTests extends IntegrationTest {
     @Override @Before
     public void before() throws Exception {
         super.before();
-
-        TransactionProcessorTests.COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
-        BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", 0L);
     }
 
     @Override @After
     public void after() throws Exception {
-        if (TransactionProcessorTests.COINBASE_MATURITY != null) {
-            BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", TransactionProcessorTests.COINBASE_MATURITY);
-        }
-
         super.after();
     }
 
@@ -79,7 +69,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus);
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
@@ -192,7 +182,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         }
 
         final MutableList<Transaction> processedTransactions = new MutableList<Transaction>();
-        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_fullNodeDatabaseManagerFactory, new MutableMedianBlockTime(), new MutableNetworkTime(), new SystemTime());
+        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_fullNodeDatabaseManagerFactory, new MutableMedianBlockTime(), new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory);
         final TransactionProcessor transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
             @Override

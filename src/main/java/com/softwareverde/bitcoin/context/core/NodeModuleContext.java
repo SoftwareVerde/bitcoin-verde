@@ -15,6 +15,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.type.time.SystemTime;
@@ -95,5 +98,10 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     @Override
     public BlockDeflater getBlockDeflater() {
         return _blockInflaters.getBlockDeflater();
+    }
+
+    @Override
+    public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+        return new TransactionValidatorCore(blockOutputs, transactionValidatorContext);
     }
 }

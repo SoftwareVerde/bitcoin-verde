@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.context.MedianHeadBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.SystemTimeContext;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
@@ -21,7 +22,6 @@ import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.Pen
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -37,7 +37,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
-    public interface Context extends MedianHeadBlockTimeContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SystemTimeContext  { }
+    public interface Context extends MedianHeadBlockTimeContext, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext { }
 
     public interface Callback {
         void onNewTransactions(List<Transaction> transactions);
@@ -85,7 +85,7 @@ public class TransactionProcessor extends SleepyService {
 
             final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
             final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unconfirmedTransactionUtxoSet);
-            final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+            final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);
 
             final Long now = systemTime.getCurrentTimeInMilliSeconds();
             if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {

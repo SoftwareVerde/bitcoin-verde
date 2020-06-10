@@ -9,11 +9,14 @@ import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
@@ -28,6 +31,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     protected final DatabaseManager _databaseManager;
     protected final VolatileNetworkTime _networkTime;
     protected final UnspentTransactionOutputContext _unspentTransactionOutputContext;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
@@ -51,9 +55,10 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
         return blockId;
     }
 
-    public LazyBlockValidatorContext(final BlockchainSegmentId blockchainSegmentId, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
+    public LazyBlockValidatorContext(final BlockchainSegmentId blockchainSegmentId, final UnspentTransactionOutputContext unspentTransactionOutputContext, final TransactionValidatorFactory transactionValidatorFactory, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
         _blockchainSegmentId = blockchainSegmentId;
         _unspentTransactionOutputContext = unspentTransactionOutputContext;
+        _transactionValidatorFactory = transactionValidatorFactory;
         _databaseManager = databaseManager;
         _networkTime = networkTime;
     }
@@ -199,5 +204,10 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         return _unspentTransactionOutputContext.isCoinbaseTransactionOutput(transactionOutputIdentifier);
+    }
+
+    @Override
+    public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+        return _transactionValidatorFactory.getTransactionValidator(blockOutputs, transactionValidatorContext);
     }
 }

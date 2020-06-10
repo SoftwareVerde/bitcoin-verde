@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.context.BlockStoreContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.SynchronizationStatusContext;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
@@ -41,7 +42,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.concurrent.pool.SimpleThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -56,9 +56,10 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
-    public interface Context extends BlockInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext { }
+    public interface Context extends BlockInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory { }
 
     protected final Context _context;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected final Object _statisticsMutex = new Object();
     protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
@@ -76,6 +77,7 @@ public class BlockProcessor {
 
     public BlockProcessor(final Context context, final OrphanedTransactionsCache orphanedTransactionsCache) {
         _context = context;
+        _transactionValidatorFactory = _context;
         _orphanedTransactionsCache = orphanedTransactionsCache;
 
         _startTime = System.currentTimeMillis();
@@ -278,7 +280,7 @@ public class BlockProcessor {
                 final BlockValidator blockValidator;
                 {
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputContext, databaseManager, networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputContext, _transactionValidatorFactory, databaseManager, networkTime);
                     blockValidatorContext.loadBlock(blockHeight, blockId, block);
                     blockValidator = new BlockValidator(blockValidatorContext);
                 }
@@ -423,7 +425,7 @@ public class BlockProcessor {
 
                 final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
                 final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, reorgUnspentTransactionOutputContext);
-                final TransactionValidator transactionValidator = new TransactionValidatorCore(reorgBlockOutputs, transactionValidatorContext);
+                final TransactionValidator transactionValidator = _context.getTransactionValidator(reorgBlockOutputs, transactionValidatorContext);
                 transactionValidator.setLoggingEnabled(false);
 
                 final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();

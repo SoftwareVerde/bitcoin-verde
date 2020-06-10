@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
@@ -50,6 +51,7 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected final TransactionDownloader _transactionDownloader;
@@ -82,8 +84,9 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return returnedTransactions;
     }
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _databaseManagerFactory = databaseManagerFactory;
+        _transactionValidatorFactory = transactionValidatorFactory;
 
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
@@ -477,7 +480,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet();
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }

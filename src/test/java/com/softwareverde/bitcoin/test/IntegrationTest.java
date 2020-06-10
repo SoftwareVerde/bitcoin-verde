@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -12,6 +13,9 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -39,6 +43,9 @@ public class IntegrationTest extends UnitTest {
     protected final FullNodeDatabaseManagerFactory _readUncommittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
     protected final FakeSynchronizationStatus _synchronizationStatus;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
+
+    protected Long _requiredCoinbaseMaturity = 0L;
 
     public IntegrationTest() {
         _masterInflater = new CoreInflater();
@@ -75,6 +82,18 @@ public class IntegrationTest extends UnitTest {
                 }
             }
         });
+
+        _transactionValidatorFactory = new TransactionValidatorFactory() {
+            @Override
+            public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+                return new TransactionValidatorCore(blockOutputs, transactionValidatorContext) {
+                    @Override
+                    protected Long _getCoinbaseMaturity() {
+                        return _requiredCoinbaseMaturity;
+                    }
+                };
+            }
+        };
     }
 
     static {

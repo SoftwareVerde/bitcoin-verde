@@ -32,12 +32,15 @@ import java.util.HashSet;
 
 public class TransactionValidatorCore implements TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
-    protected static final Long COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
 
     protected final Context _context;
     protected final BlockOutputs _blockOutputs;
 
     protected Boolean _shouldLogInvalidTransactions = true;
+
+    protected Long _getCoinbaseMaturity() {
+        return TransactionValidator.COINBASE_MATURITY;
+    }
 
     protected void _logInvalidTransaction(final Long blockHeight, final Transaction transaction, final TransactionContext transactionContext) {
         if (! _shouldLogInvalidTransactions) { return; }
@@ -321,7 +324,8 @@ public class TransactionValidatorCore implements TransactionValidator {
                     if (transactionOutputBeingSpentIsCoinbaseTransaction) {
                         final Long blockHeightOfTransactionOutputBeingSpent = _getTransactionOutputBlockHeight(transactionOutputIdentifierBeingSpent, blockHeight);
                         final long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
-                        if (coinbaseMaturity <= COINBASE_MATURITY) {
+                        final Long requiredCoinbaseMaturity = _getCoinbaseMaturity();
+                        if (coinbaseMaturity <= requiredCoinbaseMaturity) {
                             if (_shouldLogInvalidTransactions) {
                                 Logger.debug("Invalid Transaction. Attempted to spend coinbase before maturity. " + transactionHash);
                             }

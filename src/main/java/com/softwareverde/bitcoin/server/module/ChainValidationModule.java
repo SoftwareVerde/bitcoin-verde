@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
@@ -24,6 +25,9 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
@@ -153,8 +157,15 @@ public class ChainValidationModule {
 
                 final BlockValidator blockValidator;
                 {
+                    final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory() {
+                        @Override
+                        public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+                            return new TransactionValidatorCore(blockOutputs, transactionValidatorContext);
+                        }
+                    };
+
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, databaseManager, networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, transactionValidatorFactory, databaseManager, networkTime);
                     blockValidator = new BlockValidator(blockValidatorContext);
                     blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
                     blockValidator.setShouldLogValidBlocks(true);

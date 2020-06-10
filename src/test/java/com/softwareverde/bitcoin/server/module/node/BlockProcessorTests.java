@@ -26,22 +26,21 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.BitcoinReflectionUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class BlockProcessorTests extends IntegrationTest {
-    protected static Long COINBASE_MATURITY = null;
-
     protected static Boolean utxoExistsInCommittedUtxoSet(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT 1 FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = 0 AND is_spent = 0 LIMIT 1")
@@ -56,7 +55,18 @@ public class BlockProcessorTests extends IntegrationTest {
         public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
 
-        public final BlockProcessor blockProcessor = new BlockProcessor(new BlockProcessorContext(_masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus), this.orphanedTransactionsCache);
+        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _transactionValidatorFactory) {
+            @Override
+            public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
+                return new TransactionValidatorCore(blockOutputs, transactionValidatorContext) {
+                    @Override
+                    protected Long _getCoinbaseMaturity() {
+                        return 0L;
+                    }
+                };
+            }
+        };
+        public final BlockProcessor blockProcessor = new BlockProcessor(this.blockProcessorContext, this.orphanedTransactionsCache);
 
         public TestHarness() {
             blockProcessor.setMaxThreadCount(1);
@@ -90,17 +100,10 @@ public class BlockProcessorTests extends IntegrationTest {
     @Override @Before
     public void before() throws Exception {
         super.before();
-
-        BlockProcessorTests.COINBASE_MATURITY = TransactionValidator.COINBASE_MATURITY;
-        BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", 0L);
     }
 
     @Override @After
     public void after() throws Exception {
-        if (BlockProcessorTests.COINBASE_MATURITY != null) {
-            BitcoinReflectionUtil.setStaticValue(TransactionValidator.class, "COINBASE_MATURITY", BlockProcessorTests.COINBASE_MATURITY);
-        }
-
         super.after();
     }
 

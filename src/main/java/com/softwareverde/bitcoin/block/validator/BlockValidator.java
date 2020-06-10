@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
 import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
 import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
 import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -33,7 +34,7 @@ import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class BlockValidator {
-    public interface Context extends BlockHeaderValidator.Context, TransactionValidator.Context { }
+    public interface Context extends BlockHeaderValidator.Context, TransactionValidator.Context, TransactionValidatorFactory { }
 
     public static final Long DO_NOT_TRUST_BLOCKS = -1L;
 
@@ -91,11 +92,12 @@ public class BlockValidator {
             }
         });
 
+        final TransactionValidator transactionValidator = _context.getTransactionValidator(blockOutputs, _context);
         final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool);
         transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler(_context, blockHeight, blockOutputs);
+                return new TransactionValidationTaskHandler(blockHeight, transactionValidator);
             }
         });
 

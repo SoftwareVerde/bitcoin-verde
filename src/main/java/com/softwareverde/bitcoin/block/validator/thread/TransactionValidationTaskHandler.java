@@ -2,9 +2,7 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -41,22 +39,17 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     }
 
     protected final Long _blockHeight;
-    protected final TransactionValidator.Context _context;
-    protected final BlockOutputs _blockOutputs;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    protected TransactionValidator _transactionValidator;
+    protected final TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final TransactionValidator.Context context, final Long blockHeight, final BlockOutputs blockOutputs) {
-        _context = context;
+    public TransactionValidationTaskHandler(final Long blockHeight, final TransactionValidator transactionValidator) {
         _blockHeight = blockHeight;
-        _blockOutputs = blockOutputs;
+        _transactionValidator = transactionValidator;
     }
 
     @Override
-    public void init() {
-        _transactionValidator = new TransactionValidatorCore(_blockOutputs, _context);
-    }
+    public void init() { }
 
     @Override
     public void executeTask(final Transaction transaction) {
