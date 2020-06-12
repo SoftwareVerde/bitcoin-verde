@@ -46,8 +46,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             );
 
             databaseConnection.executeSql(
-                new Query("UPDATE blocks SET transaction_count = ? WHERE id = ?")
-                    .setParameter(currentTransactionCount + 1L)
+                new Query("UPDATE blocks SET has_transactions = 1 WHERE id = ?")
                     .setParameter(blockId)
             );
         }
@@ -70,10 +69,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
             databaseConnection.executeSql(batchedInsertQuery);
 
-            final long transactionCount = transactionIds.getCount();
             databaseConnection.executeSql(
-                new Query("UPDATE blocks SET transaction_count = ? WHERE id = ?")
-                    .setParameter(transactionCount)
+                new Query("UPDATE blocks SET has_transactions = 1 WHERE id = ?")
                     .setParameter(blockId)
             );
         }
@@ -117,10 +114,10 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, transaction_count FROM blocks WHERE id = ?")
+            new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
                 .setParameter(blockId)
         );
-        if (rows.isEmpty()) { return null; }
+        if (rows.isEmpty()) { return 0; }
 
         final Row row = rows.get(0);
         return row.getInteger("transaction_count");
@@ -161,7 +158,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks WHERE transaction_count > 0 ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
+            new Query("SELECT id FROM head_block")
         );
         if (rows.isEmpty()) { return null; }
 
@@ -173,13 +170,12 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            // new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id ORDER BY blocks.chain_work DESC LIMIT 1")
-            new Query("SELECT id, hash FROM blocks WHERE transaction_count > 0 ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
+            new Query("SELECT id, hash FROM head_block")
         );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.copyOf(row.getBytes("hash"));
+        return Sha256Hash.wrap(row.getBytes("hash"));
     }
 
     protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {
@@ -340,7 +336,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash, transaction_count FROM blocks WHERE hash = ? AND transaction_count > 0")
+            new Query("SELECT id FROM blocks WHERE hash = ? AND has_transactions = 1")
                 .setParameter(blockHash)
         );
         return (! rows.isEmpty());
@@ -351,7 +347,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE id = ? AND transaction_count > 0")
+            new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
                 .setParameter(blockId)
         );
         return (! rows.isEmpty());

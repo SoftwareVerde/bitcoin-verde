@@ -64,7 +64,6 @@ public class BlockProcessor {
     protected final Object _statisticsMutex = new Object();
     protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
-    protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
@@ -459,13 +458,11 @@ public class BlockProcessor {
 
         TransactionUtil.commitTransaction(databaseConnection);
 
-        final float averageBlocksPerSecond;
         final float averageTransactionsPerSecond;
         synchronized (_statisticsMutex) {
             _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed()));
             _transactionsPerBlock.add(transactionCount);
 
-            final int blockCount = _blocksPerSecond.size();
             final long validationTimeElapsed;
             {
                 long value = 0L;
@@ -484,11 +481,9 @@ public class BlockProcessor {
                 totalTransactionCount = value;
             }
 
-            averageBlocksPerSecond = ( (((float) blockCount) / ((float) validationTimeElapsed)) * 1000F );
             averageTransactionsPerSecond = ( (((float) totalTransactionCount) / ((float) validationTimeElapsed)) * 1000F );
         }
 
-        _averageBlocksPerSecond.value = averageBlocksPerSecond;
         _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
         processBlockTimer.stop();
@@ -552,10 +547,6 @@ public class BlockProcessor {
 
             return ProcessBlockResult.invalid(block, null, "Exception encountered validating block.");
         }
-    }
-
-    public Container<Float> getAverageBlocksPerSecondContainer() {
-        return _averageBlocksPerSecond;
     }
 
     public Container<Float> getAverageTransactionsPerSecondContainer() {

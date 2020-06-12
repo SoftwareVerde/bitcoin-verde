@@ -36,7 +36,10 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.CircleBuffer;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 public class BlockchainBuilder extends SleepyService {
     public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext { }
@@ -53,6 +56,9 @@ public class BlockchainBuilder extends SleepyService {
     protected Boolean _hasGenesisBlock;
     protected NewBlockProcessedCallback _asynchronousNewBlockProcessedCallback = null;
     protected NewBlockProcessedCallback _synchronousNewBlockProcessedCallback = null;
+
+    protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
+    protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
 
     /**
      * Stores and validates the pending Block.
@@ -134,6 +140,22 @@ public class BlockchainBuilder extends SleepyService {
         return (blockId != null);
     }
 
+    protected void _updateAverageBlockProcessingTime() {
+        Long totalTimeInMilliseconds = 0L;
+        int blockCount = 0;
+        for (final Long averageBlockProcessingTime : _blockProcessingTimes) {
+            totalTimeInMilliseconds += averageBlockProcessingTime;
+            blockCount += 1;
+        }
+
+        if (blockCount == 0) {
+            _averageBlocksPerSecond.value = 0F;
+            return;
+        }
+
+        _averageBlocksPerSecond.value = ((totalTimeInMilliseconds / 1000F) / ((float) blockCount));
+    }
+
     @Override
     protected void _onStart() { }
 
@@ -175,6 +197,9 @@ public class BlockchainBuilder extends SleepyService {
             }
 
             while (! thread.isInterrupted()) {
+                final MilliTimer milliTimer = new MilliTimer();
+                milliTimer.start();
+
                 // Select the first pending block to process; if none are found, request one to be downloaded...
                 final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
                 if (candidatePendingBlockId == null) {
@@ -206,6 +231,11 @@ public class BlockchainBuilder extends SleepyService {
                 pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                 TransactionUtil.commitTransaction(databaseConnection);
 
+                milliTimer.stop();
+                _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
+                milliTimer.start();
+                _updateAverageBlockProcessingTime();
+
                 // Process the any viable descendant blocks of the candidate block...
                 PendingBlock previousPendingBlock = candidatePendingBlock;
                 while (! thread.isInterrupted()) {
@@ -232,7 +262,13 @@ public class BlockchainBuilder extends SleepyService {
                         }
 
                         previousPendingBlock = pendingBlock;
+
+                        milliTimer.stop();
+                        _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
+                        milliTimer.start();
                     }
+
+                    _updateAverageBlockProcessingTime();
                 }
             }
         }
@@ -291,5 +327,9 @@ public class BlockchainBuilder extends SleepyService {
      */
     public void setSynchronousNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
         _synchronousNewBlockProcessedCallback = newBlockProcessedCallback;
+    }
+
+    public Container<Float> getAverageBlocksPerSecondContainer() {
+        return _averageBlocksPerSecond;
     }
 }

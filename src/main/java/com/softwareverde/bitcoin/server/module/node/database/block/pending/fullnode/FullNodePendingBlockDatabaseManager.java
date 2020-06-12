@@ -697,7 +697,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
                 // NOTE: Selecting the rows first is more performant than doing the join/delete as a single query since the select does not require a lock on the blocks table...
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.transaction_count > 0")
+                    new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE blocks.has_transactions = 1")
                 );
 
                 for (final Row row : rows) {

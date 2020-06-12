@@ -83,17 +83,41 @@ CREATE TABLE blocks (
     difficulty BINARY(4) NOT NULL,
     nonce INT UNSIGNED NOT NULL,
     chain_work BINARY(32) NOT NULL,
-    transaction_count INT UNSIGNED,
+    has_transactions TINYINT(1) UNSIGNED DEFAULT 0,
     byte_count INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
     UNIQUE KEY block_hash_uq2 (blockchain_segment_id, block_height),
     FOREIGN KEY block_previous_block_id_fk (previous_block_id) REFERENCES blocks (id),
-    INDEX blocks_tx_count_ix (transaction_count) USING BTREE,
     INDEX blocks_height_ix (block_height) USING BTREE,
-    INDEX blocks_work_ix (chain_work DESC) USING BTREE,
-    INDEX blocks_work_ix2 (blockchain_segment_id, chain_work DESC) USING BTREE
+    INDEX blocks_work_ix (has_transactions, chain_work DESC) USING BTREE,
+    INDEX blocks_work_ix2 (chain_work DESC, has_transactions DESC, id ASC) USING BTREE,
+    INDEX blocks_work_ix3 (blockchain_segment_id, chain_work DESC) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE VIEW head_block_header AS (
+    SELECT
+        blocks.id, blocks.hash, blocks.previous_block_id, blocks.block_height, blocks.blockchain_segment_id, blocks.chain_work
+    FROM
+        blocks
+        INNER JOIN ( SELECT chain_work FROM blocks ORDER BY chain_work DESC LIMIT 1 ) AS best_block_header_work
+            ON (blocks.chain_work = best_block_header_work.chain_work)
+    ORDER BY
+        blocks.id ASC
+    LIMIT 1
+);
+
+CREATE VIEW head_block AS (
+    SELECT
+        blocks.id, blocks.hash, blocks.previous_block_id, blocks.block_height, blocks.blockchain_segment_id, blocks.chain_work
+    FROM
+        blocks
+        INNER JOIN ( SELECT chain_work FROM blocks WHERE has_transactions = 1 ORDER BY chain_work DESC LIMIT 1 ) AS best_block_work
+            ON blocks.chain_work = best_block_work.chain_work
+    ORDER BY
+        blocks.id ASC
+    LIMIT 1
+);
 
 CREATE TABLE blockchain_segments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,

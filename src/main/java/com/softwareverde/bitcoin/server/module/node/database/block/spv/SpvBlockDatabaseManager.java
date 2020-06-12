@@ -68,6 +68,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
     public BlockId getHeadBlockId() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        // TODO: not updated with v2...
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_merkle_trees ON blocks.id = block_merkle_trees.block_id ORDER BY blocks.chain_work DESC LIMIT 1")
         );
@@ -132,6 +133,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        // TODO: not updated with v2...
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_merkle_trees ON blocks.id = block_merkle_trees.block_id ORDER BY blocks.chain_work DESC LIMIT 1")
         );

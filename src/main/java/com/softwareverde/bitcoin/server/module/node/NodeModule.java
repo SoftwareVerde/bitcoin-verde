@@ -566,7 +566,6 @@ public class NodeModule {
             _transactionOutputIndexer.setOnSleepCallback(new Runnable() {
                 @Override
                 public void run() {
-                    Logger.trace("AddressProcessor: Callback");
                     _slpTransactionProcessor.wakeUp();
                 }
             });
@@ -759,7 +758,7 @@ public class NodeModule {
             final NodeRpcHandler.StatisticsContainer statisticsContainer = new NodeRpcHandler.StatisticsContainer();
             { // Initialize statistics container...
                 statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
-                statisticsContainer.averageBlocksPerSecond = blockProcessor.getAverageBlocksPerSecondContainer();
+                statisticsContainer.averageBlocksPerSecond = _blockchainBuilder.getAverageBlocksPerSecondContainer();
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 

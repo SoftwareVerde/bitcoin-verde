@@ -279,7 +279,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, blockchain_segment_id FROM blocks ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
+            new Query("SELECT id, blockchain_segment_id FROM head_block_header")
         );
         if (rows.isEmpty()) { return null; }
 
@@ -292,7 +292,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY chain_work DESC, (transaction_count IS NOT NULL) DESC, id ASC LIMIT 1")
+            new Query("SELECT id FROM head_block_header WHERE blockchain_segment_id = ?")
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }
@@ -305,7 +305,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
     public BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        // NOTE: This query is optimized for use with an index on (blocks.blockchain_segment_id, blocks.chain_work) in order to prevent scanning the full table...
+        // NOTE: This query is optimized for use with an index on (blocks.blockchain_segment_id, blocks.chain_work) (blocks::blocks_work_ix3) in order to prevent scanning the full table...
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.blockchain_segment_id FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A INNER JOIN (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments) AS B ON (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) INNER JOIN (SELECT blockchain_segment_id, MAX(blocks.chain_work) AS max_chain_work FROM blocks GROUP BY blocks.blockchain_segment_id) AS C ON (C.blockchain_segment_id = B.id) INNER JOIN blocks ON (blocks.blockchain_segment_id = C.blockchain_segment_id AND chain_work = C.max_chain_work) ORDER BY blocks.chain_work DESC LIMIT 1")
                 .setParameter(blockchainSegmentId)
