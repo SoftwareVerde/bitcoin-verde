@@ -153,7 +153,7 @@ public class BlockchainBuilder extends SleepyService {
             return;
         }
 
-        _averageBlocksPerSecond.value = ((totalTimeInMilliseconds / 1000F) / ((float) blockCount));
+        _averageBlocksPerSecond.value = (blockCount / (totalTimeInMilliseconds / 1000F));
     }
 
     @Override
