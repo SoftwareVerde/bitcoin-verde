@@ -75,11 +75,11 @@ public class DifficultyCalculator {
     }
 
     protected Difficulty _calculateBitcoinCashEmergencyDifficultyAdjustment(final Long forBlockHeight) {
-        final BlockHeader previousBlockHeader = _context.getBlockHeader(forBlockHeight - 1L);
+        final long parentBlockHeight = (forBlockHeight - 1L);
+        final BlockHeader previousBlockHeader = _context.getBlockHeader(parentBlockHeight);
 
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(forBlockHeight - 1L); // blockHeaderDatabaseManager.calculateMedianBlockTimeStartingWithBlock(previousBlockBlockId);
-        // final BlockId sixthParentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(previousBlockBlockId, 5);
-        final MedianBlockTime medianBlockTimeForSixthBlock = _context.getMedianBlockTime(forBlockHeight - 6L); // blockHeaderDatabaseManager.calculateMedianBlockTime(sixthParentBlockId);
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(parentBlockHeight);
+        final MedianBlockTime medianBlockTimeForSixthBlock = _context.getMedianBlockTime(parentBlockHeight - 6L);
         final long secondsInTwelveHours = 43200L;
 
         if ( (medianBlockTime == null) || (medianBlockTimeForSixthBlock == null) ) {

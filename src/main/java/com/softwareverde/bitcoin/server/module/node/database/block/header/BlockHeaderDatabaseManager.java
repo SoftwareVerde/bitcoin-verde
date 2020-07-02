@@ -41,7 +41,6 @@ public interface BlockHeaderDatabaseManager {
     BlockId getAncestorBlockId(BlockId blockId, Integer parentCount) throws DatabaseException;
     MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException;
     MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException;
-    MutableMedianBlockTime calculateMedianBlockTimeBefore(BlockId blockId) throws DatabaseException;
     MutableMedianBlockTime calculateMedianBlockTime(BlockId blockId) throws DatabaseException;
     ChainWork getChainWork(BlockId blockId) throws DatabaseException;
     BlockId getBlockIdAtHeight(BlockchainSegmentId blockchainSegmentId, Long blockHeight) throws DatabaseException;

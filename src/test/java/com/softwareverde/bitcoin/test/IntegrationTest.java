@@ -1,6 +1,12 @@
 package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.State;
@@ -8,6 +14,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
@@ -17,6 +24,7 @@ import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.DatabaseInitializer;
@@ -24,12 +32,15 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.row.Row;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.ReflectionUtil;
 
 import java.sql.Connection;
+import java.util.List;
 
 public class IntegrationTest extends UnitTest {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
@@ -129,4 +140,70 @@ public class IntegrationTest extends UnitTest {
 
     @Override
     public void after() throws Exception { }
+
+    protected BlockId insertBlockHeader(final BlockchainSegmentId blockchainSegmentId, final BlockHeader blockHeader, final Long blockHeight, final Sha256Hash previousBlockHash, final ChainWork chainWork) throws DatabaseException {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockId previousBlockId;
+            {
+                final List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id FROM blocks WHERE hash = ?")
+                        .setParameter(previousBlockHash)
+                );
+                if (! rows.isEmpty()) {
+                    final Row row = rows.get(0);
+                    previousBlockId = BlockId.wrap(row.getLong("id"));
+                }
+                else {
+                    final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
+                    final BlockHeader dummyBlockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK));
+                    final ChainWork dummyChainWork = ChainWork.fromHexString("0000000000000000000000000000000000000000000000000000000000000000");
+
+                    final BlockId dummyPreviousBlockId;
+                    {
+                        final List<Row> dummyPreviousBlockRows = databaseConnection.query(
+                            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY block_height DESC LIMIT 1")
+                                .setParameter(blockchainSegmentId)
+                        );
+                        if (! dummyPreviousBlockRows.isEmpty()) {
+                            final Row row = dummyPreviousBlockRows.get(0);
+                            dummyPreviousBlockId = BlockId.wrap(row.getLong("id"));
+                        }
+                        else {
+                            dummyPreviousBlockId = null;
+                        }
+                    }
+
+                    previousBlockId = BlockId.wrap(databaseConnection.executeSql(
+                        new Query("INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                            .setParameter(previousBlockHash)
+                            .setParameter(dummyPreviousBlockId)
+                            .setParameter(blockHeight - 1L)
+                            .setParameter(blockchainSegmentId)
+                            .setParameter(dummyBlockHeader.getMerkleRoot())
+                            .setParameter(dummyBlockHeader.getVersion())
+                            .setParameter(dummyBlockHeader.getTimestamp())
+                            .setParameter(dummyBlockHeader.getDifficulty())
+                            .setParameter(dummyBlockHeader.getNonce())
+                            .setParameter(dummyChainWork)
+                    ));
+                }
+            }
+
+            final Difficulty difficulty = blockHeader.getDifficulty();
+
+            return BlockId.wrap(databaseConnection.executeSql(
+                new Query("INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                    .setParameter(blockHeader.getHash())
+                    .setParameter(previousBlockId)
+                    .setParameter(blockHeight)
+                    .setParameter(blockchainSegmentId)
+                    .setParameter(blockHeader.getMerkleRoot())
+                    .setParameter(blockHeader.getVersion())
+                    .setParameter(blockHeader.getTimestamp())
+                    .setParameter(difficulty)
+                    .setParameter(blockHeader.getNonce())
+                    .setParameter(chainWork)
+            ));
+        }
+    }
 }

@@ -44,7 +44,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
-        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTimeBefore(blockId);
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
 
         { // Include Extra Block Metadata...
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);

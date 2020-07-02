@@ -6,11 +6,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
-import com.softwareverde.bitcoin.block.validator.thread.ParalleledTaskSpawner;
-import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
-import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
-import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
-import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
@@ -269,14 +265,7 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    // public <Ctx extends BlockHeaderContext & ChainWorkContext & MedianBlockTimeContext & NetworkTimeContext & UnspentTransactionOutputContext> BlockValidator(final Ctx context) {
     public BlockValidator(final Context context) {
-//        _blockHeaderContext = context;
-//        _chainWorkContext = context;
-//        _medianBlockTimeContext = context;
-//        _networkTimeContext = context;
-//        _unspentTransactionOutputContext = context;
-
         _context = context;
     }
 

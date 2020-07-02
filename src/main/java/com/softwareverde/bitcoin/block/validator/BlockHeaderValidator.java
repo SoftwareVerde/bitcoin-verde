@@ -79,7 +79,7 @@ public class BlockHeaderValidator {
 
             final boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
             if (! difficultyIsCorrect) {
-                return BlockHeaderValidationResult.invalid("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
+                return BlockHeaderValidationResult.invalid("Invalid difficulty for block " + blockHeader.getHash() + " at height: " + blockHeight + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
             }
         }
 

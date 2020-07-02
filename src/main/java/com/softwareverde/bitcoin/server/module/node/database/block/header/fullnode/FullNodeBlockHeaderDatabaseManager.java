@@ -764,20 +764,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
     /**
      * Calculates the MedianBlockTime of the provided blockId.
-     * NOTE: startingBlockId is exclusive. The MedianBlockTime does NOT include the provided startingBlockId; instead,
-     *  it includes the MedianBlockTime.BLOCK_COUNT (11) number of blocks before the startingBlockId.
-     */
-    @Override
-    public MutableMedianBlockTime calculateMedianBlockTimeBefore(final BlockId blockId) throws DatabaseException {
-        final BlockId previousBlockId = _getPreviousBlockId(blockId);
-        if (previousBlockId == null) { return null; }
-        final Sha256Hash blockHash = _getBlockHash(previousBlockId);
-        return _newInitializedMedianBlockTime(this, blockHash);
-    }
-
-    /**
-     * Calculates the MedianBlockTime of the provided blockId.
-     * NOTE: This method is identical to BlockHeaderDatabaseManager::calculateMedianBlockTime except that blockId is inclusive.
+     * NOTE: This method is identical to BlockHeaderDatabaseManager::calculateMedianBlockTimeBefore except that blockId
+     *  is inclusive.
      */
     @Override
     public MutableMedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {

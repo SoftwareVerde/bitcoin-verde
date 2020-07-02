@@ -6,13 +6,18 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeBlockHeaderStub;
+import com.softwareverde.bitcoin.test.fake.FakeBlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.test.fake.FakeDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.Util;
@@ -307,19 +312,16 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
 
     @Test
     public void should_calculate_difficulty_for_block_0000000000000000037DF1664BEE98AF9EF9BBCDEF882FDF16F91C6EC94334DF() {
-        // 0000000000000000037DF1664BEE98AF9EF9BBCDEF882FDF16F91C6EC94334DF. Required: 1803E68B Found: 1804E02D
-
         // Setup
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
-        final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-        final HashMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
+        final FakeBlockHeaderValidatorContext context = new FakeBlockHeaderValidatorContext(new MutableNetworkTime());
+        final HashMap<Long, BlockHeader> blockHeaders = context.getBlockHeaders();
+        final HashMap<Long, MedianBlockTime> medianBlockTimes = context.getMedianBlockTimes();
 
         {
-            final long blockHeight = 478576L;
-            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020D22E87EAA7C68D9E8F947BF5DF3CABE9294050180BF4130000000000000000000EAE92D9B46D81A011A79726A802D4EB195A7AF8B70A09B0E115C391968C50D51C8A825935470118CD786D13"));
+            final long blockHeight = 478575L;
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("000000205841AEA6F06F4A0E3560EA076CF1DF217EBDE943A92C16010000000000000000CF8FC3BAD8DAD139A3DD6A30481D87E1F760122573168002CC9EF7A58FC53AD387848259354701188A3B54F7"));
             blockHeaders.put(blockHeight, blockHeader);
             medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1501643701L));
         }
@@ -328,7 +330,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             final long blockHeight = 478581L;
             final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020F3C6E921BB46DE2EBE0923C6FEF9433510F57E15543D1301000000000000000071CCD70BC227084B74BDA5634BE313C63C213F46AB8801411CB78809F8408C3D81C182598BE6031894141AA2"));
             blockHeaders.put(blockHeight, blockHeader);
-            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1501725831L));
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1501727260L));
         }
 
         final Long blockHeight = 478582L;
@@ -338,7 +340,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             blockHeaders.put(blockHeight, blockHeader);
         }
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(context);
 
         { // Ensure the Difficulty calculation is using the emergency calculation...
             Assert.assertTrue(Buip55.isEnabled(blockHeight)); // Emergency Difficulty adjustment activation...
@@ -346,10 +348,16 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             Assert.assertNotEquals(0L, (blockHeight % DifficultyCalculator.BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT)); // Legacy Difficulty adjustment...
         }
 
+        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(context);
+
         // Action
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeight);
+        final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
 
         // Assert
-        Assert.assertEquals(blockHeader.getDifficulty(), difficulty);
+        Assert.assertTrue(difficulty.isSatisfiedBy(blockHeader.getHash()));
+        Assert.assertEquals(difficulty, blockHeader.getDifficulty());
+        System.out.println(blockHeaderValidationResult.errorMessage);
+        Assert.assertTrue(blockHeaderValidationResult.isValid);
     }
 }
