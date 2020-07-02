@@ -274,7 +274,7 @@ public class BlockProcessor {
                 }
             }
 
-            final Boolean blockIsValid;
+            final BlockValidationResult blockValidationResult;
             {
                 final BlockValidator blockValidator;
                 {
@@ -289,18 +289,19 @@ public class BlockProcessor {
                 blockValidator.setShouldLogValidBlocks(true);
 
                 blockValidationTimer.start();
-                final BlockValidationResult blockValidationResult = blockValidator.validateBlockTransactions(block, blockHeight); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                blockValidationResult = blockValidator.validateBlockTransactions(block, blockHeight); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+
                 if (! blockValidationResult.isValid) {
                     Logger.info(blockValidationResult.errorMessage);
                 }
-                blockIsValid = blockValidationResult.isValid;
+
                 blockValidationTimer.stop();
             }
 
-            if (! blockIsValid) {
+            if (! blockValidationResult.isValid) {
                 TransactionUtil.rollbackTransaction(databaseConnection);
-                Logger.debug("Invalid block. Transactions did not validate for block: " + blockHash);
-                return ProcessBlockResult.invalid(block, blockHeight, "Transactions did not validate for block.");
+                Logger.debug("Invalid block. " + blockHash);
+                return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
             }
 
             { // Queue the transactions for processing...

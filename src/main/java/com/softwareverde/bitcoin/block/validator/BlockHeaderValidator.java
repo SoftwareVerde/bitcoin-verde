@@ -7,12 +7,13 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.BlockHeaderContext;
 import com.softwareverde.bitcoin.context.ChainWorkContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.network.time.NetworkTime;
 
 public class BlockHeaderValidator {
-    public interface Context extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext { }
+    public interface Context extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext, DifficultyCalculatorContext { }
 
     public static class BlockHeaderValidationResult {
         public static BlockHeaderValidationResult valid() {
@@ -70,7 +71,7 @@ public class BlockHeaderValidator {
         }
 
         { // Validate block (calculated) difficulty...
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(_context);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_context);
             final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeight);
             if (calculatedRequiredDifficulty == null) {
                 return BlockHeaderValidationResult.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());

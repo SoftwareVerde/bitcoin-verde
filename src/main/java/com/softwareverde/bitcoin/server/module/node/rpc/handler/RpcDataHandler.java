@@ -340,7 +340,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final Long nextBlockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
 
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
             return difficultyCalculator.calculateRequiredDifficulty(nextBlockHeight);
         }
         catch (final DatabaseException exception) {

@@ -266,7 +266,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(null, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final BlockInflater blockInflater = new BlockInflater();
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -322,7 +322,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -361,7 +361,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -400,7 +400,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -539,7 +539,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -685,7 +685,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -819,7 +819,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -908,7 +908,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             // Action
             final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(validationBlockHeight);

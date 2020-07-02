@@ -5,15 +5,13 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockHeaderContext;
-import com.softwareverde.bitcoin.context.ChainWorkContext;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-public class LazyDifficultyCalculatorContext implements BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext {
+public class LazyDifficultyCalculatorContext implements DifficultyCalculatorContext {
     final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
 

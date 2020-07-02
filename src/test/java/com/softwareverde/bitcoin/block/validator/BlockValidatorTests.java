@@ -276,7 +276,7 @@ public class BlockValidatorTests extends UnitTest {
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
 
-        final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(blockValidatorContext);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(blockValidatorContext);
         final Difficulty calculatedNextDifficulty = difficultyCalculator.calculateRequiredDifficulty(32256L);
         Assert.assertEquals(expectedDifficulty, calculatedNextDifficulty);
 

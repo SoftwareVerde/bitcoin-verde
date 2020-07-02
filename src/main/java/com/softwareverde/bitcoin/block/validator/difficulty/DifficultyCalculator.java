@@ -6,9 +6,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockHeaderContext;
-import com.softwareverde.bitcoin.context.ChainWorkContext;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.DateUtil;
@@ -18,19 +16,19 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DifficultyCalculator<Context extends BlockHeaderContext & ChainWorkContext & MedianBlockTimeContext> {
+public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
     protected static final BigInteger TWO_TO_THE_POWER_OF_256 = BigInteger.valueOf(2L).pow(256);
 
     protected final MedianBlockHeaderSelector _medianBlockHeaderSelector;
-    protected final Context _context;
+    protected final DifficultyCalculatorContext _context;
 
-    protected DifficultyCalculator(final Context blockchainContext, final MedianBlockHeaderSelector medianBlockHeaderSelector) {
+    protected DifficultyCalculator(final DifficultyCalculatorContext blockchainContext, final MedianBlockHeaderSelector medianBlockHeaderSelector) {
         _context = blockchainContext;
         _medianBlockHeaderSelector = medianBlockHeaderSelector;
     }
 
-    public DifficultyCalculator(final Context blockchainContext) {
+    public DifficultyCalculator(final DifficultyCalculatorContext blockchainContext) {
         this(blockchainContext, new MedianBlockHeaderSelector());
     }
 

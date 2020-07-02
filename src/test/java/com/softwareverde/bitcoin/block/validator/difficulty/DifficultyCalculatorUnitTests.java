@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeBlockHeaderStub;
+import com.softwareverde.bitcoin.test.fake.FakeDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
@@ -251,7 +252,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             }
         };
 
-        final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
         // Action
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(587198L);
@@ -265,9 +266,10 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         // Setup
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final HashMap<Long, BlockHeader> blockHeaders = new HashMap<Long, BlockHeader>();
-        final HashMap<Long, ChainWork> chainWorks = new HashMap<Long, ChainWork>();
-        final HashMap<Long, MedianBlockTime> medianBlockTimes = new HashMap<Long, MedianBlockTime>();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
+        final HashMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
+        final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
 
         {
             final Long blockHeight = 499963L;
@@ -281,41 +283,62 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1509240317L));
         }
 
+        final Long blockHeight = 499969L;
         final BlockHeader blockHeader;
         {
-            final Long blockHeight = 499969L;
             blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020F779752E58AA1CDB2CD2F59BFE69D4B327886D2CF43FAA030000000000000000CD2F883DC10C2140CCB5A12E84F188924BF209902FEB31191F60AA318A0D9068EB36F5598AFB031896833D85"));
             blockHeaders.put(blockHeight, blockHeader);
         }
 
-        final DifficultyCalculatorContext difficultyCalculatorContext = new DifficultyCalculatorContext() {
-            @Override
-            public BlockHeader getBlockHeader(final Long blockHeight) {
-                if (! blockHeaders.containsKey(blockHeight)) {
-                    Assert.fail("Requesting unregistered BlockHeader for blockHeight: " + blockHeight);
-                }
-                return blockHeaders.get(blockHeight);
-            }
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
-            @Override
-            public ChainWork getChainWork(final Long blockHeight) {
-                if (! chainWorks.containsKey(blockHeight)) {
-                    Assert.fail("Requesting unregistered ChainWork for blockHeight: " + blockHeight);
-                }
-                return chainWorks.get(blockHeight);
-            }
+        { // Ensure the Difficulty calculation is using the emergency calculation...
+            Assert.assertTrue(Buip55.isEnabled(blockHeight)); // Emergency Difficulty adjustment activation...
+            Assert.assertFalse(HF20171113.isEnabled(blockHeight)); // Current BCH Difficulty adjustment activation...
+            Assert.assertNotEquals(0L, (blockHeight % DifficultyCalculator.BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT)); // Legacy Difficulty adjustment...
+        }
 
-            @Override
-            public MedianBlockTime getMedianBlockTime(final Long blockHeight) {
-                if (! medianBlockTimes.containsKey(blockHeight)) {
-                    Assert.fail("Requesting unregistered MedianBlockTime for blockHeight: " + blockHeight);
-                }
-                return medianBlockTimes.get(blockHeight);
-            }
-        };
+        // Action
+        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeight);
 
-        final Long blockHeight = 499969L;
-        final DifficultyCalculator<?> difficultyCalculator = new DifficultyCalculator<>(difficultyCalculatorContext);
+        // Assert
+        Assert.assertEquals(blockHeader.getDifficulty(), difficulty);
+    }
+
+    @Test
+    public void should_calculate_difficulty_for_block_0000000000000000037DF1664BEE98AF9EF9BBCDEF882FDF16F91C6EC94334DF() {
+        // 0000000000000000037DF1664BEE98AF9EF9BBCDEF882FDF16F91C6EC94334DF. Required: 1803E68B Found: 1804E02D
+
+        // Setup
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
+        final HashMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
+        final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
+
+        {
+            final long blockHeight = 478576L;
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020D22E87EAA7C68D9E8F947BF5DF3CABE9294050180BF4130000000000000000000EAE92D9B46D81A011A79726A802D4EB195A7AF8B70A09B0E115C391968C50D51C8A825935470118CD786D13"));
+            blockHeaders.put(blockHeight, blockHeader);
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1501643701L));
+        }
+
+        {
+            final long blockHeight = 478581L;
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020F3C6E921BB46DE2EBE0923C6FEF9433510F57E15543D1301000000000000000071CCD70BC227084B74BDA5634BE313C63C213F46AB8801411CB78809F8408C3D81C182598BE6031894141AA2"));
+            blockHeaders.put(blockHeight, blockHeader);
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1501725831L));
+        }
+
+        final Long blockHeight = 478582L;
+        final BlockHeader blockHeader;
+        {
+            blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("000000201C9C41FFE35BA49571E759BAD99C416F48594C8BEB7EA5030000000000000000FF562FBEAD0871D7ED63B2BCF2E8D49434980E5CEF8F72C399CCFD6C07BEC8E76FCE82592DE00418F963C170"));
+            blockHeaders.put(blockHeight, blockHeader);
+        }
+
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
         { // Ensure the Difficulty calculation is using the emergency calculation...
             Assert.assertTrue(Buip55.isEnabled(blockHeight)); // Emergency Difficulty adjustment activation...
