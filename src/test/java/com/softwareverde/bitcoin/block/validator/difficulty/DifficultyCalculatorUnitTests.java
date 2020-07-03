@@ -273,11 +273,10 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
 
         final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
         final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-        final HashMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
         final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
 
         {
-            final Long blockHeight = 499963L;
+            final Long blockHeight = 499962L;
             medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1509240003L));
         }
 
@@ -285,7 +284,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             final Long blockHeight = 499968L;
             final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020C989289B55C9ED4D296DCD6F459726C9B28AE8D6098F8C09000000000000000051D0E4A45E846EA18B3CED0BA2C5585D2C7312005F2424FE92C243491082F82C2135F5598AFB03184C8D2FE2"));
             blockHeaders.put(blockHeight, blockHeader);
-            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1509240317L));
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1509240426L));
         }
 
         final Long blockHeight = 499969L;
