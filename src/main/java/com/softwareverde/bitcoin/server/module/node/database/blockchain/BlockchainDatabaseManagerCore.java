@@ -292,7 +292,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM head_block_header WHERE blockchain_segment_id = ?")
+            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY chain_work DESC LIMIT 1")
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }

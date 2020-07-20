@@ -370,10 +370,11 @@ public class BlockProcessor {
                 // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
                 final BlockchainSegmentId oldHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId); // The original BlockchainSegmentId was most likely invalidated during reordering, so reacquire the new BlockchainSegmentIds via BlockId...
                 BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(oldHeadBlockchainSegmentId);
-                long undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
                 Logger.trace("Utxo Reorg - 1/6 complete.");
 
+                long undoBlockHeight;
                 while (nextBlockId != null) {
+                    undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
                     final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
                     if (nextBlock != null) { // If the head block was just a processed header, then continue backwards without processing its transactions...
                         final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
