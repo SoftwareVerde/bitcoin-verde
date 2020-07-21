@@ -5,13 +5,16 @@ import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
@@ -27,6 +30,7 @@ import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
@@ -995,5 +999,34 @@ public class HistoricTransactionsTests {
         // Network Time:        1562415438
 
         runScripts(testConfig);
+    }
+
+    @Test
+    public void should_verify_transaction_917903A78B7884AF5C772F477C1AF9D78B1E5444FB49A88153937DB5C53A35A5() {
+        // Setup
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001D30F579362255AF2257CD5C6198658AC380E23D5FBF281D51845C8D4C335E4A000000000BF483045022100C47E35E77B53B66EC79B64AF8F7029D73714B7B0D8DC6C9BEF60DF90448B6A7702205AD44CD38B1C055B295F05B2BD8CB05C0304C4F7EFC0235C101979D505BA806B41004C7363522102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DA2102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DA52AE67030B0040B2752102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DAAC680B00400001CCC10000000000001976A91466D9E2A3C958C5ACD60C7078670D7BFF49B5646B88AC00000000"));
+
+        final Long blockHeight = 563378L;
+        final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1546320518L);
+        final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1595337469L));
+
+        final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
+        {
+            final Transaction spentTransaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000002CF586E4F31E01420C3C1CD40E04CA79E2EFE9B4A6CA80BAB0B690922A69F6F17000000006A4730440220425B62D3466BEAF27436369B4627E9CC124820D1316919DD38FAFC0C7E88907602207AA2F228FFDB9ECC2D07500DCA559AD5977AD0CA78A5222387A664C045095577412102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DAFFFFFFFF2F1D2D14C42CA139B3774CB67CE3A2E4C4C249CB2BB0061924EEEBF5A9337E01020000006B483045022100F8FC3B6D8756F24BD5FF7C54A6419A7C2B617A0AAAC47B41A9B7945EDAF7982802205B9B29E3907A31AC6D67A390A92FECBAE1032D43A24922C50F84D9724275635F412102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DAFFFFFFFF0250C300000000000017A914EB3165957A2C7FA8F0829B8C0FB9788B6E707AF18744990000000000001976A91466D9E2A3C958C5ACD60C7078670D7BFF49B5646B88AC00000000"));
+            final Sha256Hash spentTransactionBlockHash = Sha256Hash.fromHexString("00000000000000000266C4A80ECFF45BEF40F116EF9A6325185950956C9E7584");
+            final Long spentTransactionBlockHeight = 563368L;
+            unspentTransactionOutputContext.addTransaction(spentTransaction, spentTransactionBlockHash, spentTransactionBlockHeight, false);
+        }
+
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unspentTransactionOutputContext);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+        transactionValidator.setLoggingEnabled(true);
+
+        // Action
+        final Boolean shouldValidateLockTime = transactionValidator.validateTransaction(blockHeight, transaction);
+
+        // Assert
+        Assert.assertTrue(shouldValidateLockTime);
     }
 }
