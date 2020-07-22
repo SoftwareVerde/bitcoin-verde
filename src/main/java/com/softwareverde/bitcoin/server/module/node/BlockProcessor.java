@@ -8,8 +8,8 @@ import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.BlockStoreContext;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.SynchronizationStatusContext;
@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -424,8 +425,8 @@ public class BlockProcessor {
                     reorgBlockOutputs = BlockOutputs.fromBlock(block);
                 }
 
-                final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, reorgUnspentTransactionOutputContext);
+                final MedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(newHeadBlockchainSegmentId, databaseManager);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, reorgUnspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = _context.getTransactionValidator(reorgBlockOutputs, transactionValidatorContext);
                 transactionValidator.setLoggingEnabled(false);
 

@@ -51,11 +51,6 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     }
 
     @Override
-    public MedianBlockTime getHeadMedianBlockTime() {
-        return _medianBlockTime;
-    }
-
-    @Override
     public FullNodeDatabaseManagerFactory getDatabaseManagerFactory() {
         return _databaseManagerFactory;
     }

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.context.core;
 
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -10,18 +11,18 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class TransactionValidatorContext implements TransactionValidator.Context {
     protected final VolatileNetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
+    protected final MedianBlockTimeContext _medianBlockTimeContext;
     protected final UnspentTransactionOutputContext _unspentTransactionOutputContext;
 
-    public TransactionValidatorContext(final VolatileNetworkTime networkTime, final MedianBlockTime medianBlockTime, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
+    public TransactionValidatorContext(final VolatileNetworkTime networkTime, final MedianBlockTimeContext medianBlockTimeContext, final UnspentTransactionOutputContext unspentTransactionOutputContext) {
         _networkTime = networkTime;
-        _medianBlockTime = medianBlockTime;
+        _medianBlockTimeContext = medianBlockTimeContext;
         _unspentTransactionOutputContext = unspentTransactionOutputContext;
     }
 
     @Override
     public MedianBlockTime getMedianBlockTime(final Long blockHeight) {
-        return _medianBlockTime;
+        return _medianBlockTimeContext.getMedianBlockTime(blockHeight);
     }
 
     @Override

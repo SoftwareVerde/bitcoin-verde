@@ -2,14 +2,14 @@ package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.MedianHeadBlockTimeContext;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.LazyMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -37,7 +37,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
-    public interface Context extends MedianHeadBlockTimeContext, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext { }
+    public interface Context extends MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext { }
 
     public interface Callback {
         void onNewTransactions(List<Transaction> transactions);
@@ -70,7 +70,6 @@ public class TransactionProcessor extends SleepyService {
     @Override
     public Boolean _run() {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        final MedianBlockTime medianBlockTime = _context.getHeadMedianBlockTime();
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final SystemTime systemTime = _context.getSystemTime();
 
@@ -84,7 +83,8 @@ public class TransactionProcessor extends SleepyService {
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
             final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
-            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unconfirmedTransactionUtxoSet);
+            final MedianBlockTimeContext medianBlockTimeContext = new LazyMedianBlockTimeContext(databaseManager);
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
             final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);
 
             final Long now = systemTime.getCurrentTimeInMilliSeconds();

@@ -3,18 +3,16 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
@@ -655,8 +653,10 @@ public class HistoricTransactionsTests {
         final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
         final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1529680230L));
 
-        final UnspentTransactionOutputContext unspentTransactionOutputContext = null; // TODO
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unspentTransactionOutputContext);
+        final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
+        medianBlockTimeContext.setMedianBlockTime(testConfig.blockHeight, medianBlockTime);
+
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, null);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         // Action
@@ -1006,9 +1006,6 @@ public class HistoricTransactionsTests {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000001D30F579362255AF2257CD5C6198658AC380E23D5FBF281D51845C8D4C335E4A000000000BF483045022100C47E35E77B53B66EC79B64AF8F7029D73714B7B0D8DC6C9BEF60DF90448B6A7702205AD44CD38B1C055B295F05B2BD8CB05C0304C4F7EFC0235C101979D505BA806B41004C7363522102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DA2102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DA52AE67030B0040B2752102D9E4CC5C8ACA143C72865F25E8C50349BC9EA79F2924CC88A675A52AC23440DAAC680B00400001CCC10000000000001976A91466D9E2A3C958C5ACD60C7078670D7BFF49B5646B88AC00000000"));
-
-        final Long blockHeight = 563378L;
-        final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1546320518L);
         final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1595337469L));
 
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
@@ -1019,12 +1016,17 @@ public class HistoricTransactionsTests {
             unspentTransactionOutputContext.addTransaction(spentTransaction, spentTransactionBlockHash, spentTransactionBlockHeight, false);
         }
 
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTime, unspentTransactionOutputContext);
+        final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
+        medianBlockTimeContext.setMedianBlockTime(563368L, ImmutableMedianBlockTime.fromSeconds(1546315878L));
+        medianBlockTimeContext.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
+        medianBlockTimeContext.setMedianBlockTime(563378L, ImmutableMedianBlockTime.fromSeconds(1546320653L));
+
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
         transactionValidator.setLoggingEnabled(true);
 
         // Action
-        final Boolean shouldValidateLockTime = transactionValidator.validateTransaction(blockHeight, transaction);
+        final Boolean shouldValidateLockTime = transactionValidator.validateTransaction(563378L, transaction);
 
         // Assert
         Assert.assertTrue(shouldValidateLockTime);

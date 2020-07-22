@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
@@ -19,36 +20,14 @@ import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 
-public class BlockHeaderValidatorContext implements BlockHeaderValidator.Context {
-    protected final BlockchainSegmentId _blockchainSegmentId;
-    protected final DatabaseManager _databaseManager;
+public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext implements BlockHeaderValidator.Context {
     protected final VolatileNetworkTime _networkTime;
 
-    protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
-    protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
-
-    protected BlockId _getBlockId(final Long blockHeight) throws DatabaseException {
-        { // Check for a cached BlockId...
-            final BlockId blockId = _blockIds.get(blockHeight);
-            if (blockId != null) {
-                return blockId;
-            }
-        }
-
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(_blockchainSegmentId, blockHeight);
-        if (blockId != null) {
-            _blockIds.put(blockHeight, blockId);
-        }
-
-        return blockId;
-    }
 
     public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
-        _blockchainSegmentId = blockchainSegmentId;
-        _databaseManager = databaseManager;
+        super(blockchainSegmentId, databaseManager);
         _networkTime = networkTime;
     }
 
@@ -93,30 +72,6 @@ public class BlockHeaderValidatorContext implements BlockHeaderValidator.Context
             final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
             _chainWorks.put(blockHeight, chainWork);
             return chainWork;
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-            return null;
-        }
-    }
-
-    @Override
-    public MedianBlockTime getMedianBlockTime(final Long blockHeight) {
-        { // Check for a cached value...
-            final MedianBlockTime medianBlockTime = _medianBlockTimes.get(blockHeight);
-            if (medianBlockTime != null) {
-                return medianBlockTime;
-            }
-        }
-
-        try {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-            final BlockId blockId = _getBlockId(blockHeight);
-            if (blockId == null) { return null; }
-
-            final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
-            _medianBlockTimes.put(blockHeight, medianBlockTime);
-            return medianBlockTime;
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

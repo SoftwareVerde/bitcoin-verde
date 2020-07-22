@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
@@ -182,7 +181,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         }
 
         final MutableList<Transaction> processedTransactions = new MutableList<Transaction>();
-        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_fullNodeDatabaseManagerFactory, new MutableMedianBlockTime(), new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory);
+        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_fullNodeDatabaseManagerFactory, new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory);
         final TransactionProcessor transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
             @Override

@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -53,7 +54,6 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
 
@@ -84,14 +84,13 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return returnedTransactions;
     }
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
         _databaseManagerFactory = databaseManagerFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
 
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
         _networkTime = networkTime;
-        _medianBlockTime = medianBlockTime;
     }
 
     @Override
@@ -503,8 +502,10 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final CachingMedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(blockchainSegmentId, databaseManager);
             final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
-            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_networkTime, _medianBlockTime, unconfirmedTransactionUtxoSet);
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             try {

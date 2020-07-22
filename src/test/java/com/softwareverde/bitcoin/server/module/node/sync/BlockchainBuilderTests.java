@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
@@ -29,6 +28,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.util.BlockTestUtil;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
@@ -269,7 +269,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
                 unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 2L, false);
 
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 final Boolean isValid = transactionValidator.validateTransaction(3L, signedTransactionSpendingCoinbase);
@@ -496,7 +496,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
                 unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 2L, false);
 
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 final Boolean isValid = transactionValidator.validateTransaction(3L, signedTransactionSpendingFakeBlock3aCoinbase);
@@ -655,7 +655,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
                 unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 4L, false);
 
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 {

@@ -1,9 +1,10 @@
 package com.softwareverde.bitcoin.wallet;
 
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -53,8 +54,8 @@ public class IntegratedWalletTests extends UnitTest {
         final ByteArray transactionBytes = ByteArray.fromHexString("0200000002F55A14FAD3E33B798A99EA78994905089C816CC40334CA8AA884CF87ADDEC0A0010000008B4830450221008CE5C85400EE7874AFC774676037DCDFE87BA2206F1E65E6D09B55E4A76D9DAF02204896A623C37A36D21C83AF6FEC60954F2A7A0E05B4E64A3A8AC564C97047FDCE4141040802CA060816C5596860EEB2C3237DBABFFC5A5EBD58F1B6EB48CE08E213DBA7069B638863C81EFF15FCE23183AD337D12E4D29A794652FC74436CDC09E92C17FFFFFFFFBA9424ACD93EA5BCC22383EAD06AE88908C44A98F769237BBAA0616A1D70E2A0010000006A47304402205FEF4DB272809711CA1549849688E048628229E5FD6DA4967A4E1890D1E34F000220525B57268FC76B58345C207331B9824093590D61BE59E1FA8C41B4B64FC6BA324121029602CA68608F9AB02DC2DA445C97F2D3980F75A5C620742C309BDD8B7E5A5B64FFFFFFFF02606D0000000000001976A914B3BE4593503F84E2BE61EB33670B31CC7F4FC0AE88AC7C140000000000001976A91455CE63AE0472184AE53B26BB117D6843C667BA3388AC00000000");
         final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
 
-        final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1557325160L);
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), medianBlockTime, unspentTransactionOutputContext);
+        final MedianBlockTimeContext medianBlockTimeContext = new FakeStaticMedianBlockTimeContext(ImmutableMedianBlockTime.fromSeconds(1557325160L));
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
         transactionValidator.setLoggingEnabled(true);
 

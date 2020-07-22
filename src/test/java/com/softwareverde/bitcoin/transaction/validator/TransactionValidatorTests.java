@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -39,7 +39,7 @@ public class TransactionValidatorTests extends UnitTest {
     public void should_validate_valid_transaction() throws Exception {
         // Setup
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final TransactionInflater transactionInflater = new TransactionInflater();
@@ -62,7 +62,7 @@ public class TransactionValidatorTests extends UnitTest {
     public void should_create_signed_transaction_and_unlock_it() throws Exception {
         // Setup
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final AddressInflater addressInflater = new AddressInflater();
@@ -103,7 +103,7 @@ public class TransactionValidatorTests extends UnitTest {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
@@ -144,7 +144,7 @@ public class TransactionValidatorTests extends UnitTest {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
@@ -187,7 +187,7 @@ public class TransactionValidatorTests extends UnitTest {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
@@ -226,7 +226,7 @@ public class TransactionValidatorTests extends UnitTest {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), MedianBlockTime.MAX_VALUE, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         final PrivateKey privateKey = PrivateKey.createNewKey();

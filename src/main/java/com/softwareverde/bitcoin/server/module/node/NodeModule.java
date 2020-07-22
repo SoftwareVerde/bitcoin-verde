@@ -521,7 +521,7 @@ public class NodeModule {
         }
 
         { // Initialize the TransactionProcessor...
-            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(databaseManagerFactory, _medianBlockTime, _mutableNetworkTime, _systemTime, transactionValidatorFactory);
+            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(databaseManagerFactory, _mutableNetworkTime, _systemTime, transactionValidatorFactory);
             _transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         }
 
@@ -770,7 +770,7 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, _medianBlockTime);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
