@@ -57,8 +57,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         final Integer transactionInputIndex = transactionContext.getTransactionInputIndex();
 
         synchronized (LOG_INVALID_TRANSACTION_MUTEX) {
-            final Long previousBlockHeight = (blockHeight - 1L);
-            final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight); // TODO: Unsure if blockHeight or previousBlockHeight...
+            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
             final NetworkTime networkTime = _context.getNetworkTime();
 
             // NOTE: These logging statements are synchronized since Transaction validation is multithreaded, and it is possible to have these log statements intermingle if multiple errors are found...
@@ -102,8 +101,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             final Long currentNetworkTime;
             {
                 if (Bip113.isEnabled(blockHeight)) {
-                    final Long previousBlockHeight = (blockHeight - 1L);
-                    final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight); // TODO: Unsure if blockHeight or previousBlockHeight...
+                    final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
                     currentNetworkTime = medianBlockTime.getCurrentTimeInSeconds();
                 }
                 else {
@@ -146,16 +144,24 @@ public class TransactionValidatorCore implements TransactionValidator {
         return null;
     }
 
-    protected MedianBlockTime _getTransactionOutputMedianBlockTime(final TransactionOutputIdentifier transactionOutputIdentifier, final MedianBlockTime medianBlockTime) {
+    /**
+     * Returns the MedianBlockTime of the TransactionOutput specified by `transactionOutputIdentifier`.
+     *  NOTE: The MedianBlockTime used for the TransactionOutput is the parent of the block that mined it, as per BIP-68.
+     *      "The mining date of the output is equal to the median-time-past of the previous block which mined it."
+     */
+    protected MedianBlockTime _getTransactionOutputMedianBlockTime(final TransactionOutputIdentifier transactionOutputIdentifier, final Long blockHeight) {
         {
-            final Long blockHeight = _context.getBlockHeight(transactionOutputIdentifier);
-            final MedianBlockTime transactionOutputMedianBlockTime = _context.getMedianBlockTime(blockHeight);
+            final Long transactionOutputBlockHeight = _context.getBlockHeight(transactionOutputIdentifier);
+            final MedianBlockTime transactionOutputMedianBlockTime = _context.getMedianBlockTime(transactionOutputBlockHeight - 1L);
             if (transactionOutputMedianBlockTime != null) { return transactionOutputMedianBlockTime; }
         }
 
         if (_blockOutputs != null) {
             final TransactionOutput transactionOutput = _blockOutputs.getTransactionOutput(transactionOutputIdentifier);
-            if (transactionOutput != null) { return medianBlockTime; }
+            if (transactionOutput != null) {
+                final MedianBlockTime transactionOutputMedianBlockTime = _context.getMedianBlockTime(blockHeight - 1L);
+                return transactionOutputMedianBlockTime;
+            }
         }
 
         return null;
@@ -186,8 +192,8 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
 
                 final Long previousBlockHeight = (blockHeight - 1L);
-                final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight); // TODO: Unsure if blockHeight or previousBlockHeight...
-                final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _getTransactionOutputMedianBlockTime(previousTransactionOutputIdentifier, medianBlockTime);
+                final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
+                final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _getTransactionOutputMedianBlockTime(previousTransactionOutputIdentifier, blockHeight);
                 final long secondsElapsed = (medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
 
                 final boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
@@ -236,7 +242,8 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         final ScriptRunner scriptRunner = new ScriptRunner();
 
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight - 1L); // TODO: Unsure if blockHeight or previousBlockHeight...
+        final Long previousBlockHeight = (blockHeight - 1L);
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
 
         final MutableTransactionContext transactionContext = new MutableTransactionContext();
         transactionContext.setBlockHeight(blockHeight);

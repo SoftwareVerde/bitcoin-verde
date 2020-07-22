@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-import com.softwareverde.logging.Logger;
 
 import java.util.HashMap;
 

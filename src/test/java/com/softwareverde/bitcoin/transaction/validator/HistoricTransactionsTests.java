@@ -1017,9 +1017,8 @@ public class HistoricTransactionsTests {
         }
 
         final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
-        medianBlockTimeContext.setMedianBlockTime(563368L, ImmutableMedianBlockTime.fromSeconds(1546315878L));
+        medianBlockTimeContext.setMedianBlockTime(563367L, ImmutableMedianBlockTime.fromSeconds(1546313962L));
         medianBlockTimeContext.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
-        medianBlockTimeContext.setMedianBlockTime(563378L, ImmutableMedianBlockTime.fromSeconds(1546320653L));
 
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
