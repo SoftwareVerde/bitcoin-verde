@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
@@ -18,6 +17,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransa
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 

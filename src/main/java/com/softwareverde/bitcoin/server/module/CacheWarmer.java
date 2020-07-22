@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
@@ -10,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;

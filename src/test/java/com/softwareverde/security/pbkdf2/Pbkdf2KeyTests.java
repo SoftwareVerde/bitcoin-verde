@@ -1,6 +1,7 @@
 package com.softwareverde.security.pbkdf2;
 
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.pbkdf2.Pbkdf2Key;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.MilliTimer;
 

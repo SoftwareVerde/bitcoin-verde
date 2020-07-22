@@ -1,10 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
-import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -16,9 +15,9 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;

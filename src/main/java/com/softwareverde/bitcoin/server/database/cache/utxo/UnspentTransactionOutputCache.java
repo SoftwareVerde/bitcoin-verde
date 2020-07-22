@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.database.cache.utxo;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface UnspentTransactionOutputCache extends AutoCloseable {
 

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.address.CompressedAddress;
-import com.softwareverde.security.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -18,6 +17,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 
 public class ScriptPatternMatcher {
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.stratum.task;
 import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -13,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;

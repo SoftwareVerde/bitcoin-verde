@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.database.FakeBlockHeaderDatabaseManager;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 import org.junit.Assert;
