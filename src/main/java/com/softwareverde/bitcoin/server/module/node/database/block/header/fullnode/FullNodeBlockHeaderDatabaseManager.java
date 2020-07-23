@@ -338,6 +338,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                     .setParameter(blockchainSegmentId)
                     .setInClauseParameters(blockIdBatch, ValueExtractor.IDENTIFIER)
             );
+
+            batchStartIndex += batchSize;
         }
 
         for (final BlockId blockId : blockIds) {
