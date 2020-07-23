@@ -18,6 +18,8 @@ import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Comparator;
 
 public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
@@ -25,16 +27,15 @@ public class DifficultyCalculator {
 
     protected final DatabaseManager _databaseManager;
     protected final BatchedBlockHeaders _batchedBlockHeaders;
-    protected final MedianBlockHeaderSelector _medianBlockHeaderSelector;
 
     public DifficultyCalculator(final DatabaseManager databaseManager) {
-        this(databaseManager, null);
+        _databaseManager = databaseManager;
+        _batchedBlockHeaders = null;
     }
 
     public DifficultyCalculator(final DatabaseManager databaseManager, final BatchedBlockHeaders batchedBlockHeaders) {
         _databaseManager = databaseManager;
         _batchedBlockHeaders = batchedBlockHeaders;
-        _medianBlockHeaderSelector = new MedianBlockHeaderSelector();
     }
 
     protected Difficulty _calculateNewBitcoinCoreTarget(final BlockchainSegmentId blockchainSegmentId, final Long forBlockHeight, final BlockHeader nullableBlockHeader) throws DatabaseException {
@@ -215,8 +216,18 @@ public class DifficultyCalculator {
     protected Difficulty _calculateNewBitcoinCashTarget(final BlockHeader[] firstBlockHeaders, final BlockHeader[] lastBlockHeaders) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
-        final BlockHeader firstBlockHeader = _medianBlockHeaderSelector.selectMedianBlockHeader(firstBlockHeaders);
-        final BlockHeader lastBlockHeader = _medianBlockHeaderSelector.selectMedianBlockHeader(lastBlockHeaders);
+        final Comparator<BlockHeader> sortBlockHeaderByTimestampDescending = new Comparator<BlockHeader>() {
+            @Override
+            public int compare(final BlockHeader blockHeader0, final BlockHeader blockHeader1) {
+                return (blockHeader1.getTimestamp().compareTo(blockHeader0.getTimestamp()));
+            }
+        };
+
+        Arrays.sort(lastBlockHeaders, sortBlockHeaderByTimestampDescending);
+        Arrays.sort(firstBlockHeaders, sortBlockHeaderByTimestampDescending);
+
+        final BlockHeader firstBlockHeader = firstBlockHeaders[1];
+        final BlockHeader lastBlockHeader = lastBlockHeaders[1];
 
         final Long timeSpan;
         {
