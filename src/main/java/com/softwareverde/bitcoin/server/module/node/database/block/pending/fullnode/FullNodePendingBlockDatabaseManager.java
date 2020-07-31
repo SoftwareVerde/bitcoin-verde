@@ -310,15 +310,24 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         try {
             READ_WRITE_LOCK.lock();
 
+            DatabaseException deadlockException = null;
             final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
+
             if (existingPendingBlockId != null) {
-                if (previousBlockHash != null) {
-                    _updatePendingBlock(existingPendingBlockId, previousBlockHash);
+                for (int i = 0; i < 3; ++i) {
+                    try {
+                        if (previousBlockHash != null) {
+                            _updatePendingBlock(existingPendingBlockId, previousBlockHash);
+                        }
+                        return existingPendingBlockId;
+                    }
+                    catch (final DatabaseException exception) {
+                        deadlockException = exception;
+                    }
                 }
-                return existingPendingBlockId;
+                throw deadlockException;
             }
 
-            DatabaseException deadlockException = null;
             for (int i = 0; i < 3; ++i) {
                 try {
                     return _storePendingBlock(blockHash, previousBlockHash, false);
