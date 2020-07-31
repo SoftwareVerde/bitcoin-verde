@@ -24,6 +24,7 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
         _blockHeight = blockHeight;
         _pendingBlock = pendingBlock;
         _unspentTransactionOutputSet = unspentTransactionOutputSet;
+        _pin.release();
     }
 
     public PendingBlockFuture(final Sha256Hash blockHash) {

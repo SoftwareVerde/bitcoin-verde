@@ -85,9 +85,6 @@ public class PendingBlockLoader {
                     pendingBlockFuture.setLoadedPendingBlock(null, null, null);
                     Logger.debug(exception);
                 }
-                finally {
-                    pendingBlockFuture._pin.release();
-                }
             }
         });
         return pendingBlockFuture;
