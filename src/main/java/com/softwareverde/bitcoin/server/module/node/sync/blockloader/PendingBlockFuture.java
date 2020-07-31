@@ -20,6 +20,12 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
     protected volatile Long _blockHeight;
     protected volatile MutableUnspentTransactionOutputSet _unspentTransactionOutputSet;
 
+    protected void setLoadedPendingBlock(final Long blockHeight, final PendingBlock pendingBlock, final MutableUnspentTransactionOutputSet unspentTransactionOutputSet) {
+        _blockHeight = blockHeight;
+        _pendingBlock = pendingBlock;
+        _unspentTransactionOutputSet = unspentTransactionOutputSet;
+    }
+
     public PendingBlockFuture(final Sha256Hash blockHash) {
         this(blockHash, null);
     }

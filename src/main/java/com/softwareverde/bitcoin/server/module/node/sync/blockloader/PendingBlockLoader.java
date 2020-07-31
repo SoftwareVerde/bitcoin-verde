@@ -42,7 +42,7 @@ public class PendingBlockLoader {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final ThreadPool threadPool = _context.getThreadPool();
 
-        final PendingBlockFuture blockFuture = new PendingBlockFuture(blockHash, blockInflater);
+        final PendingBlockFuture pendingBlockFuture = new PendingBlockFuture(blockHash, blockInflater);
         threadPool.execute(new Runnable() {
             @Override
             public void run() {
@@ -64,33 +64,33 @@ public class PendingBlockLoader {
                         return;
                     }
 
-                    blockFuture._pendingBlock = pendingBlock;
-
+                    final MutableUnspentTransactionOutputSet unspentTransactionOutputSet;
                     if ( shouldLoadUnspentOutputs && (blockHeight != null) ) {
-                        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+                        unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                         unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
-                        blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                         Logger.trace("Loaded UTXOs for " + blockHeight);
                     }
                     else { // NOTE: Outputs are available upon demand via LazyLoading.
-                        final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
+                        unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
                         unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Operation is only executed on demand, including blockHeight lookup if null...
-                        blockFuture._unspentTransactionOutputSet = unspentTransactionOutputSet;
                         Logger.trace("Lazy-loading UTXOs for " + block.getHash() + "(" + blockHeight + ")");
                     }
+
+                    pendingBlockFuture.setLoadedPendingBlock(blockHeight, pendingBlock, unspentTransactionOutputSet);
 
                     milliTimer.stop();
                     Logger.trace("Preloaded block " + blockHash + " in: " + milliTimer.getMillisecondsElapsed() + "ms.");
                 }
                 catch (final DatabaseException exception) {
+                    pendingBlockFuture.setLoadedPendingBlock(null, null, null);
                     Logger.debug(exception);
                 }
                 finally {
-                    blockFuture._pin.release();
+                    pendingBlockFuture._pin.release();
                 }
             }
         });
-        return blockFuture;
+        return pendingBlockFuture;
     }
 
     protected Long _getBlockHeight(final Sha256Hash blockHash, final DatabaseManager databaseManager) throws DatabaseException {
