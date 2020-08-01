@@ -18,7 +18,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
 
     protected Integer _version;
     protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
-    protected MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
+    protected final MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public RequestBlockHeadersMessage() {
         super(MessageType.REQUEST_BLOCK_HEADERS);
@@ -45,6 +45,11 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     }
 
     public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
+        if (blockHeaderHash == null) {
+            _stopBeforeBlockHash.setBytes(Sha256Hash.EMPTY_HASH);
+            return;
+        }
+
         _stopBeforeBlockHash.setBytes(blockHeaderHash);
     }
 

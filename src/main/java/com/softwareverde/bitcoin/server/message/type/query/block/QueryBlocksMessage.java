@@ -8,6 +8,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -17,7 +18,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
 
     protected Integer _version;
     protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
-    protected Sha256Hash _stopBeforeBlockHash = Sha256Hash.EMPTY_HASH;
+    protected final MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public QueryBlocksMessage() {
         super(MessageType.QUERY_BLOCKS);
@@ -52,7 +53,12 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     }
 
     public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
-        _stopBeforeBlockHash = (blockHeaderHash != null ? blockHeaderHash.asConst() : Sha256Hash.EMPTY_HASH);
+        if (blockHeaderHash == null) {
+            _stopBeforeBlockHash.setBytes(Sha256Hash.EMPTY_HASH);
+            return;
+        }
+
+        _stopBeforeBlockHash.setBytes(blockHeaderHash);
     }
 
     @Override

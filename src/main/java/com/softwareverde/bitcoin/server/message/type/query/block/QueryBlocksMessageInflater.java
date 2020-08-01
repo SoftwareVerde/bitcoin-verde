@@ -12,7 +12,7 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
     public QueryBlocksMessage fromBytes(final byte[] bytes) {
-        final Integer blockHeaderHashByteCount = 32;
+        final int blockHeaderHashByteCount = 32;
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
@@ -21,7 +21,7 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
 
         queryBlocksMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (blockHeaderCount >= QueryBlocksMessage.MAX_BLOCK_HASH_COUNT) { return null; }
 
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
@@ -33,7 +33,7 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        queryBlocksMessage._stopBeforeBlockHash = MutableSha256Hash.wrap(blockHeaderHashBytes);
+        queryBlocksMessage._stopBeforeBlockHash.setBytes(blockHeaderHashBytes);
 
         if (byteArrayReader.didOverflow()) { return null; }
 
