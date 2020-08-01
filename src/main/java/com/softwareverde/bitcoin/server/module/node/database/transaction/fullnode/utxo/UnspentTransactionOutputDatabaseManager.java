@@ -724,7 +724,8 @@ public class UnspentTransactionOutputDatabaseManager {
                     public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
                         return ValueExtractor.SHA256_HASH.extractValues(transactionOutputIdentifier.getTransactionHash());
                     }
-                })
+                }
+            )
         );
 
         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(rows.size());
@@ -752,8 +753,19 @@ public class UnspentTransactionOutputDatabaseManager {
             }
 
             final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
             final Transaction transaction = transactions.get(transactionOutputIdentifier.getTransactionHash());
+            if (transaction == null) {
+                transactionOutputsBuilder.add(null);
+                continue;
+            }
+
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            if (outputIndex >= transactionOutputs.getCount()) {
+                transactionOutputsBuilder.add(null);
+                return null;
+            }
+
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             transactionOutputsBuilder.add(transactionOutput);
         }
