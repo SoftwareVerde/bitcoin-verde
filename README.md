@@ -1,7 +1,11 @@
-# Bitcoin Verde v1.3.0
+# Bitcoin Verde v1.3.1
 
 
 ## Updates
+
+**v1.3.1**
+- Reverting difficulty calculation to an older, more stable version.
+- Dependency updates and other minor improvements.
 
 **v1.3.0**
 - 20200515 HF support (OP_REVERSE).
