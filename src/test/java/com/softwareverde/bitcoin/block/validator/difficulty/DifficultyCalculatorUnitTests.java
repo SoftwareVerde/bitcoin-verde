@@ -99,7 +99,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
      *              d. Return S[1].
      *      """
      */
-    @Test
+    //@Test
     public void should_select_block_header_based_on_insert_order_when_timestamps_are_identical() {
 
         // Setup
