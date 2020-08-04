@@ -1,9 +1,8 @@
 package com.softwareverde.bloomfilter;
 
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.util.HashUtil;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.Util;
 
 public interface BloomFilter extends Constable<ImmutableBloomFilter> {

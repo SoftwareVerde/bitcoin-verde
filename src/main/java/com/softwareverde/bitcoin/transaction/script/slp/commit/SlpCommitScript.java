@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.slp.commit;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface SlpCommitScript extends SlpScript, Constable<ImmutableSlpCommitScript> {
     SlpTokenId getTokenId();

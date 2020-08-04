@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.slp;
 
-import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.Comparator;
 

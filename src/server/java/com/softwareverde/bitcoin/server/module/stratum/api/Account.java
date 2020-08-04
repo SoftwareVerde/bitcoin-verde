@@ -3,14 +3,14 @@ package com.softwareverde.bitcoin.server.module.stratum.api;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.StringUtil;
 

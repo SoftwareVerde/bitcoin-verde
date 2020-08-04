@@ -4,9 +4,9 @@ import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.type.identifier.Identifier;
 
 public interface ValueExtractor<T> extends com.softwareverde.database.query.ValueExtractor<T> {

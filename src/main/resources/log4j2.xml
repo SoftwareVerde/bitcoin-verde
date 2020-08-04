@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="INFO" name="Verde Bitcoin">
+<Configuration status="INFO" name="Bitcoin Verde">
     <Appenders>
-        <RollingFile name="RollingFile" fileName="logs/verde-bitcoin.log" filePattern="logs/verde-bitcoin-%d{yyyy-MM-dd}-%i.log.gz">
+        <RollingFile name="RollingFile" fileName="logs/bitcoin-verde.log" filePattern="logs/bitcoin-verde-%d{yyyy-MM-dd}-%i.log.gz">
             <PatternLayout>
                 <Pattern>%d %p %c{1.} [%t] %m%n</Pattern>
             </PatternLayout>

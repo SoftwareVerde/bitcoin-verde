@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.address;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
-import com.softwareverde.security.util.HashUtil;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;

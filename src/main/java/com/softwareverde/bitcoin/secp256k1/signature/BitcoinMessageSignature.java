@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.secp256k1.signature;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.security.secp256k1.signature.Secp256k1Signature;
-import com.softwareverde.security.secp256k1.signature.Signature;
+import com.softwareverde.cryptography.secp256k1.signature.Secp256k1Signature;
+import com.softwareverde.cryptography.secp256k1.signature.Signature;
 import com.softwareverde.util.Base64Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 

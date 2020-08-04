@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public class MutableSlpGenesisScript extends SlpGenesisScriptCore {
 

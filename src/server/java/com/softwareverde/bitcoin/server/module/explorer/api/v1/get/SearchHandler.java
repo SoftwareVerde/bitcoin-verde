@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.SearchApi;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
 import com.softwareverde.http.server.servlet.request.Request;
@@ -14,7 +15,6 @@ import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.http.server.servlet.routed.RequestHandler;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 

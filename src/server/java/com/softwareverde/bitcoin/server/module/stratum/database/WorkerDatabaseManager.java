@@ -3,10 +3,10 @@ package com.softwareverde.bitcoin.server.module.stratum.database;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.pbkdf2.Pbkdf2Key;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.security.pbkdf2.Pbkdf2Key;
 import com.softwareverde.util.Util;
 
 public class WorkerDatabaseManager {

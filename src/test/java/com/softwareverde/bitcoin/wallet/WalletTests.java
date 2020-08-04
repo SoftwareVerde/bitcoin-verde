@@ -15,8 +15,8 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.MutableSlpSendScrip
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
-import com.softwareverde.security.util.HashUtil;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.Tuple;
 import org.junit.Assert;
 import org.junit.Test;

@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.CoinbaseTransactionInputInflater;
@@ -18,9 +17,10 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Jsonable;
 
-public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
+public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
     Long VERSION = BitcoinConstants.getTransactionVersion();
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
@@ -100,5 +100,5 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     CoinbaseTransaction asCoinbase();
 
     @Override
-    ImmutableTransaction asConst();
+    ConstTransaction asConst();
 }

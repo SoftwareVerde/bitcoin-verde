@@ -1,15 +1,14 @@
 package com.softwareverde.bitcoin.wallet;
 
-import com.softwareverde.security.secp256k1.key.PrivateKey;
-import com.softwareverde.security.secp256k1.key.PublicKey;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.util.HashUtil;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
