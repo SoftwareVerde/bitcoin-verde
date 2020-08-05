@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.Base58Util;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.MilliTimer;
@@ -12,6 +13,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AddressModule {
 
     public static void execute(final String desiredAddressPrefix, final Boolean ignoreCase) {
+        final Boolean useBase32 = true;
+
         final AddressInflater addressInflater = new AddressInflater();
 
         final String desiredAddressPrefixLowerCase = desiredAddressPrefix.toLowerCase();
@@ -19,7 +22,7 @@ public class AddressModule {
         { // Ensure the address is possible...
             for (final char desiredCharacter : desiredAddressPrefix.toCharArray()) {
                 boolean hasMatch = false;
-                for (final char availableCharacter : Base58Util.ALPHABET) {
+                for (final char availableCharacter : (useBase32 ? Base32Util.ALPHABET.toCharArray() : Base58Util.ALPHABET)) {
                     if ( (availableCharacter == desiredCharacter) || (ignoreCase && (Character.toLowerCase(availableCharacter) == Character.toLowerCase(desiredCharacter)))) {
                         hasMatch = true;
                         break;
@@ -61,8 +64,16 @@ public class AddressModule {
                 while ( (! Thread.interrupted()) && miningPin.get() ) {
                     final PrivateKey privateKey = PrivateKey.createNewKey();
 
-                    final String address = addressInflater.fromPrivateKey(privateKey, false).toBase58CheckEncoded();
-                    final String compressedAddress = addressInflater.fromPrivateKey(privateKey, true).toBase58CheckEncoded();
+                    final String address;
+                    final String compressedAddress;
+                    if (useBase32) {
+                        address = addressInflater.fromPrivateKey(privateKey, false).toBase32CheckEncoded(false);
+                        compressedAddress = addressInflater.fromPrivateKey(privateKey, true).toBase32CheckEncoded(false);
+                    }
+                    else {
+                        address = addressInflater.fromPrivateKey(privateKey, false).toBase58CheckEncoded();
+                        compressedAddress = addressInflater.fromPrivateKey(privateKey, true).toBase58CheckEncoded();
+                    }
 
                     boolean isMatch = false;
                     isMatch = (isMatch || address.startsWith(desiredAddressPrefix));
