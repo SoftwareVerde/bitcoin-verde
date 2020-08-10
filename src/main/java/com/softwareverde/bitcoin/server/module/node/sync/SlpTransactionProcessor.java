@@ -40,8 +40,11 @@ public class SlpTransactionProcessor extends SleepyService {
                             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                             if (transactionId == null) { continue; }
 
-                            if (! (allowUnconfirmedTransactions && transactionDatabaseManager.isUnconfirmedTransaction(transactionId))) {
-                                continue;
+                            if (! allowUnconfirmedTransactions) {
+                                final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                                if (isUnconfirmedTransaction) {
+                                    continue;
+                                }
                             }
 
                             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
