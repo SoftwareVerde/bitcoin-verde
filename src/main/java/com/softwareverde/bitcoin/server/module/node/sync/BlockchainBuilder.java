@@ -210,8 +210,11 @@ public class BlockchainBuilder extends SleepyService {
                     if (nextBlockId != null) {
                         final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
                         final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-                        Logger.debug("Requesting Block: " + nextBlockHash);
-                        _blockDownloadRequester.requestBlock(nextBlockHash, previousBlockHash);
+                        final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash);
+                        if (! isInvalid) { // Do not request blocks that have failed to process multiple times...
+                            Logger.debug("Requesting Block: " + nextBlockHash);
+                            _blockDownloadRequester.requestBlock(nextBlockHash, previousBlockHash);
+                        }
                     }
                     break;
                 }
@@ -224,6 +227,9 @@ public class BlockchainBuilder extends SleepyService {
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                     TransactionUtil.commitTransaction(databaseConnection);
                     Logger.debug("Deleted failed pending block.");
+
+                    blockHeaderDatabaseManager.markBlockAsInvalid(candidatePendingBlock.getBlockHash());
+
                     continue;
                 }
 
@@ -257,6 +263,7 @@ public class BlockchainBuilder extends SleepyService {
                         TransactionUtil.commitTransaction(databaseConnection);
 
                         if (! processBlockWasSuccessful) {
+                            blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash);
                             Logger.debug("Pending block failed during processing: " + pendingBlockHash);
                             break;
                         }

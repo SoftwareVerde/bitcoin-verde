@@ -523,7 +523,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
             READ_WRITE_LOCK.lock();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE pending_blocks.was_downloaded = 1  GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 128")
+                new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE pending_blocks.was_downloaded = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash) GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 128")
             );
 
             for (final Row row : rows) {

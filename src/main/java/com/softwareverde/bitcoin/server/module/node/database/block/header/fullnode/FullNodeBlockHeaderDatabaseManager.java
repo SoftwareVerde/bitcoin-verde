@@ -802,4 +802,39 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         return null;
     }
+
+    @Override
+    public Boolean isBlockInvalid(final Sha256Hash blockHash) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT process_count FROM invalid_blocks WHERE hash = ?")
+                .setParameter(blockHash)
+        );
+        if (rows.isEmpty()) { return false; }
+
+        final Row row = rows.get(0);
+        final Integer processCount = row.getInteger("process_count");
+        return (processCount >= 3);
+    }
+
+    @Override
+    public void markBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("UPDATE invalid_blocks SET process_count = process_count + 1 WHERE hash = ?")
+                .setParameter(blockHash)
+        );
+    }
+
+    @Override
+    public void clearBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM invalid_blocks WHERE hash = ?")
+                .setParameter(blockHash)
+        );
+    }
 }

@@ -33,6 +33,14 @@ CREATE TABLE pending_blocks (
     INDEX pending_blocks_ix3 (previous_block_hash) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
+CREATE TABLE invalid_blocks (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    hash BINARY(32) NOT NULL,
+    process_count INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY invalid_blocks_uq (hash)
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
 CREATE TABLE pending_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash BINARY(32) NOT NULL,

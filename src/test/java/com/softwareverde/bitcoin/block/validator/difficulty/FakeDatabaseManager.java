@@ -91,6 +91,15 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
             }
 
             @Override
+            public Boolean isBlockInvalid(final Sha256Hash blockHash) throws DatabaseException { return false; }
+
+            @Override
+            public void markBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException { }
+
+            @Override
+            public void clearBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException { }
+
+            @Override
             public BlockHeader getBlockHeader(final BlockId blockId) {
                 if (! _blockHeaders.containsKey(blockId)) {
                     Logger.debug("Requested unregistered BlockHeader. blockId=" + blockId);
