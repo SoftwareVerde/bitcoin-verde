@@ -7,9 +7,11 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.ByteUtil;
 
 public class BlockInflater {
-    public static final Integer MAX_TRANSACTION_COUNT = Integer.MAX_VALUE; // TODO: Set to the the current consensus value...
+    public static final Integer MAX_BYTE_COUNT = (int) (32L * ByteUtil.Unit.Si.MEGABYTES);
+    public static final Integer MAX_TRANSACTION_COUNT = (BlockInflater.MAX_BYTE_COUNT / TransactionInflater.MIN_BYTE_COUNT);
 
     protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();

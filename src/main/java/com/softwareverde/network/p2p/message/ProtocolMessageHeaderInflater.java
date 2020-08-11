@@ -4,7 +4,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public interface ProtocolMessageHeaderInflater {
     Integer getHeaderByteCount();
-    Integer getMaxPacketByteCount();
+    Integer getMaxPacketByteCount(ProtocolMessageHeader protocolMessageHeader);
     ProtocolMessageHeader fromBytes(final byte[] bytes);
     ProtocolMessageHeader fromBytes(final ByteArrayReader byteArrayReader);
 }

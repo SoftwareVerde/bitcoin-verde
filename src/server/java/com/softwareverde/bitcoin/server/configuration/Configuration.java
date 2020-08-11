@@ -37,11 +37,11 @@ public class Configuration {
         final Integer port = Util.parseInt(_properties.getProperty(propertyPrefix + "database.port", "8336"));
         final String dataDirectory = _properties.getProperty(propertyPrefix + "database.dataDirectory", "data");
         final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty(propertyPrefix + "database.useEmbeddedDatabase", "1"));
-        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.Binary.GIBIBYTES)));
 
         // According to https://www.percona.com/blog/2008/11/21/how-to-calculate-a-good-innodb-log-file-size/, and running the calculation on a trimming node syncing yr 2015, the GB/hr was about 6.5gb.
         // In lieu of this, the default value was decided to be set to 8GB to better accommodate slightly higher loads.
-        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(8 * ByteUtil.Unit.GIGABYTES)));
+        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(8 * ByteUtil.Unit.Binary.GIBIBYTES)));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
