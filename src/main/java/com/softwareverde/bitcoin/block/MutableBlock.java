@@ -25,6 +25,18 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
 
     protected Integer _cachedHashCode = null;
     protected Sha256Hash _cachedHash = null;
+    protected Integer _cachedByteCount = null;
+
+    protected Integer _calculateByteCount() {
+        return _blockDeflater.getByteCount(this);
+    }
+
+    protected void _invalidateCachedProperties() {
+        _cachedByteCount = null;
+        _cachedHash = null;
+        _cachedHashCode = null;
+        _merkleRoot = null;
+    }
 
     protected MutableBlock(final BlockHasher blockHasher, final BlockDeflater blockDeflater) {
         super(blockHasher);
@@ -49,7 +61,6 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
     public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
         _blockDeflater = new BlockDeflater();
-        _merkleRoot = null;
 
         if (transactions != null) {
             for (final Transaction transaction : transactions) {
@@ -58,6 +69,8 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
                 _merkleTree.addItem(constTransaction);
             }
         }
+
+        _invalidateCachedProperties();
     }
 
     @Override
@@ -71,14 +84,22 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         return false;
     }
 
+    @Override
+    public Integer getByteCount() {
+        final Integer cachedByteCount = _cachedByteCount;
+        if (cachedByteCount != null) { return cachedByteCount; }
+
+        final Integer byteCount = _calculateByteCount();
+        _cachedByteCount = byteCount;
+        return byteCount;
+    }
+
     public void addTransaction(final Transaction transaction) {
         final Transaction constTransaction = transaction.asConst();
         _transactions.add(constTransaction);
         _merkleTree.addItem(constTransaction);
 
-        _cachedHashCode = null;
-        _cachedHash = null;
-        _merkleRoot = null;
+        _invalidateCachedProperties();
     }
 
     public void replaceTransaction(final Integer index, final Transaction transaction) {
@@ -86,9 +107,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         _transactions.set(index, constTransaction);
         _merkleTree.replaceItem(index, constTransaction);
 
-        _cachedHashCode = null;
-        _cachedHash = null;
-        _merkleRoot = null;
+        _invalidateCachedProperties();
     }
 
     public void removeTransaction(final Sha256Hash transactionHashToRemove) {
@@ -108,32 +127,26 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
             }
         }
 
-        _cachedHashCode = null;
-        _cachedHash = null;
-        _merkleRoot = null;
+        _invalidateCachedProperties();
     }
 
     public void clearTransactions() {
         _transactions.clear();
         _merkleTree.clear();
 
-        _cachedHashCode = null;
-        _cachedHash = null;
-        _merkleRoot = null;
+        _invalidateCachedProperties();
     }
 
     public void setVersion(final Long version) {
         _version = version;
 
-        _cachedHashCode = null;
-        _cachedHash = null;
+        _invalidateCachedProperties();
     }
 
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         _previousBlockHash = previousBlockHash.asConst();
 
-        _cachedHashCode = null;
-        _cachedHash = null;
+        _invalidateCachedProperties();
     }
 
     @Override
@@ -146,25 +159,32 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         return merkleRoot;
     }
 
+    @Override
+    public Sha256Hash getHash() {
+        final Sha256Hash cachedHash = _cachedHash;
+        if (cachedHash != null) { return cachedHash; }
+
+        final Sha256Hash hash = super.getHash();
+        _cachedHash = hash;
+        return hash;
+    }
+
     public void setTimestamp(final Long timestamp) {
         _timestamp = timestamp;
 
-        _cachedHashCode = null;
-        _cachedHash = null;
+        _invalidateCachedProperties();
     }
 
     public void setDifficulty(final Difficulty difficulty) {
         _difficulty = difficulty.asConst();
 
-        _cachedHashCode = null;
-        _cachedHash = null;
+        _invalidateCachedProperties();
     }
 
     public void setNonce(final Long nonce) {
         _nonce = nonce;
 
-        _cachedHashCode = null;
-        _cachedHash = null;
+        _invalidateCachedProperties();
     }
 
     @Override

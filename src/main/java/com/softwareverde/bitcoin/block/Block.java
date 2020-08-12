@@ -19,6 +19,8 @@ public interface Block extends BlockHeaderWithTransactionCount {
     PartialMerkleTree getPartialMerkleTree(BloomFilter bloomFilter);
     Boolean hasTransaction(Transaction transaction);
 
+    Integer getByteCount();
+
     @Override
     ImmutableBlock asConst();
 }

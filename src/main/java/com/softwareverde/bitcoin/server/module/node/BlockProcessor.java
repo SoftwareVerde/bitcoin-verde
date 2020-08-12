@@ -312,7 +312,7 @@ public class BlockProcessor {
             }
         }
 
-        final Integer byteCount = blockDeflater.getByteCount(block);
+        final Integer byteCount = block.getByteCount();
         blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
 
         final BlockchainSegmentId newHeadBlockchainSegmentId;

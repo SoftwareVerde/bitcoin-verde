@@ -2,8 +2,10 @@ package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.bip.Bip34;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
 import com.softwareverde.bitcoin.block.validator.thread.*;
@@ -44,6 +46,13 @@ public class BlockValidator {
 
     protected BlockValidationResult _validateTransactions(final Block block, final Long blockHeight) {
         final Thread currentThread = Thread.currentThread();
+
+        { // Enforce max byte count...
+            final Integer blockByteCount = block.getByteCount();
+            if (blockByteCount > BlockInflater.MAX_BYTE_COUNT) {
+                return BlockValidationResult.invalid("Block exceeded maximum size.");
+            }
+        }
 
         final List<Transaction> transactions;
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
@@ -111,7 +120,6 @@ public class BlockValidator {
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
-        // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
         // TODO: Validate transaction does not appear twice within the same Block and Blockchain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
         // TODO: Create test for PreviousTransactionOutput being EmptyHash/-1 when not coinbase.
