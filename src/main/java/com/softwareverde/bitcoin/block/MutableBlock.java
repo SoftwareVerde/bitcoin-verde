@@ -38,6 +38,10 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         _merkleRoot = null;
     }
 
+    protected void cacheByteCount(final Integer byteCount) {
+        _cachedByteCount = byteCount;
+    }
+
     protected MutableBlock(final BlockHasher blockHasher, final BlockDeflater blockDeflater) {
         super(blockHasher);
         _blockDeflater = blockDeflater;

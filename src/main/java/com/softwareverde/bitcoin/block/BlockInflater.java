@@ -17,6 +17,8 @@ public class BlockInflater {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final TransactionInflater transactionInflater = new TransactionInflater();
 
+        final Integer startPosition = byteArrayReader.getPosition();
+
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
@@ -34,7 +36,13 @@ public class BlockInflater {
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return new MutableBlock(blockHeader, transactions);
+        final Integer endPosition = byteArrayReader.getPosition();
+        final Integer byteCount = (endPosition - startPosition);
+
+        final MutableBlock mutableBlock = new MutableBlock(blockHeader, transactions);
+        mutableBlock.cacheByteCount(byteCount);
+
+        return mutableBlock;
     }
 
     public MutableBlock fromBytes(final ByteArrayReader byteArrayReader) {

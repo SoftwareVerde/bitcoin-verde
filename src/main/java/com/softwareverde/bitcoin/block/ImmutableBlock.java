@@ -19,8 +19,17 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
+    protected final BlockDeflater _blockDeflater;
     protected final List<Transaction> _transactions;
     protected MerkleTree<Transaction> _merkleTree = null;
+
+    protected Integer _cachedHashCode = null;
+    protected Sha256Hash _cachedHash = null;
+    protected Integer _cachedByteCount = null;
+
+    protected Integer _calculateByteCount() {
+        return _blockDeflater.getByteCount(this);
+    }
 
     protected void _buildMerkleTree() {
         final MutableMerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
@@ -30,7 +39,11 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
         _merkleTree = merkleTree;
     }
 
-    public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
+    protected void cacheByteCount(final Integer byteCount) {
+        _cachedByteCount = byteCount;
+    }
+
+    protected ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions, final BlockDeflater blockDeflater) {
         super(blockHeader);
 
         final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<Transaction>(transactions.getCount());
@@ -38,6 +51,25 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
             immutableListBuilder.add(transaction.asConst());
         }
         _transactions = immutableListBuilder.build();
+        _blockDeflater = blockDeflater;
+    }
+
+    public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
+        this(blockHeader, transactions, new BlockDeflater());
+    }
+
+    public ImmutableBlock(final Block block) {
+        this(block, block.getTransactions());
+    }
+
+    @Override
+    public Sha256Hash getHash() {
+        final Sha256Hash cachedHash = _cachedHash;
+        if (cachedHash != null) { return cachedHash; }
+
+        final Sha256Hash hash = super.getHash();
+        _cachedHash = hash;
+        return hash;
     }
 
     @Override
@@ -98,6 +130,16 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     }
 
     @Override
+    public Integer getByteCount() {
+        final Integer cachedByteCount = _cachedByteCount;
+        if (cachedByteCount != null) { return cachedByteCount; }
+
+        final Integer byteCount = _calculateByteCount();
+        _cachedByteCount = byteCount;
+        return byteCount;
+    }
+
+    @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
         if (_merkleTree == null) {
             _buildMerkleTree();
@@ -125,5 +167,15 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     public Json toJson() {
         final BlockDeflater blockDeflater = new BlockDeflater();
         return blockDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        final Integer cachedHashCode = _cachedHashCode;
+        if (cachedHashCode != null) { return cachedHashCode; }
+
+        final int hashCode = super.hashCode();
+        _cachedHashCode = hashCode;
+        return hashCode;
     }
 }
