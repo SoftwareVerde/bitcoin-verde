@@ -66,7 +66,7 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
                 final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
                 final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
                 blockchainBuilder.start();
-                final int maxSleepCount = 10;
+                final int maxSleepCount = 20;
                 int sleepCount = 0;
                 do {
                     Thread.sleep(250L);
@@ -90,6 +90,8 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
             // Assert
             final Transaction transaction0 = transactions.get(transactionHash0);
             final Transaction transaction1 = transactions.get(transactionHash1);
+            Assert.assertNotNull(transaction0);
+            Assert.assertNotNull(transaction1);
             Assert.assertEquals(transactionHash0, transaction0.getHash());
             Assert.assertEquals(transactionHash1, transaction1.getHash());
         }

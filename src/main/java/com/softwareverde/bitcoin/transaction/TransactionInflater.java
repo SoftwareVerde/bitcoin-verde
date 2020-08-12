@@ -20,7 +20,7 @@ public class TransactionInflater {
 
     protected MutableTransaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final Integer totalByteCount = byteArrayReader.remainingByteCount();
-        if (totalByteCount < TransactionInflater.MIN_BYTE_COUNT) { return null; }
+        // if (totalByteCount < TransactionInflater.MIN_BYTE_COUNT) { return null; } // NOTE: The min Transaction size rule was activated on HF20181115 and therefore cannot be enforced here.
         if (totalByteCount > TransactionInflater.MAX_BYTE_COUNT) { return null; }
 
         final MutableTransaction transaction = new MutableTransaction();
