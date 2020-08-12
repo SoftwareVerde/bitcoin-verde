@@ -10,7 +10,6 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeader;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -57,7 +56,9 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
     public Integer getMaxPacketByteCount(final ProtocolMessageHeader protocolMessageHeader) {
         if (protocolMessageHeader instanceof BitcoinProtocolMessageHeader) {
             final BitcoinProtocolMessageHeader bitcoinProtocolMessageHeader = (BitcoinProtocolMessageHeader) protocolMessageHeader;
-            if (Util.areEqual(MessageType.BLOCK, bitcoinProtocolMessageHeader.command)) {
+
+            final MessageType messageType = bitcoinProtocolMessageHeader.command;
+            if (messageType.isLargeMessage()) {
                 return (2 * BlockInflater.MAX_BYTE_COUNT);
             }
         }
