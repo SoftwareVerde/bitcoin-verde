@@ -675,6 +675,11 @@ public class BitcoinNode extends Node {
 
     protected void _onBlockMessageReceived(final BlockMessage blockMessage) {
         final Block block = blockMessage.getBlock();
+        if (block == null) {
+            Logger.debug("Received invalid block message. " + blockMessage.getBytes());
+            return;
+        }
+
         final Boolean blockHeaderIsValid = block.isValid();
 
         final Sha256Hash blockHash = block.getHash();
