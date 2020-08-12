@@ -21,6 +21,7 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     protected Script _currentScript;
     protected Integer _currentScriptIndex;
     protected Integer _scriptLastCodeSeparatorIndex;
+    protected Integer _signatureOperationCount;
 
     public ImmutableTransactionContext(final TransactionContext transactionContext) {
         _blockHeight = transactionContext.getBlockHeight();
@@ -34,6 +35,8 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
         _currentScript = (currentScript != null ? ConstUtil.asConstOrNull(currentScript) : null);
         _currentScriptIndex = transactionContext.getScriptIndex();
         _scriptLastCodeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
+
+        _signatureOperationCount = transactionContext.getSignatureOperationCount();
     }
 
     @Override
@@ -79,6 +82,11 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     @Override
     public Integer getScriptLastCodeSeparatorIndex() {
         return _scriptLastCodeSeparatorIndex;
+    }
+
+    @Override
+    public Integer getSignatureOperationCount() {
+        return _signatureOperationCount;
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.pending
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -125,8 +126,6 @@ public class TransactionProcessor extends SleepyService {
                     transactionsToStore = listBuilder.build();
                 }
 
-                transactionValidator.setLoggingEnabled(true);
-
                 final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
@@ -145,13 +144,14 @@ public class TransactionProcessor extends SleepyService {
                     if (pendingTransactionId == null) { continue; }
 
                     // NOTE: The transaction cannot be stored before it is validated, otherwise the LazyUtxoSet will believe the output has already been spent (by itself).
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
+                    final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
 
-                    if (! transactionIsValid) {
+                    if (! transactionValidationResult.isValid) {
                         _deletePendingTransaction(databaseManager, pendingTransactionId);
 
                         invalidTransactionCount += 1;
                         Logger.info("Invalid MemoryPool Transaction: " + transactionHash);
+                        Logger.info(transactionValidationResult.errorMessage);
                         continue;
                     }
 

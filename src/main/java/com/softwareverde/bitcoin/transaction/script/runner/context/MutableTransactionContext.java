@@ -43,6 +43,7 @@ public class MutableTransactionContext implements TransactionContext, Const {
     protected Script _currentScript = null;
     protected Integer _currentScriptIndex = 0;
     protected Integer _scriptLastCodeSeparatorIndex = 0;
+    protected Integer _signatureOperationCount = 0;
 
     public MutableTransactionContext() { }
 
@@ -101,6 +102,10 @@ public class MutableTransactionContext implements TransactionContext, Const {
         _scriptLastCodeSeparatorIndex = codeSeparatorIndex;
     }
 
+    public void incrementSignatureOperationCount(final Integer operationCount) {
+        _signatureOperationCount += operationCount;
+    }
+
     @Override
     public Long getBlockHeight() {
         return _blockHeight;
@@ -144,6 +149,11 @@ public class MutableTransactionContext implements TransactionContext, Const {
     @Override
     public Integer getScriptLastCodeSeparatorIndex() {
         return _scriptLastCodeSeparatorIndex;
+    }
+
+    @Override
+    public Integer getSignatureOperationCount() {
+        return _signatureOperationCount;
     }
 
     @Override

@@ -32,6 +32,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.HashMapTransactionOutputRepository;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -208,8 +209,8 @@ public class BlockValidatorTests extends UnitTest {
             }
 
             final TransactionValidator transactionValidator = new TransactionValidatorCore(blockValidatorContext);
-            final Boolean isValid = transactionValidator.validateTransaction(102L, signedTransaction);
-            Assert.assertTrue(isValid);
+            final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(102L, signedTransaction);
+            Assert.assertTrue(transactionValidationResult.isValid);
         }
 
         // Action
@@ -384,8 +385,8 @@ public class BlockValidatorTests extends UnitTest {
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
             final TransactionValidator transactionValidator = new TransactionValidatorCore(blockValidatorContext);
-            final Boolean isValid = transactionValidator.validateTransaction(2L, signedTransaction);
-            Assert.assertTrue(isValid);
+            final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(2L, signedTransaction);
+            Assert.assertTrue(transactionValidationResult.isValid);
         }
 
         mutableBlock.addTransaction(signedTransaction);

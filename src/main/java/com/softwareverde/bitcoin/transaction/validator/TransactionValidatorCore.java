@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
+import com.softwareverde.bitcoin.bip.HF20200515;
+import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -23,28 +25,24 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransa
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.logging.Logger;
+import com.softwareverde.json.Json;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.util.HexUtil;
 
 import java.util.HashSet;
 
 public class TransactionValidatorCore implements TransactionValidator {
-    protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
-
     protected final Context _context;
     protected final BlockOutputs _blockOutputs;
-
-    protected Boolean _shouldLogInvalidTransactions = true;
 
     protected Long _getCoinbaseMaturity() {
         return TransactionValidator.COINBASE_MATURITY;
     }
+    protected Integer _getMaximumSignatureOperations() {
+        return TransactionValidator.MAX_SIGNATURE_OPERATIONS;
+    }
 
-    protected void _logInvalidTransaction(final Long blockHeight, final Transaction transaction, final TransactionContext transactionContext) {
-        if (! _shouldLogInvalidTransactions) { return; }
-
+    protected Json _createInvalidTransactionReport(final String errorMessage, final Transaction transaction, final TransactionContext transactionContext) {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
@@ -57,24 +55,22 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         final Integer transactionInputIndex = transactionContext.getTransactionInputIndex();
 
-        synchronized (LOG_INVALID_TRANSACTION_MUTEX) {
-            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-            final NetworkTime networkTime = _context.getNetworkTime();
+        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+        final NetworkTime networkTime = _context.getNetworkTime();
 
-            // NOTE: These logging statements are synchronized since Transaction validation is multithreaded, and it is possible to have these log statements intermingle if multiple errors are found...
-            Logger.debug("\n------------");
-            Logger.debug("Tx Hash:\t\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
-            Logger.debug("Tx Bytes:\t\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
-            Logger.debug("Tx Input:\t\t\t" + (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
-            Logger.debug("Tx Output:\t\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
-            Logger.debug("Block Height:\t\t" + transactionContext.getBlockHeight());
-            Logger.debug("Tx Input Index\t\t" + transactionInputIndex);
-            Logger.debug("Locking Script:\t" + lockingScript);
-            Logger.debug("Unlocking Script:\t" + unlockingScript);
-            Logger.debug("Median Block Time:\t" + medianBlockTime.getCurrentTimeInSeconds());
-            Logger.debug("Network Time:\t\t" + networkTime.getCurrentTimeInSeconds());
-            Logger.debug("\n------------\n");
-        }
+        final Json json = new Json(false);
+        json.put("errorMessage", errorMessage);
+        json.put("transactionHash", transaction.getHash());
+        json.put("inputIndex", transactionInputIndex);
+        json.put("transactionBytes", transactionDeflater.toBytes(transaction));
+        json.put("inputBytes", (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
+        json.put("previousOutputBytes", ((outputToSpend != null) ? transactionOutputDeflater.toBytes(outputToSpend) : null));
+        json.put("blockHeight", transactionContext.getBlockHeight());
+        json.put("lockingScriptBytes", lockingScript);
+        json.put("unlockingScriptBytes", unlockingScript);
+        json.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
+        json.put("networkTime", networkTime.getCurrentTimeInSeconds());
+        return json;
     }
 
     protected Boolean _shouldValidateLockTime(final Transaction transaction) {
@@ -182,7 +178,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         return null;
     }
 
-    protected Boolean _validateSequenceNumbers(final Transaction transaction, final Long blockHeight) {
+    protected ValidationResult _validateSequenceNumbers(final Transaction transaction, final Long blockHeight) {
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
             if (sequenceNumber.isDisabled()) { continue; }
@@ -199,10 +195,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
                 if (! sequenceNumberIsValid) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
-                    }
-                    return false;
+                    return ValidationResult.invalid("Sequence Number (Elapsed) Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
                 }
             }
             else {
@@ -212,15 +205,12 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
                 if (! sequenceNumberIsValid) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("(BlockHeight) Sequence Number Invalid: " + blockCount + " >= " + requiredBlockCount);
-                    }
-                    return false;
+                    return ValidationResult.invalid("(BlockHeight) Sequence Number Invalid: " + blockCount + " >= " + requiredBlockCount);
                 }
             }
         }
 
-        return true;
+        return ValidationResult.valid();
     }
 
     public TransactionValidatorCore(final Context context) {
@@ -233,12 +223,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     }
 
     @Override
-    public void setLoggingEnabled(final Boolean shouldLogInvalidTransactions) {
-        _shouldLogInvalidTransactions = shouldLogInvalidTransactions;
-    }
-
-    @Override
-    public Boolean validateTransaction(final Long blockHeight, final Transaction transaction) {
+    public TransactionValidationResult validateTransaction(final Long blockHeight, final Transaction transaction) {
         final Sha256Hash transactionHash = transaction.getHash();
 
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -257,10 +242,8 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final TransactionDeflater transactionDeflater = _context.getTransactionDeflater();
                 final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
                 if (transactionByteCount < TransactionInflater.MIN_BYTE_COUNT) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Invalid Transaction Byte Count: " + transactionByteCount + " " + transactionHash);
-                    }
-                    return false;
+                    final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
             }
         }
@@ -270,24 +253,18 @@ public class TransactionValidatorCore implements TransactionValidator {
             if (shouldValidateLockTime) {
                 final Boolean lockTimeIsValid = _validateTransactionLockTime(transactionContext);
                 if (! lockTimeIsValid) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Invalid LockTime for Tx.");
-                    }
-                    _logInvalidTransaction(blockHeight, transaction, transactionContext);
-                    return false;
+                    final Json errorJson = _createInvalidTransactionReport("Invalid LockTime.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
             }
         }
 
         if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
-                final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(transaction, blockHeight);
-                if (! sequenceNumbersAreValid) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Transaction SequenceNumber validation failed.");
-                    }
-                    _logInvalidTransaction(blockHeight, transaction, transactionContext);
-                    return false;
+                final ValidationResult sequenceNumbersValidationResult = _validateSequenceNumbers(transaction, blockHeight);
+                if (! sequenceNumbersValidationResult.isValid) {
+                    final Json errorJson = _createInvalidTransactionReport(sequenceNumbersValidationResult.errorMessage, transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
             }
         }
@@ -299,10 +276,8 @@ public class TransactionValidatorCore implements TransactionValidator {
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
             if (transactionInputs.isEmpty()) {
-                if (_shouldLogInvalidTransactions) {
-                    Logger.debug("Invalid Transaction (No Inputs) " + transactionHash);
-                }
-                return false;
+                final Json errorJson = _createInvalidTransactionReport("Transaction contained missing TransactionInputs.", transaction, transactionContext);
+                return TransactionValidationResult.invalid(errorJson);
             }
 
             final int transactionInputCount = transactionInputs.getCount();
@@ -313,19 +288,15 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                 final boolean previousOutputIsUniqueToTransaction = spentOutputIdentifiers.add(transactionOutputIdentifierBeingSpent);
                 if (! previousOutputIsUniqueToTransaction) { // The transaction attempted to spend the same previous output twice...
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Invalid Transaction. Transaction spends same previous output twice. " + transactionHash);
-                    }
-                    return false;
+                    final Json errorJson = _createInvalidTransactionReport("Transaction spends duplicate previousOutput.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
 
                 { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
                     final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = _isTransactionOutputCoinbase(transactionOutputIdentifierBeingSpent);
                     if (transactionOutputBeingSpentIsCoinbaseTransaction == null) {
-                        if (_shouldLogInvalidTransactions) {
-                            Logger.debug("Invalid Transaction.  Previous output does not exist. " + transactionOutputIdentifierBeingSpent);
-                        }
-                        return false;
+                        final Json errorJson = _createInvalidTransactionReport("Previous output does not exist.", transaction, transactionContext);
+                        return TransactionValidationResult.invalid(errorJson);
                     }
 
                     if (transactionOutputBeingSpentIsCoinbaseTransaction) {
@@ -333,21 +304,16 @@ public class TransactionValidatorCore implements TransactionValidator {
                         final long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
                         final Long requiredCoinbaseMaturity = _getCoinbaseMaturity();
                         if (coinbaseMaturity <= requiredCoinbaseMaturity) {
-                            if (_shouldLogInvalidTransactions) {
-                                Logger.debug("Invalid Transaction. Attempted to spend coinbase before maturity. " + transactionHash);
-                            }
-                            return false;
+                            final Json errorJson = _createInvalidTransactionReport("Attempted to spend coinbase before maturity.", transaction, transactionContext);
+                            return TransactionValidationResult.invalid(errorJson);
                         }
                     }
                 }
 
                 final TransactionOutput transactionOutputBeingSpent = _getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                 if (transactionOutputBeingSpent == null) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Transaction output does not exist: " + transactionOutputIdentifierBeingSpent);
-                        _logInvalidTransaction(blockHeight, transaction, transactionContext);
-                    }
-                    return false;
+                    final Json errorJson = _createInvalidTransactionReport("Transaction output does not exist.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
 
                 totalInputValue += transactionOutputBeingSpent.getAmount();
@@ -361,11 +327,8 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
                 if (! inputIsUnlocked) {
-                    if (_shouldLogInvalidTransactions) {
-                        Logger.debug("Transaction failed to verify: " + transactionHash);
-                        _logInvalidTransaction(blockHeight, transaction, transactionContext);
-                    }
-                    return false;
+                    final Json errorJson = _createInvalidTransactionReport("Transaction failed to unlock inputs.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
             }
 
@@ -378,15 +341,15 @@ public class TransactionValidatorCore implements TransactionValidator {
                 long totalOutputValue = 0L;
                 final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
                 if (transactionOutputs.isEmpty()) {
-                    Logger.debug("Transaction contains no outputs: " + transaction.getHash());
-                    return false;
+                    final Json errorJson = _createInvalidTransactionReport("Transaction contains no outputs.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
                 }
 
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                     final Long transactionOutputAmount = transactionOutput.getAmount();
                     if (transactionOutputAmount < 0L) {
-                        Logger.debug("TransactionOutput has negative amount: " + transaction.getHash());
-                        return false;
+                        final Json errorJson = _createInvalidTransactionReport("TransactionOutput has negative amount.", transaction, transactionContext);
+                        return TransactionValidationResult.invalid(errorJson);
                     }
                     totalOutputValue += transactionOutputAmount;
                 }
@@ -394,11 +357,20 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
 
             if (totalTransactionInputValue < totalTransactionOutputValue) {
-                Logger.debug("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ") Tx: " + transactionHash);
-                return false;
+                final Json errorJson = _createInvalidTransactionReport("Total TransactionInput value is less than the TransactionOutput value.", transaction, transactionContext);
+                return TransactionValidationResult.invalid(errorJson);
             }
         }
 
-        return true;
+        final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
+        if (HF20200515.isEnabled(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
+            final Integer maximumSignatureOperationCount = _getMaximumSignatureOperations();
+            if (signatureOperationCount > maximumSignatureOperationCount) {
+                final Json errorJson = _createInvalidTransactionReport("Transaction exceeds maximum signature operation count.", transaction, transactionContext);
+                return TransactionValidationResult.invalid(errorJson);
+            }
+        }
+
+        return TransactionValidationResult.valid(signatureOperationCount);
     }
 }

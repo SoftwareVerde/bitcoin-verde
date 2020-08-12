@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.bip.HF20200515;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
@@ -148,7 +149,7 @@ public class CryptographicOperation extends SubTypedOperation {
         return ( publicKey.isCompressed() || publicKey.isDecompressed() );
     }
 
-    protected Boolean _executeCheckSignature(final Stack stack, final TransactionContext transactionContext) {
+    protected Boolean _executeCheckSignature(final Stack stack, final MutableTransactionContext transactionContext) {
         final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_SIGNATURE;
 
         final Value publicKeyValue = stack.pop();
@@ -165,7 +166,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final Long blockHeight = transactionContext.getBlockHeight();
 
-        final Boolean signatureIsValid;
+        final boolean signatureIsValid;
         {
             final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
 
@@ -213,10 +214,19 @@ public class CryptographicOperation extends SubTypedOperation {
             stack.push(Value.fromBoolean(signatureIsValid));
         }
 
+        { // Enforce Signature operation counting...
+            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+            if (HF20200515.isEnabled(medianBlockTime)) {
+                if (! signatureValue.isEmpty()) {
+                    transactionContext.incrementSignatureOperationCount(1);
+                }
+            }
+        }
+
         return (! stack.didOverflow());
     }
 
-    protected Boolean _executeCheckMultiSignature(final Stack stack, final TransactionContext transactionContext) {
+    protected Boolean _executeCheckMultiSignature(final Stack stack, final MutableTransactionContext transactionContext) {
         // Unlike some other script methods, Stack::didOverflow is checked immediately since values can be popped a variable number of times;
         //  this helps to mitigate attack vectors that would otherwise capitalize on this effect.
 
@@ -251,7 +261,7 @@ public class CryptographicOperation extends SubTypedOperation {
             publicKeys = listBuilder.build();
         }
 
-        final Integer signatureCount;
+        final int signatureCount;
         {
             final Value signatureCountValue = stack.pop();
             if (stack.didOverflow()) { return false; }
@@ -488,10 +498,18 @@ public class CryptographicOperation extends SubTypedOperation {
             stack.push(Value.fromBoolean(signaturesAreValid));
         }
 
+        { // Enforce Signature operation counting...
+            if (HF20200515.isEnabled(medianBlockTime)) {
+                if (! allSignaturesWereEmpty) {
+                    transactionContext.incrementSignatureOperationCount(signatureCount);
+                }
+            }
+        }
+
         return (! stack.didOverflow());
     }
 
-    protected Boolean _executeCheckDataSignature(final Stack stack, final TransactionContext transactionContext) {
+    protected Boolean _executeCheckDataSignature(final Stack stack, final MutableTransactionContext transactionContext) {
         final Long blockHeight = transactionContext.getBlockHeight();
 
         final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_DATA_SIGNATURE;
@@ -546,6 +564,15 @@ public class CryptographicOperation extends SubTypedOperation {
         }
         else {
             stack.push(Value.fromBoolean(signatureIsValid));
+        }
+
+        { // Enforce Signature operation counting...
+            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+            if (HF20200515.isEnabled(medianBlockTime)) {
+                if (! signatureValue.isEmpty()) {
+                    transactionContext.incrementSignatureOperationCount(1);
+                }
+            }
         }
 
         return (! stack.didOverflow());

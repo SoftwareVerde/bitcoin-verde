@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -60,9 +61,8 @@ public class IntegratedWalletTests extends UnitTest {
         final MedianBlockTimeContext medianBlockTimeContext = new FakeStaticMedianBlockTimeContext(ImmutableMedianBlockTime.fromSeconds(1557325160L));
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
-        transactionValidator.setLoggingEnabled(true);
 
-        final Boolean transactionIsValid = transactionValidator.validateTransaction(581678L, transaction);
-        Assert.assertTrue(transactionIsValid);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(581678L, transaction);
+        Assert.assertTrue(transactionValidationResult.isValid);
     }
 }

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.bip.Bip34;
+import com.softwareverde.bitcoin.bip.HF20200515;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
@@ -8,7 +9,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
-import com.softwareverde.bitcoin.block.validator.thread.*;
+import com.softwareverde.bitcoin.block.validator.thread.ParalleledTaskSpawner;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
+import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
@@ -35,6 +41,7 @@ public class BlockValidator {
     public interface Context extends BlockHeaderValidator.Context, TransactionValidator.Context, TransactionValidatorFactory { }
 
     public static final Long DO_NOT_TRUST_BLOCKS = -1L;
+    public static final Integer MIN_BYTES_PER_SIGNATURE_OPERATION = 141;
 
     protected final Context _context;
 
@@ -98,10 +105,10 @@ public class BlockValidator {
         });
 
         final TransactionValidator transactionValidator = _context.getTransactionValidator(blockOutputs, _context);
-        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool);
-        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
+        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult>("Validation", threadPool);
+        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult>() {
             @Override
-            public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
+            public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> newInstance() {
                 return new TransactionValidationTaskHandler(blockHeight, transactionValidator);
             }
         });
@@ -120,8 +127,6 @@ public class BlockValidator {
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
-        // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
-        // TODO: Validate transaction does not appear twice within the same Block and Blockchain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
         // TODO: Create test for PreviousTransactionOutput being EmptyHash/-1 when not coinbase.
 
         { // Validate coinbase contains block height...
@@ -187,9 +192,9 @@ public class BlockValidator {
         }
         if (expenditureResults == null) { return BlockValidationResult.invalid("An internal error occurred during ExpenditureValidatorTask."); }
 
-        final List<TransactionValidationTaskHandler.TransactionValidationResult> unlockedInputsResults = transactionValidationTaskSpawner.waitForResults();
+        final List<TransactionValidationTaskHandler.TransactionValidationTaskResult> transactionValidationTaskResults = transactionValidationTaskSpawner.waitForResults();
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
-        if (unlockedInputsResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
+        if (transactionValidationTaskResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
 
         threadPool.stop();
 
@@ -210,12 +215,28 @@ public class BlockValidator {
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Invalid transactions expenditures.", invalidTransactions); }
 
-        for (final TransactionValidationTaskHandler.TransactionValidationResult transactionValidationResult : unlockedInputsResults) {
-            if (! transactionValidationResult.isValid) {
-                invalidTransactions.addAll(transactionValidationResult.invalidTransactions);
+        final int totalSignatureOperationCount;
+        {
+            int signatureOperationCount = 0;
+            for (final TransactionValidationTaskHandler.TransactionValidationTaskResult transactionValidationTaskResult : transactionValidationTaskResults) {
+                if (transactionValidationTaskResult.isValid) {
+                    signatureOperationCount += transactionValidationTaskResult.signatureOperationCount;
+                }
+                else {
+                    invalidTransactions.addAll(transactionValidationTaskResult.invalidTransactions);
+                }
             }
+            totalSignatureOperationCount = signatureOperationCount;
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Transactions failed to unlock inputs.", invalidTransactions); }
+
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
+        if (HF20200515.isEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
+            final int maximumSignatureOperationCount = (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
+            if (totalSignatureOperationCount > maximumSignatureOperationCount) {
+                return BlockValidationResult.invalid("Too many signature operations.");
+            }
+        }
 
         { // Validate coinbase amount...
             final Transaction coinbaseTransaction = block.getCoinbaseTransaction();

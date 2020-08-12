@@ -39,6 +39,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.signer.TransactionOutputRepository;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
@@ -274,8 +275,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
-                final Boolean isValid = transactionValidator.validateTransaction(3L, signedTransactionSpendingCoinbase);
-                Assert.assertTrue(isValid);
+                final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(3L, signedTransactionSpendingCoinbase);
+                Assert.assertTrue(transactionValidationResult.isValid);
             }
         }
 
@@ -502,8 +503,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
-                final Boolean isValid = transactionValidator.validateTransaction(3L, signedTransactionSpendingFakeBlock3aCoinbase);
-                Assert.assertTrue(isValid);
+                final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(3L, signedTransactionSpendingFakeBlock3aCoinbase);
+                Assert.assertTrue(transactionValidationResult.isValid);
             }
         }
 
@@ -663,13 +664,13 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 {
-                    final Boolean isValid = transactionValidator.validateTransaction(4L, signedTransactionSpendingBlock03CoinbaseA);
-                    Assert.assertTrue(isValid);
+                    final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(4L, signedTransactionSpendingBlock03CoinbaseA);
+                    Assert.assertTrue(transactionValidationResult.isValid);
                 }
 
                 {
-                    final Boolean isValid = transactionValidator.validateTransaction(4L, signedTransactionSpendingBlock03CoinbaseB);
-                    Assert.assertTrue(isValid);
+                    final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(4L, signedTransactionSpendingBlock03CoinbaseB);
+                    Assert.assertTrue(transactionValidationResult.isValid);
                 }
             }
         }

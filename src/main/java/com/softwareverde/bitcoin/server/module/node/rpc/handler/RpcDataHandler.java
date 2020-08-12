@@ -40,6 +40,7 @@ import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.list.List;
@@ -517,12 +518,9 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
                 transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
-                final Boolean isValidTransaction =  transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
-                if (! isValidTransaction) {
-                    return ValidationResult.invalid("Invalid Transaction.");
-                }
+                final TransactionValidationResult transactionValidationResult =  transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
 
-                if (enableSlpValidation) {
+                if (transactionValidationResult.isValid && enableSlpValidation) {
                     final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(databaseManager, null);
                     final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(databaseManager);
                     final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
@@ -533,7 +531,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     }
                 }
 
-                return ValidationResult.valid();
+                return transactionValidationResult;
             }
             finally {
                 TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated transaction...

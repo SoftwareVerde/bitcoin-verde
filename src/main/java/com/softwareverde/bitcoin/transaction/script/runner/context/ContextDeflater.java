@@ -16,6 +16,7 @@ public class ContextDeflater {
         json.put("currentScript", transactionContext.getCurrentScript());
         json.put("scriptIndex", transactionContext.getScriptIndex());
         json.put("scriptLastCodeSeparatorIndex", transactionContext.getScriptLastCodeSeparatorIndex());
+        json.put("signatureOperationCount", transactionContext.getSignatureOperationCount());
 
         return json;
     }

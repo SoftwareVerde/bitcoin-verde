@@ -47,4 +47,9 @@ public interface TransactionContext extends Constable<ImmutableTransactionContex
      *  Context.getScriptLastCodeSeparatorIndex() will return: 3
      */
     Integer getScriptLastCodeSeparatorIndex();
+
+    /**
+     * Returns the total number of Signature operations executed thus far, as defined by HF20200515.
+     */
+    Integer getSignatureOperationCount();
 }

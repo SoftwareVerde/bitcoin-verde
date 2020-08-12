@@ -55,10 +55,10 @@ public class TransactionValidatorTests extends UnitTest {
         final Long blockHeight = 100000L;
 
         // Action
-        final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(blockHeight, transaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(blockHeight, transaction);
 
         // Assert
-        Assert.assertTrue(outputsAreUnlocked);
+        Assert.assertTrue(transactionValidationResult.isValid);
     }
 
     @Test
@@ -96,10 +96,10 @@ public class TransactionValidatorTests extends UnitTest {
         final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
-        final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(1L, signedTransaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(1L, signedTransaction);
 
         // Assert
-        Assert.assertTrue(outputsAreUnlocked);
+        Assert.assertTrue(transactionValidationResult.isValid);
     }
 
     @Test
@@ -138,10 +138,10 @@ public class TransactionValidatorTests extends UnitTest {
         final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
-        final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(1L, signedTransaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(1L, signedTransaction);
 
         // Assert
-        Assert.assertFalse(outputsAreUnlocked);
+        Assert.assertFalse(transactionValidationResult.isValid);
     }
 
     @Test
@@ -182,10 +182,10 @@ public class TransactionValidatorTests extends UnitTest {
         final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
-        final Boolean outputsAreUnlocked = transactionValidator.validateTransaction(1L, signedTransaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(1L, signedTransaction);
 
         // Assert
-        Assert.assertFalse(outputsAreUnlocked);
+        Assert.assertFalse(transactionValidationResult.isValid);
     }
 
     @Test
@@ -222,10 +222,10 @@ public class TransactionValidatorTests extends UnitTest {
         final Transaction signedTransaction = TransactionTestUtil.signTransaction(transactionOutputRepository, unsignedTransaction, privateKey);
 
         // Action
-        final Boolean isValid = transactionValidator.validateTransaction(1L, signedTransaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(1L, signedTransaction);
 
         // Assert
-        Assert.assertFalse(isValid);
+        Assert.assertFalse(transactionValidationResult.isValid);
     }
 
     @Test
@@ -269,9 +269,9 @@ public class TransactionValidatorTests extends UnitTest {
         }
 
         // Action
-        final Boolean doubleSpendIsValid = transactionValidator.validateTransaction(2L, signedTransaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(2L, signedTransaction);
 
         // Assert
-        Assert.assertFalse(doubleSpendIsValid);
+        Assert.assertFalse(transactionValidationResult.isValid);
     }
 }

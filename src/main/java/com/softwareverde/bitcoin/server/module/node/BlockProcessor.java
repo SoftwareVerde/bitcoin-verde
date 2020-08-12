@@ -43,6 +43,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.pool.SimpleThreadPool;
 import com.softwareverde.constable.list.List;
@@ -431,14 +432,13 @@ public class BlockProcessor {
                 final MedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(newHeadBlockchainSegmentId, databaseManager);
                 final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, reorgUnspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = _context.getTransactionValidator(reorgBlockOutputs, transactionValidatorContext);
-                transactionValidator.setLoggingEnabled(false);
 
                 final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
                 final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>();
                 for (final TransactionId transactionId : transactionIds) {
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction((blockHeight + 1L), transaction);
-                    if (! transactionIsValid) {
+                    final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction((blockHeight + 1L), transaction);
+                    if (! transactionValidationResult.isValid) {
                         transactionsToRemove.add(transactionId);
                     }
                 }

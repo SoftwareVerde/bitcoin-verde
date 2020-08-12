@@ -1026,12 +1026,11 @@ public class HistoricTransactionsTests {
         final MasterInflater masterInflater = new CoreInflater();
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
-        transactionValidator.setLoggingEnabled(true);
 
         // Action
-        final Boolean shouldValidateLockTime = transactionValidator.validateTransaction(563378L, transaction);
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(563378L, transaction);
 
         // Assert
-        Assert.assertTrue(shouldValidateLockTime);
+        Assert.assertTrue(transactionValidationResult.isValid);
     }
 }
