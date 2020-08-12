@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -62,13 +63,14 @@ public class TransactionProcessorTests extends IntegrationTest {
 
         // Setup
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+        final TransactionInflaters transactionInflaters = _masterInflater;
         final AddressInflater addressInflater = new AddressInflater();
         final FakeBlockStore blockStore = new FakeBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
         final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
@@ -181,7 +183,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         }
 
         final MutableList<Transaction> processedTransactions = new MutableList<Transaction>();
-        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_fullNodeDatabaseManagerFactory, new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory);
+        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(transactionInflaters, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory);
         final TransactionProcessor transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
             @Override

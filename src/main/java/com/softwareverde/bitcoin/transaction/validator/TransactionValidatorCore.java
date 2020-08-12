@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -251,11 +252,11 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         transactionContext.setTransaction(transaction);
 
-        { // Validate Transaction Byte Count...
+        { // Enforce Transaction minimum byte count...
             if ( (HF20181115.isEnabled(blockHeight)) && (! HF20181115SV.isEnabled(blockHeight)) ) {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final TransactionDeflater transactionDeflater = _context.getTransactionDeflater();
                 final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
-                if (transactionByteCount < 100) {
+                if (transactionByteCount < TransactionInflater.MIN_BYTE_COUNT) {
                     if (_shouldLogInvalidTransactions) {
                         Logger.debug("Invalid Transaction Byte Count: " + transactionByteCount + " " + transactionHash);
                     }

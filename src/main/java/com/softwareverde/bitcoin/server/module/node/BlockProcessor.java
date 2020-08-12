@@ -18,9 +18,10 @@ import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
-import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -57,7 +58,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
-    public interface Context extends BlockInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory { }
+    public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory { }
 
     protected final Context _context;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
@@ -279,8 +280,9 @@ public class BlockProcessor {
             {
                 final BlockValidator blockValidator;
                 {
+                    final TransactionInflaters transactionInflaters = _context;
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputContext, _transactionValidatorFactory, databaseManager, networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputContext, _transactionValidatorFactory, databaseManager, networkTime);
                     blockValidatorContext.loadBlock(blockHeight, blockId, block);
                     blockValidator = new BlockValidator(blockValidatorContext);
                 }
@@ -425,8 +427,9 @@ public class BlockProcessor {
                     reorgBlockOutputs = BlockOutputs.fromBlock(block);
                 }
 
+                final TransactionInflaters transactionInflaters = _context;
                 final MedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(newHeadBlockchainSegmentId, databaseManager);
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, reorgUnspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, reorgUnspentTransactionOutputContext);
                 final TransactionValidator transactionValidator = _context.getTransactionValidator(reorgBlockOutputs, transactionValidatorContext);
                 transactionValidator.setLoggingEnabled(false);
 

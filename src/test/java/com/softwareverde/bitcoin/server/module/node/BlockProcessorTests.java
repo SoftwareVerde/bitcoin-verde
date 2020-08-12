@@ -55,7 +55,7 @@ public class BlockProcessorTests extends IntegrationTest {
         public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
 
-        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _transactionValidatorFactory) {
+        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _transactionValidatorFactory) {
             @Override
             public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
                 return new TransactionValidatorCore(blockOutputs, transactionValidatorContext) {

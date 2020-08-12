@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -15,6 +16,8 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
@@ -24,6 +27,7 @@ import com.softwareverde.util.type.time.SystemTime;
 
 public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownloader.Context, BlockHeaderDownloader.Context, BlockProcessor.Context, PendingBlockLoader.Context, TransactionProcessor.Context {
     protected final BlockInflaters _blockInflaters;
+    protected final TransactionInflaters _transactionInflaters;
     protected final PendingBlockStore _blockStore;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _nodeManager;
@@ -33,8 +37,9 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     protected final ThreadPool _threadPool;
     protected final VolatileNetworkTime _networkTime;
 
-    public NodeModuleContext(final BlockInflaters blockInflaters, final PendingBlockStore pendingBlockStore, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager nodeManager, final SynchronizationStatus synchronizationStatus, final MedianBlockTime medianBlockTime, final SystemTime systemTime, final ThreadPool threadPool, final VolatileNetworkTime networkTime) {
+    public NodeModuleContext(final BlockInflaters blockInflaters, final TransactionInflaters transactionInflaters, final PendingBlockStore pendingBlockStore, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager nodeManager, final SynchronizationStatus synchronizationStatus, final MedianBlockTime medianBlockTime, final SystemTime systemTime, final ThreadPool threadPool, final VolatileNetworkTime networkTime) {
         _blockInflaters = blockInflaters;
+        _transactionInflaters = transactionInflaters;
         _blockStore = pendingBlockStore;
         _databaseManagerFactory = databaseManagerFactory;
         _nodeManager = nodeManager;
@@ -98,5 +103,15 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     @Override
     public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
         return new TransactionValidatorCore(blockOutputs, transactionValidatorContext);
+    }
+
+    @Override
+    public TransactionInflater getTransactionInflater() {
+        return _transactionInflaters.getTransactionInflater();
+    }
+
+    @Override
+    public TransactionDeflater getTransactionDeflater() {
+        return _transactionInflaters.getTransactionDeflater();
     }
 }

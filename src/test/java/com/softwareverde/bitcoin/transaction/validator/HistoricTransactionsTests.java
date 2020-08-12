@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.fake.VolatileNetworkTimeWrapper;
@@ -656,7 +658,8 @@ public class HistoricTransactionsTests {
         final FakeMedianBlockTimeContext medianBlockTimeContext = new FakeMedianBlockTimeContext();
         medianBlockTimeContext.setMedianBlockTime(testConfig.blockHeight, medianBlockTime);
 
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, null);
+        final MasterInflater masterInflater = new CoreInflater();
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, null);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         // Action
@@ -1020,7 +1023,8 @@ public class HistoricTransactionsTests {
         medianBlockTimeContext.setMedianBlockTime(563367L, ImmutableMedianBlockTime.fromSeconds(1546313962L));
         medianBlockTimeContext.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
 
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(networkTime, medianBlockTimeContext, unspentTransactionOutputContext);
+        final MasterInflater masterInflater = new CoreInflater();
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
         transactionValidator.setLoggingEnabled(true);
 

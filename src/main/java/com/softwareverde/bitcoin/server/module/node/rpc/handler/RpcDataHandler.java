@@ -12,11 +12,12 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
-import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -51,6 +52,7 @@ import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
+    protected final TransactionInflaters _transactionInflaters;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
@@ -84,7 +86,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return returnedTransactions;
     }
 
-    public RpcDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
+    public RpcDataHandler(final TransactionInflaters transactionInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
+        _transactionInflaters = transactionInflaters;
         _databaseManagerFactory = databaseManagerFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
 
@@ -479,7 +482,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet();
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }
@@ -505,7 +508,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final CachingMedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(blockchainSegmentId, databaseManager);
             final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
-            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_transactionInflaters, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             try {

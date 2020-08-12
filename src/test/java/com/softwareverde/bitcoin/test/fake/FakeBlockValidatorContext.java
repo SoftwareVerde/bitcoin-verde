@@ -1,11 +1,15 @@
 package com.softwareverde.bitcoin.test.fake;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
@@ -17,12 +21,19 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import java.util.HashMap;
 
 public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputContext implements BlockValidator.Context {
+    protected final TransactionInflaters _transactionInflaters;
     protected final VolatileNetworkTime _networkTime;
     protected final HashMap<Long, BlockHeader> _blocks = new HashMap<Long, BlockHeader>();
     protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
 
     public FakeBlockValidatorContext(final NetworkTime networkTime) {
+        _transactionInflaters = new CoreInflater();
+        _networkTime = VolatileNetworkTimeWrapper.wrap(networkTime);
+    }
+
+    public FakeBlockValidatorContext(final TransactionInflaters transactionInflaters, final NetworkTime networkTime) {
+        _transactionInflaters = transactionInflaters;
         _networkTime = VolatileNetworkTimeWrapper.wrap(networkTime);
     }
 
@@ -86,5 +97,15 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
         return new TransactionValidatorCore(blockOutputs, transactionValidatorContext);
+    }
+
+    @Override
+    public TransactionInflater getTransactionInflater() {
+        return _transactionInflaters.getTransactionInflater();
+    }
+
+    @Override
+    public TransactionDeflater getTransactionDeflater() {
+        return _transactionInflaters.getTransactionDeflater();
     }
 }

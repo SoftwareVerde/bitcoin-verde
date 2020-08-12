@@ -55,7 +55,7 @@ public class BlockValidatorContextTests extends IntegrationTest {
 
         final MedianBlockTime medianBlockTime;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(blockchainSegmentId, null, null, databaseManager, null);
+            final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, null, null, databaseManager, null);
             medianBlockTime = blockValidatorContext.getMedianBlockTime(478581L);
         }
 

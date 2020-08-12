@@ -1,8 +1,10 @@
 package com.softwareverde.bitcoin.wallet;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
@@ -45,7 +47,8 @@ public class IntegratedWalletTests extends UnitTest {
 
         final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
 
-        final TransactionInflater transactionInflater = new TransactionInflater();
+        final MasterInflater masterInflater = new CoreInflater();
+        final TransactionInflater transactionInflater = masterInflater.getTransactionInflater();
         for (final String transactionString : transactionHexStrings) {
             final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionString));
             unspentTransactionOutputContext.addTransaction(transaction, null, null, false);
@@ -55,7 +58,7 @@ public class IntegratedWalletTests extends UnitTest {
         final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
 
         final MedianBlockTimeContext medianBlockTimeContext = new FakeStaticMedianBlockTimeContext(ImmutableMedianBlockTime.fromSeconds(1557325160L));
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext);
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext);
         final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
         transactionValidator.setLoggingEnabled(true);
 
