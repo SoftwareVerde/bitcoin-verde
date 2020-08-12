@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class BlockMessage extends BitcoinProtocolMessage {
 
@@ -28,6 +29,10 @@ public class BlockMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
+        if (_block == null) {
+            return new MutableByteArray(0);
+        }
+
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         return blockDeflater.toBytes(_block);
     }
