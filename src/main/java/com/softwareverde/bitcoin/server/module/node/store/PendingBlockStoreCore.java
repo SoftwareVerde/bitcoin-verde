@@ -35,6 +35,11 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         return (blockHeightDirectory + "/" + blockHash);
     }
 
+    protected void _deletePendingBlockData(final String blockPath) {
+        final File file = new File(blockPath);
+        file.delete();
+    }
+
     public PendingBlockStoreCore(final String blockDataDirectory, final String pendingBlockDataDirectory, final BlockInflaters blockInflaters) {
         super(blockDataDirectory, blockInflaters);
         _pendingBlockDataDirectory = pendingBlockDataDirectory;
@@ -78,9 +83,7 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
 
         if (! IoUtil.fileExists(blockPath)) { return; }
 
-        // TODO: Uncomment for release.
-        // final File file = new File(blockPath);
-        // file.delete();
+        _deletePendingBlockData(blockPath);
     }
 
     @Override

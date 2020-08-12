@@ -201,6 +201,13 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
+                { // Set Log Level...
+                    final LogLevel logLevel = bitcoinProperties.getLogLevel();
+                    if (logLevel != null) {
+                        Logger.setLogLevel(logLevel);
+                    }
+                }
+
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties, new Runnable() {
                     @Override

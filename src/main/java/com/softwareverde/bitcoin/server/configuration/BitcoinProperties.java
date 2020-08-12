@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.util.Util;
 
 public class BitcoinProperties {
@@ -27,6 +28,8 @@ public class BitcoinProperties {
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
     protected Boolean _shouldRelayInvalidSlpTransactions;
+    protected Boolean _deletePendingBlocksIsEnabled;
+    protected LogLevel _logLevel;
 
     public Integer getBitcoinPort() { return _bitcoinPort; }
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -37,6 +40,8 @@ public class BitcoinProperties {
     public Integer getMaxThreadCount() { return _maxThreadCount; }
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
     public Boolean skipNetworking() { return _shouldSkipNetworking; }
+    public Boolean isDeletePendingBlocksEnabled() { return _deletePendingBlocksIsEnabled; }
+    public LogLevel getLogLevel() { return _logLevel; }
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     public Long getMaxCachedUtxoCount() {

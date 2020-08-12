@@ -83,7 +83,7 @@ public class DifficultyCalculator {
         final long secondsInTwelveHours = 43200L;
 
         if ( (medianBlockTime == null) || (medianBlockTimeForSixthBlock == null) ) {
-            Logger.warn("Unable to calculate difficulty for Block height: " + forBlockHeight);
+            Logger.debug("Unable to calculate difficulty for Block height: " + forBlockHeight);
             return null;
         }
 
@@ -96,7 +96,7 @@ public class DifficultyCalculator {
                 return minimumDifficulty;
             }
 
-            Logger.info("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
+            Logger.debug("Emergency Difficulty Adjustment: BlockHeight: " + forBlockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
             return newDifficulty;
         }
 

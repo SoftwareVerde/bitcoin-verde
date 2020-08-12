@@ -323,7 +323,14 @@ public class NodeModule {
         { // Initialize the BlockCache...
             final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
             final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
-            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, _masterInflater);
+            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, _masterInflater) {
+                @Override
+                protected void _deletePendingBlockData(final String blockPath) {
+                    if (bitcoinProperties.isDeletePendingBlocksEnabled()) {
+                        super._deletePendingBlockData(blockPath);
+                    }
+                }
+            };
         }
 
         _bitcoinProperties = bitcoinProperties;
