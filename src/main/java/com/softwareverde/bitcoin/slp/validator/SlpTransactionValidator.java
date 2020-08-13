@@ -161,7 +161,7 @@ public class SlpTransactionValidator {
             final Transaction previousTransaction = previousTransactions.get(previousTransactionHash);
             if (previousTransaction == null) {
                 Logger.debug("Could not find previous Transaction: " + previousTransactionHash);
-                return false; // TODO: Decide: continue or return false
+                return false;
             }
 
             final SlpScript previousTransactionSlpScript = _getSlpScript(previousTransaction);

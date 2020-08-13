@@ -71,7 +71,7 @@ class ValidationTask<T, S> implements Runnable {
             }
 
             batchTimer.stop();
-            Logger.info(_name + " completed batch. " + _startIndex + " - " + (_startIndex + _itemCount - 1) + ". " + _itemCount + " in " + batchTimer.getMillisecondsElapsed() + "ms.");
+            Logger.trace(_name + " completed batch. " + _startIndex + " - " + (_startIndex + _itemCount - 1) + ". " + _itemCount + " in " + batchTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 

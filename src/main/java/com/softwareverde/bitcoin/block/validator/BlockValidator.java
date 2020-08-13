@@ -127,8 +127,6 @@ public class BlockValidator {
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
-        // TODO: Create test for PreviousTransactionOutput being EmptyHash/-1 when not coinbase.
-
         { // Validate coinbase contains block height...
             if (Bip34.isEnabled(blockHeight)) {
                 final Long blockVersion = block.getVersion();
