@@ -911,7 +911,7 @@ public class Wallet {
         Logger.debug(signedTransaction.getHash());
         Logger.debug(transactionDeflater.toBytes(signedTransaction));
 
-        final Integer transactionByteCount = transactionDeflater.getByteCount(signedTransaction);
+        final Integer transactionByteCount = signedTransaction.getByteCount();
 
         if (feesContainer.value < (transactionByteCount * _satoshisPerByteFee)) {
             Logger.info("Failed to create a transaction with sufficient fee...");

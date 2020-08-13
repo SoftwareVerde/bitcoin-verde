@@ -239,8 +239,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         { // Enforce Transaction minimum byte count...
             if ( (HF20181115.isEnabled(blockHeight)) && (! HF20181115SV.isEnabled(blockHeight)) ) {
-                final TransactionDeflater transactionDeflater = _context.getTransactionDeflater();
-                final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
+                final Integer transactionByteCount = transaction.getByteCount();
                 if (transactionByteCount < TransactionInflater.MIN_BYTE_COUNT) {
                     final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);

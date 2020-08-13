@@ -19,6 +19,8 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class MutableBlock extends AbstractBlockHeader implements Block {
+    protected static final BlockDeflater DEFAULT_BLOCK_DEFLATER = new BlockDeflater();
+
     protected final BlockDeflater _blockDeflater;
     protected final MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<Transaction>();
     protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
@@ -48,13 +50,13 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
     }
 
     public MutableBlock() {
-        _blockDeflater = new BlockDeflater();
+        _blockDeflater = DEFAULT_BLOCK_DEFLATER;
         _merkleRoot = null;
     }
 
     public MutableBlock(final BlockHeader blockHeader) {
         super(blockHeader);
-        _blockDeflater = new BlockDeflater();
+        _blockDeflater = DEFAULT_BLOCK_DEFLATER;
         _merkleRoot = null;
     }
 
@@ -64,7 +66,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
 
     public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
-        _blockDeflater = new BlockDeflater();
+        _blockDeflater = DEFAULT_BLOCK_DEFLATER;
 
         if (transactions != null) {
             for (final Transaction transaction : transactions) {
@@ -262,5 +264,10 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         final int hashCode = super.hashCode();
         _cachedHashCode = hashCode;
         return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        return super.equals(object);
     }
 }

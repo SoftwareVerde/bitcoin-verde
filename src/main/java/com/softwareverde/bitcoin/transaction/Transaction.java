@@ -99,6 +99,8 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     Boolean matches(BloomFilter bloomFilter);
     CoinbaseTransaction asCoinbase();
 
+    Integer getByteCount();
+
     @Override
     ImmutableTransaction asConst();
 }

@@ -21,7 +21,6 @@ import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -101,9 +100,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
-        final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
-
+        final Integer transactionByteCount = transaction.getByteCount();
         final Long transactionId = databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)")
                 .setParameter(transactionHash)
@@ -619,7 +616,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     @Override
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
 
         final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(1024);
         batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
@@ -629,7 +625,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
                 for (final Transaction transaction : transactionsBatch) {
                     final Sha256Hash transactionHash = transaction.getHash();
-                    final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
+                    final Integer transactionByteCount = transaction.getByteCount();
 
                     batchedInsertQuery.setParameter(transactionHash);
                     batchedInsertQuery.setParameter(transactionByteCount);

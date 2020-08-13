@@ -19,6 +19,8 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
+    protected static final BlockDeflater DEFAULT_BLOCK_DEFLATER = new BlockDeflater();
+
     protected final BlockDeflater _blockDeflater;
     protected final List<Transaction> _transactions;
     protected MerkleTree<Transaction> _merkleTree = null;
@@ -55,7 +57,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     }
 
     public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
-        this(blockHeader, transactions, new BlockDeflater());
+        this(blockHeader, transactions, DEFAULT_BLOCK_DEFLATER);
     }
 
     public ImmutableBlock(final Block block) {
@@ -165,8 +167,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public Json toJson() {
-        final BlockDeflater blockDeflater = new BlockDeflater();
-        return blockDeflater.toJson(this);
+        return _blockDeflater.toJson(this);
     }
 
     @Override
@@ -177,5 +178,10 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
         final int hashCode = super.hashCode();
         _cachedHashCode = hashCode;
         return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        return super.equals(object);
     }
 }

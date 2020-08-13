@@ -13,24 +13,40 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
 import com.softwareverde.security.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class ImmutableTransaction implements Transaction, Const {
+    protected static final TransactionDeflater DEFAULT_TRANSACTION_DEFLATER = new TransactionDeflater();
+
+    protected final TransactionDeflater _transactionDeflater;
     protected final ImmutableSha256Hash _hash;
     protected final Long _version;
     protected final List<ImmutableTransactionInput> _transactionInputs;
     protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
 
-    protected Integer _cachedHashCode;
+    protected Integer _cachedByteCount = null;
+    protected Integer _cachedHashCode = null;
 
-    public ImmutableTransaction(final Transaction transaction) {
-        _hash = transaction.getHash().asConst();
+    protected Integer _calculateByteCount() {
+        return _transactionDeflater.getByteCount(this);
+    }
+
+    protected ImmutableTransaction(final TransactionDeflater transactionDeflater, final Transaction transaction) {
+        _transactionDeflater = transactionDeflater;
+
+        final Sha256Hash hash = transaction.getHash();
+        _hash = hash.asConst();
         _version = transaction.getVersion();
         _lockTime = transaction.getLockTime().asConst();
 
         _transactionInputs = ImmutableListBuilder.newConstListOfConstItems(transaction.getTransactionInputs());
         _transactionOutputs = ImmutableListBuilder.newConstListOfConstItems(transaction.getTransactionOutputs());
+    }
+
+    public ImmutableTransaction(final Transaction transaction) {
+        this(DEFAULT_TRANSACTION_DEFLATER, transaction);
     }
 
     @Override
@@ -79,6 +95,16 @@ public class ImmutableTransaction implements Transaction, Const {
     }
 
     @Override
+    public Integer getByteCount() {
+        final Integer cachedByteCount = _cachedByteCount;
+        if (cachedByteCount != null) { return cachedByteCount; }
+
+        final Integer byteCount = _calculateByteCount();
+        _cachedByteCount = byteCount;
+        return byteCount;
+    }
+
+    @Override
     public ImmutableTransaction asConst() {
         return this;
     }
@@ -94,8 +120,9 @@ public class ImmutableTransaction implements Transaction, Const {
         final Integer cachedHashCode = _cachedHashCode;
         if (cachedHashCode != null) { return cachedHashCode; }
 
-        _cachedHashCode = _hash.hashCode();
-        return _cachedHashCode;
+        final int hashCode = _hash.hashCode();
+        _cachedHashCode = hashCode;
+        return hashCode;
     }
 
     @Override
