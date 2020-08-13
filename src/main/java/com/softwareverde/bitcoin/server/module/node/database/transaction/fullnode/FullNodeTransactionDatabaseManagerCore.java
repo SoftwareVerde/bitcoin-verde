@@ -565,23 +565,37 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Long calculateTransactionFee(final Transaction transaction) throws DatabaseException {
-        // TODO: Optimize.
-
         long totalInputAmount = 0L;
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-            final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
-            if (previousTransactionId == null) { return null; }
+        {
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            final int transactionInputCount = transactionInputs.getCount();
+            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<Sha256Hash, Transaction>(transactionInputCount / 2);
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
 
-            final Transaction previousTransaction = _getTransaction(previousTransactionId, true);
-            if (previousTransaction == null) { return null; }
+                final Transaction previousTransaction;
+                {
+                    final Transaction cachedTransaction = cachedTransactions.get(previousTransactionHash);
+                    if (cachedTransaction != null) {
+                        previousTransaction = cachedTransaction;
+                    }
+                    else {
+                        final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
+                        if (previousTransactionId == null) { return null; }
 
-            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
-            final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
-            if (previousTransactionOutputIndex >= previousTransactionOutputs.getCount()) { return null; }
+                        previousTransaction = _getTransaction(previousTransactionId, true);
+                        if (previousTransaction == null) { return null; }
+                        cachedTransactions.put(previousTransactionHash, previousTransaction);
+                    }
+                }
 
-            final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
-            totalInputAmount += previousTransactionOutput.getAmount();
+                final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
+                final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
+                if (previousTransactionOutputIndex >= previousTransactionOutputs.getCount()) { return null; }
+
+                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
+                totalInputAmount += previousTransactionOutput.getAmount();
+            }
         }
 
         final Long totalOutputValue = transaction.getTotalOutputValue();

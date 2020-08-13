@@ -34,6 +34,8 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
+import java.util.HashMap;
+
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -98,32 +100,39 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
 
         { // Process TransactionInputs...
-            Integer transactionInputIndex = 0;
+            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<Sha256Hash, Transaction>(8);
+
+            int transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-//                final TransactionOutputId previousTransactionOutputId;
-//                {
-//                    if (previousOutputTransactionHash != null) {
-//                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
-//                        previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
-//
-//                        if (previousTransactionOutputId == null) {
-//                            Logger.warn("Error calculating fee for Transaction: " + transactionHashString);
-//                        }
-//                    }
-//                    else {
-//                        previousTransactionOutputId = null;
-//                    }
-//                }
-//
-//                if (previousTransactionOutputId == null) {
-//                    transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
-//                }
-//
-//                final TransactionOutput previousTransactionOutput = ( previousTransactionOutputId != null ? transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId) : null );
-                final TransactionOutput previousTransactionOutput = null;
-                final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
+                final Transaction previousTransaction;
+                {
+                    final Transaction cachedTransaction = cachedTransactions.get(previousOutputTransactionHash);
+                    if (cachedTransaction != null) {
+                        previousTransaction = cachedTransaction;
+                    }
+                    else {
+                        final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
+                        previousTransaction = (previousOutputTransactionId != null ? transactionDatabaseManager.getTransaction(previousOutputTransactionId) : null);
+                        cachedTransactions.put(previousOutputTransactionHash, previousTransaction);
+                    }
+                }
 
+                if (previousTransaction == null) {
+                    transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
+                }
+
+                final TransactionOutput previousTransactionOutput;
+                if (previousTransaction != null) {
+                    final List<TransactionOutput> previousOutputs = previousTransaction.getTransactionOutputs();
+                    final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
+                    previousTransactionOutput = previousOutputs.get(previousOutputIndex);
+                }
+                else {
+                    previousTransactionOutput = null;
+                }
+
+                final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
                 if (transactionFee != null) {
                     transactionFee += Util.coalesce(previousTransactionOutputAmount);
                 }
@@ -150,19 +159,19 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 transactionInputJson.put("cashAddress", cashAddressString);
 
                 if (hasSlpData && Util.coalesce(isSlpValid, false)) {
-                    final TransactionId previousTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
-                    final Transaction previousTransaction = transactionDatabaseManager.getTransaction(previousTransactionId);
                     final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
 
-                    final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
-                    if (isSlpOutput) {
-                        final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
-                        final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(previousTransaction, previousOutputIndex);
+                    if (previousTransaction != null) {
+                        final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
+                        if (isSlpOutput) {
+                            final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
+                            final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(previousTransaction, previousOutputIndex);
 
-                        final Json slpOutputJson = new Json(false);
-                        slpOutputJson.put("tokenAmount", slpTokenAmount);
-                        slpOutputJson.put("isBaton",isSlpBatonOutput);
-                        transactionInputJson.put("slp", slpOutputJson);
+                            final Json slpOutputJson = new Json(false);
+                            slpOutputJson.put("tokenAmount", slpTokenAmount);
+                            slpOutputJson.put("isBaton", isSlpBatonOutput);
+                            transactionInputJson.put("slp", slpOutputJson);
+                        }
                     }
                 }
 
