@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
@@ -51,12 +50,15 @@ public class TransactionInflater {
 
         if (byteArrayReader.didOverflow()) { return null; }
 
+        final int totalByteCount;
         { // Enforce maximum transaction size...
             // NOTE: At this point, the bytes are already in memory and limited by the PacketBuffer max size, so incremental checks are not performed.
             final Integer endPosition = byteArrayReader.getPosition();
-            final int totalByteCount = (endPosition - startPosition);
+            totalByteCount = (endPosition - startPosition);
             if (totalByteCount > TransactionInflater.MAX_BYTE_COUNT) { return null; }
         }
+
+        transaction.cacheByteCount(totalByteCount);
 
         return transaction;
     }

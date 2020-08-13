@@ -16,6 +16,12 @@ import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class MutableTransaction implements Transaction {
+    /**
+     * NOTE: Math with Satoshis
+     *  The maximum number of satoshis is 210,000,000,000,000, which is less than the value a Java Long can hold.
+     *  Therefore, using BigInteger is not be necessary any non-multiplicative transaction calculation.
+     */
+
     protected static final TransactionHasher DEFAULT_TRANSACTION_HASHER = new TransactionHasher();
     protected static final TransactionDeflater DEFAULT_TRANSACTION_DEFLATER = new TransactionDeflater();
 
@@ -40,11 +46,9 @@ public class MutableTransaction implements Transaction {
         return _transactionDeflater.getByteCount(this);
     }
 
-    /**
-     * NOTE: Math with Satoshis
-     *  The maximum number of satoshis is 210,000,000,000,000, which is less than the value a Java Long can hold.
-     *  Therefore, using BigInteger is not be necessary any non-multiplicative transaction calculation.
-     */
+    protected void cacheByteCount(final Integer byteCount) {
+        _cachedByteCount = byteCount;
+    }
 
     protected MutableTransaction(final TransactionHasher transactionHasher, final TransactionDeflater transactionDeflater) {
         _transactionHasher = transactionHasher;
