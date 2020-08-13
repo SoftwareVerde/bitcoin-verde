@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
@@ -366,17 +367,31 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     @Override
     public TransactionId storeUnconfirmedTransaction(final Transaction transaction) throws DatabaseException {
         final TransactionId transactionId = _storeTransactionHash(transaction);
-        _storeUnconfirmedTransaction(transactionId, transaction);
+
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            _storeUnconfirmedTransaction(transactionId, transaction);
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+        }
         return transactionId;
     }
 
     @Override
     public List<TransactionId> storeUnconfirmedTransactions(final List<Transaction> transactions) throws DatabaseException {
+
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
         final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getCount());
-        for (final Transaction transaction : transactions) {
-            final TransactionId transactionId = _storeTransactionHash(transaction);
-            _storeUnconfirmedTransaction(transactionId, transaction);
-            transactionIds.add(transactionId);
+        try {
+            for (final Transaction transaction : transactions) {
+                final TransactionId transactionId = _storeTransactionHash(transaction);
+                _storeUnconfirmedTransaction(transactionId, transaction);
+                transactionIds.add(transactionId);
+            }
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
         }
         return transactionIds;
     }
@@ -388,7 +403,13 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             throw new DatabaseException("Unable to load transaction: " + transactionId);
         }
 
-        _storeUnconfirmedTransaction(transactionId, transaction);
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            _storeUnconfirmedTransaction(transactionId, transaction);
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+        }
     }
 
     @Override
@@ -404,42 +425,74 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactions.add(transaction);
         }
 
-        for (int i = 0; i < transactions.getCount(); ++i) {
-            final TransactionId transactionId = transactionIds.get(i);
-            final Transaction transaction = transactions.get(i);
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            for (int i = 0; i < transactions.getCount(); ++i) {
+                final TransactionId transactionId = transactionIds.get(i);
+                final Transaction transaction = transactions.get(i);
 
-            _storeUnconfirmedTransaction(transactionId, transaction);
+                _storeUnconfirmedTransaction(transactionId, transaction);
+            }
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
         }
     }
 
     @Override
     public void removeFromUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
-        _deleteFromUnconfirmedTransactions(transactionId);
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            _deleteFromUnconfirmedTransactions(transactionId);
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+        }
     }
 
     @Override
     public void removeFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
-        _deleteFromUnconfirmedTransactions(transactionIds);
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            _deleteFromUnconfirmedTransactions(transactionIds);
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+        }
     }
 
     @Override
     public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ? LIMIT 1")
-                .setParameter(transactionId)
-        );
-        return (! rows.isEmpty());
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
+        final java.util.List<Row> rows;
+        try {
+            rows = databaseConnection.query(
+                new Query("SELECT 1 FROM unconfirmed_transactions WHERE transaction_id = ? LIMIT 1")
+                    .setParameter(transactionId)
+            );
+            return (!rows.isEmpty());
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
+        }
     }
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT transaction_id FROM unconfirmed_transactions")
-        );
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
+        final java.util.List<Row> rows;
+        try {
+            rows = databaseConnection.query(
+                new Query("SELECT transaction_id FROM unconfirmed_transactions")
+            );
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
+        }
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
         for (final Row row : rows) {
@@ -462,12 +515,17 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
         }
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query(
-                "SELECT transaction_id FROM unconfirmed_transaction_inputs WHERE (previous_transaction_hash, previous_transaction_output_index) IN (?)"
-            )
-                .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-        );
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
+        final java.util.List<Row> rows;
+        try {
+            rows = databaseConnection.query(
+                new Query("SELECT transaction_id FROM unconfirmed_transaction_inputs WHERE (previous_transaction_hash, previous_transaction_output_index) IN (?)")
+                    .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+            );
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
+        }
 
         final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
         for (final Row row : rows) {
@@ -480,16 +538,29 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
-        return _getUnconfirmedTransactionsDependingOn(transactionIds);
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
+        try {
+            return _getUnconfirmedTransactionsDependingOn(transactionIds);
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
+        }
     }
 
     @Override
     public Integer getUnconfirmedTransactionCount() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT COUNT(*) AS transaction_count FROM unconfirmed_transactions")
-        );
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
+        final java.util.List<Row> rows;
+        try {
+            rows = databaseConnection.query(
+                new Query("SELECT COUNT(*) AS transaction_count FROM unconfirmed_transactions")
+            );
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
+        }
         final Row row = rows.get(0);
 
         return row.getInteger("transaction_count");
@@ -745,100 +816,4 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.unlock();
         }
     }
-
-//    @Override
-//    public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-//
-//        try {
-//            _unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-//
-//        try {
-//            _unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-//
-//        try {
-//            _unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public Long getCachedUnspentTransactionOutputCount() throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-//
-//        try {
-//            return _unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-//
-//        try {
-//            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-//
-//        try {
-//            return _unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.lock();
-//
-//        try {
-//            return _unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight();
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_READ_MUTEX.unlock();
-//        }
-//    }
-//
-//    @Override
-//    public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) throws DatabaseException {
-//        FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.lock();
-//
-//        try {
-//            _unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
-//        }
-//        finally {
-//            FullNodeTransactionDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-//        }
-//    }
 }

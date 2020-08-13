@@ -34,6 +34,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
@@ -364,44 +365,50 @@ public class BlockProcessor {
                 }
             }
             else if (bestBlockchainHasChanged) {
-                // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
-                final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                BlockId nextBlockId;
                 final MilliTimer timer = new MilliTimer();
-                Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
-                timer.start();
-                // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
-                // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
-                final BlockchainSegmentId oldHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId); // The original BlockchainSegmentId was most likely invalidated during reordering, so reacquire the new BlockchainSegmentIds via BlockId...
-                BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(oldHeadBlockchainSegmentId);
-                Logger.trace("Utxo Reorg - 1/6 complete.");
+                TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+                try {
+                    final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
+                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                    Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
+                    timer.start();
+                    // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
+                    // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
+                    final BlockchainSegmentId oldHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId); // The original BlockchainSegmentId was most likely invalidated during reordering, so reacquire the new BlockchainSegmentIds via BlockId...
+                    nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(oldHeadBlockchainSegmentId);
+                    Logger.trace("Utxo Reorg - 1/6 complete.");
 
-                long undoBlockHeight;
-                while (nextBlockId != null) {
-                    undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
-                    final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
-                    if (nextBlock != null) { // If the head block was just a processed header, then continue backwards without processing its transactions...
-                        final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
+                    long undoBlockHeight;
+                    while (nextBlockId != null) {
+                        undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
+                        final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
+                        if (nextBlock != null) { // If the head block was just a processed header, then continue backwards without processing its transactions...
+                            final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
 
-                        { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
-                            unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
+                            { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
+                                unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
+                            }
+
+                            { // Add non-coinbase transactions to the mempool...
+                                final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+                                nextBlockTransactionIds.remove(0); // Exclude the coinbase...
+                                transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
+                            }
                         }
 
-                        { // Add non-coinbase transactions to the mempool...
-                            final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
-                            nextBlockTransactionIds.remove(0); // Exclude the coinbase...
-                            transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
-                        }
+                        // 2. Continue to traverse up the chain until the block is connected to the new headBlockchain...
+                        nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
+                        if (nextBlockId == null) { break; }
+
+                        final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
+                        if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
+
+                        undoBlockHeight -= 1L;
                     }
-
-                    // 2. Continue to traverse up the chain until the block is connected to the new headBlockchain...
-                    nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
-                    if (nextBlockId == null) { break; }
-
-                    final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
-                    if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
-
-                    undoBlockHeight -= 1L;
+                }
+                finally {
+                    TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
                 }
                 Logger.trace("Utxo Reorg - 2/6 complete.");
 
