@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
@@ -19,10 +20,9 @@ public class TransactionInflater {
     public static final Integer MAX_BYTE_COUNT = (int) (2L * ByteUtil.Unit.Si.MEGABYTES);
 
     protected MutableTransaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final Integer totalByteCount = byteArrayReader.remainingByteCount();
-        // if (totalByteCount < TransactionInflater.MIN_BYTE_COUNT) { return null; } // NOTE: The min Transaction size rule was activated on HF20181115 and therefore cannot be enforced here.
-        if (totalByteCount > TransactionInflater.MAX_BYTE_COUNT) { return null; }
+        // NOTE: The min Transaction size rule was activated on HF20181115 and therefore cannot be enforced here.
 
+        final Integer startPosition = byteArrayReader.getPosition();
         final MutableTransaction transaction = new MutableTransaction();
         transaction._version = byteArrayReader.readLong(4, Endian.LITTLE);
 
@@ -44,12 +44,19 @@ public class TransactionInflater {
             transaction._transactionOutputs.add(transactionOutput);
         }
 
-        {
+        { // Read Transaction LockTime...
             final Long lockTimeValue = byteArrayReader.readLong(4, Endian.LITTLE);
             transaction._lockTime = new ImmutableLockTime(lockTimeValue);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
+
+        { // Enforce maximum transaction size...
+            // NOTE: At this point, the bytes are already in memory and limited by the PacketBuffer max size, so incremental checks are not performed.
+            final Integer endPosition = byteArrayReader.getPosition();
+            final int totalByteCount = (endPosition - startPosition);
+            if (totalByteCount > TransactionInflater.MAX_BYTE_COUNT) { return null; }
+        }
 
         return transaction;
     }

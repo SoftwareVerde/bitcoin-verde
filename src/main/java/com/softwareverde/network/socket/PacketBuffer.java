@@ -16,7 +16,7 @@ public class PacketBuffer extends ByteBuffer {
     protected final byte[] _reversedMainNetMagicNumber;
 
     protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
-    protected final ProtocolMessageFactory _protocolMessageFactory;
+    protected final ProtocolMessageFactory<?> _protocolMessageFactory;
 
     protected final byte[] _packetStartingBytesBuffer;
 
@@ -43,7 +43,7 @@ public class PacketBuffer extends ByteBuffer {
     public boolean hasMessage() {
         final ProtocolMessageHeader protocolMessageHeader = _peakProtocolHeader();
         if (protocolMessageHeader == null) { return false; }
-        final Integer expectedMessageLength = (protocolMessageHeader.getPayloadByteCount() + _protocolMessageHeaderInflater.getHeaderByteCount());
+        final int expectedMessageLength = (protocolMessageHeader.getPayloadByteCount() + _protocolMessageHeaderInflater.getHeaderByteCount());
         return (_byteCount >= expectedMessageLength);
     }
 
