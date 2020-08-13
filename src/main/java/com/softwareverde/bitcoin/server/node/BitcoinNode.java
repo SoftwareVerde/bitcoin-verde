@@ -442,7 +442,7 @@ public class BitcoinNode extends Node {
 
                 final MessageType messageType = message.getCommand();
                 if (messageType != MessageType.INVENTORY) {
-                    Logger.info("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
+                    Logger.debug("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
                 }
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
