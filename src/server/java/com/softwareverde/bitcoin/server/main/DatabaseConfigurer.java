@@ -34,9 +34,9 @@ public class DatabaseConfigurer {
 
             commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount);
 
+            commandLineArguments.addArgument("--innodb_io_capacity=2000"); // 2000 for SSDs/NVME, 400 for low-end SSD, 200 for HDD.
             commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0"); // Write directly to disk; database crashing may result in data corruption.
             commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
-            // commandLineArguments.addArgument("--key_buffer_size=" + (1L * ByteUtil.Unit.Binary.GIBIBYTES)); // MyISAM
 
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount);
@@ -46,8 +46,8 @@ public class DatabaseConfigurer {
             commandLineArguments.setMaxAllowedPacketByteCount(128L * ByteUtil.Unit.Binary.MEBIBYTES);
 
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
-            commandLineArguments.addArgument("--innodb-read-io-threads=8");
-            commandLineArguments.addArgument("--innodb-write-io-threads=8");
+            // commandLineArguments.addArgument("--innodb-read-io-threads=8");
+            // commandLineArguments.addArgument("--innodb-write-io-threads=8");
 
             // Experimental setting to improve the flush/write-performance of the InnoDb buffer pool.
             // Suggestion taken from: https://stackoverflow.com/questions/41134785/how-to-solve-mysql-warning-innodb-page-cleaner-1000ms-intended-loop-took-xxx

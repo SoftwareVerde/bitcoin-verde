@@ -29,6 +29,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
 
     public void addBlockHeaderHash(final Sha256Hash blockHeaderHash) {
         if (_blockHeaderHashes.getCount() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
+        if (blockHeaderHash == null) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
 

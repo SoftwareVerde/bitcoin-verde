@@ -24,6 +24,8 @@ import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
+import java.util.concurrent.TimeUnit;
+
 public class PendingBlockLoader {
     public interface Context extends BlockInflaters, ThreadPoolContext, MultiConnectionFullDatabaseContext { }
 
@@ -189,8 +191,16 @@ public class PendingBlockLoader {
             return null;
         }
 
-        requestedBlockFuture.waitFor();
-        return requestedBlockFuture;
+        try {
+            final Long timeout = TimeUnit.MINUTES.toMillis(3L);
+            final boolean timedOut = (! requestedBlockFuture.waitFor(timeout));
+            if (timedOut) { return null; }
+
+            return requestedBlockFuture;
+        }
+        catch (final Exception exception) {
+            return null;
+        }
     }
 
     public void setLoadUnspentOutputsAfterBlockHeight(final Long blockHeight) {

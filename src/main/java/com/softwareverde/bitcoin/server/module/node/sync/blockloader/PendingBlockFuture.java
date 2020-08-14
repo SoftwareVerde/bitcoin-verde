@@ -113,4 +113,12 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
     public void waitFor() {
         _pin.waitForRelease();
     }
+
+    /**
+     * Blocks until the PendingBlock and its TransactionOutputSet have been loaded.
+     *  Returns false if the timeout was exceeded while waiting.
+     */
+    public Boolean waitFor(final Long timeout) throws InterruptedException {
+        return _pin.waitForRelease(timeout);
+    }
 }

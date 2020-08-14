@@ -376,21 +376,21 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     messageWithoutStopBeforeHashHasBeenQueued = true;
                 }
 
-                if (previousBlockHash == null) { // If the previous block hash does not exist, then request it via requesting its header...
-                    final RequestBlockHeadersMessage requestBlockHeadersMessage = protocolMessageFactory.newRequestBlockHeadersMessage();
-                    requestBlockHeadersMessage.addBlockHeaderHash(firstUnknownBlockHash);
-                    requestBlockHeadersMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
-
-                    queryBlocksMessages.add(requestBlockHeadersMessage);
-                    Logger.debug("Broadcasting GetHeadersMessage: " + requestBlockHeadersMessage.getBlockHeaderHashes().get(0) + " -> " + requestBlockHeadersMessage.getStopBeforeBlockHash());
-                }
-                else { // Default to requesting inventory via QueryBlocks message since GetHeaders is technically not guaranteed to be implemented by all implementations...
+                if (previousBlockHash != null) { // Default to requesting inventory via QueryBlocks message since GetHeaders is technically not guaranteed to be implemented by all implementations...
                     final QueryBlocksMessage queryBlocksMessage = protocolMessageFactory.newQueryBlocksMessage();
                     queryBlocksMessage.addBlockHash(previousBlockHash); // QueryBlocks's response does not include the first hash provided, therefore the previous hash is provided.
                     queryBlocksMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
 
                     queryBlocksMessages.add(queryBlocksMessage);
                     Logger.debug("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
+                }
+                else if (firstUnknownBlockHash != null) { // If the previous block hash does not exist, then request it via requesting its header...
+                    final RequestBlockHeadersMessage requestBlockHeadersMessage = protocolMessageFactory.newRequestBlockHeadersMessage();
+                    requestBlockHeadersMessage.addBlockHeaderHash(firstUnknownBlockHash);
+                    requestBlockHeadersMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
+
+                    queryBlocksMessages.add(requestBlockHeadersMessage);
+                    Logger.debug("Broadcasting GetHeadersMessage: " + requestBlockHeadersMessage.getBlockHeaderHashes().get(0) + " -> " + requestBlockHeadersMessage.getStopBeforeBlockHash());
                 }
             }
         }
