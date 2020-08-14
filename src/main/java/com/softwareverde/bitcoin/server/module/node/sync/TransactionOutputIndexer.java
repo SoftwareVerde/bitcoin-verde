@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
@@ -21,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
@@ -39,6 +41,12 @@ public class TransactionOutputIndexer extends SleepyService {
         ScriptType scriptType;
         AddressId addressId;
         TransactionId slpTransactionId;
+    }
+
+    protected static class InputIndexData {
+        TransactionId transactionId;
+        Integer inputIndex;
+        AddressId addressId;
     }
 
     protected final TransactionOutputIndexerContext _context;
@@ -90,6 +98,35 @@ public class TransactionOutputIndexer extends SleepyService {
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             return context.getTransactionId(slpTokenId);
         }
+    }
+
+    protected List<InputIndexData> _indexTransactionInputs(final AtomicTransactionOutputIndexerContext context, final TransactionId transactionId, final Transaction transaction) throws ContextException {
+        final MutableList<InputIndexData> inputIndexDataList = new MutableList<InputIndexData>();
+
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final int transactionInputCount = transactionInputs.getCount();
+        for (int inputIndex = 0; inputIndex < transactionInputCount; ++inputIndex) {
+            final TransactionInput transactionInput = transactionInputs.get(inputIndex);
+            final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
+            final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+
+            final TransactionId previousTransactionId = context.getTransactionId(previousTransactionHash);
+            final Transaction previousTransaction = context.getTransaction(previousTransactionId);
+            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
+            final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
+            final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
+
+            final AddressId addressId = _getAddressId(context, lockingScript);
+
+            final InputIndexData inputIndexData = new InputIndexData();
+            inputIndexData.transactionId = transactionId;
+            inputIndexData.inputIndex = inputIndex;
+            inputIndexData.addressId = addressId;
+
+            inputIndexDataList.add(inputIndexData);
+        }
+
+        return inputIndexDataList;
     }
 
     protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final AtomicTransactionOutputIndexerContext context, final TransactionId transactionId, final Transaction transaction) throws ContextException {
@@ -241,6 +278,7 @@ public class TransactionOutputIndexer extends SleepyService {
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final MilliTimer processTimer = new MilliTimer();
 
+            int inputCount = 0;
             int outputCount = 0;
             processTimer.start();
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(BATCH_SIZE);
@@ -258,13 +296,19 @@ public class TransactionOutputIndexer extends SleepyService {
                     context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
                     outputCount += 1;
                 }
+
+                final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);
+                for (final InputIndexData inputIndexData : inputIndexDataList) {
+                    context.indexTransactionInput(inputIndexData.transactionId, inputIndexData.inputIndex, inputIndexData.addressId);
+                    inputCount += 1;
+                }
             }
 
             context.dequeueTransactionsForProcessing(queuedTransactionIds);
             context.commitDatabaseTransaction();
             processTimer.stop();
 
-            Logger.info("Indexed " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
+            Logger.info("Indexed " + inputCount + " Inputs, " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final Exception exception) {
             Logger.warn(exception);

@@ -6,16 +6,18 @@ import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransactionOutputIndexerContext {
     protected FullNodeDatabaseManager _databaseManager;
@@ -57,8 +59,8 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public AddressId getAddressId(final Address address) throws ContextException {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
-            return transactionOutputDatabaseManager.getAddressId(address);
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            return blockchainIndexerDatabaseManager.getAddressId(address);
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);
@@ -68,8 +70,8 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public AddressId storeAddress(final Address address) throws ContextException {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
-            return transactionOutputDatabaseManager.storeAddress(address);
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            return blockchainIndexerDatabaseManager.storeAddress(address);
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);
@@ -79,8 +81,8 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) throws ContextException {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
-            return transactionOutputDatabaseManager.getUnprocessedTransactions(batchSize);
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            return blockchainIndexerDatabaseManager.getUnprocessedTransactions(batchSize);
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);
@@ -90,8 +92,19 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) throws ContextException {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
-            transactionOutputDatabaseManager.dequeueTransactionsForProcessing(transactionIds);
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            blockchainIndexerDatabaseManager.dequeueTransactionsForProcessing(transactionIds);
+        }
+        catch (final DatabaseException databaseException) {
+            throw new ContextException(databaseException);
+        }
+    }
+
+    @Override
+    public TransactionId getTransactionId(final Sha256Hash transactionHash) throws ContextException {
+        try {
+            final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+            return transactionDatabaseManager.getTransactionId(transactionHash);
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);
@@ -123,8 +136,19 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws ContextException {
         try {
-            final TransactionOutputDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
-            transactionDatabaseManager.indexTransactionOutput(transactionId, outputIndex, amount, scriptType, addressId, slpTransactionId);
+            final BlockchainIndexerDatabaseManager indexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            indexerDatabaseManager.indexTransactionOutput(transactionId, outputIndex, amount, scriptType, addressId, slpTransactionId);
+        }
+        catch (final DatabaseException databaseException) {
+            throw new ContextException(databaseException);
+        }
+    }
+
+    @Override
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws ContextException {
+        try {
+            final BlockchainIndexerDatabaseManager indexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            indexerDatabaseManager.indexTransactionInput(transactionId, inputIndex, addressId);
         }
         catch (final DatabaseException databaseException) {
             throw new ContextException(databaseException);

@@ -33,7 +33,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
@@ -194,7 +194,7 @@ public class BlockProcessor {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+        final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
         // Keep a copy of the original head Block before the block is processed...
         final BlockId originalHeadBlockId = blockDatabaseManager.getHeadBlockId(); // NOTE: Head Block is not the same as head BlockHeader.
@@ -310,7 +310,7 @@ public class BlockProcessor {
             }
 
             { // Queue the transactions for processing...
-                transactionOutputDatabaseManager.queueTransactionsForProcessing(transactionIds);
+                blockchainIndexerDatabaseManager.queueTransactionsForProcessing(transactionIds);
             }
         }
 

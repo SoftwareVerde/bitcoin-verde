@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -32,12 +32,12 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     public Long getBalance(final Address address) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
-            return transactionOutputDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
+            final AddressId addressId = blockchainIndexerDatabaseManager.getAddressId(address);
+            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -51,12 +51,12 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
-            final AddressId addressId = transactionOutputDatabaseManager.getAddressId(address);
+            final AddressId addressId = blockchainIndexerDatabaseManager.getAddressId(address);
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final List<TransactionId> transactionIds = transactionOutputDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
+            final List<TransactionId> transactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
 
             final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
             final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getCount());

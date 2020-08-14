@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabase
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
@@ -68,7 +68,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+        final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
@@ -77,7 +77,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         transactionJson.put("byteCount", transactionData.getByteCount());
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final SlpTokenId slpTokenId = transactionOutputDatabaseManager.getSlpTokenId(transactionId);
+        final SlpTokenId slpTokenId = blockchainIndexerDatabaseManager.getSlpTokenId(transactionId);
         final Boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {

@@ -22,6 +22,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     protected final MutableList<Address> _storedAddresses = new MutableList<Address>(0);
     protected final MutableList<TransactionId> _unprocessedTransactions = new MutableList<TransactionId>(0);
     protected final MutableList<IndexedOutput> _indexedOutputs = new MutableList<IndexedOutput>(0);
+    protected final MutableList<IndexedInput> _indexedInputs = new MutableList<IndexedInput>(0);
 
     protected Boolean _wasCommitted = false;
     protected Boolean _wasRolledBack = false;
@@ -136,6 +137,11 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
+    public TransactionId getTransactionId(final Sha256Hash transactionHash) throws ContextException {
+        return _transactionIds.get(transactionHash);
+    }
+
+    @Override
     public TransactionId getTransactionId(final SlpTokenId slpTokenId) {
         return _transactionIds.get(slpTokenId);
     }
@@ -149,6 +155,12 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) {
         final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, addressId, slpTransactionId);
         _indexedOutputs.add(indexedOutput);
+    }
+
+    @Override
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws ContextException {
+        final IndexedInput indexedInput = new IndexedInput(transactionId, inputIndex, addressId);
+        _indexedInputs.add(indexedInput);
     }
 
     @Override

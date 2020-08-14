@@ -12,7 +12,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelation
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
@@ -608,8 +608,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
-        return transactionOutputDatabaseManager.getSlpTokenId(transactionId);
+        final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+        return blockchainIndexerDatabaseManager.getSlpTokenId(transactionId);
     }
 
     @Override

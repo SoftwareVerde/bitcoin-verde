@@ -7,8 +7,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.Full
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
@@ -34,7 +34,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
     protected FullNodePendingBlockDatabaseManager _pendingBlockDatabaseManager;
-    protected TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
+    protected BlockchainIndexerDatabaseManager _blockchainIndexerDatabaseManager;
     protected FullNodeTransactionDatabaseManager _transactionDatabaseManager;
     protected UnconfirmedTransactionInputDatabaseManager _unconfirmedTransactionInputDatabaseManager;
     protected UnconfirmedTransactionOutputDatabaseManager _unconfirmedTransactionOutputDatabaseManager;
@@ -113,12 +113,12 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         return _transactionDatabaseManager;
     }
 
-    public TransactionOutputDatabaseManager getTransactionOutputDatabaseManager() {
-        if (_transactionOutputDatabaseManager == null) {
-            _transactionOutputDatabaseManager = new TransactionOutputDatabaseManagerCore(this);
+    public BlockchainIndexerDatabaseManager getBlockchainIndexerDatabaseManager() {
+        if (_blockchainIndexerDatabaseManager == null) {
+            _blockchainIndexerDatabaseManager = new BlockchainIndexerDatabaseManagerCore(this);
         }
 
-        return _transactionOutputDatabaseManager;
+        return _blockchainIndexerDatabaseManager;
     }
 
     public UnconfirmedTransactionInputDatabaseManager getUnconfirmedTransactionInputDatabaseManager() {

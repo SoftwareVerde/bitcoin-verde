@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
-public interface TransactionOutputDatabaseManager {
+public interface BlockchainIndexerDatabaseManager {
     AddressId storeAddress(Address address) throws DatabaseException;
     AddressId getAddressId(Address address) throws DatabaseException;
     List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
@@ -27,4 +27,5 @@ public interface TransactionOutputDatabaseManager {
     void dequeueTransactionsForProcessing(List<TransactionId> transactionIds) throws DatabaseException;
 
     void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, AddressId addressId, TransactionId slpTransactionId) throws DatabaseException;
+    void indexTransactionInput(TransactionId transactionId, Integer inputIndex, AddressId addressId) throws DatabaseException;
 }

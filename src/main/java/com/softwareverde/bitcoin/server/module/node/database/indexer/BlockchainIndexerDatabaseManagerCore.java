@@ -32,7 +32,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class TransactionOutputDatabaseManagerCore implements TransactionOutputDatabaseManager {
+public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
 
     protected AddressId _getAddressId(final Address address) throws DatabaseException {
@@ -48,7 +48,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         return AddressId.wrap(addressId);
     }
 
-    public TransactionOutputDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
+    public BlockchainIndexerDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
@@ -403,6 +403,18 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
                 .setParameter(addressId)
                 .setParameter(scriptType.getScriptTypeId())
                 .setParameter(slpTransactionId)
+        );
+    }
+
+    @Override
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("INSERT INTO indexed_transaction_inputs (transaction_id, input_index, address_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address_id = VALUES(address_id)")
+                .setParameter(transactionId)
+                .setParameter(inputIndex)
+                .setParameter(addressId)
         );
     }
 }
