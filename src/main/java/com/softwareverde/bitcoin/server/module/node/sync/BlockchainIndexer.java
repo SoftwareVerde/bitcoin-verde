@@ -31,7 +31,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TransactionOutputIndexer extends SleepyService {
+public class BlockchainIndexer extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
     protected static class OutputIndexData {
@@ -110,8 +110,19 @@ public class TransactionOutputIndexer extends SleepyService {
             final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
             final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
 
+            { // Avoid indexing Coinbase Inputs...
+                final TransactionOutputIdentifier previousTransactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                if (Util.areEqual(TransactionOutputIdentifier.COINBASE, previousTransactionOutputIdentifier)) {
+                    continue;
+                }
+            }
+
             final TransactionId previousTransactionId = context.getTransactionId(previousTransactionHash);
             final Transaction previousTransaction = context.getTransaction(previousTransactionId);
+            if (previousTransaction == null) {
+                throw new ContextException("Previous Transaction does not exist: " + previousTransactionHash);
+            }
+
             final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
             final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
             final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
@@ -262,7 +273,7 @@ public class TransactionOutputIndexer extends SleepyService {
         return outputIndexData;
     }
 
-    public TransactionOutputIndexer(final TransactionOutputIndexerContext context) {
+    public BlockchainIndexer(final TransactionOutputIndexerContext context) {
         _context = context;
     }
 

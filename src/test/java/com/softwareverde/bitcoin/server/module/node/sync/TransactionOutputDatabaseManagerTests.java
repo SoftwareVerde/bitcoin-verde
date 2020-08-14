@@ -34,7 +34,7 @@ public class TransactionOutputDatabaseManagerTests extends UnitTest {
         final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
         final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
 
-        final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
 
         final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();
         lockingScripts.add(ScriptBuilder.payToAddress("1CujTANFTa9YqSd9S6k3yCehoF2BBKs6ht"));
@@ -42,7 +42,7 @@ public class TransactionOutputDatabaseManagerTests extends UnitTest {
 
         // Action
         for (final LockingScript lockingScript : lockingScripts) {
-            final AddressId addressId = transactionOutputIndexer._getAddressId(atomicTransactionOutputIndexerContext, lockingScript);
+            final AddressId addressId = blockchainIndexer._getAddressId(atomicTransactionOutputIndexerContext, lockingScript);
         }
 
         // Assert

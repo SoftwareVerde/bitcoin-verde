@@ -18,7 +18,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TransactionOutputIndexerTests extends UnitTest {
+public class BlockchainIndexerTests extends UnitTest {
     public static List<Transaction> inflateBitcoinVerdeTestTokens() {
         final String[] bvtTransactionData = new String[] {
             // BCH Tx: A64EF604F0DAC3F018F97CE654A0E2F02CD93A75E52819F499C49B69F92886C3
@@ -139,17 +139,17 @@ public class TransactionOutputIndexerTests extends UnitTest {
         final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
         final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
 
-        final TransactionOutputIndexer transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
-        final TransactionOutputIndexer.StatusMonitor statusMonitor = transactionOutputIndexer.getStatusMonitor();
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+        final BlockchainIndexer.StatusMonitor statusMonitor = blockchainIndexer.getStatusMonitor();
 
-        final List<Transaction> bvtTransactions = TransactionOutputIndexerTests.inflateBitcoinVerdeTestTokens();
+        final List<Transaction> bvtTransactions = BlockchainIndexerTests.inflateBitcoinVerdeTestTokens();
         for (final Transaction transaction : bvtTransactions) {
             atomicTransactionOutputIndexerContext.queueTransactionForProcessing(transaction);
         }
 
         try {
             // Action
-            transactionOutputIndexer.start();
+            blockchainIndexer.start();
 
             final int maxSleepCount = 10;
             int sleepCount = 0;
@@ -164,50 +164,50 @@ public class TransactionOutputIndexerTests extends UnitTest {
             final List<TransactionOutputIdentifier> expectedSlpTransactionOutputIdentifiers;
             {
                 final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("0F58E80BF3E747E32BCF3218D77DC01495622D723589D1F1D1FD98AEFA798D3D", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("4C27492AA05C9D4248ADF3DA47A9915FB0694D00D01462FF48B461E36486DE99", new int[] { 0, 1, 2, 3 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("87B17979CC05E9E5F5FA9E8C6D78482478A4E6F6D78360E818E16311F7F157F0", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("731B7493DCAF21A368F384D75AD820F73F72DE9479622B35EF935E5D5C9D6F0E", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("AE0D9AE505E4B75619A376FA70F7C295245F8FD28F3B625FBEA19E26AB29A928", new int[] { 0, 1, 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("0F58E80BF3E747E32BCF3218D77DC01495622D723589D1F1D1FD98AEFA798D3D", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("4C27492AA05C9D4248ADF3DA47A9915FB0694D00D01462FF48B461E36486DE99", new int[] { 0, 1, 2, 3 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("87B17979CC05E9E5F5FA9E8C6D78482478A4E6F6D78360E818E16311F7F157F0", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("731B7493DCAF21A368F384D75AD820F73F72DE9479622B35EF935E5D5C9D6F0E", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("AE0D9AE505E4B75619A376FA70F7C295245F8FD28F3B625FBEA19E26AB29A928", new int[] { 0, 1, 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[] { 0, 1 }));
                 expectedSlpTransactionOutputIdentifiers = transactionOutputIdentifiers.build();
             }
 
             final List<TransactionOutputIdentifier> expectedInvalidSlpTransactionOutputIdentifiers;
             {
                 final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("9BD457D106B1EECBD43CD6ECA0A993420ABE16075B05012C8A76BB96D1AE16CE", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("08937051BA961330600D382A749262753B8A941E9E155BA9798D2922C2CE3842", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("9DF13E226887F408207F94E99108706B55149AF8C8EB9D2F36427BA3007DCD64", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("25039E1E154AD0D0ED632AF5A6524898540EE8B310B878045343E8D93D7B88C1", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[] { 0, 1 }));
                 expectedInvalidSlpTransactionOutputIdentifiers = transactionOutputIdentifiers.build();
             }
 
             final List<TransactionOutputIdentifier> expectedNonSlpTransactionOutputIdentifiers;
             {
                 final ImmutableListBuilder<TransactionOutputIdentifier> transactionOutputIdentifiers = new ImmutableListBuilder<TransactionOutputIdentifier>();
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 3 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 3 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 3 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[] { 2 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("A64EF604F0DAC3F018F97CE654A0E2F02CD93A75E52819F499C49B69F92886C3", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("60886A9756C0A9CD2EECFE9C2D0297D5D6F2BA9DD38362F3D31412A1D6D149AF", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("E6EDCF4842A95138B4256CA304017F0FFDD01ADF92A74A67061287105BAE9F1F", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("5353A1069E04D43FEE09B32C2B7589D76E39E0D9BE41B30EC5A846DD477CF542", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("B9C86AFB9027C041ABA93022991C895D68C0A0EFBF73F1A35BBD7A9164159FE2", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("DFB097581C42EC941289A9D1C839B8668A253F7BB7AF9FB1AAFB5A5875509DDA", new int[] { 0, 1 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647", new int[] { 0, 1, 2, 3 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("4F2B5CAC1B7465C86794134FBCBA031F6B8A5ADB266994CDABDFBFD388500E70", new int[] { 0 }));
-                transactionOutputIdentifiers.addAll(TransactionOutputIndexerTests.createOutputIdentifiers("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[] { 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0", new int[] { 3 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("97BB8FFE6DC71AC5B263F322056069CF398CDA2677E21951364F00D2D572E887", new int[] { 3 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("8572AA67141E5FB6C48557508D036542AAD99C828F22B429612BDCABBAD95373", new int[] { 3 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("68092D36527D174CEA76797B3BB2677F61945FDECA01710976BF840664F7B71A", new int[] { 2 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("A64EF604F0DAC3F018F97CE654A0E2F02CD93A75E52819F499C49B69F92886C3", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("60886A9756C0A9CD2EECFE9C2D0297D5D6F2BA9DD38362F3D31412A1D6D149AF", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("E6EDCF4842A95138B4256CA304017F0FFDD01ADF92A74A67061287105BAE9F1F", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("5353A1069E04D43FEE09B32C2B7589D76E39E0D9BE41B30EC5A846DD477CF542", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("B9C86AFB9027C041ABA93022991C895D68C0A0EFBF73F1A35BBD7A9164159FE2", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("DFB097581C42EC941289A9D1C839B8668A253F7BB7AF9FB1AAFB5A5875509DDA", new int[] { 0, 1 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("16EA62D94AC142BAF93A6C44C5DC961883DC4D38B85F737ED5B7BB326707C647", new int[] { 0, 1, 2, 3 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("4F2B5CAC1B7465C86794134FBCBA031F6B8A5ADB266994CDABDFBFD388500E70", new int[] { 0 }));
+                transactionOutputIdentifiers.addAll(BlockchainIndexerTests.createOutputIdentifiers("19DE9FFBBBCFB68BED5810ADE0F9B0929DBEEB4A7AA1236021324267209BF478", new int[] { 2 }));
                 expectedNonSlpTransactionOutputIdentifiers = transactionOutputIdentifiers.build();
             }
 
@@ -242,7 +242,7 @@ public class TransactionOutputIndexerTests extends UnitTest {
             Assert.assertEquals(0, remainingNonSlpTransactionOutputIdentifiers.getCount());
         }
         finally {
-            transactionOutputIndexer.stop();
+            blockchainIndexer.stop();
         }
     }
 }

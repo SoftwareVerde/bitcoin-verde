@@ -8,7 +8,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TransactionOutputIndexerContextTests extends IntegrationTest {
+public class BlockchainIndexerContextTests extends IntegrationTest {
     @Override @Before
     public void before() throws Exception {
         super.before();

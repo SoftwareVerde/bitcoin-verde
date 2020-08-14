@@ -79,9 +79,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequesterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
-import com.softwareverde.bitcoin.server.module.node.sync.DisabledTransactionOutputIndexer;
+import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.TransactionOutputIndexer;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -146,7 +146,7 @@ public class NodeModule {
     protected final TransactionProcessor _transactionProcessor;
     protected final TransactionRelay _transactionRelay;
     protected final BlockchainBuilder _blockchainBuilder;
-    protected final TransactionOutputIndexer _transactionOutputIndexer;
+    protected final BlockchainIndexer _blockchainIndexer;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
     protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
@@ -241,9 +241,9 @@ public class NodeModule {
             _spentTransactionOutputsCleanupService.stop();
         }
 
-        if (! (_transactionOutputIndexer instanceof DisabledTransactionOutputIndexer)) {
+        if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
             Logger.info("[Stopping Addresses Processor]");
-            _transactionOutputIndexer.stop();
+            _blockchainIndexer.stop();
         }
 
         Logger.info("[Stopping Transaction Processor]");
@@ -564,14 +564,14 @@ public class NodeModule {
         final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
         if (! indexModeIsEnabled) {
             _slpTransactionProcessor = null;
-            _transactionOutputIndexer = new DisabledTransactionOutputIndexer();
+            _blockchainIndexer = new DisabledBlockchainIndexer();
         }
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
             final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory);
-            _transactionOutputIndexer = new TransactionOutputIndexer(transactionOutputIndexerContext);
-            _transactionOutputIndexer.setOnSleepCallback(new Runnable() {
+            _blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+            _blockchainIndexer.setOnSleepCallback(new Runnable() {
                 @Override
                 public void run() {
                     _slpTransactionProcessor.wakeUp();
@@ -616,7 +616,7 @@ public class NodeModule {
 
                     final Sha256Hash blockHash = block.getHash();
 
-                    _transactionOutputIndexer.wakeUp();
+                    _blockchainIndexer.wakeUp();
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
@@ -736,7 +736,7 @@ public class NodeModule {
                 @Override
                 public void onNewTransactions(final List<Transaction> transactions) {
                     _transactionRelay.relayTransactions(transactions);
-                    _transactionOutputIndexer.wakeUp();
+                    _blockchainIndexer.wakeUp();
                 }
             });
         }
@@ -785,7 +785,7 @@ public class NodeModule {
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
-                for (final SleepyService sleepyService : new SleepyService[] { _transactionOutputIndexer, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader, _spentTransactionOutputsCleanupService }) {
+                for (final SleepyService sleepyService : new SleepyService[] { _blockchainIndexer, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader, _spentTransactionOutputsCleanupService }) {
                     if (sleepyService != null) {
                         final Class<?> clazz = sleepyService.getClass();
                         final String serviceName = clazz.getSimpleName();
@@ -1051,9 +1051,9 @@ public class NodeModule {
         Logger.info("[Starting Transaction Processor]");
         _transactionProcessor.start();
 
-        if (! (_transactionOutputIndexer instanceof DisabledTransactionOutputIndexer)) {
+        if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
             Logger.info("[Starting Address Processor]");
-            _transactionOutputIndexer.start();
+            _blockchainIndexer.start();
         }
 
         if (_slpTransactionProcessor != null) {
