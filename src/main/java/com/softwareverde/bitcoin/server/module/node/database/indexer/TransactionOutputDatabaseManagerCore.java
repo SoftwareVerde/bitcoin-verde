@@ -73,7 +73,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
             new Query("SELECT address_id FROM indexed_transaction_outputs WHERE transaction_id = ?")
         );
         rows.addAll(databaseConnection.query(
-            new Query("SELECT address_id FROM transaction_inputs WHERE transaction_id = ?")
+            new Query("SELECT address_id FROM indexed_transaction_inputs WHERE transaction_id = ?")
         ));
 
         final HashSet<AddressId> addressIds = new HashSet<AddressId>(rows.size());
@@ -91,11 +91,11 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
     }
 
     /**
-     * Returns a list of rows of {blockchain_segment_id, transaction_id} from transaction_inputs for the provided addressId.
+     * Returns a list of rows of {blockchain_segment_id, transaction_id} from indexed_transaction_inputs for the provided addressId.
      */
     protected java.util.List<Row> _getTransactionIdsSpendingFrom(final AddressId addressId, final DatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(
-            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_inputs.address_id = ? GROUP BY transaction_inputs.transaction_id, blocks.blockchain_segment_id")
+            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_inputs.address_id = ? GROUP BY indexed_transaction_inputs.transaction_id, blocks.blockchain_segment_id")
                 .setParameter(addressId)
         );
     }
@@ -243,7 +243,7 @@ public class TransactionOutputDatabaseManagerCore implements TransactionOutputDa
         final HashMap<TransactionId, MutableList<Integer>> inputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
         { // Load credits, with input_indexes...
             final java.util.List<Row> transactionInputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, transaction_inputs.transaction_id, transaction_inputs.input_index FROM transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transaction_inputs.address_id = ?")
+                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.input_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_inputs.address_id = ?")
                     .setParameter(addressId)
             );
 

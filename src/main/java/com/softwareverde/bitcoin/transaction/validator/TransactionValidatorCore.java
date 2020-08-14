@@ -66,10 +66,10 @@ public class TransactionValidatorCore implements TransactionValidator {
         json.put("inputBytes", (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
         json.put("previousOutputBytes", ((outputToSpend != null) ? transactionOutputDeflater.toBytes(outputToSpend) : null));
         json.put("blockHeight", transactionContext.getBlockHeight());
-        json.put("lockingScriptBytes", lockingScript);
-        json.put("unlockingScriptBytes", unlockingScript);
-        json.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
-        json.put("networkTime", networkTime.getCurrentTimeInSeconds());
+        json.put("lockingScriptBytes", (lockingScript != null ? lockingScript.getBytes() : null));
+        json.put("unlockingScriptBytes", (unlockingScript != null ? unlockingScript.getBytes() : null));
+        json.put("medianBlockTime", (medianBlockTime != null ? medianBlockTime.getCurrentTimeInSeconds() : null));
+        json.put("networkTime", (networkTime != null ? networkTime.getCurrentTimeInSeconds() : null));
         return json;
     }
 
