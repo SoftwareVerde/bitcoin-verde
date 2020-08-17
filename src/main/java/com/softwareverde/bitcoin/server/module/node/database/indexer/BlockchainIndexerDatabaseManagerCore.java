@@ -151,14 +151,14 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             else { // If the BlockchainSegment is not connected to the desired blockchainSegment then remove it...
                 final Boolean transactionIsConnectedToBlockchainSegment;
                 {
-                    final Boolean cachedConnectedSegmentResult = connectedBlockchainSegmentIds.get(transactionBlockchainSegmentId);
-                    if (cachedConnectedSegmentResult != null) {
-                        transactionIsConnectedToBlockchainSegment = cachedConnectedSegmentResult;
+                    final Boolean cachedIsConnectedToBlockchainSegment = connectedBlockchainSegmentIds.get(transactionBlockchainSegmentId);
+                    if (cachedIsConnectedToBlockchainSegment != null) {
+                        transactionIsConnectedToBlockchainSegment = cachedIsConnectedToBlockchainSegment;
                     }
                     else {
-                        final Boolean notCachedTransactionIsConnectedToBlockchainSegment = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, transactionBlockchainSegmentId, BlockRelationship.ANCESTOR);
-                        connectedBlockchainSegmentIds.put(transactionBlockchainSegmentId, notCachedTransactionIsConnectedToBlockchainSegment);
-                        transactionIsConnectedToBlockchainSegment = notCachedTransactionIsConnectedToBlockchainSegment;
+                        final Boolean isConnectedToBlockchainSegment = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, transactionBlockchainSegmentId, BlockRelationship.ANY);
+                        transactionIsConnectedToBlockchainSegment = isConnectedToBlockchainSegment;
+                        connectedBlockchainSegmentIds.put(transactionBlockchainSegmentId, isConnectedToBlockchainSegment);
                     }
                 }
 
