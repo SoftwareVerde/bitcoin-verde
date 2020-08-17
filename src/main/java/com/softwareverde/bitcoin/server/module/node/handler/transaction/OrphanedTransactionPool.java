@@ -8,6 +8,8 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
@@ -69,6 +71,31 @@ public class OrphanedTransactionPool {
         return (transactionOutput != null);
     }
 
+    protected Set<Transaction> _onValidTransactionsProcessed(final List<Transaction> transactions) {
+        final HashSet<Transaction> eligibleTransactions = new HashSet<Transaction>();
+
+        for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                final Integer transactionOutputIndex = transactionOutput.getIndex();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
+                final HashSet<Transaction> queuedTransactions = _orphanedTransactions.remove(transactionOutputIdentifier);
+                if (queuedTransactions == null) { continue; }
+
+                eligibleTransactions.addAll(queuedTransactions);
+
+                Logger.debug("Promoting orphaned Transaction: " + transaction.getHash());
+            }
+
+            if (_orphanedTransactionSet.contains(transaction)) {
+                _removeOrphanedTransaction(transaction);
+            }
+        }
+
+        return eligibleTransactions;
+    }
+
     public OrphanedTransactionPool(final Callback callback) {
         _callback = callback;
     }
@@ -105,28 +132,25 @@ public class OrphanedTransactionPool {
      * Informs the OrphanedTransactionCache that a new valid Transaction was processed.
      *  Returns a set of Transactions that are now ready for processing with the addition of the new Transaction.
      */
-    public synchronized void onValidTransactionProcessed(final Transaction transaction) {
-        final HashSet<Transaction> possiblyEligibleTransactions = new HashSet<Transaction>();
-
-        final Sha256Hash transactionHash = transaction.getHash();
-
-        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            final Integer transactionOutputIndex = transactionOutput.getIndex();
-            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-            final HashSet<Transaction> queuedTransactions = _orphanedTransactions.remove(transactionOutputIdentifier);
-            if (queuedTransactions == null) { continue; }
-
-            possiblyEligibleTransactions.addAll(queuedTransactions);
-
-            Logger.debug("Promoting orphaned Transaction: " + transaction.getHash());
+    public void onValidTransactionProcessed(final Transaction transaction) {
+        final Set<Transaction> eligibleTransactions;
+        synchronized (this) {
+            eligibleTransactions = _onValidTransactionsProcessed(ListUtil.newMutableList(transaction));
         }
 
-        if (_orphanedTransactionSet.contains(transaction)) {
-            _removeOrphanedTransaction(transaction);
+        if (! eligibleTransactions.isEmpty()) {
+            _callback.newTransactionsAvailable(eligibleTransactions);
+        }
+    }
+
+    public void onValidTransactionsProcessed(final List<Transaction> transactions) {
+        final Set<Transaction> eligibleTransactions;
+        synchronized (this) {
+            eligibleTransactions = _onValidTransactionsProcessed(transactions);
         }
 
-        if (! possiblyEligibleTransactions.isEmpty()) {
-            _callback.newTransactionsAvailable(possiblyEligibleTransactions);
+        if (! eligibleTransactions.isEmpty()) {
+            _callback.newTransactionsAvailable(eligibleTransactions);
         }
     }
 }

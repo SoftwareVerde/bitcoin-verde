@@ -79,9 +79,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequesterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -146,11 +146,13 @@ public class NodeModule {
     protected final TransactionDownloader _transactionDownloader;
     protected final TransactionProcessor _transactionProcessor;
     protected final TransactionRelay _transactionRelay;
+    protected final OrphanedTransactionPool _orphanedTransactionPool;
     protected final BlockchainBuilder _blockchainBuilder;
     protected final BlockchainIndexer _blockchainIndexer;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
     protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
+    protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final MutableMedianBlockTime _medianBlockTime;
 
     protected final NodeInitializer _nodeInitializer;
@@ -249,6 +251,9 @@ public class NodeModule {
 
         Logger.info("[Stopping Transaction Processor]");
         _transactionProcessor.stop();
+
+        Logger.info("[Stopping Transaction Relay]");
+        _transactionRelay.stop();
 
         Logger.info("[Stopping Transaction Downloader]");
         _transactionDownloader.stop();
@@ -407,7 +412,7 @@ public class NodeModule {
             blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
         }
 
-        final OrphanedTransactionPool orphanedTransactionPool = new OrphanedTransactionPool(new OrphanedTransactionPool.Callback() {
+        _orphanedTransactionPool = new OrphanedTransactionPool(new OrphanedTransactionPool.Callback() {
             @Override
             public void newTransactionsAvailable(final Set<Transaction> transactions) {
                 for (final Transaction transaction : transactions) {
@@ -442,7 +447,7 @@ public class NodeModule {
         };
 
         _requestDataHandler = new RequestDataHandler(databaseManagerFactory, _blockStore);
-        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(_requestDataHandler);
+        _transactionWhitelist = RequestDataHandlerMonitor.wrap(_requestDataHandler);
         { // Initialize the monitor with transactions from the memory pool...
             Logger.info("[Loading RequestDataHandlerMonitor]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -450,7 +455,7 @@ public class NodeModule {
 
                 for (final TransactionId transactionId : transactionDatabaseManager.getUnconfirmedTransactionIds()) {
                     final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-                    requestDataHandler.addTransactionHash(transactionHash);
+                    _transactionWhitelist.addTransactionHash(transactionHash);
                 }
             }
             catch (final DatabaseException exception) {
@@ -477,7 +482,7 @@ public class NodeModule {
             nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, newInventoryCallback);
             nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseManagerFactory);
             nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseManagerFactory);
-            nodeInitializerProperties.requestDataCallback = requestDataHandler;
+            nodeInitializerProperties.requestDataCallback = _transactionWhitelist;
             nodeInitializerProperties.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
             nodeInitializerProperties.requestSlpTransactionsCallback = new RequestSlpTransactionsHandler(databaseManagerFactory);
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
@@ -544,7 +549,7 @@ public class NodeModule {
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
             final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, transactionValidatorFactory);
-            blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionPool);
+            blockProcessor = new BlockProcessor(blockProcessorContext, _orphanedTransactionPool);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
@@ -743,8 +748,22 @@ public class NodeModule {
             _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
                 @Override
                 public void onNewTransactions(final List<Transaction> transactions) {
-                    _transactionRelay.relayTransactions(transactions);
                     _blockchainIndexer.wakeUp();
+
+                    for (final Transaction transaction : transactions) {
+                        final Sha256Hash transactionHash = transaction.getHash();
+                        if (_transactionWhitelist != null) { // Prevent penalizing nodes requesting this Transaction...
+                            _transactionWhitelist.addTransactionHash(transactionHash);
+                        }
+                    }
+
+                    _transactionRelay.relayTransactions(transactions);
+                    _mainThreadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            _orphanedTransactionPool.onValidTransactionsProcessed(transactions);
+                        }
+                    });
                 }
             });
         }
@@ -837,7 +856,7 @@ public class NodeModule {
 
         { // Initialize Transaction Relay...
             final Boolean shouldRelayInvalidSlpTransactions = _bitcoinProperties.isInvalidSlpTransactionRelayEnabled();
-            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, requestDataHandler, _nodeRpcHandler, shouldRelayInvalidSlpTransactions);
+            _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, _nodeRpcHandler, shouldRelayInvalidSlpTransactions, 100L);
         }
 
         _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/transaction-bloom-filter");
@@ -1058,6 +1077,9 @@ public class NodeModule {
 
         Logger.info("[Starting Transaction Processor]");
         _transactionProcessor.start();
+
+        Logger.info("[Starting Transaction Relay]");
+        _transactionRelay.start();
 
         if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
             Logger.info("[Starting Address Processor]");
