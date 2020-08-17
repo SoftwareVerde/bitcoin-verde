@@ -14,7 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionPool;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -67,14 +67,13 @@ public class TransactionProcessorTests extends IntegrationTest {
         final AddressInflater addressInflater = new AddressInflater();
         final FakeBlockStore blockStore = new FakeBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
-        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;

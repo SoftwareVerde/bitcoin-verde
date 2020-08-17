@@ -17,7 +17,6 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
@@ -52,7 +51,6 @@ public class BlockProcessorTests extends IntegrationTest {
     protected class TestHarness {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
-        public final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
 
         public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _transactionValidatorFactory) {
@@ -66,7 +64,7 @@ public class BlockProcessorTests extends IntegrationTest {
                 };
             }
         };
-        public final BlockProcessor blockProcessor = new BlockProcessor(this.blockProcessorContext, this.orphanedTransactionsCache);
+        public final BlockProcessor blockProcessor = new BlockProcessor(this.blockProcessorContext);
 
         public TestHarness() {
             blockProcessor.setMaxThreadCount(1);

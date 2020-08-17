@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionPool;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -36,14 +36,13 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
         final TransactionInflaters transactionInflaters = _masterInflater;
         final FakeBlockStore blockStore = new FakeBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
-        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {

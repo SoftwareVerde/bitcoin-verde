@@ -21,7 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.pending.fulln
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionPool;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -147,13 +147,12 @@ public class BlockchainBuilderTests extends IntegrationTest {
     public void should_synchronize_pending_blocks() throws Exception {
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
-        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, null);
@@ -211,14 +210,13 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final AddressInflater addressInflater = new AddressInflater();
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
-        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;
@@ -437,7 +435,6 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final TransactionInflaters transactionInflaters = _masterInflater;
 
@@ -445,7 +442,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
-        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;
@@ -570,7 +567,6 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final TransactionInflaters transactionInflaters = _masterInflater;
 
@@ -578,7 +574,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
-        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+        final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;

@@ -31,9 +31,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashSet;
 import java.util.Set;
 
-public class OrphanedTransactionsCacheTests extends IntegrationTest {
+public class OrphanedTransactionPoolTests extends IntegrationTest {
     @Override @Before
     public void before() throws Exception {
         super.before();
@@ -92,15 +93,21 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
             final Transaction parentTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(genesisBlockCoinbase.getHash(), 0), genesisBlockCoinbase.getTransactionOutputs().get(0)); // NOTE: This transaction does not properly unlock its output...
             final Transaction childTransaction = _createTransaction(privateKey, new TransactionOutputIdentifier(parentTransaction.getHash(), 0), parentTransaction.getTransactionOutputs().get(0));
 
-            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
+            final Set<Transaction> possiblyValidTransactions = new HashSet<Transaction>();
+            final OrphanedTransactionPool orphanedTransactionPool = new OrphanedTransactionPool(new OrphanedTransactionPool.Callback() {
+                @Override
+                public void newTransactionsAvailable(final Set<Transaction> transactions) {
+                    possiblyValidTransactions.addAll(transactions);
+                }
+            });
 
-            orphanedTransactionsCache.add(childTransaction, databaseManager);
+            orphanedTransactionPool.add(childTransaction, databaseManager);
 
             Assert.assertNull(transactionDatabaseManager.getTransactionId(childTransaction.getHash()));
 
             // Action
             transactionDatabaseManager.storeUnconfirmedTransaction(parentTransaction);
-            final Set<Transaction> possiblyValidTransactions = orphanedTransactionsCache.onTransactionAdded(parentTransaction);
+            orphanedTransactionPool.onValidTransactionProcessed(parentTransaction);
 
             // Assert
             Assert.assertNotNull(possiblyValidTransactions);

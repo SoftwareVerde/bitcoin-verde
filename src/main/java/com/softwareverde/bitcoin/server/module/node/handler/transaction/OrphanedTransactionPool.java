@@ -17,12 +17,17 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 
-public class OrphanedTransactionsCache {
+public class OrphanedTransactionPool {
+    public interface Callback {
+        void newTransactionsAvailable(Set<Transaction> transactions);
+    }
+
     public static final Integer MAX_ORPHANED_TRANSACTION_COUNT = (128 * 1024);
 
     protected final HashMap<TransactionOutputIdentifier, HashSet<Transaction>> _orphanedTransactions = new HashMap<TransactionOutputIdentifier, HashSet<Transaction>>(MAX_ORPHANED_TRANSACTION_COUNT);
     protected final HashSet<Transaction> _orphanedTransactionSet = new HashSet<Transaction>();
     protected final LinkedList<Transaction> _orphanedTransactionsByAge = new LinkedList<Transaction>();
+    protected final Callback _callback;
 
     protected void _removeOrphanedTransaction(final Transaction transaction) {
         _orphanedTransactionSet.remove(transaction);
@@ -64,9 +69,13 @@ public class OrphanedTransactionsCache {
         return (transactionOutput != null);
     }
 
-    // TODO: This class, despite being important to handling orphaned transactions, never appears to be read from--only written to.
-    public OrphanedTransactionsCache() { }
+    public OrphanedTransactionPool(final Callback callback) {
+        _callback = callback;
+    }
 
+    /**
+     * Adds a Transaction that is unable to be processed due to missing dependent Transactions to the cache.
+     */
     public synchronized void add(final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
         if (! transactionIsUnique) { return; }
@@ -92,7 +101,11 @@ public class OrphanedTransactionsCache {
         }
     }
 
-    public synchronized Set<Transaction> onTransactionAdded(final Transaction transaction) {
+    /**
+     * Informs the OrphanedTransactionCache that a new valid Transaction was processed.
+     *  Returns a set of Transactions that are now ready for processing with the addition of the new Transaction.
+     */
+    public synchronized void onValidTransactionProcessed(final Transaction transaction) {
         final HashSet<Transaction> possiblyEligibleTransactions = new HashSet<Transaction>();
 
         final Sha256Hash transactionHash = transaction.getHash();
@@ -112,6 +125,8 @@ public class OrphanedTransactionsCache {
             _removeOrphanedTransaction(transaction);
         }
 
-        return possiblyEligibleTransactions;
+        if (! possiblyEligibleTransactions.isEmpty()) {
+            _callback.newTransactionsAvailable(possiblyEligibleTransactions);
+        }
     }
 }

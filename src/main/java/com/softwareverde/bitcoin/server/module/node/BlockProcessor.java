@@ -38,7 +38,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionPool;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -70,7 +70,7 @@ public class BlockProcessor {
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
-    protected final OrphanedTransactionsCache _orphanedTransactionsCache;
+    protected final OrphanedTransactionPool _orphanedTransactionPool;
 
     protected Long _utxoCommitFrequency = 2016L;
     protected Integer _maxThreadCount = 4;
@@ -78,10 +78,14 @@ public class BlockProcessor {
 
     protected final Long _startTime;
 
-    public BlockProcessor(final Context context, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final Context context) {
+        this(context, null);
+    }
+
+    public BlockProcessor(final Context context, final OrphanedTransactionPool orphanedTransactionPool) {
         _context = context;
         _transactionValidatorFactory = _context;
-        _orphanedTransactionsCache = orphanedTransactionsCache;
+        _orphanedTransactionPool = orphanedTransactionPool;
 
         _startTime = System.currentTimeMillis();
     }
@@ -517,9 +521,9 @@ public class BlockProcessor {
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final ProcessBlockResult processBlockResult = _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
-            if ((processBlockResult.isValid) && (_orphanedTransactionsCache != null)) {
+            if ((processBlockResult.isValid) && (_orphanedTransactionPool != null)) {
                 for (final Transaction transaction : block.getTransactions()) {
-                    _orphanedTransactionsCache.onTransactionAdded(transaction);
+                    _orphanedTransactionPool.onValidTransactionProcessed(transaction);
                 }
             }
 

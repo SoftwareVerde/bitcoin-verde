@@ -52,7 +52,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatu
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlockHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionPool;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
@@ -125,6 +125,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
@@ -406,7 +407,14 @@ public class NodeModule {
             blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
         }
 
-        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache();
+        final OrphanedTransactionPool orphanedTransactionPool = new OrphanedTransactionPool(new OrphanedTransactionPool.Callback() {
+            @Override
+            public void newTransactionsAvailable(final Set<Transaction> transactions) {
+                for (final Transaction transaction : transactions) {
+                    _transactionDownloader.submitTransaction(transaction);
+                }
+            }
+        });
 
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
@@ -536,7 +544,7 @@ public class NodeModule {
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
             final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, transactionValidatorFactory);
-            blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionsCache);
+            blockProcessor = new BlockProcessor(blockProcessorContext, orphanedTransactionPool);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());

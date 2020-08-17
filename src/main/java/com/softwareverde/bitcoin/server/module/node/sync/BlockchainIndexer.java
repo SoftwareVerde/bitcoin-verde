@@ -120,7 +120,8 @@ public class BlockchainIndexer extends SleepyService {
             final TransactionId previousTransactionId = context.getTransactionId(previousTransactionHash);
             final Transaction previousTransaction = context.getTransaction(previousTransactionId);
             if (previousTransaction == null) {
-                throw new ContextException("Previous Transaction does not exist: " + previousTransactionHash);
+                Logger.debug("Cannot index input; Transaction does not exist: " + previousTransactionHash);
+                continue;
             }
 
             final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
