@@ -96,10 +96,13 @@ public class UnconfirmedTransactionOutputDatabaseManager {
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionOutputIdentifier.getTransactionHash());
         if (transactionId == null) { return null; }
 
+        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM unconfirmed_transaction_outputs WHERE transaction_id = ?")
+            new Query("SELECT id FROM unconfirmed_transaction_outputs WHERE transaction_id = ? AND `index` = ?")
                 .setParameter(transactionId)
+                .setParameter(outputIndex)
         );
         if (rows.isEmpty()) { return null; }
 
