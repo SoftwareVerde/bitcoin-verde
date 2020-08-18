@@ -1318,6 +1318,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             nodeJson.put("initializationTimestamp", (node.getInitializationTimestamp() / 1000L));
             nodeJson.put("lastMessageReceivedTimestamp", (node.getLastMessageReceivedTimestamp() / 1000L));
             nodeJson.put("networkOffset", node.getNetworkTimeOffset());
+            nodeJson.put("ping", node.getAveragePing());
+            nodeJson.put("blockHeight", node.getBlockHeight());
 
             final NodeIpAddress localNodeIpAddress = node.getLocalNodeIpAddress();
             nodeJson.put("localHost", (localNodeIpAddress != null ? localNodeIpAddress.getIp() : null));

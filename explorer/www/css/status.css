@@ -331,6 +331,18 @@
     background-color: rgba(0, 0, 0, 0.05);
 }
 
+.node .block-height::before {
+    content: 'Block Height:';
+    margin-right: 1em;
+    text-align: left;
+}
+
+.node .ping::before {
+    content: 'Ping:';
+    margin-right: 1em;
+    text-align: left;
+}
+
 .node .network-offset::before {
     content: 'Network Offset:';
     margin-right: 1em;

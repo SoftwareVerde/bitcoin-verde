@@ -127,8 +127,10 @@ class StatusUi {
                     $(".id", nodeElement).text(node.id);
                     $(".user-agent", nodeElement).text(node.userAgent);
                     $(".host", nodeElement).text(node.host);
-                    $(".port", nodeElement).text(node.port);
+                    $(".port", nodeElement).text(" " + node.port); // Whitespace prevents the host/port from being concatenated upon select.
+                    $(".ping", nodeElement).text(node.ping);
 
+                    $(".block-height", nodeElement).text(node.blockHeight);
                     $(".network-offset", nodeElement).text(node.networkOffset);
                     $(".handshake-complete", nodeElement).text(node.handshakeIsComplete);
                     $(".initialization-timestamp", nodeElement).text(DateUtil.formatDateIso(node.initializationTimestamp));

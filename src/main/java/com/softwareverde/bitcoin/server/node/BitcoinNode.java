@@ -307,6 +307,8 @@ public class BitcoinNode extends Node {
 
     protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted = null; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
 
+    protected Long _blockHeight = null; // TODO: Update blockHeight as new blocks are advertised by the Node...
+
     protected void _requestAddressBlocks(final List<Address> addresses) {
         final QueryAddressBlocksMessage queryAddressBlocksMessage = _protocolMessageFactory.newQueryAddressBlocksMessage();
         for (final Address address : addresses) {
@@ -319,6 +321,7 @@ public class BitcoinNode extends Node {
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         if (synchronizeVersionMessage instanceof BitcoinSynchronizeVersionMessage) {
             _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
+            _blockHeight = _synchronizeVersionMessage.getCurrentBlockHeight();
         }
         else {
             Logger.warn("Invalid SynchronizeVersionMessage type provided to BitcoinNode.");
@@ -1502,5 +1505,12 @@ public class BitcoinNode extends Node {
     public NodeFeatures getNodeFeatures() {
         if (_synchronizeVersionMessage == null) { return null; }
         return _synchronizeVersionMessage.getNodeFeatures();
+    }
+
+    /**
+     * Returns the blockHeight defined during the Node's handshake or null if the handshake has not completed.
+     */
+    public Long getBlockHeight() {
+        return _blockHeight;
     }
 }
