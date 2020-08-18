@@ -461,6 +461,9 @@ public class PendingTransactionDatabaseManager {
         }
     }
 
+    /**
+     * Returns a list of PendingTransactionIds that may be processed (i.e. their previous Outputs have been processed).
+     */
     public List<PendingTransactionId> selectCandidatePendingTransactionIds() throws DatabaseException {
         try {
             READ_LOCK.lock();
