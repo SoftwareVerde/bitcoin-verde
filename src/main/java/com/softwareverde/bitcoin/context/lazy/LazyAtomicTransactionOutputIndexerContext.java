@@ -11,7 +11,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.Transac
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;

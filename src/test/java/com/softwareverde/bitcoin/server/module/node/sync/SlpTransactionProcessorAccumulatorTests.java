@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionPool;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.test.BlockData;

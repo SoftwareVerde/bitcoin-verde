@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -43,11 +42,6 @@ public class BitwiseOperation extends SubTypedOperation {
 
         switch (_opcode) {
             case BITWISE_INVERT: {
-                if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_INVERT is enabled on the Bitcoin SV fork...
-                    Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
-                    return false;
-                }
-
                 final Value value = stack.pop();
                 final MutableByteArray byteValue = MutableByteArray.wrap(value.getBytes());
                 final int byteCount = byteValue.getByteCount();
@@ -138,11 +132,6 @@ public class BitwiseOperation extends SubTypedOperation {
             }
 
             case SHIFT_LEFT: {
-                if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_LSHIFT is enabled on the Bitcoin SV fork...
-                    Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
-                    return false;
-                }
-
                 final Value bitShiftCountValue = stack.pop();
                 final MutableByteArray value = new MutableByteArray(stack.pop());
 
@@ -150,14 +139,14 @@ public class BitwiseOperation extends SubTypedOperation {
                 final Integer bitShiftCount = bitShiftCountValue.asInteger();
                 if (bitShiftCount < 0) { return false; }
 
-                final Integer byteCount = value.getByteCount();
-                final Integer bitCount = (byteCount * 8);
+                final int byteCount = value.getByteCount();
+                final int bitCount = (byteCount * 8);
 
                 if (bitShiftCount < bitCount) {
                     for (int i = 0; i < bitCount; ++i) {
                         final int writeIndex = i;
                         final int readIndex = (writeIndex + bitShiftCount);
-                        final boolean newValue = (readIndex >= bitCount ? false : value.getBit(readIndex));
+                        final boolean newValue = ( (readIndex < bitCount) && value.getBit(readIndex) );
                         value.setBit(writeIndex, newValue);
                     }
                     stack.push(Value.fromBytes(value.unwrap()));
@@ -170,11 +159,6 @@ public class BitwiseOperation extends SubTypedOperation {
             }
 
             case SHIFT_RIGHT: {
-                if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_RSHIFT is enabled on the Bitcoin SV fork...
-                    Logger.debug("NOTICE: Opcode is disabled: " + _opcode);
-                    return false;
-                }
-
                 final Value bitShiftCountValue = stack.pop();
                 final MutableByteArray value = new MutableByteArray(stack.pop());
 
@@ -182,14 +166,14 @@ public class BitwiseOperation extends SubTypedOperation {
                 final Integer bitShiftCount = bitShiftCountValue.asInteger();
                 if (bitShiftCount < 0) { return false; }
 
-                final Integer byteCount = value.getByteCount();
-                final Integer bitCount = (byteCount * 8);
+                final int byteCount = value.getByteCount();
+                final int bitCount = (byteCount * 8);
 
                 if (bitShiftCount < bitCount) {
                     for (int i = 0; i < bitCount; ++i) {
                         final int writeIndex = (bitCount - i - 1);
                         final int readIndex = (writeIndex - bitShiftCount);
-                        final boolean newValue = (readIndex < 0 ? false : value.getBit(readIndex));
+                        final boolean newValue = ( (readIndex >= 0) && value.getBit(readIndex) );
                         value.setBit(writeIndex, newValue);
                     }
                     stack.push(Value.fromBytes(value.unwrap()));

@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.CoreInflater;
-import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
@@ -127,6 +126,10 @@ public class HistoricTransactionsTests {
     }
 
     public static void runScripts(final TestConfig testConfig) {
+        HistoricTransactionsTests.runScripts(testConfig, true);
+    }
+
+    public static void runScripts(final TestConfig testConfig, final Boolean expectedResult) {
         // Setup
         final TransactionContext transactionContext = initContext(testConfig);
 
@@ -139,7 +142,7 @@ public class HistoricTransactionsTests {
         final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
 
         // Assert
-        Assert.assertTrue(inputIsUnlocked);
+        Assert.assertEquals(inputIsUnlocked, expectedResult);
     }
 
     @After
@@ -904,9 +907,7 @@ public class HistoricTransactionsTests {
 
     @Test
     public void should_verify_transaction_94B8E61EF05AE9C8379C1CD0CC57F503246AEA1C3330C111944998888FB534C1_0() {
-        // NOTE: This transaction uses BITWISE_INVERT...
-
-        if (! HF20181115SV.isEnabled(Long.MAX_VALUE)) { return; } // If BSV is disabled, do not execute....
+        // NOTE: This transaction uses BITWISE_INVERT, which is disabled on BCH...
 
         final TestConfig testConfig = new TestConfig();
         testConfig.transactionBytes = "02000000041806206831C8632AA6B7640B668187167F7803882607B46D6C33C732C536FE383400000003510183FFFFFFFF1806206831C8632AA6B7640B668187167F7803882607B46D6C33C732C536FE38460000000451510195FFFFFFFF1806206831C8632AA6B7640B668187167F7803882607B46D6C33C732C536FE38490000000452510198FFFFFFFF1806206831C8632AA6B7640B668187167F7803882607B46D6C33C732C536FE384A0000000452510199FFFFFFFF01F6540000000000001976A9145FC017074093959A2CE59D1C057E8FC3CDB5805A88AC02770800";
@@ -921,7 +922,7 @@ public class HistoricTransactionsTests {
         // Median Block Time:   1542384261
         // Network Time:        1542390241
 
-        runScripts(testConfig);
+        runScripts(testConfig, false);
     }
 
     @Test
