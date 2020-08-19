@@ -231,7 +231,7 @@ public class AbcScriptRunnerTests extends UnitTest {
         if (opCodeString.matches("\'.*\'")) {
             final String content = opCodeString.substring(1, (opCodeString.length() - 1));
             final ByteArray contentBytes = MutableByteArray.wrap(StringUtil.stringToBytes(content));
-            final Integer contentByteCount = contentBytes.getByteCount();
+            final int contentByteCount = contentBytes.getByteCount();
 
             if (contentByteCount <= PushOperation.VALUE_MAX_BYTE_COUNT) {
                 return MutableByteArray.wrap(PushOperation.pushBytes(contentBytes).getBytes());
@@ -240,7 +240,7 @@ public class AbcScriptRunnerTests extends UnitTest {
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
             byteArrayBuilder.appendByte((byte) 0x4E); // PUSH_DATA_INTEGER
             byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
-            byteArrayBuilder.appendBytes(contentBytes);;
+            byteArrayBuilder.appendBytes(contentBytes);
             return MutableByteArray.wrap(byteArrayBuilder.build());
         }
 
