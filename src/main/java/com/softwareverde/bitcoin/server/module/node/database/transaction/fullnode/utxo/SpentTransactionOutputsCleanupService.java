@@ -26,12 +26,12 @@ public class SpentTransactionOutputsCleanupService extends SleepyService {
     @Override
     protected Boolean _run() {
         final Thread currentThread = Thread.currentThread();
-        final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX = UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX; // Use the READ lock since modification is only occurring on stale data...
+        // final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX = UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX; // Use the READ lock since modification is only occurring on stale data...
 
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             while (! currentThread.isInterrupted()) {
-                UTXO_READ_MUTEX.lock(); // Re-acquire the lock each time in order to prevent blocking synchronization...
+                // UTXO_READ_MUTEX.lock(); // Re-acquire the lock each time in order to prevent blocking synchronization...
                 try {
                     final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM stale_committed_unspent_transaction_outputs LIMIT 1024"));
                     if (rows.isEmpty()) { break; }
@@ -59,7 +59,7 @@ public class SpentTransactionOutputsCleanupService extends SleepyService {
                     );
                 }
                 finally {
-                    UTXO_READ_MUTEX.unlock();
+                    // UTXO_READ_MUTEX.unlock();
                 }
 
                 Thread.sleep(100L); // Allow allow threads to acquire UTXO lock.

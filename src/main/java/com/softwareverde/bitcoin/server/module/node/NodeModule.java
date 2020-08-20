@@ -279,9 +279,7 @@ public class NodeModule {
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MilliTimer utxoCommitTimer = new MilliTimer();
                 utxoCommitTimer.start();
-
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionPool);
-
                 utxoCommitTimer.stop();
                 Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
             }
@@ -553,7 +551,7 @@ public class NodeModule {
 
         { // Initialize BlockchainBuilder...
             final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, databaseManagerFactory, _mainThreadPool);
-            final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 3);
+            final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 8);
             final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
             pendingBlockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
 
@@ -895,7 +893,6 @@ public class NodeModule {
         final MilliTimer timer = new MilliTimer();
         timer.start();
 
-        final Database database = _environment.getDatabase();
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionPool,

@@ -119,7 +119,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
      * Loads all outputs spent by the provided block.
      *  Returns true if all of the outputs were found, and false if at least one output could not be found.
      *  Outputs may not be found in the case of an invalid block, but also if its predecessor has not been validated yet.
-     *  The BlockHeader for the provided Block must have beeen stored before attempting to load its outputs.
+     *  The BlockHeader for the provided Block must have been stored before attempting to load its outputs.
      */
     public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();

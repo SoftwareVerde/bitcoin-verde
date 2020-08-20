@@ -101,6 +101,10 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
         return _unspentTransactionOutputSet;
     }
 
+    public void addPredecessorBlock(final PendingBlockFuture pendingBlockFuture) {
+        _predecessorBlocks.addLast(pendingBlockFuture);
+    }
+
     public Long getBlockHeight() {
         if (! _pin.wasReleased()) { return null; }
 

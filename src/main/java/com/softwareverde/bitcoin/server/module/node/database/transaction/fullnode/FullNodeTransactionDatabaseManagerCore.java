@@ -804,26 +804,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     @Override
     public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-
-        UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.lock();
-        try {
-            return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-        }
-        finally {
-            UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.unlock();
-        }
+        return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
     }
 
     @Override
     public List<TransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-
-        UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.lock();
-        try {
-            return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
-        }
-        finally {
-            UnspentTransactionOutputDatabaseManager.UTXO_READ_MUTEX.unlock();
-        }
+        return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
     }
 }

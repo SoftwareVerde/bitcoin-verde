@@ -142,7 +142,9 @@ public class PendingBlockLoader {
                 Sha256Hash nextBlockHash = blockHash;
                 final int allowedNewFutureCount = (_pendingBlockFutures.getMaxCount() - _pendingBlockFutures.getCount());
                 int newFutureCount = 0;
-                while (newFutureCount < allowedNewFutureCount) {
+                final boolean queueHasBeenDrained = (_pendingBlockFutures.getCount() == 0); // Only queue up additional items once the full queue has been drained in order to prevent read/write contention.
+                while (queueHasBeenDrained && (newFutureCount < allowedNewFutureCount)) {
+                    final Long futureBlockHeight = (blockHeight + 1L + newFutureCount);
                     final List<PendingBlockId> nextPendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(nextBlockHash);
                     if (nextPendingBlockIds.getCount() != 1) { break; } // If the next block is contentious then abort.
 
@@ -163,18 +165,18 @@ public class PendingBlockLoader {
                         if (futureExists) { continue; }
                     }
 
-                    final Boolean shouldLoadUnspentOutputs = _shouldLoadUnspentOutputs(blockHeight);
+                    final Boolean shouldLoadUnspentOutputs = _shouldLoadUnspentOutputs(futureBlockHeight);
                     if (! shouldLoadUnspentOutputs) {
                         newFutureCount += 1; // Still increment the newFutureCount in order to prevent looping through too many future blocks...
                         continue;
                     }
 
-                    final PendingBlockFuture nextBlockFuture = _asynchronouslyLoadNextPendingBlock(nextBlockHash, nextPendingBlockId, blockHeight, true);
+                    final PendingBlockFuture nextBlockFuture = _asynchronouslyLoadNextPendingBlock(nextBlockHash, nextPendingBlockId, futureBlockHeight, true);
 
                     { // Add the queued blocks as dependents for the pending block's output set.
-                        nextBlockFuture._predecessorBlocks.addLast(requestedBlockFuture);
-                        for (final PendingBlockFuture predecessorBlocks : _pendingBlockFutures) {
-                            nextBlockFuture._predecessorBlocks.addLast(predecessorBlocks);
+                        nextBlockFuture.addPredecessorBlock(requestedBlockFuture);
+                        for (final PendingBlockFuture predecessorBlock : _pendingBlockFutures) {
+                            nextBlockFuture.addPredecessorBlock(predecessorBlock);
                         }
                     }
 

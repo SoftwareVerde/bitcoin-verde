@@ -64,10 +64,18 @@ public class UnspentTransactionOutputDatabaseManager {
         }
     }
 
-    public static final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX;
-    public static final ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX;
+    public static void lockUtxoSet() {
+        UTXO_WRITE_MUTEX.lock();
+    }
+
+    public static void unlockUtxoSet() {
+        UTXO_WRITE_MUTEX.unlock();
+    }
+
+    protected static final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX;
+    protected static final ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX;
     static {
-        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(false);
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
 
         UTXO_READ_MUTEX = readWriteLock.readLock();
         UTXO_WRITE_MUTEX = readWriteLock.writeLock();
@@ -91,7 +99,7 @@ public class UnspentTransactionOutputDatabaseManager {
      *  Update 2: Removing the index on is_spent changes the data+index size per row to 109 including indexes.
      *      The new value chosen is now 33554432 (2^25) (39403369 being the new theoretical max).
      */
-    public static final Long BYTES_PER_UTXO = 109L;
+    public static final Long BYTES_PER_UTXO = 128L; // 109L;
     public static final Long DEFAULT_MAX_UTXO_CACHE_COUNT = 33554432L; // 2^25
     public static final Float DEFAULT_PURGE_PERCENT = 0.50F;
 
@@ -773,6 +781,9 @@ public class UnspentTransactionOutputDatabaseManager {
         return transactionOutputsBuilder.build();
     }
 
+    /**
+     * Flushes all queued UTXO set changes to disk.  The UTXO set is locked for the duration of this call.
+     */
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
         if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value == 0L) {
             // Prevent committing a UTXO set that has been invalidated...
@@ -883,7 +894,7 @@ public class UnspentTransactionOutputDatabaseManager {
         }
     }
 
-    public void cleanupSpentTransactionOutputs() throws DatabaseException {
-
+    public Long getMaxUtxoCount() {
+        return _maxUtxoCount;
     }
 }

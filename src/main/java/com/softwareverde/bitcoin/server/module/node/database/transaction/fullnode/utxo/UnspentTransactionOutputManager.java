@@ -19,6 +19,14 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class UnspentTransactionOutputManager {
+    public static void lockUtxoSet() {
+        UnspentTransactionOutputDatabaseManager.lockUtxoSet();
+    }
+
+    public static void unlockUtxoSet() {
+        UnspentTransactionOutputDatabaseManager.unlockUtxoSet();
+    }
+
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManager _databaseManager;
     protected final Long _commitFrequency;
@@ -82,7 +90,7 @@ public class UnspentTransactionOutputManager {
 
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
-        if ( ((blockHeight % _commitFrequency) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT) ) {
+        if ( ((blockHeight % _commitFrequency) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= unspentTransactionOutputDatabaseManager.getMaxUtxoCount()) ) {
             utxoCommitTimer.start();
             _commitInMemoryUtxoSetToDisk();
             utxoCommitTimer.stop();
@@ -90,14 +98,9 @@ public class UnspentTransactionOutputManager {
         }
 
         utxoTimer.start();
-        UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
-        try {
-            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
-            unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
-        }
-        finally {
-            UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
-        }
+
+        unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
+        unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
 
         utxoTimer.stop();
         totalTimer.stop();
@@ -115,9 +118,8 @@ public class UnspentTransactionOutputManager {
      * Destroys the In-Memory and On-Disk UTXO set and rebuilds it from the Genesis Block.
      */
     public void rebuildUtxoSetFromGenesisBlock(final BlockLoader blockLoader) throws DatabaseException {
-        UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
+        UnspentTransactionOutputDatabaseManager.lockUtxoSet();
         try {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
@@ -126,7 +128,7 @@ public class UnspentTransactionOutputManager {
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(utxoBlockHeight);
         }
         finally {
-            UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+            UnspentTransactionOutputDatabaseManager.unlockUtxoSet();
         }
     }
 
@@ -134,9 +136,8 @@ public class UnspentTransactionOutputManager {
      * Builds the UTXO set from the last committed block.
      */
     public void buildUtxoSet(final BlockLoader blockLoader) throws DatabaseException {
-        UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
+        UnspentTransactionOutputDatabaseManager.lockUtxoSet();
         try {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
@@ -144,7 +145,7 @@ public class UnspentTransactionOutputManager {
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(utxoBlockHeight);
         }
         finally {
-            UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+            UnspentTransactionOutputDatabaseManager.unlockUtxoSet();
         }
     }
 
