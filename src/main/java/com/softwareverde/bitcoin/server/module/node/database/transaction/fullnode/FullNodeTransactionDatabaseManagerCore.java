@@ -37,7 +37,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
@@ -128,82 +127,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id IN (?)")
                 .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
         );
-    }
-
-    protected TransactionId _insertTransaction(final Transaction transaction) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final Sha256Hash transactionHash = transaction.getHash();
-
-        final LockTime lockTime = transaction.getLockTime();
-        final Long transactionIdLong = databaseConnection.executeSql(
-            new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
-                .setParameter(transactionHash)
-                .setParameter(transaction.getVersion())
-                .setParameter(lockTime.getValue())
-        );
-
-        return TransactionId.wrap(transactionIdLong);
-    }
-
-    /**
-     * Returns a map of newly inserted Transactions and their Ids.  If a transaction already existed, its Hash/Id pair are not returned within the map.
-     */
-    protected Map<Sha256Hash, TransactionId> _storeTransactions(final List<Transaction> transactions) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (transactions.isEmpty()) { return new HashMap<Sha256Hash, TransactionId>(0); }
-
-        final int transactionCount = transactions.getCount();
-
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactionCount);
-        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
-        for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-            final LockTime lockTime = transaction.getLockTime();
-
-            batchedInsertQuery.setParameter(transactionHash);
-            batchedInsertQuery.setParameter(transaction.getVersion());
-            batchedInsertQuery.setParameter(lockTime.getValue());
-
-            transactionHashes.add(transactionHash);
-        }
-
-        final Long firstTransactionId = databaseConnection.executeSql(batchedInsertQuery);
-        if (firstTransactionId == null) {
-            Logger.warn("Error storing transactions.");
-            return null;
-        }
-
-        final Integer affectedRowCount = databaseConnection.getRowsAffectedCount();
-
-        final List<TransactionId> transactionIdRange;
-        {
-            final ImmutableListBuilder<TransactionId> rowIds = new ImmutableListBuilder<TransactionId>(affectedRowCount);
-            for (int i = 0; i < affectedRowCount; ++i) {
-                final long transactionIdLong = (firstTransactionId + i);
-                rowIds.add(TransactionId.wrap(transactionIdLong));
-            }
-            transactionIdRange = rowIds.build();
-        }
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM transactions WHERE id IN (?)")
-                .setInClauseParameters(transactionIdRange, ValueExtractor.IDENTIFIER)
-        );
-        if (! Util.areEqual(rows.size(), affectedRowCount)) {
-            Logger.warn("Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
-            return null;
-        }
-
-        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(affectedRowCount);
-        for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
-            transactionHashMap.put(transactionHash, transactionId);
-        }
-
-        return transactionHashMap;
     }
 
     protected void _storeUnconfirmedTransaction(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
@@ -631,7 +554,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(1024, false);
+        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(512, false);
         batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
             @Override
             public void run(final List<Transaction> transactionsBatch) throws Exception {
@@ -645,7 +568,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                     batchedInsertQuery.setParameter(transactionByteCount);
                 }
 
-                databaseConnection.executeSql(batchedInsertQuery);            }
+                databaseConnection.executeSql(batchedInsertQuery);
+            }
         });
 
         final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<Sha256Hash, TransactionId>(transactions.getCount());

@@ -12,8 +12,6 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 public class SpentTransactionOutputsCleanupService extends SleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
