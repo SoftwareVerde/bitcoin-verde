@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -35,6 +36,7 @@ import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -153,7 +155,7 @@ public class UnspentTransactionOutputDatabaseManager {
         //  It's plausible to execute the changes to the on-disk UTXO set with a single Database Transaction,
         //  which would render errors recoverable by only rebuilding since the last commitment instead of rebuilding the whole UTXO set, but this is not currently done.
 
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoRetainerBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> inMemoryUtxoRetainerBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, true, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO unspent_transaction_outputs_buffer (transaction_hash, `index`, is_spent, block_height) VALUES (?, ?, NULL, ?)");
@@ -168,7 +170,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, true, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> unspentTransactionOutputs) throws Exception {
                 // Queue the output for deletion...
@@ -184,7 +186,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, false, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> unspentTransactionOutputs) throws Exception {
                 { // Commit the output as spent...
@@ -202,7 +204,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, new BatchRunner.Batch<UnspentTransactionOutput>() {
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, false, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?)");
@@ -445,7 +447,7 @@ public class UnspentTransactionOutputDatabaseManager {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
             batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -499,7 +501,7 @@ public class UnspentTransactionOutputDatabaseManager {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
             batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -537,7 +539,7 @@ public class UnspentTransactionOutputDatabaseManager {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
             batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -579,7 +581,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024);
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
             batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -670,24 +672,32 @@ public class UnspentTransactionOutputDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
 
-        final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiersNotInCache;
+        final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiersNotInCache;
         final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers;
+
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(512, false);
 
         UTXO_READ_MUTEX.lock();
         try {
             { // Only return outputs that are in the UTXO set...
-                unspentTransactionOutputIdentifiersNotInCache = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
+                final HashSet<TransactionOutputIdentifier> cacheMissIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
 
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
-                        .setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
-                            @Override
-                            public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
-                                unspentTransactionOutputIdentifiersNotInCache.add(transactionOutputIdentifier);
-                                return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
-                            }
-                        })
-                );
+                final java.util.List<Row> rows = new ArrayList<Row>(0);
+                batchRunner.run(transactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                    @Override
+                    public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {
+                        rows.addAll(databaseConnection.query(
+                            new Query("SELECT transaction_hash, `index`, is_spent FROM unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)")
+                                .setInClauseParameters(transactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
+                                    @Override
+                                    public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
+                                        cacheMissIdentifiers.add(transactionOutputIdentifier);
+                                        return ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER.extractValues(transactionOutputIdentifier);
+                                    }
+                                })
+                        ));
+                    }
+                });
 
                 unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
                 for (final Row row : rows) {
@@ -701,16 +711,24 @@ public class UnspentTransactionOutputDatabaseManager {
                         unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
                     }
 
-                    unspentTransactionOutputIdentifiersNotInCache.remove(transactionOutputIdentifier);
+                    cacheMissIdentifiers.remove(transactionOutputIdentifier);
                 }
+
+                unspentTransactionOutputIdentifiersNotInCache = new ImmutableList<TransactionOutputIdentifier>(cacheMissIdentifiers);
             }
             { // Load UTXOs that weren't in the memory-cache but are in the greater UTXO set on disk...
-                final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.size();
+                final int cacheMissCount = unspentTransactionOutputIdentifiersNotInCache.getCount();
                 if (cacheMissCount > 0) {
-                    final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND is_spent = 0")
-                            .setExpandedInClauseParameters(unspentTransactionOutputIdentifiersNotInCache, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-                    );
+                    final java.util.List<Row> rows = new ArrayList<Row>(0);
+                    batchRunner.run(unspentTransactionOutputIdentifiersNotInCache, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                        @Override
+                        public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {
+                            rows.addAll(databaseConnection.query(
+                                new Query("SELECT transaction_hash, `index` FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND is_spent = 0")
+                                    .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                            ));
+                        }
+                    });
                     for (final Row row : rows) {
                         final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
                         final Integer outputIndex = row.getInteger("index");

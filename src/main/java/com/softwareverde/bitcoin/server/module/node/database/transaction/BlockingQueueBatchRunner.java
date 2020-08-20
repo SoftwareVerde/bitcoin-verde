@@ -11,14 +11,20 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * BlockingQueueBatchRunner collects items into a batch, periodically executing them as a single batch.
+ *  The batching period waited is at most 100ms or until itemCountPerBatch items have been added.
+ *  To prevent exceeding a particular queue size, invoke ::waitForQueueCapacity.
+ *  Batches are executed within separate thread(s).
+ */
 public class BlockingQueueBatchRunner<T> extends Thread {
 
-    public static <T> BlockingQueueBatchRunner<T> newInstance(final BatchRunner.Batch<T> batch) {
-        return BlockingQueueBatchRunner.newInstance(1024, batch);
+    public static <T> BlockingQueueBatchRunner<T> newInstance(final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
+        return BlockingQueueBatchRunner.newInstance(1024, executeAsynchronously, batch);
     }
 
-    public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final BatchRunner.Batch<T> batch) {
-        final BatchRunner<T> batchRunner = new BatchRunner<T>(itemCountPerBatch);
+    public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
+        final BatchRunner<T> batchRunner = new BatchRunner<T>(itemCountPerBatch, executeAsynchronously);
         final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
         final ConcurrentLinkedQueue<T> itemQueue = new ConcurrentLinkedQueue<T>();
         final AtomicLong executionTime = new AtomicLong(0L);
@@ -140,7 +146,7 @@ public class BlockingQueueBatchRunner<T> extends Thread {
     }
 
     /**
-     * Informs the Thread to shuts down after the queue has completed.
+     * Informs the Thread to shut down after the queue has completed.
      */
     public void finish() {
         _threadContinueContainer.value = false;

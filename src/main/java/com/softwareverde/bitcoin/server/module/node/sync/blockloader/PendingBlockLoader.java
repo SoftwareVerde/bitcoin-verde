@@ -144,7 +144,7 @@ public class PendingBlockLoader {
                 int newFutureCount = 0;
                 final boolean queueHasBeenDrained = (_pendingBlockFutures.getCount() == 0); // Only queue up additional items once the full queue has been drained in order to prevent read/write contention.
                 while (queueHasBeenDrained && (newFutureCount < allowedNewFutureCount)) {
-                    final Long futureBlockHeight = (blockHeight + 1L + newFutureCount);
+                    final Long futureBlockHeight = (blockHeight != null ? (blockHeight + 1L + newFutureCount) : null);
                     final List<PendingBlockId> nextPendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(nextBlockHash);
                     if (nextPendingBlockIds.getCount() != 1) { break; } // If the next block is contentious then abort.
 

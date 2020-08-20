@@ -631,7 +631,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(1024);
+        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(1024, false);
         batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
             @Override
             public void run(final List<Transaction> transactionsBatch) throws Exception {
@@ -741,7 +741,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final java.util.List<Row> rows = new ArrayList<Row>();
         final HashSet<BlockchainSegmentId> blockchainSegmentIds = new HashSet<BlockchainSegmentId>();
 
-        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(1024);
+        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(1024, false);
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
             public void run(final List<Sha256Hash> transactionHashes) throws Exception {

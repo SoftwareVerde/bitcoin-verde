@@ -257,7 +257,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final Container<ChainWork> previousChainWork = new Container<ChainWork>();
         final Container<BlockId> lastInsertedBlockId = new Container<BlockId>();
 
-        final BatchRunner<BlockHeader> batchRunner = new BatchRunner<BlockHeader>(maxBatchSize);
+        final BatchRunner<BlockHeader> batchRunner = new BatchRunner<BlockHeader>(maxBatchSize, false);
         batchRunner.run(blockHeaders, new BatchRunner.Batch<BlockHeader>() {
             @Override
             public void run(final List<BlockHeader> batchedBlockHeaders) throws Exception {
@@ -623,7 +623,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final HashMap<BlockId, Long> blockHeights = new HashMap<BlockId, Long>(blockIds.getCount());
-        final BatchRunner<BlockId> batchRunner = new BatchRunner<BlockId>(1024);
+        final BatchRunner<BlockId> batchRunner = new BatchRunner<BlockId>(1024, false);
         batchRunner.run(blockIds, new BatchRunner.Batch<BlockId>() {
             @Override
             public void run(final List<BlockId> blockIds) throws Exception {

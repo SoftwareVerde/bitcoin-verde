@@ -313,6 +313,8 @@ public class NodeModule {
         synchronized (_isShuttingDown) {
             _isShuttingDown.notifyAll();
         }
+
+        Logger.info("[Exiting]");
     }
 
     public NodeModule(final BitcoinProperties bitcoinProperties, final Environment environment) {

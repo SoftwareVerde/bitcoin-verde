@@ -38,7 +38,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
         // Setup
         final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<TransactionOutputIdentifier>();
 
-        final BlockingQueueBatchRunner<TransactionOutputIdentifier> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(true,
             new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -81,7 +81,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
         final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<TransactionOutputIdentifier>();
 
         final FakeDatabaseConnectionFactory fakeDatabaseConnectionFactory = new FakeDatabaseConnectionFactory();
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(true,
             new UtxoQueryBatchGroupedByBlockHeight(
                 fakeDatabaseConnectionFactory,
                 "",
@@ -128,7 +128,7 @@ public class BlockingQueueBatchRunnerTests extends UnitTest {
         final ConcurrentLinkedDeque<TransactionOutputIdentifier> executedItems = new ConcurrentLinkedDeque<TransactionOutputIdentifier>();
 
         final FakeDatabaseConnectionFactory fakeDatabaseConnectionFactory = new FakeDatabaseConnectionFactory();
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> blockingQueueBatchRunner = BlockingQueueBatchRunner.newInstance(true,
             new UtxoQueryBatchGroupedByBlockHeight(
                 fakeDatabaseConnectionFactory,
                 "",

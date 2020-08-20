@@ -336,32 +336,6 @@ public class BlockProcessor {
 
         TransactionUtil.startTransaction(databaseConnection);
         {
-            final List<TransactionId> transactionIds;
-            { // Store the Block's Transactions...
-                storeBlockTimer.start();
-
-                transactionIds = blockDatabaseManager.storeBlockTransactions(block);
-                final boolean transactionsStoredSuccessfully = (transactionIds != null);
-
-                if (transactionsStoredSuccessfully) {
-                    if (blockStore != null) {
-                        blockStore.storeBlock(block, blockHeight);
-                    }
-                }
-                else {
-                    if (blockStore != null) {
-                        blockStore.removeBlock(blockHash, blockHeight);
-                    }
-
-                    TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
-                    return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
-                }
-
-                storeBlockTimer.stop();
-                Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000D)) + " tps). " + blockHash);
-            }
-
             final UnspentTransactionOutputContext unspentTransactionOutputContext;
             {
                 if ( blockIsConnectedToUtxoSet && (preLoadedUnspentTransactionOutputContext != null) ) {
@@ -410,6 +384,32 @@ public class BlockProcessor {
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 Logger.debug("Invalid block. " + blockHash);
                 return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
+            }
+
+            final List<TransactionId> transactionIds;
+            { // Store the Block's Transactions...
+                storeBlockTimer.start();
+
+                transactionIds = blockDatabaseManager.storeBlockTransactions(block);
+                final boolean transactionsStoredSuccessfully = (transactionIds != null);
+
+                if (transactionsStoredSuccessfully) {
+                    if (blockStore != null) {
+                        blockStore.storeBlock(block, blockHeight);
+                    }
+                }
+                else {
+                    if (blockStore != null) {
+                        blockStore.removeBlock(blockHash, blockHeight);
+                    }
+
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
+                    return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
+                }
+
+                storeBlockTimer.stop();
+                Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000D)) + " tps). " + blockHash);
             }
 
             { // Queue the transactions for processing...
@@ -549,6 +549,7 @@ public class BlockProcessor {
                     threadPool.start();
 
                     try {
+                        Logger.info("Rebuilding UTXO set after block error.");
                         final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, threadPool);
                         unspentTransactionOutputManager.buildUtxoSet(blockLoader);
                     }
