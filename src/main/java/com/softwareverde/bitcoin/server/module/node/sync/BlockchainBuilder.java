@@ -253,6 +253,11 @@ public class BlockchainBuilder extends SleepyService {
                         final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
 
                         final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
+                        if (preloadedPendingBlock == null) {
+                            Logger.debug("Pending block failed to load: " + pendingBlockHash);
+                            break;
+                        }
+
                         final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
                         final UnspentTransactionOutputContext unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
 
