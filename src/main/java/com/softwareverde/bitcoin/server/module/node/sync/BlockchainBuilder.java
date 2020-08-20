@@ -228,7 +228,8 @@ public class BlockchainBuilder extends SleepyService {
                     TransactionUtil.commitTransaction(databaseConnection);
                     Logger.debug("Deleted failed pending block.");
 
-                    blockHeaderDatabaseManager.markBlockAsInvalid(candidatePendingBlock.getBlockHash());
+                    final Sha256Hash blockHash = candidatePendingBlock.getBlockHash();
+                    blockHeaderDatabaseManager.markBlockAsInvalid(blockHash);
 
                     continue;
                 }

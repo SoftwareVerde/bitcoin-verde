@@ -528,7 +528,8 @@ public class BlockProcessor {
             return _processBlock(block, preLoadedUnspentTransactionOutputContext, databaseManager);
         }
         catch (final Exception exception) {
-            Logger.info("ERROR VALIDATING BLOCK: " + block.getHash(), exception);
+            final Sha256Hash blockHash = block.getHash();
+            Logger.info("Error validating Block: " + blockHash, exception);
 
             if (! synchronizationStatus.isShuttingDown()) {
                 try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {

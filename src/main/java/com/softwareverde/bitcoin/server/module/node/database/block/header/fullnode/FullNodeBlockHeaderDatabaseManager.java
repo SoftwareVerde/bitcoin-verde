@@ -823,7 +823,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("UPDATE invalid_blocks SET process_count = process_count + 1 WHERE hash = ?")
+            new Query("INSERT INTO invalid_blocks (hash, process_count) VALUES (?, 1) ON DUPLICATE KEY UPDATE process_count = process_count + 1")
                 .setParameter(blockHash)
         );
     }
