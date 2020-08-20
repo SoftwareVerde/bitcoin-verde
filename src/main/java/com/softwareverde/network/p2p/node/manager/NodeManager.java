@@ -65,6 +65,7 @@ public class NodeManager<NODE extends Node> {
             while (true) {
                 _pingIdleNodes();
                 _removeDisconnectedNodes();
+                _removeHighLatencyNodes();
 
                 try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
@@ -600,8 +601,25 @@ public class NodeManager<NODE extends Node> {
 
         for (final NODE node : _nodes.values()) {
             if (! node.isConnected()) {
-                final Long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTimestamp());
+                final long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTimestamp());
                 if (nodeAge > 10000L) {
+                    purgeableNodes.add(node);
+                }
+            }
+        }
+
+        for (final NODE node : purgeableNodes) {
+            _removeNode(node);
+        }
+    }
+
+    protected void _removeHighLatencyNodes() {
+        final MutableList<NODE> purgeableNodes = new MutableList<NODE>();
+
+        for (final NODE node : _nodes.values()) {
+            if (node.isConnected()) {
+                final Long nodePing = node.getAveragePing();
+                if ( (nodePing != null) && (nodePing > 10000L) ) {
                     purgeableNodes.add(node);
                 }
             }
