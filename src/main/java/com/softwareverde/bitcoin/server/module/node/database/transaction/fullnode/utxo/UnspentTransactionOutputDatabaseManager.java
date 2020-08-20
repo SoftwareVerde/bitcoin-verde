@@ -75,7 +75,7 @@ public class UnspentTransactionOutputDatabaseManager {
     protected static final ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX;
     protected static final ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX;
     static {
-        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(false);
 
         UTXO_READ_MUTEX = readWriteLock.readLock();
         UTXO_WRITE_MUTEX = readWriteLock.writeLock();
