@@ -390,7 +390,8 @@ public class BlockProcessor {
             { // Store the Block's Transactions...
                 storeBlockTimer.start();
 
-                transactionIds = blockDatabaseManager.storeBlockTransactions(block);
+                final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
+                transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory);
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
                 if (transactionsStoredSuccessfully) {
