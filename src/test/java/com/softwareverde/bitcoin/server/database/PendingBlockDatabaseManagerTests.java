@@ -76,11 +76,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
     protected void _insertFakePeerInventory(final Sha256Hash blockHash, final BitcoinNode node) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-            final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
-
-            nodeDatabaseManager.updateBlockInventory(node, new ImmutableList<PendingBlockId>(pendingBlockId));
+            nodeDatabaseManager.updateBlockInventory(node, new ImmutableList<Sha256Hash>(blockHash));
         }
     }
 

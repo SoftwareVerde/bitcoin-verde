@@ -31,7 +31,7 @@ CREATE TABLE pending_blocks (
     INDEX pending_blocks_ix1 (priority) USING BTREE,
     INDEX pending_blocks_ix2 (was_downloaded, failed_download_count) USING BTREE,
     INDEX pending_blocks_ix3 (previous_block_hash) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE invalid_blocks (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -301,21 +301,21 @@ CREATE TABLE node_features (
 CREATE TABLE node_blocks_inventory (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     node_id INT UNSIGNED NOT NULL,
-    pending_block_id INT UNSIGNED NOT NULL,
+    hash BINARY(32) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY node_blocks_uq (node_id, pending_block_id),
     FOREIGN KEY node_blocks_node_id_fk (node_id) REFERENCES nodes (id),
-    FOREIGN KEY node_blocks_tx_fk (pending_block_id) REFERENCES pending_blocks (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+    INDEX node_blocks_tx_ix (block_hash) USING BTREE
+) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE node_transactions_inventory (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     node_id INT UNSIGNED NOT NULL,
-    pending_transaction_id INT UNSIGNED NOT NULL,
+    hash BINARY(32) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY node_transactions_uq (node_id, pending_transaction_id),
     FOREIGN KEY node_transactions_node_id_fk (node_id) REFERENCES nodes (id),
-    FOREIGN KEY node_transactions_tx_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+    INDEX node_transactions_tx_ix (transaction_hash) USING BTREE
+) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 INSERT INTO metadata (version, timestamp) VALUES (2, UNIX_TIMESTAMP());

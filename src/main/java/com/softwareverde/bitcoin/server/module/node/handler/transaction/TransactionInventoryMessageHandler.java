@@ -50,8 +50,8 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
             }
 
             if (! unseenTransactionHashes.isEmpty()) {
-                final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.storeTransactionHashes(unseenTransactionHashes);
-                nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, pendingTransactionIds);
+                pendingTransactionDatabaseManager.storeTransactionHashes(unseenTransactionHashes);
+                nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, unseenTransactionHashes);
 
                 if (_newInventoryCallback != null) {
                     _newInventoryCallback.run();

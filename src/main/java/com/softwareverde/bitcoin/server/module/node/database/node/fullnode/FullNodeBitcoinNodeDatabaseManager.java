@@ -11,12 +11,8 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public interface FullNodeBitcoinNodeDatabaseManager extends BitcoinNodeDatabaseManager {
-    Boolean updateBlockInventory(BitcoinNode node, List<PendingBlockId> pendingBlockIds) throws DatabaseException;
-    void deleteBlockInventory(PendingBlockId pendingBlockId) throws DatabaseException;
-    void deleteBlockInventory(List<PendingBlockId> pendingBlockIds) throws DatabaseException;
-    void updateTransactionInventory(BitcoinNode node, List<PendingTransactionId> pendingTransactionIds) throws DatabaseException;
+    Boolean updateBlockInventory(BitcoinNode node, List<Sha256Hash> blockHashes) throws DatabaseException;
+    void updateTransactionInventory(BitcoinNode node, List<Sha256Hash> transactionHashes) throws DatabaseException;
     List<NodeId> filterNodesViaTransactionInventory(List<NodeId> nodeIds, Sha256Hash transactionHash, FilterType filterType) throws DatabaseException;
     List<NodeId> filterNodesViaBlockInventory(List<NodeId> nodeIds, Sha256Hash blockHash, FilterType filterType) throws DatabaseException;
-    void deleteTransactionInventory(PendingTransactionId pendingTransactionId) throws DatabaseException;
-    void deleteTransactionInventory(List<PendingTransactionId> pendingTransactionIds) throws DatabaseException;
 }
