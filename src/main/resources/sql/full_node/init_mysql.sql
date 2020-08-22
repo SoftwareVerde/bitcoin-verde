@@ -303,9 +303,9 @@ CREATE TABLE node_blocks_inventory (
     node_id INT UNSIGNED NOT NULL,
     hash BINARY(32) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY node_blocks_uq (node_id, pending_block_id),
+    UNIQUE KEY node_blocks_uq (node_id, hash),
     FOREIGN KEY node_blocks_node_id_fk (node_id) REFERENCES nodes (id),
-    INDEX node_blocks_tx_ix (block_hash) USING BTREE
+    INDEX node_blocks_tx_ix (hash) USING BTREE
 ) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE node_transactions_inventory (
@@ -313,9 +313,9 @@ CREATE TABLE node_transactions_inventory (
     node_id INT UNSIGNED NOT NULL,
     hash BINARY(32) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY node_transactions_uq (node_id, pending_transaction_id),
+    UNIQUE KEY node_transactions_uq (node_id, hash),
     FOREIGN KEY node_transactions_node_id_fk (node_id) REFERENCES nodes (id),
-    INDEX node_transactions_tx_ix (transaction_hash) USING BTREE
+    INDEX node_transactions_tx_ix (hash) USING BTREE
 ) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 INSERT INTO metadata (version, timestamp) VALUES (2, UNIX_TIMESTAMP());
