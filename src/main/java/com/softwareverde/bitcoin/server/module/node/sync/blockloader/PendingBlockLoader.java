@@ -194,7 +194,7 @@ public class PendingBlockLoader {
         }
 
         try {
-            final Long timeout = TimeUnit.MINUTES.toMillis(3L);
+            final Long timeout = 1000L; // TimeUnit.MINUTES.toMillis(3L);
             final boolean timedOut = (! requestedBlockFuture.waitFor(timeout));
             if (timedOut) { return null; }
 

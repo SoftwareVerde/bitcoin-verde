@@ -426,6 +426,28 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         return (! rows.isEmpty());
     }
 
+    public Boolean hasUnknownHighPriorityInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT 1 FROM pending_blocks WHERE pending_blocks.priority < 1000 AND NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?))")
+                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
+        );
+
+        return (! rows.isEmpty());
+    }
+
+    public Boolean hasUnknownInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT 1 FROM pending_blocks WHERE NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?))")
+                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
+        );
+
+        return (! rows.isEmpty());
+    }
+
     public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 

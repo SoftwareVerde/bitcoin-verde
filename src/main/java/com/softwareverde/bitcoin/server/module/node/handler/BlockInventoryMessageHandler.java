@@ -38,7 +38,6 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
     protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();

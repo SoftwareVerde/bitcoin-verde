@@ -694,7 +694,7 @@ public class NodeModule {
                         final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
                         if (synchronizationStatusHandler.getState() != State.SHUTTING_DOWN) {
-                            if (_blockHeaderDownloader.getBlockHeight() > headBlockHeight) {
+                            if (Util.coalesce(_blockHeaderDownloader.getBlockHeight()) > Util.coalesce(headBlockHeight, -1L)) {
                                 synchronizationStatusHandler.setState(State.SYNCHRONIZING);
                             }
                         }

@@ -193,7 +193,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         { // Action
             final TransactionProcessor.StatusMonitor statusMonitor = transactionProcessor.getStatusMonitor();
             transactionProcessor.start();
-            final int maxSleepCount = 10;
+            final int maxSleepCount = 50;
             int sleepCount = 0;
             do {
                 Thread.sleep(250L);
