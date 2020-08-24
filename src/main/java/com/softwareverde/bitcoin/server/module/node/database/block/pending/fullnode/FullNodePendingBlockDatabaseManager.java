@@ -426,11 +426,25 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         return (! rows.isEmpty());
     }
 
+    public Sha256Hash getUnlocatableEssentialBlock(final List<NodeId> connectedNodeIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT hash FROM pending_blocks WHERE pending_blocks.priority = 0 AND NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) LIMIT 1")
+                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return Sha256Hash.wrap(row.getBytes("hash"));
+    }
+
     public Boolean hasUnknownHighPriorityInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM pending_blocks WHERE pending_blocks.priority < 1000 AND NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?))")
+            new Query("SELECT 1 FROM pending_blocks WHERE pending_blocks.priority < 1000 AND NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) LIMIT 1")
                 .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
         );
 
@@ -441,7 +455,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM pending_blocks WHERE NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?))")
+            new Query("SELECT 1 FROM pending_blocks WHERE NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) LIMIT 1")
                 .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
         );
 

@@ -19,11 +19,11 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -58,11 +58,11 @@ public class BlockDownloader extends SleepyService {
 
     protected final Context _context;
 
-    protected final Map<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>(12);
+    protected final ConcurrentHashMap<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>(12);
 
     protected Runnable _newBlockAvailableCallback = null;
 
-    protected Long _lastBlockfinder = null;
+    protected Long _lastBlockfinderTime = null;
 
     protected Boolean _hasGenesisBlock = false;
     protected Long _lastGenesisDownloadTimestamp = null;
@@ -73,16 +73,17 @@ public class BlockDownloader extends SleepyService {
         final SystemTime systemTime = _context.getSystemTime();
         final Long now = systemTime.getCurrentTimeInMilliSeconds();
 
-        final long timeElapsed = (now - Util.coalesce(_lastBlockfinder));
-        if (timeElapsed < MAX_TIMEOUT) { return; }
+        final long timeElapsed = (now - Util.coalesce(_lastBlockfinderTime));
+        if (timeElapsed < 15000L) { return; }
 
-        _lastBlockfinder = now;
+        _lastBlockfinderTime = now;
 
         final BitcoinNodeManager bitcoinNodeManager = _context.getNodeManager();
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
-            final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final Sha256Hash headBlockHash = blockDatabaseManager.getHeadBlockHash(); // NOTE: This could also technically be the highest priority pending block hash...
+            final List<Sha256Hash> blockFinderHashes = new ImmutableList<Sha256Hash>(headBlockHash);
             bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
         }
         catch (final DatabaseException exception) {
@@ -245,6 +246,42 @@ public class BlockDownloader extends SleepyService {
             final Boolean highPriorityUnknownInventoryExists = pendingBlockDatabaseManager.hasUnknownHighPriorityInventory(nodeIds);
             if (highPriorityUnknownInventoryExists) {
                 _queueBlockfinderBroadcast();
+            }
+
+            { // If there is a block that is essential and no node has currently advertised it, blindly request it for download while the blockfinder executes.
+                final Sha256Hash essentialMissingBlockHash = pendingBlockDatabaseManager.getUnlocatableEssentialBlock(nodeIds);
+                final boolean isEssentialBlockMissing = (essentialMissingBlockHash != null);
+                if (isEssentialBlockMissing) {
+                    NodeId selectedNodeId = null;
+                    {
+                        for (final NodeId nodeId : nodeIds) {
+                            boolean nodeIsAlreadyDownloadingBlock = false;
+                            for (final CurrentDownload currentDownload : _currentBlockDownloadSet.values()) {
+                                if (Util.areEqual(nodeId, currentDownload.nodeId)) {
+                                    nodeIsAlreadyDownloadingBlock = true;
+                                    break;
+                                }
+                            }
+                            if (!nodeIsAlreadyDownloadingBlock) {
+                                selectedNodeId = nodeId;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (selectedNodeId != null) {
+                        final MilliTimer timer = new MilliTimer();
+                        final CurrentDownload currentDownload = new CurrentDownload(selectedNodeId, timer);
+                        final BitcoinNode bitcoinNode = nodeMap.get(selectedNodeId);
+
+                        _currentBlockDownloadSet.put(essentialMissingBlockHash, currentDownload);
+                        Logger.debug("Blindly downloading " + essentialMissingBlockHash + " from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null) + ".");
+
+                        timer.start();
+
+                        _downloadBlock(essentialMissingBlockHash, bitcoinNode);
+                    }
+                }
             }
 
             final Map<PendingBlockId, NodeId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(nodeIds, maximumConcurrentDownloadCount * 2);
