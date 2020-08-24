@@ -12,11 +12,8 @@ import com.softwareverde.util.Util;
 public class CoinbaseTransactionInputInflater extends TransactionInputInflater {
     public static Boolean isCoinbaseInput(final TransactionInput transactionInput) {
         if (! Util.areEqual(transactionInput.getPreviousOutputTransactionHash(), Sha256Hash.EMPTY_HASH)) { return false; }
-
-        // TODO: Validate the following rules are applied since BlockHeight 0...
-        // if (transactionInput.getPreviousOutputIndex() != 0xFFFFFFFF) { return false; }
-        // if (transactionInput.getUnlockingScript().getByteCount() > 100) { return false; }
-        // TODO: Check if the signature script includes a blockHeight value (as of Transaction v2)...
+        if (transactionInput.getPreviousOutputIndex() != 0xFFFFFFFF) { return false; }
+        if (transactionInput.getUnlockingScript().getByteCount() > 100) { return false; }
 
         return true;
     }

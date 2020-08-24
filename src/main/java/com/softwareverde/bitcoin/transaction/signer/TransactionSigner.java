@@ -297,7 +297,6 @@ public class TransactionSigner {
         }
 
         { // 10. Serialize this Transaction's HashType...
-            // TODO: Bitcoin ABC has additional code here, including XOR'ing with 0xDEAD... Unsure of its purpose/intent. Might have to revisit.
             final byte hashTypeByte = hashType.toByte();
             final byte[] hashTypeWithForkId = ByteUtil.integerToBytes(FORK_ID << 8);
             hashTypeWithForkId[3] |= hashTypeByte;
