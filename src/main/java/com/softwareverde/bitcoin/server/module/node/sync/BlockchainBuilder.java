@@ -253,14 +253,21 @@ public class BlockchainBuilder extends SleepyService {
                         final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
                         final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
 
-                        final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
-                        if (preloadedPendingBlock == null) {
-                            Logger.debug("Pending block failed to load: " + pendingBlockHash);
-                            break;
-                        }
+                        final PendingBlock pendingBlock;
+                        final UnspentTransactionOutputContext unspentTransactionOutputContext;
+                        {
+                            final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
+                            if (preloadedPendingBlock == null) {
+                                pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
+                                unspentTransactionOutputContext = null;
 
-                        final PendingBlock pendingBlock = preloadedPendingBlock.getPendingBlock();
-                        final UnspentTransactionOutputContext unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
+                                Logger.debug("Pending block failed to load: " + pendingBlockHash);
+                            }
+                            else {
+                                pendingBlock = preloadedPendingBlock.getPendingBlock();
+                                unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
+                            }
+                        }
 
                         final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.
 
@@ -304,7 +311,7 @@ public class BlockchainBuilder extends SleepyService {
                 bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
             }
             catch (final DatabaseException exception) {
-                Logger.warn(exception);
+                Logger.debug(exception);
             }
         }
     }

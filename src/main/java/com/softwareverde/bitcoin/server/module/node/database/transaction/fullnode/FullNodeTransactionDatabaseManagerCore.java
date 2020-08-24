@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
@@ -252,6 +253,76 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             listBuilder.add(transactionId);
         }
         return listBuilder.build();
+    }
+
+    protected List<TransactionId> _storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
+        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(1024, (databaseConnectionFactory != null));
+        batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
+            @Override
+            public void run(final List<Transaction> transactionsBatch) throws Exception {
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, byte_count) VALUES (?, ?)");
+
+                for (final Transaction transaction : transactionsBatch) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    final Integer transactionByteCount = transaction.getByteCount();
+
+                    batchedInsertQuery.setParameter(transactionHash);
+                    batchedInsertQuery.setParameter(transactionByteCount);
+                }
+
+                if (databaseConnectionFactory == null) {
+                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                    databaseConnection.executeSql(batchedInsertQuery);
+                }
+                else {
+                    try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        databaseConnection.executeSql(batchedInsertQuery);
+                    }
+                }
+            }
+        });
+
+        final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<Sha256Hash, TransactionId>(transactions.getCount());
+        final AtomicInteger rowCount = new AtomicInteger(0);
+        batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
+            @Override
+            public void run(final List<Transaction> transactionsBatch) throws Exception {
+                final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
+                query.setInClauseParameters(transactionsBatch, ValueExtractor.HASHABLE);
+
+                final java.util.List<Row> rows;
+                {
+                    if (databaseConnectionFactory == null) {
+                        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                        rows = databaseConnection.query(query);
+                    }
+                    else {
+                        try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                            rows = databaseConnection.query(query);
+                        }
+                    }
+                }
+
+                for (final Row row : rows) {
+                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+
+                    transactionHashMap.put(transactionHash, transactionId);
+                }
+
+                rowCount.addAndGet(rows.size());
+            }
+        });
+        if (rowCount.get() != transactions.getCount()) { return null; }
+
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactions.getCount());
+        for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+
+            final TransactionId transactionId = transactionHashMap.get(transactionHash);
+            transactionIds.add(transactionId);
+        }
+        return transactionIds.build();
     }
 
     public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
@@ -552,56 +623,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        return _storeTransactionHashes(transactions, null);
+    }
 
-        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(512, false);
-        batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
-            @Override
-            public void run(final List<Transaction> transactionsBatch) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, byte_count) VALUES (?, ?)");
-
-                for (final Transaction transaction : transactionsBatch) {
-                    final Sha256Hash transactionHash = transaction.getHash();
-                    final Integer transactionByteCount = transaction.getByteCount();
-
-                    batchedInsertQuery.setParameter(transactionHash);
-                    batchedInsertQuery.setParameter(transactionByteCount);
-                }
-
-                databaseConnection.executeSql(batchedInsertQuery);
-            }
-        });
-
-        final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<Sha256Hash, TransactionId>(transactions.getCount());
-        final AtomicInteger rowCount = new AtomicInteger(0);
-        batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
-            @Override
-            public void run(final List<Transaction> transactionsBatch) throws Exception {
-                final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
-                query.setInClauseParameters(transactionsBatch, ValueExtractor.HASHABLE);
-
-                final java.util.List<Row> rows = databaseConnection.query(query);
-
-                for (final Row row : rows) {
-                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
-
-                    transactionHashMap.put(transactionHash, transactionId);
-                }
-
-                rowCount.addAndGet(rows.size());
-            }
-        });
-        if (rowCount.get() != transactions.getCount()) { return null; }
-
-        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactions.getCount());
-        for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-
-            final TransactionId transactionId = transactionHashMap.get(transactionHash);
-            transactionIds.add(transactionId);
-        }
-        return transactionIds.build();
+    /**
+     * This method allows for Transactions to be created outside of a database transaction.
+     *  Therefore, if a block fails to validate, some invalid Transaction Hashes may persist through the rollback.
+     */
+    @Override
+    public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
+        return _storeTransactionHashes(transactions, databaseConnectionFactory);
     }
 
     @Override

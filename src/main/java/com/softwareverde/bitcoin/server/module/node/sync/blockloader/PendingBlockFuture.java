@@ -70,7 +70,15 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
         while (! _predecessorBlocks.isEmpty()) {
             final PendingBlockFuture pendingBlockFuture = _predecessorBlocks.removeFirst();
             // Logger.trace(_blockHash + " outputs are being updated with " + pendingBlockFuture.getBlockHash() + " outputs.");
-            pendingBlockFuture.waitFor();
+            try {
+                final Boolean wasAvailable = pendingBlockFuture.waitFor(500L); // TODO: Handle this scenario better and determine why this timeout can happen...
+                if (! wasAvailable) {
+                    return null;
+                }
+            }
+            catch (final Exception exception) {
+                return null;
+            }
 
             final PendingBlock pendingBlock = pendingBlockFuture.getPendingBlock();
             if (pendingBlock == null) {

@@ -15,7 +15,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 
@@ -39,7 +38,6 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
     protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
@@ -68,9 +66,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                     storeBlockHashesResult.newBlockHashWasReceived = true;
                 }
 
-                TransactionUtil.startTransaction(databaseConnection);
                 final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, previousBlockHash);
-                TransactionUtil.commitTransaction(databaseConnection);
 
                 if (pendingBlockId != null) {
                     pendingBlockIds.add(pendingBlockId);
@@ -80,9 +76,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             }
 
             try {
-                // TransactionUtil.startTransaction(databaseConnection);
-                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
-                // TransactionUtil.commitTransaction(databaseConnection);
+                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, blockHashes);
             }
             catch (final DatabaseException databaseException) {
                 Logger.debug("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
