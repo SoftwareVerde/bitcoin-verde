@@ -20,6 +20,10 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.type.time.SystemTime;
 
+/**
+ * BlockDownloadRequesterCore stores a PendingBlock record for the requested Block and notifies the BlockDownloader.
+ *  If the block is high-priority and no peers currently have the block, a blockfinder is emitted.
+ */
 public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     protected final SystemTime _systemTime = new SystemTime();
 
@@ -30,8 +34,6 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
     protected final Object _lastUnavailableRequestedBlockTimestampMutex = new Object();
     protected Long _lastUnavailableRequestedBlockTimestamp = 0L;
-    protected final Object _lastNodeInventoryBroadcastTimestampMutex = new Object();
-    protected Long _lastNodeInventoryBroadcastTimestamp = 0L;
 
     protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final DatabaseManager databaseManager) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -56,7 +58,6 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
             if (priority < 256) { // Check if any peers have the requested block if it is of high priority...
                 // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.
-                // TODO: Consider: If no peers still do not have the block, search for a historic node with the block.
 
                 boolean searchForBlockHash = false;
                 synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
@@ -101,7 +102,7 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
             _blockDownloader.wakeUp();
         }
         catch (final DatabaseException exception) {
-            Logger.warn(exception);
+            Logger.debug(exception);
         }
     }
 
@@ -113,7 +114,10 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
     @Override
     public void requestBlock(final BlockHeader blockHeader) {
-        _requestBlock(blockHeader.getHash(), blockHeader.getPreviousBlockHash(), blockHeader.getTimestamp());
+        final Sha256Hash blockHash = blockHeader.getHash();
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final Long timestamp = blockHeader.getTimestamp();
+        _requestBlock(blockHash, previousBlockHash, timestamp);
     }
 
     @Override

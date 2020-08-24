@@ -798,8 +798,6 @@ public class SpvModule {
     }
 
     public void broadcastTransaction(final Transaction transaction) {
-        // TODO: Simply broadcast the transaction unannounced instead of advertising the inventory...
-
         _spvRequestDataHandler.addSpvTransaction(transaction);
 
         final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(1);

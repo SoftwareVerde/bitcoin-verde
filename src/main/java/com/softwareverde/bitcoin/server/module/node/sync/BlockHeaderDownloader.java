@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
@@ -177,7 +178,7 @@ public class BlockHeaderDownloader extends SleepyService {
         return true;
     }
 
-    protected Boolean _validateAndStoreBlockHeaders(final List<BlockHeader> blockHeaders, final DatabaseManager databaseManager) throws DatabaseException {
+    protected Boolean _validateAndStoreBlockHeaders(final List<BlockHeader> blockHeaders, final DatabaseManager databaseManager, final MutableList<Sha256Hash> nullableInvalidBlockHashes) throws DatabaseException {
         if (blockHeaders.isEmpty()) { return true; }
 
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
@@ -187,13 +188,22 @@ public class BlockHeaderDownloader extends SleepyService {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             { // Validate blockHeaders are sequential...
                 final BlockHeader firstBlockHeader = blockHeaders.get(0);
-                if (! firstBlockHeader.isValid()) { return false; }
+                if (! firstBlockHeader.isValid()) {
+                    if (nullableInvalidBlockHashes != null) {
+                        final Sha256Hash blockHash = firstBlockHeader.getHash();
+                        nullableInvalidBlockHashes.add(blockHash);
+                    }
+                    return false;
+                }
 
                 final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
                 final boolean previousBlockExists = (previousBlockId != null);
                 if (! previousBlockExists) {
                     final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
-                    if (! isGenesisBlock) { return false; }
+                    if (! isGenesisBlock) {
+                        // NOTE: Previous block not existing does not qualify the block as indefinitely invalid.
+                        return false;
+                    }
                 }
                 else {
                     final Boolean isContentiousBlock = blockHeaderDatabaseManager.hasChildBlock(previousBlockId);
@@ -202,7 +212,13 @@ public class BlockHeaderDownloader extends SleepyService {
                         long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(previousBlockId) + 1L);
                         for (final BlockHeader blockHeader : blockHeaders) {
                             final Boolean isValid = _validateAndStoreBlockHeader(blockHeader, blockHeight, databaseManager);
-                            if (! isValid) { return false; }
+                            if (! isValid) {
+                                if (nullableInvalidBlockHashes != null) {
+                                    final Sha256Hash blockHash = blockHeader.getHash();
+                                    nullableInvalidBlockHashes.add(blockHash);
+                                }
+                                return false;
+                            }
                             blockHeight += 1L;
                         }
                         return true;
@@ -210,8 +226,15 @@ public class BlockHeaderDownloader extends SleepyService {
                 }
                 Sha256Hash previousBlockHash = firstBlockHeader.getPreviousBlockHash();
                 for (final BlockHeader blockHeader : blockHeaders) {
-                    if (! blockHeader.isValid()) { return false; }
+                    if (! blockHeader.isValid()) {
+                        if (nullableInvalidBlockHashes != null) {
+                            final Sha256Hash blockHash = blockHeader.getHash();
+                            nullableInvalidBlockHashes.add(blockHash);
+                        }
+                        return false;
+                    }
                     if (! Util.areEqual(previousBlockHash, blockHeader.getPreviousBlockHash())) {
+                        // NOTE: Non-sequential transmission of blocks does not indefinitely invalidate the block.
                         return false;
                     }
                     previousBlockHash = blockHeader.getHash();
@@ -225,7 +248,12 @@ public class BlockHeaderDownloader extends SleepyService {
                 TransactionUtil.rollbackTransaction(databaseConnection);
 
                 final BlockHeader firstBlockHeader = blockHeaders.get(0);
-                Logger.info("Invalid BlockHeader: " + firstBlockHeader.getHash());
+                final Sha256Hash blockHash = firstBlockHeader.getHash();
+                Logger.info("Invalid BlockHeader: " + blockHash);
+
+                if (nullableInvalidBlockHashes != null) {
+                    nullableInvalidBlockHashes.add(blockHash);
+                }
 
                 return false;
             }
@@ -244,6 +272,12 @@ public class BlockHeaderDownloader extends SleepyService {
                 if (!blockHeaderValidationResult.isValid) {
                     Logger.info("Invalid BlockHeader: " + blockHeaderValidationResult.errorMessage);
                     TransactionUtil.rollbackTransaction(databaseConnection);
+
+                    if (nullableInvalidBlockHashes != null) {
+                        final Sha256Hash blockHash = blockHeader.getHash();
+                        nullableInvalidBlockHashes.add(blockHash);
+                    }
+
                     return false;
                 }
 
@@ -264,14 +298,22 @@ public class BlockHeaderDownloader extends SleepyService {
         storeHeadersTimer.start();
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.debug("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getCount());
+        Logger.debug("Downloaded Block headers: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getCount());
 
         final ThreadPool threadPool = _context.getThreadPool();
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager);
-            if (! headersAreValid) { return; } // TODO: Prevent attempting to reprocess invalid Block Headers (e.g. DOS)...
+            final MutableList<Sha256Hash> invalidBlockHashes = new MutableList<Sha256Hash>(0);
+            final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager, invalidBlockHashes);
+            if (! headersAreValid) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                for (final Sha256Hash invalidBlockHash : invalidBlockHashes) {
+                    Logger.info("Marking " + invalidBlockHash + " as invalid.");
+                    blockHeaderDatabaseManager.markBlockAsInvalid(invalidBlockHash);
+                }
+                return;
+            }
 
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();

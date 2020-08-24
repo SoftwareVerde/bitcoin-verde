@@ -60,7 +60,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
                     nodeScore.value += ((transactionWasSeenBefore ? 1 : -1));
                     if (nodeScore.value < BAN_THRESHOLD) {
                         Logger.debug("Disconnecting BitcoinNode " + bitcoinNode.getIp() + bitcoinNode.getUserAgent() + " - Requesting too many unusual Transactions. Score: " + nodeScore.value);
-                        bitcoinNode.disconnect(); // TODO: Consider banning node...
+                        bitcoinNode.disconnect();
                         return;
                     }
 
