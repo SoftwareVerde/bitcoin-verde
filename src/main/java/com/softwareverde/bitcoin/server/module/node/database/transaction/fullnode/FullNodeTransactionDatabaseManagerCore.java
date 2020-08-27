@@ -43,11 +43,11 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
@@ -256,64 +256,107 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     protected List<TransactionId> _storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-        final BatchRunner<Transaction> batchRunner = new BatchRunner<Transaction>(1024, (databaseConnectionFactory != null));
-        batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
-            @Override
-            public void run(final List<Transaction> transactionsBatch) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, byte_count) VALUES (?, ?)");
-
-                for (final Transaction transaction : transactionsBatch) {
-                    final Sha256Hash transactionHash = transaction.getHash();
-                    final Integer transactionByteCount = transaction.getByteCount();
-
-                    batchedInsertQuery.setParameter(transactionHash);
-                    batchedInsertQuery.setParameter(transactionByteCount);
+        final List<Transaction> sortedTransactions;
+        { // TODO: Have the caller sort the Transactions in order to optimize for CTOR...
+            final MutableList<Transaction> unsortedTransactions = new MutableList<Transaction>(transactions);
+            unsortedTransactions.sort(new Comparator<Transaction>() {
+                @Override
+                public int compare(final Transaction transaction0, final Transaction transaction1) {
+                    final Sha256Hash transactionHash0 = transaction0.getHash();
+                    final Sha256Hash transactionHash1 = transaction1.getHash();
+                    return transactionHash0.compareTo(transactionHash1);
                 }
+            });
+            sortedTransactions = unsortedTransactions;
+        }
 
-                if (databaseConnectionFactory == null) {
-                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-                    databaseConnection.executeSql(batchedInsertQuery);
-                }
-                else {
-                    try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                        databaseConnection.executeSql(batchedInsertQuery);
-                    }
-                }
+        final BatchRunner<Transaction> batchRunner;
+        {
+            if (databaseConnectionFactory != null) {
+                batchRunner = new BatchRunner<Transaction>(512, true);
             }
-        });
+            else {
+                batchRunner = new BatchRunner<Transaction>(1024, false);
+            }
+        }
 
         final ConcurrentHashMap<Sha256Hash, TransactionId> transactionHashMap = new ConcurrentHashMap<Sha256Hash, TransactionId>(transactions.getCount());
-        final AtomicInteger rowCount = new AtomicInteger(0);
-        batchRunner.run(transactions, new BatchRunner.Batch<Transaction>() {
-            @Override
-            public void run(final List<Transaction> transactionsBatch) throws Exception {
-                final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
-                query.setInClauseParameters(transactionsBatch, ValueExtractor.HASHABLE);
+        {
+            batchRunner.run(sortedTransactions, new BatchRunner.Batch<Transaction>() {
+                @Override
+                public void run(final List<Transaction> transactionsBatch) throws Exception {
+                    final Query query = new Query("SELECT id, hash FROM transactions WHERE hash IN (?)");
+                    query.setInClauseParameters(transactionsBatch, ValueExtractor.HASHABLE);
 
-                final java.util.List<Row> rows;
-                {
-                    if (databaseConnectionFactory == null) {
-                        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-                        rows = databaseConnection.query(query);
-                    }
-                    else {
-                        try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    final java.util.List<Row> rows;
+                    {
+                        if (databaseConnectionFactory == null) {
+                            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
                             rows = databaseConnection.query(query);
+                        }
+                        else {
+                            try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                                rows = databaseConnection.query(query);
+                            }
+                        }
+                    }
+
+                    for (final Row row : rows) {
+                        final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+
+                        transactionHashMap.put(transactionHash, transactionId);
+                    }
+                }
+            });
+        }
+
+        {
+            batchRunner.run(sortedTransactions, new BatchRunner.Batch<Transaction>() {
+                @Override
+                public void run(final List<Transaction> transactionsBatch) throws Exception {
+                    final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, byte_count) VALUES (?, ?)");
+
+                    List<Sha256Hash> insertedTransactionHashes;
+                    boolean queryIsEmpty = true;
+                    {
+                        final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<Sha256Hash>(transactionsBatch.getCount());
+                        for (final Transaction transaction : transactionsBatch) {
+                            final Sha256Hash transactionHash = transaction.getHash();
+                            final Integer transactionByteCount = transaction.getByteCount();
+
+                            if (! transactionHashMap.containsKey(transactionHash)) {
+                                batchedInsertQuery.setParameter(transactionHash);
+                                batchedInsertQuery.setParameter(transactionByteCount);
+
+                                listBuilder.add(transactionHash);
+                                queryIsEmpty = false;
+                            }
+                        }
+                        insertedTransactionHashes = listBuilder.build();
+                    }
+
+                    if (! queryIsEmpty) {
+                        final Long firstInsertId;
+                        if (databaseConnectionFactory == null) {
+                            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                            firstInsertId = databaseConnection.executeSql(batchedInsertQuery);
+                        }
+                        else {
+                            try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                                firstInsertId = databaseConnection.executeSql(batchedInsertQuery);
+                            }
+                        }
+
+                        long insertId = firstInsertId;
+                        for (final Sha256Hash transactionHash : insertedTransactionHashes) {
+                            transactionHashMap.put(transactionHash, TransactionId.wrap(insertId));
+                            insertId += 1L;
                         }
                     }
                 }
-
-                for (final Row row : rows) {
-                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
-
-                    transactionHashMap.put(transactionHash, transactionId);
-                }
-
-                rowCount.addAndGet(rows.size());
-            }
-        });
-        if (rowCount.get() != transactions.getCount()) { return null; }
+            });
+        }
 
         final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactions.getCount());
         for (final Transaction transaction : transactions) {

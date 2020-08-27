@@ -25,37 +25,36 @@ public class DatabaseConfigurer {
         else {
             final Long maxDatabaseMemory = databaseProperties.getMaxMemoryByteCount();
 
-            final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((ByteUtil.Unit.Binary.GIBIBYTES), (maxDatabaseMemory / 4L))); // 1/4th of the max memory, rounded to the nearest Megabyte, but no greater than 1 GB.
+            final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
+            final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (maxDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total database memory.
             final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(maxDatabaseMemory - logBufferByteCount);
-            final Integer bufferPoolInstanceCount = Math.max(1, (int) (bufferPoolByteCount / (4L * ByteUtil.Unit.Binary.GIBIBYTES)));
+            final Integer bufferPoolInstanceCount = (bufferPoolByteCount <= ByteUtil.Unit.Binary.GIBIBYTES ? 1 : 32); // Experimental; https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
 
-            commandLineArguments.setInnoDbBufferPoolByteCount(bufferPoolByteCount);
-            commandLineArguments.setInnoDbBufferPoolInstanceCount(bufferPoolInstanceCount);
+            commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount); // Redo Log file (on-disk)
+            commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount); // Redo Log (in-memory)
+            commandLineArguments.setInnoDbBufferPoolByteCount(bufferPoolByteCount); // Innodb Dirty Page Cache
+            commandLineArguments.setInnoDbBufferPoolInstanceCount(bufferPoolInstanceCount); // Innodb Dirt Page Concurrency
 
-            commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount);
-
-            commandLineArguments.addArgument("--innodb_io_capacity=2000"); // 2000 for SSDs/NVME, 400 for low-end SSD, 200 for HDD.
+            commandLineArguments.addArgument("--innodb-io-capacity=2000"); // 2000 for SSDs/NVME, 400 for low-end SSD, 200 for HDD.
             commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0"); // Write directly to disk; database crashing may result in data corruption.
             commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
 
-            final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
-            commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount);
+            commandLineArguments.addArgument("--innodb-io-capacity=5000"); // 2000 for SSDs/NVME, 400 for low-end SSD, 200 for HDD.  Higher encourages fewer dirty pages passively.
+            commandLineArguments.addArgument("--innodb-io-capacity-max=10000"); // Higher facilitates active dirty-page flushing.
+            commandLineArguments.addArgument("--innodb-page-cleaners=" + bufferPoolInstanceCount);
+            commandLineArguments.addArgument("--innodb-max-dirty-pages-pct=0"); // Encourage no dirty buffers in order to facilitate faster writes.
+            commandLineArguments.addArgument("--innodb-max-dirty-pages-pct-lwm=5"); // Encourage no dirty buffers in order to facilitate faster writes.
+            commandLineArguments.addArgument("--innodb-read-io-threads=16");
+            commandLineArguments.addArgument("--innodb-write-io-threads=32");
+            commandLineArguments.addArgument("--innodb-lru-scan-depth=2048");
 
-            commandLineArguments.setQueryCacheByteCount(0L);
-
+            commandLineArguments.setQueryCacheByteCount(null); // Deprecated, removed in Mysql 8.
             commandLineArguments.setMaxAllowedPacketByteCount(128L * ByteUtil.Unit.Binary.MEBIBYTES);
-
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
-            // commandLineArguments.addArgument("--innodb-read-io-threads=8");
-            // commandLineArguments.addArgument("--innodb-write-io-threads=8");
-
-            // Experimental setting to improve the flush/write-performance of the InnoDb buffer pool.
-            // Suggestion taken from: https://stackoverflow.com/questions/41134785/how-to-solve-mysql-warning-innodb-page-cleaner-1000ms-intended-loop-took-xxx
-            commandLineArguments.addArgument("--innodb-lru-scan-depth=256");
 
             // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
-            // commandLineArguments.addArgument("--general_log_file=query.log");
-            // commandLineArguments.addArgument("--general_log=1");
+            // commandLineArguments.addArgument("--general-log-file=query.log");
+            // commandLineArguments.addArgument("--general-log=1");
             commandLineArguments.addArgument("--performance-schema=OFF");
         }
     }

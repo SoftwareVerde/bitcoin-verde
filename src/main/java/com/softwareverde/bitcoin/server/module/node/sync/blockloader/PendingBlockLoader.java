@@ -107,6 +107,9 @@ public class PendingBlockLoader {
         return (Util.coalesce(blockHeight, Long.MAX_VALUE) > loadUnspentOutputsAfterBlockHeight);
     }
 
+    /**
+     * QueueCount must be greater than zero.
+     */
     public PendingBlockLoader(final Context context, final Integer queueCount) {
         _context = context;
         _pendingBlockFutures = new CircleBuffer<PendingBlockFuture>(queueCount);

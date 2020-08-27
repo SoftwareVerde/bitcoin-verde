@@ -91,6 +91,7 @@ public class UnspentTransactionOutputManager {
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
         if ( ((blockHeight % _commitFrequency) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= unspentTransactionOutputDatabaseManager.getMaxUtxoCount()) ) {
+            Logger.info("((" + blockHeight + " % " + _commitFrequency + ") == 0) || ((" + uncommittedUtxoCount + " + " + worstCaseNewUtxoCount + ") >= " + unspentTransactionOutputDatabaseManager.getMaxUtxoCount() + ")"); // TODO: Downgrade to DEBUG/TRACE...
             utxoCommitTimer.start();
             _commitInMemoryUtxoSetToDisk();
             utxoCommitTimer.stop();

@@ -156,7 +156,9 @@ public class BlockDownloader extends SleepyService {
             public void onResult(final Block block) {
                 final Sha256Hash blockHash = block.getHash();
                 final CurrentDownload currentDownload = _currentBlockDownloadSet.remove(blockHash);
-                currentDownload.milliTimer.stop();
+                if (currentDownload != null) {
+                    currentDownload.milliTimer.stop();
+                }
 
                 try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                     _storePendingBlock(block, databaseManager);
@@ -164,8 +166,8 @@ public class BlockDownloader extends SleepyService {
                 catch (final DatabaseException exception) {
                     Logger.debug(exception);
                 }
-
-                Logger.info("Block " + blockHash + " downloaded from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null) + " in " + currentDownload.milliTimer.getMillisecondsElapsed() + "ms");
+                final Long msElapsed = (currentDownload != null ? currentDownload.milliTimer.getMillisecondsElapsed() : null);
+                Logger.info("Block " + blockHash + " downloaded from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null) + " in " + msElapsed + "ms");
 
                 BlockDownloader.this.wakeUp();
 
@@ -274,6 +276,7 @@ public class BlockDownloader extends SleepyService {
                         final CurrentDownload currentDownload = new CurrentDownload(selectedNodeId, timer);
                         final BitcoinNode bitcoinNode = nodeMap.get(selectedNodeId);
 
+                        // TODO: If the peer does not have the Block then the download will stall for this Block until it times out since the peer will not tell the Node it doesn't have the inventory.
                         _currentBlockDownloadSet.put(essentialMissingBlockHash, currentDownload);
                         Logger.debug("Blindly downloading " + essentialMissingBlockHash + " from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null) + ".");
 
