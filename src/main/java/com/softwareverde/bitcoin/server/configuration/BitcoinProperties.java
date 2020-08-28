@@ -45,9 +45,7 @@ public class BitcoinProperties {
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     public Long getMaxCachedUtxoCount() {
-        final long maxUtxoCacheByteCount = (_maxUtxoCacheByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
-        // Double-buffering of retained UTXOs between purges reduces the maximum count of UTXOs cached before the purge...
-        return (long) (maxUtxoCacheByteCount * (1.0D - _utxoPurgePercent));
+        return (_maxUtxoCacheByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
     }
     public Long getUtxoCacheCommitFrequency() { return _utxoCommitFrequency; }
     public Float getUtxoCachePurgePercent() { return _utxoPurgePercent; }

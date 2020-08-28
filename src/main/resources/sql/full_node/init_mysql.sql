@@ -173,7 +173,7 @@ CREATE TABLE unspent_transaction_outputs_buffer (
     is_spent TINYINT(1) UNSIGNED DEFAULT 0,
     block_height INT UNSIGNED,
     PRIMARY KEY (transaction_hash, `index`) USING HASH
-) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
+) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE committed_unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,

@@ -85,6 +85,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
     protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(0L);
     protected static final String COMMITTED_UTXO_BLOCK_HEIGHT_KEY = "committed_utxo_block_height";
+    protected static final Boolean DOUBLE_BUFFER_IS_MEMORY_TABLE = false; // Must be set to true if the unspent_transaction_outputs_buffer table is ENGINE=MEMORY...
 
     /**
      * MAX_UTXO_CACHE_COUNT determines the maximum number of rows (both clean and dirty) within the unspent_transaction_outputs in-memory table.
@@ -914,6 +915,13 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public Long getMaxUtxoCount() {
-        return _maxUtxoCount;
+        if (UnspentTransactionOutputDatabaseManager.DOUBLE_BUFFER_IS_MEMORY_TABLE) {
+            // NOTE: Retained UTXOs are double-buffered via the unspent_transaction_outputs_buffer table.
+            //  Since unspent_transaction_outputs_buffer is a MEMORY table, it reduces the effective maximum retained UTXOs.
+            return (long) (_maxUtxoCount * (1.0D - _purgePercent));
+        }
+        else {
+            return _maxUtxoCount;
+        }
     }
 }
