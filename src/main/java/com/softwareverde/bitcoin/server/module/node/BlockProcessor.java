@@ -44,6 +44,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.SimpleThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -59,6 +60,28 @@ import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
     public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory { }
+
+    protected static class AsyncFuture {
+        protected final Pin _pin = new Pin();
+        protected DatabaseException _exception;
+
+        public void setException(final DatabaseException exception) {
+            _exception = exception;
+        }
+
+        public void release() {
+            _pin.release();
+        }
+
+        public void waitFor() throws DatabaseException {
+            _pin.waitForRelease();
+
+            final DatabaseException exception = _exception;
+            if (exception != null) {
+                throw exception;
+            }
+        }
+    }
 
     protected final Context _context;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
@@ -282,6 +305,31 @@ public class BlockProcessor {
         Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
     }
 
+    protected AsyncFuture _applyBlockToUtxoSetAsync(final Long blockHeight, final Block block, final FullNodeDatabaseManager databaseManager, final DatabaseConnectionFactory databaseConnectionFactory) {
+        final AsyncFuture future = new AsyncFuture();
+
+        (new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight);
+                }
+                catch (final DatabaseException exception) {
+                    future.setException(exception);
+                }
+                catch (final Exception exception) {
+                    future.setException(new DatabaseException(exception));
+                }
+                finally {
+                    future.release();
+                }
+            }
+        })).start();
+
+        return future;
+    }
+
     protected ProcessBlockResult _processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final BlockStore blockStore = _context.getBlockStore();
@@ -391,6 +439,15 @@ public class BlockProcessor {
                 storeBlockTimer.start();
 
                 final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
+
+                final AsyncFuture utxoFuture;
+                if (blockIsConnectedToUtxoSet && (blockHeight > 0L)) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
+                    utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager, databaseConnectionFactory);
+                }
+                else {
+                    utxoFuture = null;
+                }
+
                 transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory);
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
@@ -407,6 +464,10 @@ public class BlockProcessor {
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
+                }
+
+                if (utxoFuture != null) {
+                    utxoFuture.waitFor();
                 }
 
                 storeBlockTimer.stop();
@@ -450,12 +511,6 @@ public class BlockProcessor {
                 }
             }
             else if (blockIsConnectedToUtxoSet) {
-                if (blockHeight > 0L) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
-                    final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
-                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight);
-                }
-
                 { // Update mempool transactions...
                     final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
                     final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(transactionIds);

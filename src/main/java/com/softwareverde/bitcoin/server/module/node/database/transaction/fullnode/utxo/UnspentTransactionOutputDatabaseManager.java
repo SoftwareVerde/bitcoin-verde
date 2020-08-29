@@ -500,8 +500,6 @@ public class UnspentTransactionOutputDatabaseManager {
 
                         query.setParameter(transactionHash);
                         query.setParameter(outputIndex);
-
-                        // Logger.trace("DELETE UTXO: " + transactionOutputIdentifier + " is_spent=?, block_height=NULL");
                     }
 
                     databaseConnection.executeSql(query);
@@ -535,8 +533,6 @@ public class UnspentTransactionOutputDatabaseManager {
                         query.setParameter(transactionHash);
                         query.setParameter(outputIndex);
                         query.setParameter(blockHeight);
-
-                        // Logger.trace("NEW UTXO: " + transactionOutputIdentifier + " is_spent=0, block_height=" + blockHeight);
                     }
 
                     databaseConnection.executeSql(query);
