@@ -42,7 +42,9 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
 
             // Assert
             Assert.assertEquals(transactionId0, transactionId1);
-            Assert.assertNull(transactionIds);
+            Assert.assertEquals(2, transactionIds.getCount());
+            Assert.assertEquals(transactionId0, transactionIds.get(0));
+            Assert.assertEquals(transactionId0, transactionIds.get(1));
         }
     }
 }

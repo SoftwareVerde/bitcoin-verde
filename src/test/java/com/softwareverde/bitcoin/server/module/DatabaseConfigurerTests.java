@@ -15,6 +15,7 @@ public class DatabaseConfigurerTests {
     public void should_configure_linux_database_with_large_memory_available() {
         // Setup
         final Long systemByteCount = (64L * ByteUtil.Unit.Binary.GIBIBYTES);
+        final long logFileByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
 
         final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override
@@ -24,7 +25,7 @@ public class DatabaseConfigurerTests {
 
             @Override
             public Long getLogFileByteCount() {
-                return systemByteCount;
+                return logFileByteCount;
             }
         };
 
@@ -43,14 +44,16 @@ public class DatabaseConfigurerTests {
         }
 
         // Assert
-        Assert.assertEquals(Util.parseLong(arguments.get("--innodb_log_buffer_size")), ByteUtil.Unit.Binary.GIBIBYTES);
-        Assert.assertEquals(Util.parseLong(arguments.get("--innodb_buffer_pool_size")), Long.valueOf(63L * ByteUtil.Unit.Binary.GIBIBYTES));
+        final Long expectedBufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(systemByteCount - (logFileByteCount / 4L));
+        Assert.assertEquals(Long.valueOf(logFileByteCount / 4L), Util.parseLong(arguments.get("--innodb_log_buffer_size")));
+        Assert.assertEquals(expectedBufferPoolByteCount, Util.parseLong(arguments.get("--innodb_buffer_pool_size")));
     }
 
     @Test
     public void should_configure_linux_database_with_little_memory_available() {
         // Setup
-        final Long systemByteCount = (1L * ByteUtil.Unit.Binary.GIBIBYTES);
+        final long systemByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
+        final long logFileByteCount = (512L * ByteUtil.Unit.Binary.MEBIBYTES);
 
         final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override
@@ -60,7 +63,7 @@ public class DatabaseConfigurerTests {
 
             @Override
             public Long getLogFileByteCount() {
-                return systemByteCount;
+                return logFileByteCount;
             }
         };
 
@@ -79,14 +82,14 @@ public class DatabaseConfigurerTests {
         }
 
         // Assert
-        Assert.assertEquals(Util.parseLong(arguments.get("--innodb_log_buffer_size")), Long.valueOf(systemByteCount / 4L));
-        Assert.assertEquals(Util.parseLong(arguments.get("--innodb_buffer_pool_size")), Long.valueOf(systemByteCount * 3L / 4L));
+        Assert.assertEquals(Long.valueOf(logFileByteCount / 4L), Util.parseLong(arguments.get("--innodb_log_buffer_size")));
+        Assert.assertEquals(Long.valueOf(systemByteCount - (logFileByteCount / 4L)), Util.parseLong(arguments.get("--innodb_buffer_pool_size")));
     }
 
     @Test
     public void should_configure_linux_database_with_little_non_aligned_size() {
         // Setup
-        final Long systemByteCount = (1L * ByteUtil.Unit.Binary.GIBIBYTES) + 1L;
+        final long systemByteCount = (ByteUtil.Unit.Binary.GIBIBYTES + 1L);
 
         final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override

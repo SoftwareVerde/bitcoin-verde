@@ -7,7 +7,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.SystemUtil;
 
 public class DatabaseConfigurer {
-    protected static Long toNearestMegabyte(final Long byteCount) {
+    public static Long toNearestMegabyte(final Long byteCount) {
         return ((byteCount / ByteUtil.Unit.Binary.MEBIBYTES) * ByteUtil.Unit.Binary.MEBIBYTES);
     }
 
