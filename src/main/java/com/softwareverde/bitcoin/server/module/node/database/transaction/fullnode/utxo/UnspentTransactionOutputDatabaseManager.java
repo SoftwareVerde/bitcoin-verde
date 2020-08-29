@@ -37,6 +37,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -128,6 +129,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
         final long maxKeepCount = (long) (maxUtxoCount * (1.0D - purgePercent));
         final int maxUtxoPerBatch = 1024;
+        final int maxItemCount = (maxUtxoPerBatch * 32); // The maximum number of items in queue at any point in time...
 
         final Long minUtxoBlockHeight;
         final Long maxUtxoBlockHeight;
@@ -139,6 +141,20 @@ public class UnspentTransactionOutputDatabaseManager {
             maxUtxoBlockHeight = row.getLong("max_block_height");
             minUtxoBlockHeight = row.getLong("min_block_height");
         }
+
+        final Comparator<UnspentTransactionOutput> utxoComparator = new Comparator<UnspentTransactionOutput>() {
+            @Override
+            public int compare(final UnspentTransactionOutput item0, final UnspentTransactionOutput item1) {
+                return item0.compareTo(item1);
+            }
+        };
+
+        final Comparator<TransactionOutputIdentifier> identifierComparator = new Comparator<TransactionOutputIdentifier>() {
+            @Override
+            public int compare(final TransactionOutputIdentifier item0, final TransactionOutputIdentifier item1) {
+                return item0.compareTo(item1);
+            }
+        };
 
         Logger.trace("UTXO Commit starting: max_block_height=" + maxUtxoBlockHeight + ", min_block_height=" + minUtxoBlockHeight);
 
@@ -171,7 +187,13 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, true, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+
+
+        // NOTE: Outputs are marked as spent within the committed_unspent_transaction_outputs table,
+        //  then queued up for deletion as a separate process by inserting the deleted UTXO
+        //  into stale_committed_unspent_transaction_outputs.
+        //  This cleanup process is handled via the SpentTransactionOutputsCleanupService class.
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoPostDeleteBatchRunner = BlockingQueueBatchRunner.newSortedInstance(maxUtxoPerBatch, maxItemCount, identifierComparator, true, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> unspentTransactionOutputs) throws Exception {
                 // Queue the output for deletion...
@@ -187,7 +209,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, false, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+        final BlockingQueueBatchRunner<TransactionOutputIdentifier> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newSortedInstance(maxUtxoPerBatch, maxItemCount, identifierComparator, false, new BatchRunner.Batch<TransactionOutputIdentifier>() {
             @Override
             public void run(final List<TransactionOutputIdentifier> unspentTransactionOutputs) throws Exception {
                 { // Commit the output as spent...
@@ -205,7 +227,8 @@ public class UnspentTransactionOutputDatabaseManager {
                 }
             }
         });
-        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newInstance(maxUtxoPerBatch, false, new BatchRunner.Batch<UnspentTransactionOutput>() {
+
+        final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newSortedInstance(maxUtxoPerBatch, maxItemCount, utxoComparator, false, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?)");
@@ -231,7 +254,6 @@ public class UnspentTransactionOutputDatabaseManager {
         final java.util.ArrayList<Tuple<Long, Integer>> utxoBlockHeights = new java.util.ArrayList<Tuple<Long, Integer>>(1);
         utxoBlockHeights.add(new Tuple<Long, Integer>(null, maxUtxoPerBatch)); // Search for rows without block_heights first (and only once)...
         do {
-            // TODO: When committing UTXOs, have them sorted before inserting to disk...
             { // Populate blockHeights...
                 final java.util.List<Row> rows = nonTransactionalDatabaseConnection.query(
                     new Query("SELECT block_height, COUNT(*) AS utxo_count FROM unspent_transaction_outputs WHERE block_height <= ? GROUP BY block_height ORDER BY block_height DESC LIMIT 1024")
@@ -326,8 +348,6 @@ public class UnspentTransactionOutputDatabaseManager {
                     }
 
                     { // Throttle iteration so prevent BatchRunner from consuming too much memory...
-                        final int maxItemCount = (maxUtxoPerBatch * 32);
-
                         try {
                             inMemoryUtxoRetainerBatchRunner.waitForQueueCapacity(maxItemCount);
                             onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);

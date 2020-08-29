@@ -6,8 +6,10 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.MilliTimer;
 
+import java.util.Comparator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -19,14 +21,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class BlockingQueueBatchRunner<T> extends Thread {
 
-    public static <T> BlockingQueueBatchRunner<T> newInstance(final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
-        return BlockingQueueBatchRunner.newInstance(1024, executeAsynchronously, batch);
-    }
-
-    public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
+    protected static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final Boolean executeAsynchronously, final Queue<T> itemQueue, final BatchRunner.Batch<T> batch) {
         final BatchRunner<T> batchRunner = new BatchRunner<T>(itemCountPerBatch, executeAsynchronously);
         final Container<Boolean> threadContinueContainer = new Container<Boolean>(true);
-        final ConcurrentLinkedQueue<T> itemQueue = new ConcurrentLinkedQueue<T>();
         final AtomicLong executionTime = new AtomicLong(0L);
         final AtomicInteger queuedItemCount = new AtomicInteger(0);
         final Container<Exception> exceptionContainer = new Container<Exception>(null);
@@ -86,6 +83,20 @@ public class BlockingQueueBatchRunner<T> extends Thread {
         };
 
         return new BlockingQueueBatchRunner<T>(threadContinueContainer, itemQueue, queuedItemCount, batchRunner, coreRunnable, executionTime, exceptionContainer);
+    }
+
+    public static <T> BlockingQueueBatchRunner<T> newInstance(final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
+        return BlockingQueueBatchRunner.newInstance(1024, executeAsynchronously, batch);
+    }
+
+    public static <T> BlockingQueueBatchRunner<T> newInstance(final Integer itemCountPerBatch, final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
+        final ConcurrentLinkedQueue<T> itemQueue = new ConcurrentLinkedQueue<T>();
+        return BlockingQueueBatchRunner.newInstance(itemCountPerBatch, executeAsynchronously, itemQueue, batch);
+    }
+
+    public static <T> BlockingQueueBatchRunner<T> newSortedInstance(final Integer itemCountPerBatch, final Integer initialCapacity, final Comparator<T> comparator, final Boolean executeAsynchronously, final BatchRunner.Batch<T> batch) {
+        final Queue<T> sortedQueue = new PriorityBlockingQueue<T>(initialCapacity, comparator);
+        return BlockingQueueBatchRunner.newInstance(itemCountPerBatch, executeAsynchronously, sortedQueue, batch);
     }
 
     protected final Container<Boolean> _threadContinueContainer;
