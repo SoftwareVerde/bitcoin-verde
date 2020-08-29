@@ -27,6 +27,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.util.Util;
 
 import java.util.HashSet;
 
@@ -126,6 +127,10 @@ public class TransactionValidatorCore implements TransactionValidator {
         return null;
     }
 
+    /**
+     * Returns the blockHeight of `transactionOutputIdentifier`, or `blockHeight` if the identifier is within the currently-validating block.
+     *  Therefore, for chained mempool Transactions, this function returns null.
+     */
     protected Long _getTransactionOutputBlockHeight(final TransactionOutputIdentifier transactionOutputIdentifier, final Long blockHeight) {
         {
             final Long transactionOutputBlockHeight = _context.getBlockHeight(transactionOutputIdentifier);
@@ -189,8 +194,16 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final Long previousBlockHeight = (blockHeight - 1L);
                 final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
-                final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _getTransactionOutputMedianBlockTime(previousTransactionOutputIdentifier, blockHeight);
-                final long secondsElapsed = (medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
+                final long secondsElapsed;
+                {
+                    final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _getTransactionOutputMedianBlockTime(previousTransactionOutputIdentifier, blockHeight);
+                    if (medianBlockTimeOfOutputBeingSpent != null) {
+                        secondsElapsed = (medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
+                    }
+                    else {
+                        secondsElapsed = 0L; // No time has elapsed for outputs spending unconfirmed transactions...
+                    }
+                }
 
                 final boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
                 if (! sequenceNumberIsValid) {
@@ -199,7 +212,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
             else {
                 final Long blockHeightContainingOutputBeingSpent = _getTransactionOutputBlockHeight(previousTransactionOutputIdentifier, blockHeight);
-                final long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
+                final long blockCount = (blockHeight - Util.coalesce(blockHeightContainingOutputBeingSpent, blockHeight)); // Uses the current blockHeight if the previousTransactionOutput is also an unconfirmed Transaction.
                 final Long requiredBlockCount = sequenceNumber.asBlockCount();
 
                 final boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
