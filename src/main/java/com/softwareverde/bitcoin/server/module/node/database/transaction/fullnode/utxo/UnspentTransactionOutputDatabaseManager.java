@@ -450,6 +450,24 @@ public class UnspentTransactionOutputDatabaseManager {
         throw new DatabaseException(exception);
     }
 
+    protected Long _getCachedUnspentTransactionOutputCount() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs")
+        );
+        final Row row = rows.get(0);
+        return row.getLong("row_count");
+    }
+
+    protected Long _getUncommittedUnspentTransactionOutputCount() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs WHERE is_spent IS NOT NULL")
+        );
+        final Row row = rows.get(0);
+        return row.getLong("row_count");
+    }
+
     public UnspentTransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
         this(DEFAULT_MAX_UTXO_CACHE_COUNT, DEFAULT_PURGE_PERCENT, databaseManager, blockStore, masterInflater);
     }
@@ -839,43 +857,42 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public Long getCachedUnspentTransactionOutputCount() throws DatabaseException {
-        UTXO_READ_MUTEX.lock();
+        return this.getCachedUnspentTransactionOutputCount(false);
+    }
+    public Long getCachedUnspentTransactionOutputCount(final Boolean noLock) throws DatabaseException {
+        if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs")
-            );
-            final Row row = rows.get(0);
-            return row.getLong("row_count");
+            return _getCachedUnspentTransactionOutputCount();
         }
         finally {
-            UTXO_READ_MUTEX.unlock();
+            if (! noLock) { UTXO_READ_MUTEX.unlock(); }
         }
     }
 
     public Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException {
-        UTXO_READ_MUTEX.lock();
+        return this.getUncommittedUnspentTransactionOutputCount(false);
+    }
+    public Long getUncommittedUnspentTransactionOutputCount(final Boolean noLock) throws DatabaseException {
+        if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT COUNT(*) AS row_count FROM unspent_transaction_outputs WHERE is_spent IS NOT NULL")
-            );
-            final Row row = rows.get(0);
-            return row.getLong("row_count");
+            return _getUncommittedUnspentTransactionOutputCount();
         }
         finally {
-            UTXO_READ_MUTEX.unlock();
+            if (! noLock) { UTXO_READ_MUTEX.unlock(); }
         }
     }
 
     public Long getCommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-        UTXO_READ_MUTEX.lock();
+        return this.getCommittedUnspentTransactionOutputBlockHeight(false);
+    }
+    public Long getCommittedUnspentTransactionOutputBlockHeight(final Boolean noLock) throws DatabaseException {
+        if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
             return _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
         }
         finally {
-            UTXO_READ_MUTEX.unlock();
+            if (! noLock) { UTXO_READ_MUTEX.unlock(); }
         }
     }
 
@@ -890,7 +907,10 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException {
-        UTXO_READ_MUTEX.lock();
+        return this.getUncommittedUnspentTransactionOutputBlockHeight(false);
+    }
+    public Long getUncommittedUnspentTransactionOutputBlockHeight(final Boolean noLock) throws DatabaseException {
+        if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
 
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -898,7 +918,7 @@ public class UnspentTransactionOutputDatabaseManager {
             return Math.max(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, committedUtxoBlockHeight);
         }
         finally {
-            UTXO_READ_MUTEX.unlock();
+            if (! noLock) { UTXO_READ_MUTEX.unlock(); }
         }
     }
 

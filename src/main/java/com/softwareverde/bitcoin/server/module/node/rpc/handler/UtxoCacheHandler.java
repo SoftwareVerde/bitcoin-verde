@@ -19,7 +19,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     public Long getCachedUtxoCount() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            return unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
+            return unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount(true);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -36,7 +36,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     public Long getUncommittedUtxoCount() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            return unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount();
+            return unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount(true);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -48,7 +48,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     public Long getCommittedUtxoBlockHeight() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            return unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
+            return unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight(true);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);

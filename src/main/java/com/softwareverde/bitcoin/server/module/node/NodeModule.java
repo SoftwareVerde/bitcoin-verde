@@ -401,6 +401,7 @@ public class NodeModule {
             }
         }
 
+        // TODO: Once synchronized, Mempool transactions are only received after a new connection is received due to SynchronizationStatusHandler::isReadyForTransactions.
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseManagerFactory);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseManagerFactory);
 

@@ -676,8 +676,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Long blockHeight = (dataHandler != null ? dataHandler.getBlockHeight() : null);
             final Long blockHeaderHeight = (dataHandler != null ? dataHandler.getBlockHeaderHeight() : null);
 
-            final Long blockTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockTimestamp()) : 0L);
-            final Long blockHeaderTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockHeaderTimestamp()) : 0L);
+            final long blockTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockTimestamp()) : 0L);
+            final long blockHeaderTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockHeaderTimestamp()) : 0L);
 
             final Json statisticsJson = new Json();
             statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
