@@ -24,8 +24,6 @@ import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
-import java.util.concurrent.TimeUnit;
-
 public class PendingBlockLoader {
     public interface Context extends BlockInflaters, ThreadPoolContext, MultiConnectionFullDatabaseContext { }
 

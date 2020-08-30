@@ -10,11 +10,15 @@ import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedBlock;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -61,6 +65,7 @@ public class UnspentTransactionOutputManager {
 
     protected void _updateUtxoSetWithBlock(final Block block, final Long blockHeight) throws DatabaseException {
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final MilliTimer totalTimer = new MilliTimer();
         final MilliTimer utxoCommitTimer = new MilliTimer();
@@ -71,10 +76,13 @@ public class UnspentTransactionOutputManager {
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
 
+        int unspendableCount = 0;
         final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
         final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
         for (int i = 0; i < transactions.getCount(); ++i) {
             final Transaction transaction = transactions.get(i);
+            final Sha256Hash transactionHash = transaction.getHash();
+            final Sha256Hash constTransactionHash = transactionHash.asConst();
 
             final boolean isCoinbase = (i == 0);
             if (! isCoinbase) {
@@ -84,14 +92,27 @@ public class UnspentTransactionOutputManager {
                 }
             }
 
-            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
-            unspentTransactionOutputIdentifiers.addAll(transactionOutputIdentifiers);
+            int outputIndex = 0;
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+                final boolean isPossiblySpendable = (! scriptPatternMatcher.isProvablyUnspendable(lockingScript));
+
+                if (isPossiblySpendable) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(constTransactionHash, outputIndex);
+                    unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                }
+                else {
+                    unspendableCount += 1;
+                }
+
+                outputIndex += 1;
+            }
         }
 
         final int worstCaseNewUtxoCount = (unspentTransactionOutputIdentifiers.getCount() + spentTransactionOutputIdentifiers.getCount());
         final Long uncommittedUtxoCount = unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount();
         if ( ((blockHeight % _commitFrequency) == 0L) || ( (uncommittedUtxoCount + worstCaseNewUtxoCount) >= unspentTransactionOutputDatabaseManager.getMaxUtxoCount()) ) {
-            Logger.info("((" + blockHeight + " % " + _commitFrequency + ") == 0) || ((" + uncommittedUtxoCount + " + " + worstCaseNewUtxoCount + ") >= " + unspentTransactionOutputDatabaseManager.getMaxUtxoCount() + ")"); // TODO: Downgrade to DEBUG/TRACE...
+            Logger.trace("((" + blockHeight + " % " + _commitFrequency + ") == 0) || ((" + uncommittedUtxoCount + " + " + worstCaseNewUtxoCount + ") >= " + unspentTransactionOutputDatabaseManager.getMaxUtxoCount() + ")");
             utxoCommitTimer.start();
             _commitInMemoryUtxoSetToDisk();
             utxoCommitTimer.stop();
@@ -106,7 +127,7 @@ public class UnspentTransactionOutputManager {
         utxoTimer.stop();
         totalTimer.stop();
 
-        Logger.debug("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent. " + transactionCount + " transactions in " + totalTimer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (totalTimer.getMillisecondsElapsed() + 1L)) + " tps), " + utxoTimer.getMillisecondsElapsed() + "ms for UTXOs. " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed() + 1L)) + " tps.");
+        Logger.debug("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent, " + unspendableCount + " unspendable. " + transactionCount + " transactions in " + totalTimer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (totalTimer.getMillisecondsElapsed() + 1L)) + " tps), " + utxoTimer.getMillisecondsElapsed() + "ms for UTXOs. " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed() + 1L)) + " tps.");
     }
 
     public UnspentTransactionOutputManager(final FullNodeDatabaseManager databaseManager, final DatabaseConnectionFactory databaseConnectionFactory, final Long commitFrequency) {
