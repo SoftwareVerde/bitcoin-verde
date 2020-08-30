@@ -604,7 +604,7 @@ public class SpvModule {
                 }
             };
 
-            final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
+            final NodeInitializer.Context nodeInitializerProperties = new NodeInitializer.Context();
             nodeInitializerProperties.synchronizationStatus = synchronizationStatusHandler;
             nodeInitializerProperties.blockInventoryMessageHandler = new BitcoinNode.BlockInventoryMessageCallback() {
                 @Override
@@ -647,20 +647,20 @@ public class SpvModule {
         }
 
         { // Initialize NodeManager...
-            final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
+            final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
-                properties.databaseManagerFactory = databaseManagerFactory;
-                properties.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
-                properties.maxNodeCount = maxPeerCount;
-                properties.networkTime = _mutableNetworkTime;
-                properties.nodeInitializer = _nodeInitializer;
-                properties.banFilter = _banFilter;
-                properties.memoryPoolEnquirer = null;
-                properties.synchronizationStatusHandler = synchronizationStatusHandler;
-                properties.threadPool = _mainThreadPool;
+                context.databaseManagerFactory = databaseManagerFactory;
+                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
+                context.maxNodeCount = maxPeerCount;
+                context.networkTime = _mutableNetworkTime;
+                context.nodeInitializer = _nodeInitializer;
+                context.banFilter = _banFilter;
+                context.memoryPoolEnquirer = null;
+                context.synchronizationStatusHandler = synchronizationStatusHandler;
+                context.threadPool = _mainThreadPool;
             }
 
-            _bitcoinNodeManager = new BitcoinNodeManager(properties);
+            _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.enableTransactionRelay(false);
             _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);

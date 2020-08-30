@@ -64,8 +64,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
-    public static class Properties {
 
+    public static class Context {
         public Integer maxNodeCount;
         public DatabaseManagerFactory databaseManagerFactory;
         public BitcoinNodeFactory nodeFactory;
@@ -293,13 +293,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Properties properties) {
-        super(properties.maxNodeCount, properties.nodeFactory, properties.networkTime, properties.threadPool);
-        _databaseManagerFactory = properties.databaseManagerFactory;
-        _nodeInitializer = properties.nodeInitializer;
-        _banFilter = properties.banFilter;
-        _memoryPoolEnquirer = properties.memoryPoolEnquirer;
-        _synchronizationStatusHandler = properties.synchronizationStatusHandler;
+    public BitcoinNodeManager(final Context context) {
+        super(context.maxNodeCount, context.nodeFactory, context.networkTime, context.threadPool);
+        _databaseManagerFactory = context.databaseManagerFactory;
+        _nodeInitializer = context.nodeInitializer;
+        _banFilter = context.banFilter;
+        _memoryPoolEnquirer = context.memoryPoolEnquirer;
+        _synchronizationStatusHandler = context.synchronizationStatusHandler;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {

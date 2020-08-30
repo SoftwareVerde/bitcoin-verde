@@ -404,7 +404,7 @@ public class BitcoinNode extends Node {
         final NodeFeatures nodeFeatures = _localNodeFeatures.getNodeFeatures();
         synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
 
-        synchronizeVersionMessage.setTransactionRelayIsEnabled(_synchronizationStatus.isReadyForTransactions() && _transactionRelayIsEnabled);
+        synchronizeVersionMessage.setTransactionRelayIsEnabled(_transactionRelayIsEnabled);
         synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatus.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...

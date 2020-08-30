@@ -110,14 +110,14 @@ public class BlockchainBuilderTests extends IntegrationTest {
      * FakeBitcoinNodeManager is a BitcoinNodeManager that prevents all network traffic.
      */
     public static class FakeBitcoinNodeManager extends BitcoinNodeManager {
-        protected static Properties _createFakeProperties() {
-            final Properties properties = new Properties();
-            properties.maxNodeCount = 0;
-            return properties;
+        protected static Context _createFakeContext() {
+            final Context context = new Context();
+            context.maxNodeCount = 0;
+            return context;
         }
 
         public FakeBitcoinNodeManager() {
-            super(_createFakeProperties());
+            super(_createFakeContext());
         }
 
         @Override

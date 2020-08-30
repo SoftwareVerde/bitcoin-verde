@@ -401,7 +401,6 @@ public class NodeModule {
             }
         }
 
-        // TODO: Once synchronized, Mempool transactions are only received after a new connection is received due to SynchronizationStatusHandler::isReadyForTransactions.
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseManagerFactory);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseManagerFactory);
 
@@ -455,7 +454,7 @@ public class NodeModule {
         { // Initialize NodeInitializer...
             final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler = new SpvUnconfirmedTransactionsHandler(databaseManagerFactory);
 
-            final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
+            final NodeInitializer.Context nodeInitializerContext = new NodeInitializer.Context();
 
             final Runnable newInventoryCallback = new Runnable() {
                 @Override
@@ -464,19 +463,19 @@ public class NodeModule {
                 }
             };
 
-            nodeInitializerProperties.synchronizationStatus = synchronizationStatusHandler;
-            nodeInitializerProperties.blockInventoryMessageHandler = blockInventoryMessageHandler;
-            nodeInitializerProperties.threadPoolFactory = nodeThreadPoolFactory;
-            nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
-            nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, newInventoryCallback);
-            nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseManagerFactory);
-            nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseManagerFactory);
-            nodeInitializerProperties.requestDataCallback = _transactionWhitelist;
-            nodeInitializerProperties.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
-            nodeInitializerProperties.requestSlpTransactionsCallback = new RequestSlpTransactionsHandler(databaseManagerFactory);
-            nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
+            nodeInitializerContext.synchronizationStatus = synchronizationStatusHandler;
+            nodeInitializerContext.blockInventoryMessageHandler = blockInventoryMessageHandler;
+            nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
+            nodeInitializerContext.localNodeFeatures = localNodeFeatures;
+            nodeInitializerContext.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
+            nodeInitializerContext.queryBlocksCallback = new QueryBlocksHandler(databaseManagerFactory);
+            nodeInitializerContext.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseManagerFactory);
+            nodeInitializerContext.requestDataCallback = _transactionWhitelist;
+            nodeInitializerContext.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
+            nodeInitializerContext.requestSlpTransactionsCallback = new RequestSlpTransactionsHandler(databaseManagerFactory);
+            nodeInitializerContext.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
-            nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
+            nodeInitializerContext.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
@@ -489,33 +488,33 @@ public class NodeModule {
                 }
             };
 
-            nodeInitializerProperties.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+            nodeInitializerContext.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
-            nodeInitializerProperties.onNewBloomFilterCallback = new BitcoinNode.OnNewBloomFilterCallback() {
+            nodeInitializerContext.onNewBloomFilterCallback = new BitcoinNode.OnNewBloomFilterCallback() {
                 @Override
                 public void run(final BitcoinNode bitcoinNode) {
                     spvUnconfirmedTransactionsHandler.broadcastUnconfirmedTransactions(bitcoinNode);
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
+            _nodeInitializer = new NodeInitializer(nodeInitializerContext);
         }
 
         { // Initialize NodeManager...
-            final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
+            final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
-                properties.databaseManagerFactory = databaseManagerFactory;
-                properties.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
-                properties.maxNodeCount = maxPeerCount;
-                properties.networkTime = _mutableNetworkTime;
-                properties.nodeInitializer = _nodeInitializer;
-                properties.banFilter = _banFilter;
-                properties.memoryPoolEnquirer = memoryPoolEnquirer;
-                properties.synchronizationStatusHandler = synchronizationStatusHandler;
-                properties.threadPool = _mainThreadPool;
+                context.databaseManagerFactory = databaseManagerFactory;
+                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
+                context.maxNodeCount = maxPeerCount;
+                context.networkTime = _mutableNetworkTime;
+                context.nodeInitializer = _nodeInitializer;
+                context.banFilter = _banFilter;
+                context.memoryPoolEnquirer = memoryPoolEnquirer;
+                context.synchronizationStatusHandler = synchronizationStatusHandler;
+                context.threadPool = _mainThreadPool;
             }
 
-            _bitcoinNodeManager = new BitcoinNodeManager(properties);
+            _bitcoinNodeManager = new BitcoinNodeManager(context);
         }
 
         // final NodeModuleContext context = new NodeModuleContext(_masterInflater, _blockStore, databaseManagerFactory, _bitcoinNodeManager, synchronizationStatusHandler, _medianBlockTime, _systemTime, _mainThreadPool, _mutableNetworkTime);
