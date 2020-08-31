@@ -586,21 +586,24 @@ public class BlockProcessor {
         catch (final Exception exception) {
             final Sha256Hash blockHash = block.getHash();
             Logger.info("Error validating Block: " + blockHash, exception);
+            UnspentTransactionOutputManager.invalidateUncommittedUtxoSet(); // Mark the UTXO set as broken/invalid.
 
-            if (! synchronizationStatus.isShuttingDown()) {
-                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-                    final BlockchainSegmentId headBlockchainSegmentId;
-                    {
-                        final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
-                        headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
-                    }
+                final BlockchainSegmentId headBlockchainSegmentId;
+                {
+                    final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
+                    headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
+                }
 
-                    final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
 
+                unspentTransactionOutputManager.clearUncommittedUtxoSet(); // Clear the UTXO set's invalidation state before rebuilding.
+
+                if (! synchronizationStatus.isShuttingDown()) {
                     final SimpleThreadPool threadPool = new SimpleThreadPool();
                     threadPool.start();
 
@@ -613,9 +616,9 @@ public class BlockProcessor {
                         threadPool.stop();
                     }
                 }
-                catch (final Exception rebuildUtxoSetException) {
-                    Logger.debug("Error rebuilding UTXO set.", rebuildUtxoSetException);
-                }
+            }
+            catch (final Exception rebuildUtxoSetException) {
+                Logger.debug("Error rebuilding UTXO set.", rebuildUtxoSetException);
             }
 
             return ProcessBlockResult.invalid(block, null, "Exception encountered validating block.");

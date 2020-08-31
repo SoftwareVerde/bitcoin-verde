@@ -14,6 +14,7 @@ import com.zaxxer.hikari.HikariPoolMXBean;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.sql.Connection;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,11 +40,11 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
 
     protected void _initHikariDataSource(final DatabaseProperties databaseProperties) {
         _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
-        _dataSource.setConnectionTestQuery("SELECT 1");
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
         _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(15));
         _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
         _dataSource.setMaximumPoolSize(32); // NOTE: MySQL Default is 151.
+        _dataSource.setMinimumIdle(8);
         _dataSource.setAutoCommit(true);
         _dataSource.setLeakDetectionThreshold(60 * 1000L);
 
@@ -56,6 +57,14 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setJdbcUrl("jdbc:mariadb://" + hostname + ":" + port + "/" + schema);
         _dataSource.setUsername(username);
         _dataSource.setPassword(password);
+
+        { // Enable prepared statement caching...
+            final Properties config = new Properties();
+            config.setProperty("cachePrepStmts", "true");
+            config.setProperty("prepStmtCacheSize", "250");
+            config.setProperty("prepStmtCacheSqlLimit", "2048");
+            _dataSource.setDataSourceProperties(config);
+        }
 
         try {
             _dataSource.setLogWriter(new PrintWriter(new Writer() {

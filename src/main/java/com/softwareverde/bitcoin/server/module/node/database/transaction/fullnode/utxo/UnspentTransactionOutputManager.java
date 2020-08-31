@@ -31,6 +31,10 @@ public class UnspentTransactionOutputManager {
         UnspentTransactionOutputDatabaseManager.unlockUtxoSet();
     }
 
+    public static void invalidateUncommittedUtxoSet() {
+        UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();
+    }
+
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManager _databaseManager;
     protected final Long _commitFrequency;
@@ -229,6 +233,17 @@ public class UnspentTransactionOutputManager {
             unspentTransactionOutputDatabaseManager.undoPreviousTransactionOutputs(previousOutputIdentifiers);
 
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
+        }
+        finally {
+            UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
+        }
+    }
+
+    public void clearUncommittedUtxoSet() throws DatabaseException {
+        UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
+        try {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+            unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
         }
         finally {
             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();

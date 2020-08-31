@@ -47,9 +47,10 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--innodb-read-io-threads=16");
             commandLineArguments.addArgument("--innodb-write-io-threads=32");
             commandLineArguments.addArgument("--innodb-lru-scan-depth=2048");
+            commandLineArguments.addArgument("--myisam-sort-buffer-size=4096"); // Reduce per-connection memory allocation (only used for MyISAM DDL statements).
 
             commandLineArguments.setQueryCacheByteCount(null); // Deprecated, removed in Mysql 8.
-            commandLineArguments.setMaxAllowedPacketByteCount(128L * ByteUtil.Unit.Binary.MEBIBYTES);
+            commandLineArguments.setMaxAllowedPacketByteCount(64L * ByteUtil.Unit.Binary.MEBIBYTES);
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
 
             // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
