@@ -1705,6 +1705,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _setLogLevel(parameters, response);
                             } break;
 
+                            // TODO: Add rebuild-UTXO set from block-height command.
+                            // TODO: Add reconsider block command.
+                            // TODO: Add invalidate block command.
+
                             default: {
                                 response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
