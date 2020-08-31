@@ -815,7 +815,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final Row row = rows.get(0);
         final Integer processCount = row.getInteger("process_count");
-        return (processCount >= 3);
+        return (processCount >= BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
     }
 
     @Override
