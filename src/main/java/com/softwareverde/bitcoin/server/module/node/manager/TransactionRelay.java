@@ -1,7 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
@@ -21,49 +19,28 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class TransactionRelay {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final NodeRpcHandler _nodeRpcHandler;
-    protected final TransactionWhitelist _transactionWhitelist;
     protected final Boolean _shouldRelayInvalidSlpTransactions;
 
-    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
-        this(databaseManagerFactory, bitcoinNodeManager, null, null, false);
-    }
+    protected final Long _batchWindow;
+    protected final Thread _batchThread;
+    protected final ConcurrentLinkedDeque<Transaction> _queuedTransactions = new ConcurrentLinkedDeque<Transaction>();
 
-    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist) {
-        this(databaseManagerFactory, bitcoinNodeManager, transactionWhitelist, null, false);
-    }
-
-    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist, final NodeRpcHandler nodeRpcHandler) {
-        this(databaseManagerFactory, bitcoinNodeManager, transactionWhitelist, nodeRpcHandler, false);
-    }
-
-    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final RequestDataHandlerMonitor transactionWhitelist, final NodeRpcHandler nodeRpcHandler, final Boolean shouldRelayInvalidSlpTransactions) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _bitcoinNodeManager = bitcoinNodeManager;
-        _transactionWhitelist = transactionWhitelist;
-        _nodeRpcHandler = nodeRpcHandler;
-        _shouldRelayInvalidSlpTransactions = shouldRelayInvalidSlpTransactions;
-    }
-
-    public void relayTransactions(final List<Transaction> transactions) {
+    protected void _relayTransactions(final List<Transaction> transactions) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            final Container<BlockchainSegmentId> blockchainSegmentId = new Container<BlockchainSegmentId>();
-            blockchainSegmentId.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-            final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(blockchainSegmentId, databaseManager, null);
-            final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(blockchainSegmentId, databaseManager);
+            final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(databaseManager, null);
+            final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(databaseManager);
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
 
             final List<NodeId> connectedNodes;
@@ -81,12 +58,8 @@ public class TransactionRelay {
             for (final Transaction transaction : transactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
 
-                if (_transactionWhitelist != null) {
-                    _transactionWhitelist.addTransactionHash(transactionHash);
-                }
-
                 final Boolean isSlpTransaction = Transaction.isSlpTransaction(transaction);
-                if ( (isSlpTransaction) && (! _shouldRelayInvalidSlpTransactions)) {
+                if ( isSlpTransaction && (! _shouldRelayInvalidSlpTransactions)) {
                     // NOTE: Parent SlpTransactions may not have been cached within the the SlpTransactionValidator if it is still processing the initial catch-up batch.
                     //  This isn't ideal and may slow down transaction relaying until the SlpTransactionValidator has finished its first run-through...
                     //  TODO: Consider delaying SLP-Relaying by providing a TransactionRelay reference into the SlpTransactionProcessor and invoke ::relaySlpTransactions...
@@ -125,6 +98,9 @@ public class TransactionRelay {
 
                 final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
                 bitcoinNode.transmitTransactionHashes(newTransactionHashes);
+
+                // NOTE: It could be beneficial to update the available Node inventory, although is unnecessary unless the same Transaction is attempted to be broadcast multiple times (should never happen).
+                // nodeDatabaseManager.updateTransactionInventory(bitcoinNode, newTransactionHashes);
             }
 
             if (_nodeRpcHandler != null) {
@@ -135,6 +111,88 @@ public class TransactionRelay {
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
+        }
+    }
+
+    protected List<Transaction> _drainQueuedTransactions() {
+        final MutableList<Transaction> transactions = new MutableList<Transaction>();
+        while (true) {
+            final Transaction transaction = _queuedTransactions.pollFirst();
+            if (transaction == null) { break; }
+
+            transactions.add(transaction);
+        }
+        return transactions;
+    }
+
+    public TransactionRelay(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final NodeRpcHandler nodeRpcHandler, final Boolean shouldRelayInvalidSlpTransactions, final Long batchWindow) {
+        _databaseManagerFactory = databaseManagerFactory;
+        _bitcoinNodeManager = bitcoinNodeManager;
+        _nodeRpcHandler = nodeRpcHandler;
+        _shouldRelayInvalidSlpTransactions = shouldRelayInvalidSlpTransactions;
+        _batchWindow = batchWindow;
+
+        _batchThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (! _batchThread.isInterrupted()) {
+                    try {
+                        synchronized (_queuedTransactions) {
+                            if (_queuedTransactions.isEmpty()) {
+                                _queuedTransactions.wait();
+                            }
+                        }
+
+                        final List<Transaction> transactions = _drainQueuedTransactions();
+                        if (! transactions.isEmpty()) { // Should be unnecessary, unless Object::wait spontaneously wakes up.
+                            _relayTransactions(transactions); // NOTE: Technically possible to never broadcast drained Transactions if an exception is encountered during relay.
+
+                            if (_batchWindow > 0L) {
+                                Thread.sleep(_batchWindow);
+                            }
+                        }
+                    }
+                    catch (final Exception exception) {
+                        if (exception instanceof InterruptedException) {
+                            return;
+                        }
+
+                        Logger.debug(exception);
+                    }
+                }
+            }
+        });
+        _batchThread.setName("TransactionRelay");
+        _batchThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                Logger.debug(exception);
+            }
+        });
+    }
+
+    public void start() {
+        _batchThread.start();
+    }
+
+    public void relayTransactions(final List<Transaction> transactions) {
+        for (final Transaction transaction : transactions) {
+            _queuedTransactions.add(transaction);
+        }
+
+        synchronized (_queuedTransactions) {
+            _queuedTransactions.notifyAll();
+        }
+    }
+
+    public void stop() {
+        _batchThread.interrupt();
+
+        try {
+            _batchThread.join(5000L);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
         }
     }
 }

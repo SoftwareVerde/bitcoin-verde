@@ -11,6 +11,7 @@ import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 
 public interface Difficulty extends Constable<ImmutableDifficulty> {
     Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
@@ -53,7 +54,7 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     }
 
     static BigDecimal calculateHashesPerSecond(final Difficulty difficulty) {
-        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), BigDecimal.ROUND_HALF_UP));
+        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), RoundingMode.HALF_UP));
     }
 
     static ImmutableDifficulty decode(final ByteArray encodedBytes) {

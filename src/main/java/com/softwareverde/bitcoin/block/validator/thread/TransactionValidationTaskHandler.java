@@ -1,95 +1,95 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
 
-public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
-    public static class TransactionValidationResult {
-        public static TransactionValidationResult invalid(final Transaction invalidTransaction) {
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> {
+    public static class TransactionValidationTaskResult {
+        public static TransactionValidationTaskResult invalid(final Transaction invalidTransaction) {
             final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
             invalidTransactions.add(invalidTransaction.getHash());
-            return new TransactionValidationResult(false, invalidTransactions.build());
+            return new TransactionValidationTaskResult(false, invalidTransactions.build(), null);
         }
 
-        public static TransactionValidationResult invalid(final List<Transaction> invalidTransactions) {
+        public static TransactionValidationTaskResult invalid(final List<Transaction> invalidTransactions) {
             final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<Sha256Hash>(1);
             for (final Transaction transaction : invalidTransactions) {
                 invalidTransactionHashes.add(transaction.getHash());
             }
-            return new TransactionValidationResult(false, invalidTransactionHashes.build());
+            return new TransactionValidationTaskResult(false, invalidTransactionHashes.build(), null);
         }
 
-        public static TransactionValidationResult valid() {
-            return new TransactionValidationResult(true, null);
+        public static TransactionValidationTaskResult valid(final Integer signatureOperationCount) {
+            return new TransactionValidationTaskResult(true, null, signatureOperationCount);
         }
 
         public final Boolean isValid;
         public final List<Sha256Hash> invalidTransactions;
+        public final Integer signatureOperationCount;
 
-        public TransactionValidationResult(final Boolean isValid, final List<Sha256Hash> invalidTransactions) {
+        public TransactionValidationTaskResult(final Boolean isValid, final List<Sha256Hash> invalidTransactions, final Integer signatureOperationCount) {
             this.isValid = isValid;
             this.invalidTransactions = ConstUtil.asConstOrNull(invalidTransactions);
+            this.signatureOperationCount = signatureOperationCount;
         }
     }
 
-    protected final BlockchainSegmentId _blockchainSegmentId;
     protected final Long _blockHeight;
-    protected final NetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
-    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
+    protected final AtomicInteger _signatureOperationCount = new AtomicInteger(0);
 
-    protected TransactionValidator _transactionValidator;
+    protected final TransactionValidator _transactionValidator;
 
-    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
-        _blockchainSegmentId = blockchainSegmentId;
+    public TransactionValidationTaskHandler(final Long blockHeight, final TransactionValidator transactionValidator) {
         _blockHeight = blockHeight;
-        _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
-        _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
-        _transactionValidatorFactory = transactionValidatorFactory;
+        _transactionValidator = transactionValidator;
     }
 
     @Override
-    public void init(final FullNodeDatabaseManager databaseManager) {
-        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
-    }
+    public void init() { }
 
     @Override
     public void executeTask(final Transaction transaction) {
         if (! _invalidTransactions.isEmpty()) { return; }
 
-        final Boolean transactionInputsAreUnlocked;
+        final TransactionValidationResult transactionValidationResult;
         {
-            Boolean inputsAreUnlocked = false;
+            TransactionValidationResult validationResult;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockchainSegmentId, _blockHeight, transaction, false);
+                validationResult = _transactionValidator.validateTransaction(_blockHeight, transaction);
             }
-            catch (final Exception exception) { Logger.warn(exception); }
-            transactionInputsAreUnlocked = inputsAreUnlocked;
+            catch (final Exception exception) {
+                validationResult = TransactionValidationResult.invalid("An internal error occurred.");
+                Logger.debug(exception);
+            }
+            transactionValidationResult = validationResult;
         }
 
-        if (! transactionInputsAreUnlocked) {
+        if (transactionValidationResult.isValid) {
+            final Integer signatureOperationCount = transactionValidationResult.getSignatureOperationCount();
+            _signatureOperationCount.addAndGet(signatureOperationCount);
+        }
+        else {
             _invalidTransactions.add(transaction);
         }
     }
 
     @Override
-    public TransactionValidationResult getResult() {
+    public TransactionValidationTaskResult getResult() {
         if (! _invalidTransactions.isEmpty()) {
-            return TransactionValidationResult.invalid(_invalidTransactions);
+            return TransactionValidationTaskResult.invalid(_invalidTransactions);
         }
 
-        return TransactionValidationResult.valid();
+        final Integer signatureOperationCount = _signatureOperationCount.get();
+        return TransactionValidationTaskResult.valid(signatureOperationCount);
     }
 }

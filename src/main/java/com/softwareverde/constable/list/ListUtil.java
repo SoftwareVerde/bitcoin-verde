@@ -1,5 +1,6 @@
 package com.softwareverde.constable.list;
 
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 
 import java.util.Comparator;
@@ -23,4 +24,15 @@ public class ListUtil {
     public static <T> Integer binarySearch(final List<T> sortedList, final T needle, final Comparator<T> comparator) {
         return ListUtil._binarySearch(sortedList, needle, comparator, 0, (sortedList.getCount() - 1));
     }
+
+    @SafeVarargs
+    public static <T> MutableList<T> newMutableList(final T... items) {
+        final MutableList<T> mutableList = new MutableList<T>(items.length);
+        for (final T item : items) {
+            mutableList.add(item);
+        }
+        return mutableList;
+    }
+
+    protected ListUtil() { }
 }

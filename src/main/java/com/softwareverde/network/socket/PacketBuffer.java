@@ -16,7 +16,7 @@ public class PacketBuffer extends ByteBuffer {
     protected final byte[] _reversedMainNetMagicNumber;
 
     protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
-    protected final ProtocolMessageFactory _protocolMessageFactory;
+    protected final ProtocolMessageFactory<?> _protocolMessageFactory;
 
     protected final byte[] _packetStartingBytesBuffer;
 
@@ -43,7 +43,7 @@ public class PacketBuffer extends ByteBuffer {
     public boolean hasMessage() {
         final ProtocolMessageHeader protocolMessageHeader = _peakProtocolHeader();
         if (protocolMessageHeader == null) { return false; }
-        final Integer expectedMessageLength = (protocolMessageHeader.getPayloadByteCount() + _protocolMessageHeaderInflater.getHeaderByteCount());
+        final int expectedMessageLength = (protocolMessageHeader.getPayloadByteCount() + _protocolMessageHeaderInflater.getHeaderByteCount());
         return (_byteCount >= expectedMessageLength);
     }
 
@@ -63,7 +63,7 @@ public class PacketBuffer extends ByteBuffer {
 
         final byte[] fullPacket = _consumeContiguousBytes(fullPacketByteCount);
 
-        if (fullPacketByteCount > Util.coalesce(_protocolMessageHeaderInflater.getMaxPacketByteCount(), Integer.MAX_VALUE)) {
+        if (fullPacketByteCount > Util.coalesce(_protocolMessageHeaderInflater.getMaxPacketByteCount(protocolMessageHeader), Integer.MAX_VALUE)) {
             Logger.debug("Dropping packet. Packet exceeded max byte count: " + fullPacketByteCount);
             return null;
         }

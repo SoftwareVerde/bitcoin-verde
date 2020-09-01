@@ -14,7 +14,7 @@ import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 
-public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
+public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> {
     protected static final ThreadLocal<MutableByteArray> _threadLocalScratchSpace = new ThreadLocal<MutableByteArray>() {
         @Override
         protected MutableByteArray initialValue() {

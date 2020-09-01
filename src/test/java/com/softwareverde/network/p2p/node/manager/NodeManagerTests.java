@@ -1,6 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -16,7 +17,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-public class NodeManagerTests {
+public class NodeManagerTests extends UnitTest {
     protected FakeNode[] _setupFakeNodes(final Integer nodeCount, final NodeManager<FakeNode> nodeManager, final Map<NodeId, Integer> nodeSelectedCounts, final ThreadPool threadPool) {
         return _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, new SystemTime(), threadPool);
     }
@@ -40,21 +41,25 @@ public class NodeManagerTests {
 
     protected FakeThreadPool _threadPool;
 
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+
         FakeNode._nextNonce = 0L;
         _threadPool = new FakeThreadPool();
     }
 
-    @After
-    public void after() {
+    @Override @After
+    public void after() throws Exception {
         _threadPool.stop();
+
+        super.after();
     }
 
     @Test
     public void should_select_different_nodes_for_rapid_requests_that_have_not_returned_yet() {
         // Setup
-        final Integer nodeCount = 5;
+        final int nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
@@ -102,7 +107,7 @@ public class NodeManagerTests {
         // Setup
         final FakeSystemTime fakeSystemTime = new FakeSystemTime();
 
-        final Integer nodeCount = 5;
+        final int nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, fakeSystemTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
@@ -195,7 +200,7 @@ public class NodeManagerTests {
         // Setup
         final FakeSystemTime fakeSystemTime = new FakeSystemTime();
 
-        final Integer nodeCount = 5;
+        final int nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, fakeSystemTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
@@ -290,7 +295,7 @@ public class NodeManagerTests {
         // Setup
         final FakeSystemTime fakeSystemTime = new FakeSystemTime();
 
-        final Integer nodeCount = 5;
+        final int nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, fakeSystemTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();

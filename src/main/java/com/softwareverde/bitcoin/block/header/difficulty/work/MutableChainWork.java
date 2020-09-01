@@ -5,8 +5,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
 
-import java.math.BigInteger;
-
 public class MutableChainWork extends MutableByteArray implements ChainWork {
     /**
      * NOTICE: This function does not copy the provided byte array.

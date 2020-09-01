@@ -6,7 +6,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
@@ -285,7 +289,7 @@ public abstract class Node {
             _networkTimeOffset = ((nodeTime - currentTime) * 1000L);
         }
 
-        _localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
+        _localNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
 
         { // Ensure that this node sends its SynchronizeVersion message before the AcknowledgeVersionMessage is transmitted...
             // NOTE: Since  Node::handshake may have been invoked already, it's possible for a race condition between responding to
@@ -495,6 +499,10 @@ public abstract class Node {
 
     public void setNodeDisconnectedCallback(final NodeDisconnectedCallback nodeDisconnectedCallback) {
         _nodeDisconnectedCallback = nodeDisconnectedCallback;
+    }
+
+    public void setLocalNodeIpAddress(final NodeIpAddress nodeIpAddress) {
+        _localNodeIpAddress = nodeIpAddress;
     }
 
     public void ping(final PingCallback pingCallback) {

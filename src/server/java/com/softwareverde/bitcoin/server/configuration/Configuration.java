@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
@@ -36,11 +38,11 @@ public class Configuration {
         final Integer port = Util.parseInt(_properties.getProperty(propertyPrefix + "database.port", "8336"));
         final String dataDirectory = _properties.getProperty(propertyPrefix + "database.dataDirectory", "data");
         final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty(propertyPrefix + "database.useEmbeddedDatabase", "1"));
-        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.Binary.GIBIBYTES)));
 
         // According to https://www.percona.com/blog/2008/11/21/how-to-calculate-a-good-innodb-log-file-size/, and running the calculation on a trimming node syncing yr 2015, the GB/hr was about 6.5gb.
         // In lieu of this, the default value was decided to be set to 8GB to better accommodate slightly higher loads.
-        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(8 * ByteUtil.Unit.GIGABYTES)));
+        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(512 * ByteUtil.Unit.Binary.MEBIBYTES)));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
@@ -96,10 +98,22 @@ public class Configuration {
         _bitcoinProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _bitcoinProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         _bitcoinProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
-        _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
-        _bitcoinProperties._transactionBloomFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
+        _bitcoinProperties._deletePendingBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.deletePendingBlocks", "1"));
+        _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO)));
+        _bitcoinProperties._utxoCommitFrequency = Util.parseLong(_properties.getProperty("bitcoin.utxoCommitFrequency", "2016"));
+        _bitcoinProperties._logLevel = LogLevel.fromString(_properties.getProperty("bitcoin.logLevel", "INFO"));
+
+        _bitcoinProperties._utxoPurgePercent = Util.parseFloat(_properties.getProperty("bitcoin.utxoPurgePercent", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT)));
+        if (_bitcoinProperties._utxoPurgePercent < 0F) {
+            _bitcoinProperties._utxoPurgePercent = 0F;
+        }
+        else if (_bitcoinProperties._utxoPurgePercent > 1F) {
+            _bitcoinProperties._utxoPurgePercent = 1F;
+        }
+
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
         _bitcoinProperties._trimBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
+        _bitcoinProperties._indexingModeIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.indexBlocks", "1"));
         _bitcoinProperties._blockCacheIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.cacheBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");

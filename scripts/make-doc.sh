@@ -6,6 +6,6 @@ if [ -z "${dot}" ]; then
     exit 1
 fi
 
-./gradlew javadoc
+./gradlew makeDocumentation
 cp -R build/docs/javadoc explorer/www/documentation/.
 

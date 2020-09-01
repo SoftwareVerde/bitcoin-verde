@@ -2,18 +2,14 @@ package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -111,8 +107,6 @@ public class SpvModule {
     protected final SystemTime _systemTime = new SystemTime();
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
 
-    protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
-    protected final ReadOnlyLocalDatabaseManagerCache _readOnlyDatabaseManagerCache;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final SpvDatabaseManagerFactory _databaseManagerFactory;
     protected final MainThreadPool _mainThreadPool;
@@ -164,7 +158,6 @@ public class SpvModule {
 
             final BitcoinNode node = _nodeInitializer.initializeNode(nodeIpAddress);
             _bitcoinNodeManager.addNode(node);
-
         }
     }
 
@@ -245,16 +238,13 @@ public class SpvModule {
         Logger.info("[Shutting Down Thread Server]");
         _mainThreadPool.stop();
 
-        Logger.info("[Shutting Down Database]");
-        _environment.getMasterDatabaseManagerCache().close();
-
         Logger.flush();
         _setStatus(Status.OFFLINE);
     }
 
     protected void _loadDownloadedTransactionsIntoWallet() {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, _readOnlyDatabaseManagerCache);
+            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
             final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
@@ -334,10 +324,8 @@ public class SpvModule {
         _environment = environment;
 
         final Database database = _environment.getDatabase();
-        _masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        _readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(_masterDatabaseManagerCache);
         _databaseConnectionFactory = database.newConnectionFactory();
-        _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _readOnlyDatabaseManagerCache);
+        _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory);
         _banFilter = new BanFilterCore(_databaseManagerFactory);
     }
 
@@ -393,7 +381,7 @@ public class SpvModule {
             }
         };
 
-        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _readOnlyDatabaseManagerCache);
+        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory);
 
         _merkleBlockDownloader = new MerkleBlockDownloader(databaseManagerFactory, new MerkleBlockDownloader.Downloader() {
             @Override
@@ -616,7 +604,7 @@ public class SpvModule {
                 }
             };
 
-            final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
+            final NodeInitializer.Context nodeInitializerProperties = new NodeInitializer.Context();
             nodeInitializerProperties.synchronizationStatus = synchronizationStatusHandler;
             nodeInitializerProperties.blockInventoryMessageHandler = new BitcoinNode.BlockInventoryMessageCallback() {
                 @Override
@@ -659,20 +647,20 @@ public class SpvModule {
         }
 
         { // Initialize NodeManager...
-            final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
+            final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
-                properties.databaseManagerFactory = databaseManagerFactory;
-                properties.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
-                properties.maxNodeCount = maxPeerCount;
-                properties.networkTime = _mutableNetworkTime;
-                properties.nodeInitializer = _nodeInitializer;
-                properties.banFilter = _banFilter;
-                properties.memoryPoolEnquirer = null;
-                properties.synchronizationStatusHandler = synchronizationStatusHandler;
-                properties.threadPool = _mainThreadPool;
+                context.databaseManagerFactory = databaseManagerFactory;
+                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
+                context.maxNodeCount = maxPeerCount;
+                context.networkTime = _mutableNetworkTime;
+                context.nodeInitializer = _nodeInitializer;
+                context.banFilter = _banFilter;
+                context.memoryPoolEnquirer = null;
+                context.synchronizationStatusHandler = synchronizationStatusHandler;
+                context.threadPool = _mainThreadPool;
             }
 
-            _bitcoinNodeManager = new BitcoinNodeManager(properties);
+            _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.enableTransactionRelay(false);
             _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
@@ -686,8 +674,8 @@ public class SpvModule {
         }
 
         { // Initialize BlockHeaderDownloader...
-            final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, blockValidatorFactory, medianBlockHeaderTime, null, _mainThreadPool);
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
+            _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMaxHeaderBatchSize(100);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
@@ -696,10 +684,8 @@ public class SpvModule {
             _spvSlpTransactionValidator = new SpvSlpTransactionValidator(databaseManagerFactory, _bitcoinNodeManager);
         }
 
-        final LocalDatabaseManagerCache localDatabaseCache = (_masterDatabaseManagerCache != null ? new LocalDatabaseManagerCache(_masterDatabaseManagerCache) : null);
-
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, localDatabaseCache);
+            final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -812,8 +798,6 @@ public class SpvModule {
     }
 
     public void broadcastTransaction(final Transaction transaction) {
-        // TODO: Simply broadcast the transaction unannounced instead of advertising the inventory...
-
         _spvRequestDataHandler.addSpvTransaction(transaction);
 
         final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(1);

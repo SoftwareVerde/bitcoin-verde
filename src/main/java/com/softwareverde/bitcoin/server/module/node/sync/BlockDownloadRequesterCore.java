@@ -20,6 +20,10 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
+/**
+ * BlockDownloadRequesterCore stores a PendingBlock record for the requested Block and notifies the BlockDownloader.
+ *  If the block is high-priority and no peers currently have the block, a blockfinder is emitted.
+ */
 public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     protected final SystemTime _systemTime = new SystemTime();
 
@@ -30,8 +34,6 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
     protected final Object _lastUnavailableRequestedBlockTimestampMutex = new Object();
     protected Long _lastUnavailableRequestedBlockTimestamp = 0L;
-    protected final Object _lastNodeInventoryBroadcastTimestampMutex = new Object();
-    protected Long _lastNodeInventoryBroadcastTimestamp = 0L;
 
     protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final DatabaseManager databaseManager) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -56,12 +58,11 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
             if (priority < 256) { // Check if any peers have the requested block if it is of high priority...
                 // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.
-                // TODO: Consider: If no peers still do not have the block, search for a historic node with the block.
 
-                Boolean searchForBlockHash = false;
+                boolean searchForBlockHash = false;
                 synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
                     final Long now = _systemTime.getCurrentTimeInSeconds();
-                    final Long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
+                    final long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
                     if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
                         final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
                         final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
@@ -101,24 +102,9 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
             _blockDownloader.wakeUp();
         }
         catch (final DatabaseException exception) {
-            Logger.warn(exception);
+            Logger.debug(exception);
         }
     }
-
-//    /**
-//     * Check for missing NodeInventory in order to speed up the initial Block download...
-//     */
-//    protected void _checkForNodeInventory() {
-//        synchronized (_lastNodeInventoryBroadcastTimestampMutex) {
-//            final Long now = _systemTime.getCurrentTimeInSeconds();
-//            final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
-//            if (durationSinceLastRequest <= 30) { return; } // Throttle requests to once every 30 seconds...
-//
-//            _lastNodeInventoryBroadcastTimestamp = now;
-//        }
-//
-//        _bitcoinNodeManager.findNodeInventory();
-//    }
 
     public BlockDownloadRequesterCore(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = databaseManagerFactory;
@@ -128,19 +114,14 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
     @Override
     public void requestBlock(final BlockHeader blockHeader) {
-//        _checkForNodeInventory();
-        _requestBlock(blockHeader.getHash(), blockHeader.getPreviousBlockHash(), blockHeader.getTimestamp());
+        final Sha256Hash blockHash = blockHeader.getHash();
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final Long timestamp = blockHeader.getTimestamp();
+        _requestBlock(blockHash, previousBlockHash, timestamp);
     }
 
     @Override
-    public void requestBlock(final Sha256Hash blockHash, final Long priority) {
-//        _checkForNodeInventory();
-        _requestBlock(blockHash, null, priority);
-    }
-
-    @Override
-    public void requestBlock(final Sha256Hash blockHash) {
-//        _checkForNodeInventory();
-        _requestBlock(blockHash, null, 0L);
+    public void requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) {
+        _requestBlock(blockHash, previousBlockHash, 0L);
     }
 }

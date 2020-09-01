@@ -406,6 +406,22 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json getUtxoCacheStatus() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "UTXO_CACHE");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json commitUtxoCache() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "COMMIT_UTXO_CACHE");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     /**
      * Subscribes to the Node for new Block/Transaction announcements.
      *  The NodeJsonRpcConnection is consumed by this operation and cannot be used for additional API calls.

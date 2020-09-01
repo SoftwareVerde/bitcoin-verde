@@ -22,6 +22,7 @@ import com.softwareverde.cryptography.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -131,9 +132,14 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         }
     }
 
-    @Before
-    public void setup() {
-        _resetDatabase();
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+    }
+
+    @Override @After
+    public void after() throws Exception {
+        super.after();
     }
 
     @Test

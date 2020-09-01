@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -22,7 +22,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP));
         stack.push(Value.ZERO);
@@ -41,7 +41,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
 
@@ -59,7 +59,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.ZERO);
@@ -80,7 +80,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("DEAD")));
@@ -100,7 +100,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("DEADA1")));
@@ -120,7 +120,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("DEADBEEF")));
@@ -140,7 +140,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("123456")));
@@ -162,7 +162,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
 
@@ -199,7 +199,7 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
 

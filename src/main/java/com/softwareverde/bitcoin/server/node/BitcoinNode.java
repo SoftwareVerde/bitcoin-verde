@@ -64,7 +64,11 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -126,6 +130,9 @@ public class BitcoinNode extends Node {
 
         @Override
         public Boolean isReadyForTransactions() { return false; }
+
+        @Override
+        public Boolean isShuttingDown() { return false; }
 
         @Override
         public Long getCurrentBlockHeight() { return 0L; }
@@ -300,6 +307,8 @@ public class BitcoinNode extends Node {
 
     protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted = null; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
 
+    protected Long _blockHeight = null; // TODO: Update blockHeight as new blocks are advertised by the Node...
+
     protected void _requestAddressBlocks(final List<Address> addresses) {
         final QueryAddressBlocksMessage queryAddressBlocksMessage = _protocolMessageFactory.newQueryAddressBlocksMessage();
         for (final Address address : addresses) {
@@ -312,6 +321,7 @@ public class BitcoinNode extends Node {
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         if (synchronizeVersionMessage instanceof BitcoinSynchronizeVersionMessage) {
             _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
+            _blockHeight = _synchronizeVersionMessage.getCurrentBlockHeight();
         }
         else {
             Logger.warn("Invalid SynchronizeVersionMessage type provided to BitcoinNode.");
@@ -394,7 +404,7 @@ public class BitcoinNode extends Node {
         final NodeFeatures nodeFeatures = _localNodeFeatures.getNodeFeatures();
         synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
 
-        synchronizeVersionMessage.setTransactionRelayIsEnabled(_synchronizationStatus.isReadyForTransactions() && _transactionRelayIsEnabled);
+        synchronizeVersionMessage.setTransactionRelayIsEnabled(_transactionRelayIsEnabled);
         synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatus.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
@@ -405,8 +415,12 @@ public class BitcoinNode extends Node {
             synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
         }
 
-        { // Set Local NodeIpAddress...
-            // TODO
+        if (_localNodeIpAddress != null) { // Set Local NodeIpAddress...
+            final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
+            remoteNodeIpAddress.setIp(_localNodeIpAddress.getIp());
+            remoteNodeIpAddress.setPort(_localNodeIpAddress.getPort());
+            remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
+            synchronizeVersionMessage.setLocalAddress(remoteNodeIpAddress);
         }
 
         return synchronizeVersionMessage;
@@ -435,7 +449,7 @@ public class BitcoinNode extends Node {
 
                 final MessageType messageType = message.getCommand();
                 if (messageType != MessageType.INVENTORY) {
-                    Logger.info("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
+                    Logger.debug("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
                 }
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
@@ -668,6 +682,11 @@ public class BitcoinNode extends Node {
 
     protected void _onBlockMessageReceived(final BlockMessage blockMessage) {
         final Block block = blockMessage.getBlock();
+        if (block == null) {
+            Logger.debug("Received invalid block message. " + blockMessage.getBytes());
+            return;
+        }
+
         final Boolean blockHeaderIsValid = block.isValid();
 
         final Sha256Hash blockHash = block.getHash();
@@ -1473,6 +1492,7 @@ public class BitcoinNode extends Node {
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
         if (_localNodeIpAddress == null) { return null; }
+        if (! (_localNodeIpAddress instanceof BitcoinNodeIpAddress)) { return null; }
         return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
     }
 
@@ -1490,5 +1510,12 @@ public class BitcoinNode extends Node {
     public NodeFeatures getNodeFeatures() {
         if (_synchronizeVersionMessage == null) { return null; }
         return _synchronizeVersionMessage.getNodeFeatures();
+    }
+
+    /**
+     * Returns the blockHeight defined during the Node's handshake or null if the handshake has not completed.
+     */
+    public Long getBlockHeight() {
+        return _blockHeight;
     }
 }

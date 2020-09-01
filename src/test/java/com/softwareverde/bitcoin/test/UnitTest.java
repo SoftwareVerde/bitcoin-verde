@@ -9,4 +9,8 @@ public class UnitTest {
         Logger.setLog(LineNumberAnnotatedLog.getInstance());
         Logger.setLogLevel(LogLevel.ON);
     }
+
+    public void before() throws Exception { }
+
+    public void after() throws Exception { }
 }

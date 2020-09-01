@@ -11,6 +11,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 
 public class ImmutableDifficulty implements Difficulty, Const {
     protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
@@ -36,7 +37,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
         // NOTE: Invoking the BigDecimal constructor with the scale provided is NOT the same as setting its scale afterwards.
         //  Therefore, think twice before changing/condensing this.
         //  The BigDecimal(BigInteger, Scale) constructor sets the value to 10^Scale less than what is perceived.
-        return bigDecimal.setScale(4, BigDecimal.ROUND_UNNECESSARY); // setScale(4);
+        return bigDecimal.setScale(4, RoundingMode.UNNECESSARY); // setScale(4);
     }
 
     protected ByteArray _encode() {
@@ -118,7 +119,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public BigDecimal getDifficultyRatio() {
         final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal baseDifficultyValue = Difficulty.BASE_DIFFICULTY._toBigDecimal();
-        return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
+        return baseDifficultyValue.divide(currentValue, RoundingMode.HALF_UP);
     }
 
     @Override
@@ -131,7 +132,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     @Override
     public Difficulty divideBy(final double difficultyAdjustment) {
         final BigDecimal currentValue = _toBigDecimal();
-        final BigDecimal bigDecimal = currentValue.divide(BigDecimal.valueOf(difficultyAdjustment), BigDecimal.ROUND_HALF_UP);
+        final BigDecimal bigDecimal = currentValue.divide(BigDecimal.valueOf(difficultyAdjustment), RoundingMode.HALF_UP);
         return Difficulty.fromBigInteger(bigDecimal.toBigInteger());
     }
 

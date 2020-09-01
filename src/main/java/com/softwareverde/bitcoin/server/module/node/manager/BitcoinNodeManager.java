@@ -11,16 +11,19 @@ import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.inventory.UnknownBlockInventory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
@@ -40,7 +43,6 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,7 +50,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
     public interface FailableCallback {
-
         default void onFailure() { }
     }
     public interface BlockInventoryMessageCallback extends BitcoinNode.BlockInventoryMessageCallback, FailableCallback { }
@@ -62,8 +63,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
-    public static class Properties {
 
+    public static class Context {
         public Integer maxNodeCount;
         public DatabaseManagerFactory databaseManagerFactory;
         public BitcoinNodeFactory nodeFactory;
@@ -291,13 +292,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Properties properties) {
-        super(properties.maxNodeCount, properties.nodeFactory, properties.networkTime, properties.threadPool);
-        _databaseManagerFactory = properties.databaseManagerFactory;
-        _nodeInitializer = properties.nodeInitializer;
-        _banFilter = properties.banFilter;
-        _memoryPoolEnquirer = properties.memoryPoolEnquirer;
-        _synchronizationStatusHandler = properties.synchronizationStatusHandler;
+    public BitcoinNodeManager(final Context context) {
+        super(context.maxNodeCount, context.nodeFactory, context.networkTime, context.threadPool);
+        _databaseManagerFactory = context.databaseManagerFactory;
+        _nodeInitializer = context.nodeInitializer;
+        _banFilter = context.banFilter;
+        _memoryPoolEnquirer = context.memoryPoolEnquirer;
+        _synchronizationStatusHandler = context.synchronizationStatusHandler;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -356,35 +357,49 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         final BitcoinBinaryPacketFormat binaryPacketFormat = _nodeInitializer.getBinaryPacketFormat();
         final BitcoinProtocolMessageFactory protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
 
-        final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
+        final MutableList<BitcoinProtocolMessage> queryBlocksMessages = new MutableList<BitcoinProtocolMessage>();
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
-            final List<Tuple<Sha256Hash, Sha256Hash>> inventoryPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(connectedNodes);
+            final List<UnknownBlockInventory> inventoryPlan = pendingBlockDatabaseManager.findUnknownNodeInventoryByPriority(connectedNodes);
 
-            int messagesWithoutStopBeforeHashes = 0;
-            for (final Tuple<Sha256Hash, Sha256Hash> inventoryHash : inventoryPlan) {
-                final QueryBlocksMessage queryBlocksMessage = protocolMessageFactory.newQueryBlocksMessage();
-                queryBlocksMessage.addBlockHash(inventoryHash.first);
-                queryBlocksMessage.setStopBeforeBlockHash(inventoryHash.second);
+            boolean messageWithoutStopBeforeHashHasBeenQueued = false;
+            for (final UnknownBlockInventory unknownBlockInventory : inventoryPlan) {
+                final Sha256Hash previousBlockHash = unknownBlockInventory.getPreviousBlockHash();
+                final Sha256Hash firstUnknownBlockHash = unknownBlockInventory.getFirstUnknownBlockHash();
+                final Sha256Hash lastUnknownBlockHash = unknownBlockInventory.getLastUnknownBlockHash();
 
-                if (inventoryHash.second == null) {
-                    if (messagesWithoutStopBeforeHashes > 0) { break; } // NOTE: Only broadcast one QueryBlocks Message without a stopBeforeHash to support the case when BlockHeaders is not up to date...
-                    messagesWithoutStopBeforeHashes += 1;
+                if (lastUnknownBlockHash == null) { // Only broadcast one QueryBlocks Message without a stopBeforeHash to support the case when BlockHeaders is not up to date...
+                    if (messageWithoutStopBeforeHashHasBeenQueued) { continue; }
+                    messageWithoutStopBeforeHashHasBeenQueued = true;
                 }
 
-                queryBlocksMessages.add(queryBlocksMessage);
+                if (previousBlockHash != null) { // Default to requesting inventory via QueryBlocks message since GetHeaders is technically not guaranteed to be implemented by all implementations...
+                    final QueryBlocksMessage queryBlocksMessage = protocolMessageFactory.newQueryBlocksMessage();
+                    queryBlocksMessage.addBlockHash(previousBlockHash); // QueryBlocks's response does not include the first hash provided, therefore the previous hash is provided.
+                    queryBlocksMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
+
+                    queryBlocksMessages.add(queryBlocksMessage);
+                    Logger.debug("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
+                }
+                else if (firstUnknownBlockHash != null) { // If the previous block hash does not exist, then request it via requesting its header...
+                    final RequestBlockHeadersMessage requestBlockHeadersMessage = protocolMessageFactory.newRequestBlockHeadersMessage();
+                    requestBlockHeadersMessage.addBlockHeaderHash(firstUnknownBlockHash);
+                    requestBlockHeadersMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
+
+                    queryBlocksMessages.add(requestBlockHeadersMessage);
+                    Logger.debug("Broadcasting GetHeadersMessage: " + requestBlockHeadersMessage.getBlockHeaderHashes().get(0) + " -> " + requestBlockHeadersMessage.getStopBeforeBlockHash());
+                }
             }
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
         }
 
-        for (final QueryBlocksMessage queryBlocksMessage : queryBlocksMessages) {
-            Logger.debug("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
+        for (final BitcoinProtocolMessage message : queryBlocksMessages) {
             for (final BitcoinNode bitcoinNode : _nodes.values()) {
-                bitcoinNode.queueMessage(queryBlocksMessage);
+                bitcoinNode.queueMessage(message);
             }
         }
     }

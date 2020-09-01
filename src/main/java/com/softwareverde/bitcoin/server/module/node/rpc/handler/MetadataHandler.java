@@ -3,16 +3,15 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -22,11 +21,10 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -35,6 +33,8 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+
+import java.util.HashMap;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
@@ -51,12 +51,14 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         { // Include Extra Block Metadata...
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
+            final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
 
             blockJson.put("height", blockHeight);
             blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
             blockJson.put("byteCount", blockHeaderDatabaseManager.getBlockByteCount(blockId));
             blockJson.put("transactionCount", transactionCount);
             blockJson.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
+            blockJson.put("chainWork", chainWork);
         }
     }
 
@@ -66,8 +68,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
@@ -75,13 +77,11 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         transactionJson.put("byteCount", transactionData.getByteCount());
 
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        final SlpTokenId slpTokenId = slpTransactionDatabaseManager.getSlpTokenId(transactionId);
+        final SlpTokenId slpTokenId = blockchainIndexerDatabaseManager.getSlpTokenId(transactionId);
         final Boolean hasSlpData = (slpTokenId != null);
         final Boolean isSlpValid;
         if (hasSlpData) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId, transactionId);
+            isSlpValid = slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);
         }
         else {
             isSlpValid = null;
@@ -100,31 +100,39 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
 
         { // Process TransactionInputs...
-            Integer transactionInputIndex = 0;
+            final HashMap<Sha256Hash, Transaction> cachedTransactions = new HashMap<Sha256Hash, Transaction>(8);
+
+            int transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final TransactionOutputId previousTransactionOutputId;
+                final Transaction previousTransaction;
                 {
-                    if (previousOutputTransactionHash != null) {
-                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
-                        previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
-
-                        if (previousTransactionOutputId == null) {
-                            Logger.warn("Error calculating fee for Transaction: " + transactionHashString);
-                        }
+                    final Transaction cachedTransaction = cachedTransactions.get(previousOutputTransactionHash);
+                    if (cachedTransaction != null) {
+                        previousTransaction = cachedTransaction;
                     }
                     else {
-                        previousTransactionOutputId = null;
+                        final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
+                        previousTransaction = (previousOutputTransactionId != null ? transactionDatabaseManager.getTransaction(previousOutputTransactionId) : null);
+                        cachedTransactions.put(previousOutputTransactionHash, previousTransaction);
                     }
                 }
 
-                if (previousTransactionOutputId == null) {
+                if (previousTransaction == null) {
                     transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
                 }
 
-                final TransactionOutput previousTransactionOutput = ( previousTransactionOutputId != null ? transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId) : null );
-                final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
+                final TransactionOutput previousTransactionOutput;
+                if (previousTransaction != null) {
+                    final List<TransactionOutput> previousOutputs = previousTransaction.getTransactionOutputs();
+                    final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
+                    previousTransactionOutput = previousOutputs.get(previousOutputIndex);
+                }
+                else {
+                    previousTransactionOutput = null;
+                }
 
+                final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
                 if (transactionFee != null) {
                     transactionFee += Util.coalesce(previousTransactionOutputAmount);
                 }
@@ -151,19 +159,19 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                 transactionInputJson.put("cashAddress", cashAddressString);
 
                 if (hasSlpData && Util.coalesce(isSlpValid, false)) {
-                    final TransactionId previousTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
-                    final Transaction previousTransaction = transactionDatabaseManager.getTransaction(previousTransactionId);
                     final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
 
-                    final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
-                    if (isSlpOutput) {
-                        final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
-                        final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(previousTransaction, previousOutputIndex);
+                    if (previousTransaction != null) {
+                        final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
+                        if (isSlpOutput) {
+                            final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
+                            final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(previousTransaction, previousOutputIndex);
 
-                        final Json slpOutputJson = new Json(false);
-                        slpOutputJson.put("tokenAmount", slpTokenAmount);
-                        slpOutputJson.put("isBaton",isSlpBatonOutput);
-                        transactionInputJson.put("slp", slpOutputJson);
+                            final Json slpOutputJson = new Json(false);
+                            slpOutputJson.put("tokenAmount", slpTokenAmount);
+                            slpOutputJson.put("isBaton", isSlpBatonOutput);
+                            transactionInputJson.put("slp", slpOutputJson);
+                        }
                     }
                 }
 
@@ -215,7 +223,24 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final Json slpJson;
         if (hasSlpData) {
-            final SlpGenesisScript slpGenesisScript = slpTransactionDatabaseManager.getSlpGenesisScript(slpTokenId);
+            final TransactionId slpGenesisTransactionId = transactionDatabaseManager.getTransactionId(slpTokenId);
+            final Transaction slpGenesisTransaction = transactionDatabaseManager.getTransaction(slpGenesisTransactionId);
+
+            final SlpGenesisScript slpGenesisScript;
+            {
+                if (slpGenesisTransaction != null) {
+                    final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
+
+                    final List<TransactionOutput> transactionOutputs = slpGenesisTransaction.getTransactionOutputs();
+                    final TransactionOutput transactionOutput = transactionOutputs.get(0);
+                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                    slpGenesisScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
+                }
+                else {
+                    slpGenesisScript = null;
+                }
+            }
+
             if (slpGenesisScript != null) {
                 slpJson = slpGenesisScript.toJson();
 

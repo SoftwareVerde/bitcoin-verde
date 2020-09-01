@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.spv;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.spv.SpvPendingBlockDatabaseManager;
@@ -11,11 +9,9 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.node.spv.SpvBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.Util;
 
 public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
-    protected final DatabaseManagerCache _databaseManagerCache;
 
     protected SpvBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
@@ -26,22 +22,11 @@ public class SpvDatabaseManager implements DatabaseManager {
 
     public SpvDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
-        _databaseManagerCache = new DisabledDatabaseManagerCache();
-    }
-
-    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = Util.coalesce(databaseManagerCache, new DisabledDatabaseManagerCache());
     }
 
     @Override
     public DatabaseConnection getDatabaseConnection() {
         return _databaseConnection;
-    }
-
-    @Override
-    public DatabaseManagerCache getDatabaseManagerCache() {
-        return _databaseManagerCache;
     }
 
     @Override

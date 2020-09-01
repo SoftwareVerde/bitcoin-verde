@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -8,7 +7,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 public class ParalleledTaskSpawner<T, S> {
     protected final String _name;
     protected final ThreadPool _threadPool;
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected List<ValidationTask<T, S>> _validationTasks = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
 
@@ -16,10 +14,9 @@ public class ParalleledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParalleledTaskSpawner(final String name, final ThreadPool threadPool, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public ParalleledTaskSpawner(final String name, final ThreadPool threadPool) {
         _name = name;
         _threadPool = threadPool;
-        _databaseManagerFactory = databaseManagerFactory;
     }
 
     public void executeTasks(final List<T> items, final int maxThreadCount) {
@@ -35,7 +32,7 @@ public class ParalleledTaskSpawner<T, S> {
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
             if (itemCount < 1) { break; }
 
-            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_name, _databaseManagerFactory, items, _taskHandlerFactory.newInstance());
+            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_name, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);
             validationTask.enqueueTo(_threadPool);

@@ -14,7 +14,7 @@ public class NodeInitializer {
         BitcoinNode.TransactionInventoryMessageCallback createTransactionsAnnouncementCallback(BitcoinNode bitcoinNode);
     }
 
-    public static class Properties {
+    public static class Context {
         public SynchronizationStatus synchronizationStatus;
         public BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler;
         public TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory;
@@ -71,7 +71,7 @@ public class NodeInitializer {
         bitcoinNode.setOnNewBloomFilterCallback(_onNewBloomFilterCallback);
     }
 
-    public NodeInitializer(final Properties properties) {
+    public NodeInitializer(final Context properties) {
         _synchronizationStatus = properties.synchronizationStatus;
         _blockInventoryMessageHandler = properties.blockInventoryMessageHandler;
         _transactionsAnnouncementCallbackFactory = properties.transactionsAnnouncementCallbackFactory;

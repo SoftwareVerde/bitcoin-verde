@@ -3,7 +3,13 @@ package com.softwareverde.network.ip;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 
-import java.net.*;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.UnknownHostException;
 
 public interface Ip extends Const {
     static Ip fromSocket(final Socket socket) {

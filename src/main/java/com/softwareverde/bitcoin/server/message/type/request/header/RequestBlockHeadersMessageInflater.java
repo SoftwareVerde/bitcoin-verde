@@ -11,7 +11,7 @@ public class RequestBlockHeadersMessageInflater extends BitcoinProtocolMessageIn
 
     @Override
     public RequestBlockHeadersMessage fromBytes(final byte[] bytes) {
-        final Integer blockHeaderHashByteCount = 32;
+        final int blockHeaderHashByteCount = 32;
         final RequestBlockHeadersMessage requestBlockHeadersMessage = new RequestBlockHeadersMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
@@ -20,7 +20,7 @@ public class RequestBlockHeadersMessageInflater extends BitcoinProtocolMessageIn
 
         requestBlockHeadersMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (blockHeaderCount > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
 
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
@@ -32,7 +32,7 @@ public class RequestBlockHeadersMessageInflater extends BitcoinProtocolMessageIn
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        requestBlockHeadersMessage.setStopBeforeBlockHash(MutableSha256Hash.wrap(blockHeaderHashBytes));
+        requestBlockHeadersMessage._stopBeforeBlockHash.setBytes(blockHeaderHashBytes);
 
         if (byteArrayReader.didOverflow()) { return null; }
 

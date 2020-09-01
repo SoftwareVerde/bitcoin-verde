@@ -1,25 +1,27 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
-import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.configuration.*;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.Configuration;
+import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
+import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
+import com.softwareverde.bitcoin.server.configuration.WalletProperties;
 import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.module.*;
+import com.softwareverde.bitcoin.server.module.AddressModule;
+import com.softwareverde.bitcoin.server.module.ChainValidationModule;
+import com.softwareverde.bitcoin.server.module.DatabaseModule;
+import com.softwareverde.bitcoin.server.module.MinerModule;
+import com.softwareverde.bitcoin.server.module.SignatureModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.jocl.JoclGpuSha256;
 import com.softwareverde.logging.BitcoinNodeLog;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
@@ -39,11 +41,6 @@ public class Main {
         }
 
         return new Configuration(configurationFile);
-    }
-
-    protected static UnspentTransactionOutputCacheFactory getUtxoCacheFactory(final Long maxUtxoCacheByteCount) {
-        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(maxUtxoCacheByteCount);
-        return NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
     }
 
     public static void main(final String[] commandLineArguments) {
@@ -204,8 +201,15 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
+                { // Set Log Level...
+                    final LogLevel logLevel = bitcoinProperties.getLogLevel();
+                    if (logLevel != null) {
+                        Logger.setLogLevel(logLevel);
+                    }
+                }
+
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, new Runnable() {
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties, new Runnable() {
                     @Override
                     public void run() {
                         final NodeModule nodeModule = nodeModuleContainer.value;
@@ -221,12 +225,9 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
 
-                final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
+                final Environment environment = new Environment(database, databaseConnectionPool);
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
@@ -280,58 +281,18 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
                 Logger.info("[Database Online]");
 
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-                final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
-                final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
+                final Environment environment = new Environment(database, databaseConnectionPool);
 
-                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash, blockValidatorFactory);
+                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
                 chainValidationModule.run();
-                Logger.flush();
-            } break;
-
-            case "REPAIR": {
-                if (_arguments.length < 3) {
-                    _printUsage();
-                    BitcoinUtil.exitFailure();
-                    break;
-                }
-
-                final String configurationFilename = _arguments[1];
-                final String[] blockHashes = new String[_arguments.length - 2];
-                for (int i = 0; i < blockHashes.length; ++i) {
-                    blockHashes[i] = _arguments[2 + i];
-                }
-
-                final Configuration configuration = _loadConfigurationFile(configurationFilename);
-
-                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
-
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
-                if (database == null) {
-                    Logger.error("Error initializing database.");
-                    BitcoinUtil.exitFailure();
-                }
-                Logger.info("[Database Online]");
-
-                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = Main.getUtxoCacheFactory(maxUtxoCacheByteCount);
-                final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
-                final Environment environment = new Environment(database, databaseConnectionPool, masterDatabaseManagerCache);
-
-                final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);
-                repairModule.run();
                 Logger.flush();
             } break;
 
@@ -355,7 +316,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final Environment environment = new Environment(database, databaseConnectionPool, null);
+                final Environment environment = new Environment(database, databaseConnectionPool);
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
                 stratumModule.loop();
@@ -399,7 +360,7 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
-                final Environment environment = new Environment(database, databaseConnectionPool, null);
+                final Environment environment = new Environment(database, databaseConnectionPool);
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();
                 Logger.flush();
@@ -448,18 +409,15 @@ public class Main {
             }
 
             case "MINER": {
-                if (_arguments.length != 5) {
+                if (_arguments.length != 3) {
                     _printUsage();
                     BitcoinUtil.exitFailure();
                     break;
                 }
 
-                final String previousBlockHashString = _arguments[1];
-                final String base58CheckAddress = _arguments[2];
-                final Integer cpuThreadCount = Util.parseInt(_arguments[3]);
-                final Integer gpuThreadCount = Util.parseInt(_arguments[4]);
-                final GpuSha256 gpuSha256 = JoclGpuSha256.getInstance();
-                final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount, gpuSha256);
+                final Integer cpuThreadCount = Util.parseInt(_arguments[1]);
+                final String prototypeBlockBytes = _arguments[2];
+                final MinerModule minerModule = new MinerModule(cpuThreadCount, prototypeBlockBytes);
                 minerModule.run();
                 Logger.flush();
             } break;

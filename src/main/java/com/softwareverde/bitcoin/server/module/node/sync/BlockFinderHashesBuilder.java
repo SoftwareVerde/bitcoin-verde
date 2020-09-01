@@ -36,7 +36,7 @@ public class BlockFinderHashesBuilder {
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(BitcoinUtil.log2(maxBlockHeight.intValue()) + 11);
         int blockHeightStep = 1;
-        for (Long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
+        for (long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
 

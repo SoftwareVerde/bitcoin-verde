@@ -1,6 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.async.ConcurrentHashSet;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -20,6 +21,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,6 +67,7 @@ public class NodeManager<NODE extends Node> {
             while (true) {
                 _pingIdleNodes();
                 _removeDisconnectedNodes();
+                _removeHighLatencyNodes();
 
                 try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
@@ -95,12 +98,76 @@ public class NodeManager<NODE extends Node> {
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
     protected Boolean _isShuttingDown = false;
 
+    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
+    protected NodeIpAddress _localNodeIpAddress = null;
+
     protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The current batch of new addresses advertised by peers that have not yet been seen.
     protected Long _lastAddressBroadcastTimestamp = 0L;
 
     protected void _onAllNodesDisconnected() { }
     protected void _onNodeHandshakeComplete(final NODE node) { }
     protected void _onNodeConnected(final NODE node) { }
+
+    protected void _recalculateLocalNodeIpAddress() {
+        final HashMap<Ip, Integer> nodeIpAddressCounts = new HashMap<Ip, Integer>(_maxNodeCount / 2);
+        final HashMap<Integer, Integer> nodePortCounts = new HashMap<Integer, Integer>(_maxNodeCount / 2);
+        for (final NODE node : _nodes.values()) {
+            final NodeIpAddress nodeIpAddress = node.getLocalNodeIpAddress();
+            if (nodeIpAddress != null) {
+                { // Ip Counts
+                    final Ip ip = nodeIpAddress.getIp();
+                    final Integer count = Util.coalesce(nodeIpAddressCounts.get(ip));
+                    nodeIpAddressCounts.put(ip, (count + 1));
+                }
+                { // Port Counts
+                    final Integer port = nodeIpAddress.getPort();
+                    final Integer count = Util.coalesce(nodePortCounts.get(port));
+                    nodePortCounts.put(port, (count + 1));
+                }
+            }
+        }
+
+        Ip bestNodeIpAddress = null;
+        {
+            Integer bestCount = Integer.MIN_VALUE;
+            for (final Ip nodeIpAddress : nodeIpAddressCounts.keySet()) {
+                final Integer count = nodeIpAddressCounts.get(nodeIpAddress);
+                if (count > bestCount) {
+                    bestNodeIpAddress = nodeIpAddress;
+                    bestCount = count;
+                }
+            }
+        }
+
+        Integer bestNodePort = null;
+        {
+            Integer bestCount = 1; // Mandate that at least two peer's ports match, since if all connections are outbound then port will be unreliable.
+            for (final Integer nodePort : nodePortCounts.keySet()) {
+                final Integer count = nodePortCounts.get(nodePort);
+                if (count > bestCount) {
+                    bestNodePort = nodePort;
+                    bestCount = count;
+                }
+            }
+            if (bestNodePort == null) {
+                bestNodePort = _defaultExternalPort;
+            }
+        }
+
+        if ( (bestNodeIpAddress == null) || (bestNodePort == null) ) {
+            if (_localNodeIpAddress != null) {
+                _localNodeIpAddress = null;
+                Logger.info("External address unset.");
+            }
+            return;
+        }
+
+        final NodeIpAddress nodeIpAddress = new NodeIpAddress(bestNodeIpAddress, bestNodePort);
+        if (! Util.areEqual(_localNodeIpAddress, nodeIpAddress)) {
+            Logger.info("External address set to: " + nodeIpAddress);
+            _localNodeIpAddress = nodeIpAddress;
+        }
+    }
 
     protected void _cleanupNotHandshakedNodes() {
         final Long nowInMilliseconds = _systemTime.getCurrentTimeInMilliSeconds();
@@ -316,6 +383,14 @@ public class NodeManager<NODE extends Node> {
             }
         };
 
+        { // Determine external address via peers...
+            _recalculateLocalNodeIpAddress();
+            final NodeIpAddress reportedLocalNodeIpAddress = _localNodeIpAddress;
+            if (reportedLocalNodeIpAddress != null) {
+                node.setLocalNodeIpAddress(reportedLocalNodeIpAddress);
+            }
+        }
+
         node.setNodeAddressesReceivedCallback(new NODE.NodeAddressesReceivedCallback() {
             @Override
             public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
@@ -325,7 +400,7 @@ public class NodeManager<NODE extends Node> {
                 {
                     final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<NodeIpAddress>(nodeIpAddresses.getCount());
                     for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
-                        final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
+                        final boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
                         if (haveAlreadySeenNode) { continue; }
 
                         listBuilder.add(nodeIpAddress);
@@ -600,8 +675,25 @@ public class NodeManager<NODE extends Node> {
 
         for (final NODE node : _nodes.values()) {
             if (! node.isConnected()) {
-                final Long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTimestamp());
+                final long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTimestamp());
                 if (nodeAge > 10000L) {
+                    purgeableNodes.add(node);
+                }
+            }
+        }
+
+        for (final NODE node : purgeableNodes) {
+            _removeNode(node);
+        }
+    }
+
+    protected void _removeHighLatencyNodes() {
+        final MutableList<NODE> purgeableNodes = new MutableList<NODE>();
+
+        for (final NODE node : _nodes.values()) {
+            if (node.isConnected()) {
+                final Long nodePing = node.getAveragePing();
+                if ( (nodePing != null) && (nodePing > 10000L) ) {
                     purgeableNodes.add(node);
                 }
             }
@@ -634,6 +726,10 @@ public class NodeManager<NODE extends Node> {
         _systemTime = systemTime;
         _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
         _threadPool = threadPool;
+    }
+
+    public void setDefaultExternalPort(final Integer externalPortNumber) {
+        _defaultExternalPort = externalPortNumber;
     }
 
     public void defineSeedNode(final NodeIpAddress nodeIpAddress) {

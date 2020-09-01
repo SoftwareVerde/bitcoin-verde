@@ -27,6 +27,11 @@ public class TestDatabase implements Database {
     }
 
     @Override
+    public DatabaseConnection getMaintenanceConnection() throws DatabaseException {
+        return this.newConnection();
+    }
+
+    @Override
     public DatabaseConnectionFactory newConnectionFactory() {
         return new MysqlDatabaseConnectionFactoryWrapper(Util.coalesce(_databaseConnectionFactory, _core.newConnectionFactory()));
     }

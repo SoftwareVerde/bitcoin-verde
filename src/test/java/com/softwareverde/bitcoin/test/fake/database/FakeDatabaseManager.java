@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.test.fake.database;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -14,11 +13,6 @@ import com.softwareverde.database.DatabaseException;
 public interface FakeDatabaseManager extends DatabaseManager {
     @Override
     default DatabaseConnection getDatabaseConnection() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default DatabaseManagerCache getDatabaseManagerCache() {
         throw new UnsupportedOperationException();
     }
 

@@ -8,6 +8,8 @@ public interface Database extends DatabaseConnectionFactory, com.softwareverde.d
     @Override
     DatabaseConnection newConnection() throws DatabaseException;
 
+    DatabaseConnection getMaintenanceConnection() throws DatabaseException;
+
     DatabaseConnectionFactory newConnectionFactory();
 
     @Override

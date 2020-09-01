@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.Comparator;
@@ -17,6 +18,22 @@ public class CanonicalMutableBlock extends MutableBlock {
             return Sha256Hash.COMPARATOR.compare(hash0, hash1);
         }
     };
+
+    protected static List<Transaction> sortTransactions(final List<Transaction> transactions) {
+        final int transactionCount = transactions.getCount();
+        final MutableList<Transaction> _transactions = new MutableList<Transaction>(transactionCount);
+        if (transactions.isEmpty()) { return _transactions; }
+
+        for (int i = 1; i < transactionCount; ++i) { // Excludes coinbase...
+            final Transaction transaction = transactions.get(i);
+            final Transaction constTransaction = transaction.asConst();
+            _transactions.add(constTransaction);
+        }
+
+        _transactions.sort(LEXICAL_TRANSACTION_ORDERING);
+        _transactions.add(0, transactions.get(0)); // Adds the coinbase to the front...
+        return _transactions;
+    }
 
     // Adds newTransaction to the Block's set of transactions in lexical order.
     //  Rebuilds the Block's MerkleTree.
@@ -59,21 +76,6 @@ public class CanonicalMutableBlock extends MutableBlock {
         }
     }
 
-    @Override
-    protected void _initTransactions(final List<Transaction> transactions) {
-        _transactions.clear();
-        if (transactions.isEmpty()) { return; }
-
-        for (int i = 1; i < transactions.getCount(); ++i) { // Excludes coinbase...
-            final Transaction transaction = transactions.get(i);
-            final Transaction constTransaction = transaction.asConst();
-            _transactions.add(constTransaction);
-        }
-
-        _transactions.sort(LEXICAL_TRANSACTION_ORDERING);
-        _transactions.add(0, transactions.get(0)); // Adds the coinbase to the front...
-    }
-
     public CanonicalMutableBlock() { }
 
     public CanonicalMutableBlock(final BlockHeader blockHeader) {
@@ -81,11 +83,11 @@ public class CanonicalMutableBlock extends MutableBlock {
     }
 
     public CanonicalMutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
-        super(blockHeader, transactions);
+        super(blockHeader, CanonicalMutableBlock.sortTransactions(transactions));
     }
 
     public CanonicalMutableBlock(final Block block) {
-        super(block);
+        this(block, block.getTransactions());
     }
 
     @Override
@@ -102,5 +104,10 @@ public class CanonicalMutableBlock extends MutableBlock {
 
         _transactions.remove(index);
         _addTransaction(transaction); // Also rebuilds the MerkleTree...
+    }
+
+    @Override
+    public void removeTransaction(final Sha256Hash transactionHashToRemove) {
+        super.removeTransaction(transactionHashToRemove);
     }
 }

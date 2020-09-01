@@ -5,7 +5,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class Base32Util {
-    protected static final String ALPHABET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+    public static final String ALPHABET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
     /**
      * Decodes bech32string as a Base-32 encoded string, as specified here: https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki

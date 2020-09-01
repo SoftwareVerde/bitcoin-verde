@@ -2,19 +2,28 @@ package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
+import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.context.SystemTimeContext;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.LazyMedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -23,25 +32,23 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
+    public interface Context extends TransactionInflaters, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext { }
+
     public interface Callback {
         void onNewTransactions(List<Transaction> transactions);
     }
 
     protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
 
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final NetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
-    protected final TransactionValidatorFactory _transactionValidatorFactory;
+    protected final Context _context;
 
-    protected final SystemTime _systemTime;
     protected Long _lastOrphanPurgeTime;
     protected Callback _newTransactionProcessedCallback;
 
@@ -64,26 +71,34 @@ public class TransactionProcessor extends SleepyService {
 
     @Override
     public Boolean _run() {
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+        final VolatileNetworkTime networkTime = _context.getNetworkTime();
+        final SystemTime systemTime = _context.getSystemTime();
+
         final Thread thread = Thread.currentThread();
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
-            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
+            final TransactionInflaters transactionInflaters = _context;
+            final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
+            final MedianBlockTimeContext medianBlockTimeContext = new LazyMedianBlockTimeContext(databaseManager);
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
+            final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);
 
-            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+            final Long now = systemTime.getCurrentTimeInMilliSeconds();
             if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {
                 final MilliTimer purgeOrphanedTransactionsTimer = new MilliTimer();
                 purgeOrphanedTransactionsTimer.start();
                 pendingTransactionDatabaseManager.purgeExpiredOrphanedTransactions();
                 purgeOrphanedTransactionsTimer.stop();
                 Logger.info("Purge Orphaned Transactions: " + purgeOrphanedTransactionsTimer.getMillisecondsElapsed() + "ms");
-                _lastOrphanPurgeTime = _systemTime.getCurrentTimeInMilliSeconds();
+                _lastOrphanPurgeTime = systemTime.getCurrentTimeInMilliSeconds();
             }
-
 
             while (! thread.isInterrupted()) {
                 final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.selectCandidatePendingTransactionIds();
@@ -111,13 +126,12 @@ public class TransactionProcessor extends SleepyService {
                     transactionsToStore = listBuilder.build();
                 }
 
-                transactionValidator.setLoggingEnabled(true);
-
                 final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                 final MutableList<Transaction> validTransactions = new MutableList<Transaction>(transactionsToStore.getCount());
+                final MutableList<TransactionId> validTransactionIds = new MutableList<TransactionId>(transactionsToStore.getCount());
 
                 int invalidTransactionCount = 0;
                 final MilliTimer storeTransactionsTimer = new MilliTimer();
@@ -129,22 +143,21 @@ public class TransactionProcessor extends SleepyService {
                     final PendingTransactionId pendingTransactionId = pendingTransactionIdMap.get(transactionHash);
                     if (pendingTransactionId == null) { continue; }
 
-                    TransactionUtil.startTransaction(databaseConnection);
+                    // NOTE: The transaction cannot be stored before it is validated, otherwise the LazyUtxoSet will believe the output has already been spent (by itself).
+                    final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
 
-                    final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, blockHeight, transaction, true);
-
-                    if (! transactionIsValid) {
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-
+                    if (! transactionValidationResult.isValid) {
                         _deletePendingTransaction(databaseManager, pendingTransactionId);
 
                         invalidTransactionCount += 1;
                         Logger.info("Invalid MemoryPool Transaction: " + transactionHash);
+                        Logger.info(transactionValidationResult.errorMessage);
                         continue;
                     }
 
-                    final Boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null);
+                    TransactionUtil.startTransaction(databaseConnection);
+                    final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
+                    final boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null); // TODO: This check is likely redundant...
                     if (isUnconfirmedTransaction) {
                         transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
                     }
@@ -153,8 +166,11 @@ public class TransactionProcessor extends SleepyService {
                     _deletePendingTransaction(databaseManager, pendingTransactionId);
 
                     validTransactions.add(transaction);
+                    validTransactionIds.add(transactionId);
                 }
                 storeTransactionsTimer.stop();
+
+                blockchainIndexerDatabaseManager.queueTransactionsForProcessing(validTransactionIds);
 
                 Logger.info("Committed " + (transactionsToStore.getCount() - invalidTransactionCount) + " transactions to the MemoryPool in " + storeTransactionsTimer.getMillisecondsElapsed() + "ms. (" + String.format("%.2f", (transactionsToStore.getCount() / storeTransactionsTimer.getMillisecondsElapsed().floatValue() * 1000F)) + "tps) (" + invalidTransactionCount + " invalid)");
 
@@ -174,13 +190,8 @@ public class TransactionProcessor extends SleepyService {
     @Override
     protected void _onSleep() { }
 
-    public TransactionProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BitcoinNodeManager bitcoinNodeManager) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _networkTime = networkTime;
-        _medianBlockTime = medianBlockTime;
-        _transactionValidatorFactory = transactionValidatorFactory;
-
-        _systemTime = new SystemTime();
+    public TransactionProcessor(final Context context) {
+        _context = context;
         _lastOrphanPurgeTime = 0L;
     }
 
