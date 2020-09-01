@@ -415,8 +415,12 @@ public class BitcoinNode extends Node {
             synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
         }
 
-        { // Set Local NodeIpAddress...
-            // TODO
+        if (_localNodeIpAddress != null) { // Set Local NodeIpAddress...
+            final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
+            remoteNodeIpAddress.setIp(_localNodeIpAddress.getIp());
+            remoteNodeIpAddress.setPort(_localNodeIpAddress.getPort());
+            remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
+            synchronizeVersionMessage.setLocalAddress(remoteNodeIpAddress);
         }
 
         return synchronizeVersionMessage;
@@ -1488,6 +1492,7 @@ public class BitcoinNode extends Node {
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
         if (_localNodeIpAddress == null) { return null; }
+        if (! (_localNodeIpAddress instanceof BitcoinNodeIpAddress)) { return null; }
         return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
     }
 

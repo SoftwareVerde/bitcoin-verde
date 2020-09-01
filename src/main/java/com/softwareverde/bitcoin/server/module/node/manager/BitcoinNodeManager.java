@@ -50,7 +50,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
     public interface FailableCallback {
-
         default void onFailure() { }
     }
     public interface BlockInventoryMessageCallback extends BitcoinNode.BlockInventoryMessageCallback, FailableCallback { }

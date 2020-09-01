@@ -289,7 +289,7 @@ public abstract class Node {
             _networkTimeOffset = ((nodeTime - currentTime) * 1000L);
         }
 
-        _localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
+        _localNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
 
         { // Ensure that this node sends its SynchronizeVersion message before the AcknowledgeVersionMessage is transmitted...
             // NOTE: Since  Node::handshake may have been invoked already, it's possible for a race condition between responding to
@@ -499,6 +499,10 @@ public abstract class Node {
 
     public void setNodeDisconnectedCallback(final NodeDisconnectedCallback nodeDisconnectedCallback) {
         _nodeDisconnectedCallback = nodeDisconnectedCallback;
+    }
+
+    public void setLocalNodeIpAddress(final NodeIpAddress nodeIpAddress) {
+        _localNodeIpAddress = nodeIpAddress;
     }
 
     public void ping(final PingCallback pingCallback) {

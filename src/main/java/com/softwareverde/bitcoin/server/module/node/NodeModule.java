@@ -515,6 +515,7 @@ public class NodeModule {
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
+            _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
         }
 
         // final NodeModuleContext context = new NodeModuleContext(_masterInflater, _blockStore, databaseManagerFactory, _bitcoinNodeManager, synchronizationStatusHandler, _medianBlockTime, _systemTime, _mainThreadPool, _mutableNetworkTime);

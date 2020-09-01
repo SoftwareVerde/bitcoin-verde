@@ -71,6 +71,9 @@ public class FakeNode extends Node {
             }
 
             @Override
+            public NodeIpAddress getRemoteNodeIpAddress() { return null; }
+
+            @Override
             public Long getTimestamp() {
                 return 0L;
             }

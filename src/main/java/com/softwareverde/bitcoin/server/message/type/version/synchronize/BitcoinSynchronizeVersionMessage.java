@@ -71,6 +71,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         _remoteNodeIpAddress = nodeIpAddress.copy();
     }
 
+    @Override
     public BitcoinNodeIpAddress getRemoteNodeIpAddress() {
         return _remoteNodeIpAddress;
     }
