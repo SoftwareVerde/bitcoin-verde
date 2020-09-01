@@ -1734,7 +1734,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _reconsiderBlock(parameters, response);
                             } break;
 
-                            // TODO: Ass invalidate-block command (see: feature/invalidate-block/master).
+                            // TODO: Add invalidate-block command (see: feature/invalidate-block/master).
                             // TODO: Add rebuild-UTXO set from block-height command.
 
                             default: {

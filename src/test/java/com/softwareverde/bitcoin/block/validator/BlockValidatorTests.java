@@ -401,10 +401,8 @@ public class BlockValidatorTests extends UnitTest {
         Assert.assertFalse(blockIsValid);
     }
 
-    // @Test
     public void should_be_allowed_to_spend_transactions_with_duplicate_identifiers_in_the_same_block() throws Exception {
-        // TODO
-        /* Excerpt from the current uncertainty surrounding whether or not this is valid.
+        /* Excerpt from the current uncertainty surrounding whether or not this is valid:
 
             ... According to BIP 30, duplicate transactions are only allowed if they've been previously spent
             (except the two grandfathered instances).  ("Blocks are not allowed to contain a transaction whose
@@ -424,6 +422,7 @@ public class BlockValidatorTests extends UnitTest {
             Until clear consensus is decided to handle this situation, Bitcoin Verde considers duplicate transactions in the
             same block an invalid block.
 
+            This scenario is essentially covered via BlockValidatorTests::should_not_validate_block_that_contains_a_duplicate_transaction().
         */
     }
 }
