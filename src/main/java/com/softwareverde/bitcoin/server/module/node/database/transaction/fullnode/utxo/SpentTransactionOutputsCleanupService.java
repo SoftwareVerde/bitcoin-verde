@@ -7,10 +7,10 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 /**
  * This service deletes spent UTXOs from the committed_unspent_transaction_outputs table.

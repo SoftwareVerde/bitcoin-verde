@@ -6,8 +6,8 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 
 import java.util.WeakHashMap;

@@ -48,12 +48,12 @@ import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 

@@ -17,9 +17,9 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.signer.HashMapTransactionOutputRepository;
 import com.softwareverde.bitcoin.transaction.signer.TransactionOutputRepository;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;

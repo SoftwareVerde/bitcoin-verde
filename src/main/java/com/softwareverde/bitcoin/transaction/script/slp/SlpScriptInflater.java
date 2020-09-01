@@ -20,8 +20,8 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class SlpScriptInflater {

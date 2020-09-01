@@ -4,9 +4,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.util.HashUtil;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.util.HashUtil;
 import org.bouncycastle.crypto.digests.SHA256Digest;
 
 public class BlockHasher {

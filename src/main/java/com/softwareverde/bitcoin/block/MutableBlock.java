@@ -14,8 +14,8 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class MutableBlock extends AbstractBlockHeader implements Block {

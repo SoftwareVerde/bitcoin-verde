@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 

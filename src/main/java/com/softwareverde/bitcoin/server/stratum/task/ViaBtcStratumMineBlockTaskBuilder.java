@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;

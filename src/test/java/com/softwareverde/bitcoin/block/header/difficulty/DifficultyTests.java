@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import org.junit.Assert;
 import org.junit.Test;
 

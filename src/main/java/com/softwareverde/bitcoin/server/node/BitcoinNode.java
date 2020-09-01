@@ -61,6 +61,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
@@ -73,7 +74,6 @@ import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 

@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
     void commitDatabaseTransaction() throws ContextException;

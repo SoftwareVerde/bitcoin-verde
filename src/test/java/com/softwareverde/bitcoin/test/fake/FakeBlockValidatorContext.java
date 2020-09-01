@@ -13,10 +13,10 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 

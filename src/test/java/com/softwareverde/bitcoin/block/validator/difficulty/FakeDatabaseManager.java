@@ -7,9 +7,9 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.fake.database.FakeBlockHeaderDatabaseManager;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;

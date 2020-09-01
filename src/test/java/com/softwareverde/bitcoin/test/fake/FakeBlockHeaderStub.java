@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class FakeBlockHeaderStub implements BlockHeader {
     @Override

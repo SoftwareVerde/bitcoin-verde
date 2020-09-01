@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.concurrent.Pin;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 

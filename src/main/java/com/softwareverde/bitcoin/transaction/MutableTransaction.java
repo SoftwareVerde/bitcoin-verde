@@ -11,8 +11,8 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class MutableTransaction implements Transaction {

@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -17,10 +17,10 @@ import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Jsonable;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
-public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
+public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
     Long VERSION = BitcoinConstants.getTransactionVersion();
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
@@ -102,5 +102,5 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     Integer getByteCount();
 
     @Override
-    ImmutableTransaction asConst();
+    ConstTransaction asConst();
 }

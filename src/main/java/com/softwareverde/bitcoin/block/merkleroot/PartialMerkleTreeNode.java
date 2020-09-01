@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public class PartialMerkleTreeNode<T> {

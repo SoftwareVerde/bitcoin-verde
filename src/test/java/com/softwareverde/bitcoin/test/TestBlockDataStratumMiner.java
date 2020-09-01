@@ -26,12 +26,12 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 

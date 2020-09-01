@@ -24,9 +24,9 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransa
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashSet;

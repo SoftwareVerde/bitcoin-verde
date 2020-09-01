@@ -2,11 +2,11 @@ package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
+import com.softwareverde.cryptography.secp256k1.signature.Signature;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.secp256k1.key.PublicKey;
-import com.softwareverde.security.secp256k1.signature.Signature;
 
-public class Secp256k1 extends com.softwareverde.security.secp256k1.Secp256k1 {
+public class Secp256k1 extends com.softwareverde.cryptography.secp256k1.Secp256k1 {
 
     protected static Boolean _verifySignatureViaJni(final Signature signature, final PublicKey publicKey, final ByteArray message) {
         try {

@@ -15,7 +15,7 @@ import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transaction> {
     /**

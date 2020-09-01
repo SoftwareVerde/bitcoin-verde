@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 

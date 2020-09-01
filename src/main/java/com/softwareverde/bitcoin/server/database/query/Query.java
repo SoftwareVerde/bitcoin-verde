@@ -5,11 +5,11 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.Work;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.Hash;
 import com.softwareverde.database.query.ValueExtractor;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.security.hash.Hash;
 import com.softwareverde.util.type.identifier.Identifier;
 
 public class Query extends com.softwareverde.database.query.Query {

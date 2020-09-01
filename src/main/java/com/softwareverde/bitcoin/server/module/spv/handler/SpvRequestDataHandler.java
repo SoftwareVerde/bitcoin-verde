@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.concurrent.ConcurrentHashMap;
 

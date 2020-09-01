@@ -20,8 +20,8 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;

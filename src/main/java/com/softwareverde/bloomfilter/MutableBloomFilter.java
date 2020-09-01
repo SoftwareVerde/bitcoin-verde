@@ -3,7 +3,7 @@ package com.softwareverde.bloomfilter;
 import com.softwareverde.async.lock.IndexLock;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.security.util.HashUtil;
+import com.softwareverde.cryptography.util.HashUtil;
 
 public class MutableBloomFilter implements BloomFilter {
     protected static final Double LN_2 = Math.log(2);

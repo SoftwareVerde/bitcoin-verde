@@ -9,9 +9,9 @@ import com.softwareverde.bitcoin.test.fake.FakeDatabaseConnectionFactoryStub;
 import com.softwareverde.bitcoin.test.fake.FakeDatabaseConnectionStub;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import org.junit.Assert;
 import org.junit.Test;
 

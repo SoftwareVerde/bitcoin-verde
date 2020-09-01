@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.block.merkleroot;
 
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface MerkleTree<T extends Hashable> {
     interface Filter<T extends Hashable> {

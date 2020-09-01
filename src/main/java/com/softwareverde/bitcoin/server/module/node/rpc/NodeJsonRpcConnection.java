@@ -12,11 +12,11 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 
 public class NodeJsonRpcConnection implements AutoCloseable {

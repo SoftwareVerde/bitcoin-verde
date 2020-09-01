@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BlockHeaderInflater {

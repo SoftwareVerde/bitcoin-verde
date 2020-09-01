@@ -12,10 +12,10 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;

@@ -26,12 +26,12 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.security.hash.ripemd160.Ripemd160Hash;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.secp256k1.Schnorr;
-import com.softwareverde.security.secp256k1.key.PublicKey;
-import com.softwareverde.security.secp256k1.signature.Signature;
-import com.softwareverde.security.util.HashUtil;
+import com.softwareverde.cryptography.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
+import com.softwareverde.cryptography.secp256k1.Schnorr;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
+import com.softwareverde.cryptography.secp256k1.signature.Signature;
+import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 

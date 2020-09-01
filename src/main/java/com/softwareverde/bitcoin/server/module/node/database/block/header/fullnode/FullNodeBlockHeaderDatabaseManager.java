@@ -25,10 +25,10 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
@@ -325,14 +325,26 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         );
     }
 
-    protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+    protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId, final Integer maxBatchSize) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (?)")
-                .setParameter(blockchainSegmentId)
-                .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
-        );
+        int batchStartIndex = 0;
+        while (batchStartIndex < blockIds.getCount()) {
+            final int batchSize = Math.min(blockIds.getCount() - batchStartIndex, maxBatchSize);
+
+            final MutableList<BlockId> blockIdBatch = new MutableList<BlockId>(batchSize);
+            for (int i = batchStartIndex; i < (batchStartIndex + batchSize); i++) {
+                blockIdBatch.add(blockIds.get(i));
+            }
+
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (?)")
+                    .setParameter(blockchainSegmentId)
+                    .setInClauseParameters(blockIdBatch, ValueExtractor.IDENTIFIER)
+            );
+
+            batchStartIndex += batchSize;
+        }
     }
 
     protected BlockchainSegmentId _getBlockchainSegmentId(final BlockId blockId) throws DatabaseException {
@@ -517,7 +529,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(blockIds.get(0));
 
-        _setBlockchainSegmentIds(blockIds, blockchainSegmentId);
+        _setBlockchainSegmentIds(blockIds, blockchainSegmentId, Integer.MAX_VALUE);
 
         return blockIds;
     }
@@ -533,7 +545,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
 
         final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(blockIds.get(0));
 
-        _setBlockchainSegmentIds(blockIds, blockchainSegmentId);
+        _setBlockchainSegmentIds(blockIds, blockchainSegmentId, maxBatchSize);
 
         return blockIds;
     }

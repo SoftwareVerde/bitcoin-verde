@@ -17,9 +17,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;

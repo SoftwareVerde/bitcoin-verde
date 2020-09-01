@@ -11,9 +11,9 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFact
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlocksCallback {
     public static final BitcoinNode.QueryBlocksCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.QueryBlocksCallback() {

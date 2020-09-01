@@ -13,9 +13,9 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;

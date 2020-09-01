@@ -10,9 +10,9 @@ import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader>, Jsonable {

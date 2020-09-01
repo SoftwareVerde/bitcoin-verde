@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 

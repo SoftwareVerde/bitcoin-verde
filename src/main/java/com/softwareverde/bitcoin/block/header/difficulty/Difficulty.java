@@ -6,7 +6,7 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;

@@ -20,7 +20,7 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;

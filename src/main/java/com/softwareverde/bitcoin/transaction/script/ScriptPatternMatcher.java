@@ -17,7 +17,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.security.secp256k1.key.PublicKey;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 
 public class ScriptPatternMatcher {
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;

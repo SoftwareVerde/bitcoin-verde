@@ -9,8 +9,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.security.hash.sha256.MutableSha256Hash;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.Endian;
 
 public class RequestExtraThinTransactionsMessageInflater extends BitcoinProtocolMessageInflater {

@@ -7,8 +7,8 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 

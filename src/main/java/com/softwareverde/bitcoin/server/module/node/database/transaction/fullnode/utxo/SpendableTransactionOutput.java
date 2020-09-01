@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 class SpendableTransactionOutput extends TransactionOutputIdentifier {
     protected final Long _blockHeight;

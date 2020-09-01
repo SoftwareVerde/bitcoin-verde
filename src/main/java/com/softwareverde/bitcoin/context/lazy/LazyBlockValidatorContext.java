@@ -21,10 +21,10 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;

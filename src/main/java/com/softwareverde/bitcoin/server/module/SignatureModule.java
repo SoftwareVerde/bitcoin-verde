@@ -7,8 +7,8 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.wallet.SeedPhraseGenerator;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 

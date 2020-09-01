@@ -32,10 +32,10 @@ import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPe
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;

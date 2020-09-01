@@ -21,8 +21,8 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionOutputRepository;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
-import com.softwareverde.security.secp256k1.key.PrivateKey;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 
 public class TransactionTestUtil {
     protected TransactionTestUtil() { }

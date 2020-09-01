@@ -1,11 +1,11 @@
 package com.softwareverde.servlet.session;
 
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.cookie.Cookie;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;

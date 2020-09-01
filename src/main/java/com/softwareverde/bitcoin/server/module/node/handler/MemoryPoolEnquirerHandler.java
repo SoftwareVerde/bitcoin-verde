@@ -10,9 +10,9 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;

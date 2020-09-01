@@ -10,9 +10,9 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class TransactionInventoryMessageHandler implements BitcoinNode.TransactionInventoryMessageCallback {
     public static final BitcoinNode.TransactionInventoryMessageCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionInventoryMessageCallback() {

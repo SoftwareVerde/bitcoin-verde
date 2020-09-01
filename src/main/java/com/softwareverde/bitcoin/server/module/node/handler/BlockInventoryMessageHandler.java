@@ -13,9 +13,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.security.hash.sha256.Sha256Hash;
 
 public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
     public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
