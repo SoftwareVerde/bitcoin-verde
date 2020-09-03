@@ -28,7 +28,6 @@ import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.filelog.AnnotatedFileLog;
 import com.softwareverde.logging.log.SystemLog;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
