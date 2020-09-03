@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
@@ -86,11 +88,28 @@ public class Configuration {
         _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinProperties.RPC_PORT.toString()));
 
         { // Parse Seed Nodes...
-            _bitcoinProperties._seedNodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]");
+            final SeedNodeProperties[] seedNodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]");
+            _bitcoinProperties._seedNodeProperties = new ImmutableList<SeedNodeProperties>(seedNodeProperties);
         }
 
         { // Parse Whitelisted Nodes...
-            _bitcoinProperties._whitelistedNodes = _parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]");
+            final String defaultSeedsString = "[\"seed.flowee.cash\", \"seed-bch.bitcoinforks.org\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
+            final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.dnsSeeds", defaultSeedsString));
+
+            final MutableList<String> dnsSeeds = new MutableList<String>(seedNodesJson.length());
+            for (int i = 0; i < seedNodesJson.length(); ++i) {
+                final String seedHost = seedNodesJson.getString(i);
+                if (seedHost != null) {
+                    dnsSeeds.add(seedHost);
+                }
+            }
+
+            _bitcoinProperties._dnsSeeds = dnsSeeds;
+        }
+
+        { // Parse Whitelisted Nodes...
+            final SeedNodeProperties[] seedNodeProperties = _parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]");
+            _bitcoinProperties._whitelistedNodes = new ImmutableList<SeedNodeProperties>(seedNodeProperties);
         }
 
         _bitcoinProperties._banFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBanFilter", "1"));
@@ -115,7 +134,6 @@ public class Configuration {
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
         _bitcoinProperties._trimBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
         _bitcoinProperties._indexingModeIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.indexBlocks", "1"));
-        _bitcoinProperties._blockCacheIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.cacheBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
         _bitcoinProperties._shouldRelayInvalidSlpTransactions = Util.parseBool(_properties.getProperty("bitcoin.relayInvalidSlpTransactions", "1"));

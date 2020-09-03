@@ -112,6 +112,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                         requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                         bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
+
+                        // TODO: Attempt to connect to DNS seeded Nodes.
                     }
                     catch (final DatabaseException databaseException) {
                         Logger.warn(databaseException);

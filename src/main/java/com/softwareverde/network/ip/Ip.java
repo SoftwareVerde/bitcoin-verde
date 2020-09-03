@@ -2,6 +2,8 @@ package com.softwareverde.network.ip;
 
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -53,6 +55,34 @@ public interface Ip extends Const {
                 final Inet6Address inet6Address = (Inet6Address) inetAddress;
                 return Ipv6.fromBytes(inet6Address.getAddress());
             }
+        }
+        catch (final UnknownHostException exception) { }
+
+        return null;
+    }
+
+    static List<Ip> allFromHostName(final String hostName) {
+        try {
+            final InetAddress[] inetAddresses = InetAddress.getAllByName(hostName);
+
+            final MutableList<Ip> ipAddresses = new MutableList<Ip>(inetAddresses.length);
+            for (final InetAddress inetAddress : inetAddresses) {
+                final Ip ip;
+                if (inetAddress instanceof Inet4Address) {
+                    final Inet4Address inet4Address = (Inet4Address) inetAddress;
+                    ip = Ipv4.fromBytes(inet4Address.getAddress());
+                }
+                else if (inetAddress instanceof Inet6Address) {
+                    final Inet6Address inet6Address = (Inet6Address) inetAddress;
+                    ip = Ipv6.fromBytes(inet6Address.getAddress());
+                }
+                else { ip = null; }
+
+                if (ip != null) {
+                    ipAddresses.add(ip);
+                }
+            }
+            return ipAddresses;
         }
         catch (final UnknownHostException exception) { }
 
