@@ -101,6 +101,7 @@ public class Configuration {
         _bitcoinProperties._deletePendingBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.deletePendingBlocks", "1"));
         _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO)));
         _bitcoinProperties._utxoCommitFrequency = Util.parseLong(_properties.getProperty("bitcoin.utxoCommitFrequency", "2016"));
+        _bitcoinProperties._logDirectory = _properties.getProperty("bitcoin.logDirectory", "logs");
         _bitcoinProperties._logLevel = LogLevel.fromString(_properties.getProperty("bitcoin.logLevel", "INFO"));
 
         _bitcoinProperties._utxoPurgePercent = Util.parseFloat(_properties.getProperty("bitcoin.utxoPurgePercent", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT)));

@@ -2,6 +2,7 @@ package com.softwareverde.logging.filelog;
 
 import com.softwareverde.logging.LineNumberAnnotatedLog;
 import com.softwareverde.logging.LogLevel;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Package;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -12,6 +13,9 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class AnnotatedFileLog extends LineNumberAnnotatedLog {
+    public static AnnotatedFileLog newInstance(final String logDirectory) throws IOException {
+        return AnnotatedFileLog.newInstance(logDirectory, "");
+    }
     public static AnnotatedFileLog newInstance(final String logDirectory, final String logFilePrefix) throws IOException {
         final Writer writer = new FileLogWriter(logDirectory, logFilePrefix);
         return new AnnotatedFileLog(writer);
@@ -50,6 +54,7 @@ public class AnnotatedFileLog extends LineNumberAnnotatedLog {
         return logLevel.name();
     }
 
+    @Override
     public void close() {
         ((FileLogWriter) _outWriter).close();
     }

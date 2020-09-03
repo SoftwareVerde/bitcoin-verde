@@ -22,14 +22,18 @@ import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.logging.BitcoinNodeLog;
+import com.softwareverde.logging.LineNumberAnnotatedLog;
+import com.softwareverde.logging.Log;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.logging.filelog.AnnotatedFileLog;
 import com.softwareverde.logging.log.SystemLog;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.io.File;
+import java.io.IOException;
 
 public class Main {
 
@@ -44,7 +48,7 @@ public class Main {
     }
 
     public static void main(final String[] commandLineArguments) {
-        Logger.setLog(BitcoinNodeLog.getInstance());
+        Logger.setLog(LineNumberAnnotatedLog.getInstance());
         Logger.setLogLevel(LogLevel.ON);
         Logger.setLogLevel("com.softwareverde.util", LogLevel.ERROR);
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
@@ -192,9 +196,6 @@ public class Main {
                     break;
                 }
 
-                // Logger.LOG = BitcoinNodeLog.getBufferedInstance(); // Use a BufferedInstance for the NodeModule for performance...
-                Logger.setLog(BitcoinNodeLog.getInstance()); // Use a BufferedInstance for the NodeModule for performance...
-
                 final String configurationFilename = _arguments[1];
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
@@ -202,6 +203,25 @@ public class Main {
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 { // Set Log Level...
+                    try {
+                        final String logDirectory = bitcoinProperties.getLogDirectory();
+                        final Log log = AnnotatedFileLog.newInstance(logDirectory, "node-", 8L * ByteUtil.Unit.Binary.MEBIBYTES);
+                        Logger.setLog(log);
+
+                        final Runtime runtime = Runtime.getRuntime();
+                        runtime.addShutdownHook(new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                System.out.println("Logger::shutdown");
+                                Logger.close();
+                            }
+                        }));
+                    }
+                    catch (final IOException exception) {
+                        Logger.warn("Unable to initialize file logger.", exception);
+                        BitcoinUtil.exitFailure();
+                    }
+
                     final LogLevel logLevel = bitcoinProperties.getLogLevel();
                     if (logLevel != null) {
                         Logger.setLogLevel(logLevel);

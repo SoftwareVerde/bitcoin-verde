@@ -23,6 +23,46 @@ import java.util.zip.GZIPOutputStream;
 public class FileLogWriter implements AbstractLog.Writer {
     protected static final Integer PAGE_SIZE = (int) (16L * ByteUtil.Unit.Binary.KIBIBYTES);
 
+    protected static void compressLogFile(final File logFile) throws IOException {
+        try (final FileInputStream fileInputStream = new FileInputStream(logFile)) {
+            final File outputFile = new File(logFile.getPath() + ".gz");
+
+            // NOTE: GZIPOutputStream::close closes the underlying stream.
+            try (final GZIPOutputStream gzippedOutputStream = new GZIPOutputStream(new FileOutputStream(outputFile))) {
+                final byte[] buffer = new byte[PAGE_SIZE];
+                int length;
+                while ((length = fileInputStream.read(buffer)) != -1) {
+                    gzippedOutputStream.write(buffer, 0, length);
+                }
+                gzippedOutputStream.flush();
+            }
+        }
+    }
+
+    protected static void finalizeLog(final File file, final OutputStream outputStream, final Boolean executeAsync) {
+        final Runnable finalizeRunnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    outputStream.flush();
+                    outputStream.close();
+
+                    FileLogWriter.compressLogFile(file);
+
+                    file.delete();
+                }
+                catch (final Exception exception) { }
+            }
+        };
+
+        if (executeAsync) {
+            (new Thread(finalizeRunnable)).start();
+        }
+        else {
+            finalizeRunnable.run();
+        }
+    }
+
     protected final SystemTime _systemTime = new SystemTime();
     protected final String _logDirectory;
     protected final String _logFilePrefix;
@@ -65,26 +105,9 @@ public class FileLogWriter implements AbstractLog.Writer {
         _currentOutputStream = new BufferedOutputStream(new FileOutputStream(_currentFile), PAGE_SIZE);
     }
 
-    protected void _compressLogFile(final File logFile) throws IOException {
-        try (final FileInputStream fileInputStream = new FileInputStream(logFile)) {
-            final File outputFile = new File(logFile.getPath() + ".gz");
-            // if (outputFile.exists()) {
-            //     throw new IOException("Attempted to overwrite logfile: " + outputFile);
-            // }
-
-            // NOTE: GZIPOutputStream::close closes the underlying stream.
-            try (final GZIPOutputStream gzippedOutputStream = new GZIPOutputStream(new FileOutputStream(outputFile))) {
-                final byte[] buffer = new byte[PAGE_SIZE];
-                int length;
-                while ((length = fileInputStream.read(buffer)) != -1) {
-                    gzippedOutputStream.write(buffer, 0, length);
-                }
-                gzippedOutputStream.flush();
-            }
-        }
-    }
-
     protected void _writeString(final String string) {
+        if (_currentOutputStream == null) { return; }
+
         try {
             final byte[] bytes = string.getBytes(StandardCharsets.UTF_8);
             _currentOutputStream.write(bytes);
@@ -96,33 +119,22 @@ public class FileLogWriter implements AbstractLog.Writer {
 
                 _createNewLogFile();
 
-                (new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            oldOutputStream.flush();
-                            oldOutputStream.close();
-
-                            _compressLogFile(oldFile);
-
-                            oldFile.delete();
-                        }
-                        catch (final Exception exception) { }
-                    }
-                })).start();
+                FileLogWriter.finalizeLog(oldFile, oldOutputStream, true);
             }
         }
         catch (final IOException exception) { }
     }
 
     public FileLogWriter(final String logDirectory, final String logFilePrefix) throws IOException {
-        this(logDirectory, logFilePrefix, (64L * ByteUtil.Unit.Binary.MEBIBYTES));
+        this(logDirectory, logFilePrefix, null);
     }
 
     public FileLogWriter(final String logDirectory, final String logFilePrefix, final Long maxByteCount) throws IOException {
+        if (logDirectory == null) { throw new IOException("Unable to create log directory: " + null); }
+
         _logDirectory = logDirectory;
-        _logFilePrefix = logFilePrefix;
-        _maxByteCount = maxByteCount;
+        _logFilePrefix = Util.coalesce(logFilePrefix);
+        _maxByteCount = Util.coalesce(maxByteCount, (64L * ByteUtil.Unit.Binary.MEBIBYTES));
 
         { // Ensure log directory exists or can can be written to...
             final File logDirectoryFile = new File(logDirectory);
@@ -166,11 +178,11 @@ public class FileLogWriter implements AbstractLog.Writer {
         catch (final IOException exception) { }
     }
 
-    public void close() {
-        try {
-            _currentOutputStream.flush();
-            _currentOutputStream.close();
-        }
-        catch (final IOException exception) { }
+    public synchronized void close() {
+        FileLogWriter.finalizeLog(_currentFile, _currentOutputStream, false);
+
+        _currentFile = null;
+        _currentOutputStream = null;
+        _currentByteCount = null;
     }
 }

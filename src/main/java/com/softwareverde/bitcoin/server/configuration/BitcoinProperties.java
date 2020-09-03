@@ -29,6 +29,7 @@ public class BitcoinProperties {
     protected String _dataDirectory;
     protected Boolean _shouldRelayInvalidSlpTransactions;
     protected Boolean _deletePendingBlocksIsEnabled;
+    protected String _logDirectory;
     protected LogLevel _logLevel;
 
     public Integer getBitcoinPort() { return _bitcoinPort; }
@@ -41,6 +42,7 @@ public class BitcoinProperties {
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
     public Boolean skipNetworking() { return _shouldSkipNetworking; }
     public Boolean isDeletePendingBlocksEnabled() { return _deletePendingBlocksIsEnabled; }
+    public String getLogDirectory() { return _logDirectory; }
     public LogLevel getLogLevel() { return _logLevel; }
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
