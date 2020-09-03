@@ -32,7 +32,7 @@ public class FileLogWriter implements AbstractLog.Writer {
     protected File _currentFile;
     protected OutputStream _currentOutputStream;
 
-    protected File _createNewCurrentFile() throws IOException {
+    protected void _createNewLogFile() throws IOException {
 
         final String dateTimeString;
         {
@@ -46,18 +46,23 @@ public class FileLogWriter implements AbstractLog.Writer {
         }
 
         Integer sequenceNumber = null;
+        File file;
         while (true) {
             final String postfix = (sequenceNumber == null ? "" : ("-" + sequenceNumber));
             final String filename = (_logDirectory + File.separator + _logFilePrefix + dateTimeString + postfix + ".log");
-            final File file = new File(filename);
+            file = new File(filename);
             final boolean newFileWasCreated = file.createNewFile();
 
             if (newFileWasCreated) {
-                return file;
+                break;
             }
 
             sequenceNumber = (Util.coalesce(sequenceNumber) + 1);
         }
+
+        _currentFile = file;
+        _currentByteCount = 0L;
+        _currentOutputStream = new BufferedOutputStream(new FileOutputStream(_currentFile), PAGE_SIZE);
     }
 
     protected void _compressLogFile(final File logFile) throws IOException {
@@ -86,16 +91,25 @@ public class FileLogWriter implements AbstractLog.Writer {
 
             _currentByteCount += bytes.length;
             if (_currentByteCount >= _maxByteCount) {
-                _currentOutputStream.flush();
-                _currentOutputStream.close();
-
                 final File oldFile = _currentFile;
+                final OutputStream oldOutputStream = _currentOutputStream;
 
-                _currentFile = _createNewCurrentFile();
-                _currentOutputStream = new BufferedOutputStream(new FileOutputStream(_currentFile), PAGE_SIZE);
+                _createNewLogFile();
 
-                _compressLogFile(oldFile);
-                oldFile.delete();
+                (new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            oldOutputStream.flush();
+                            oldOutputStream.close();
+
+                            _compressLogFile(oldFile);
+
+                            oldFile.delete();
+                        }
+                        catch (final Exception exception) { }
+                    }
+                })).start();
             }
         }
         catch (final IOException exception) { }
@@ -123,8 +137,7 @@ public class FileLogWriter implements AbstractLog.Writer {
             }
         }
 
-        _currentFile = _createNewCurrentFile();
-        _currentOutputStream = new BufferedOutputStream(new FileOutputStream(_currentFile), PAGE_SIZE);
+        _createNewLogFile();
     }
 
     @Override

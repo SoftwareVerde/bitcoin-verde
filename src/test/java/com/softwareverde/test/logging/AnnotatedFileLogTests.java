@@ -8,7 +8,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -69,6 +68,8 @@ public class AnnotatedFileLogTests {
             log.write(callingClass, LogLevel.INFO, "0123456789ABCDEFFEDCBA9876543210", null);
             log.flush();
 
+            Thread.sleep(250L); // Wait for the internal gzip thread to execute...
+
             final String[] logFiles = tmpDirectory.list();
             Assert.assertNotNull(logFiles);
             Assert.assertEquals(2, logFiles.length);
@@ -80,7 +81,6 @@ public class AnnotatedFileLogTests {
 
             final String unzippedStream;
             try (final InputStream inputStream = new ByteArrayInputStream(zippedLogContents)) {
-                final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 try (final GZIPInputStream gzipInputStream = new GZIPInputStream(inputStream)) {
                     unzippedStream = StringUtil.bytesToString(IoUtil.readStream(gzipInputStream));
                 }
