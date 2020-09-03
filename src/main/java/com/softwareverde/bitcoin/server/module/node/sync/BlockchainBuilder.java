@@ -73,7 +73,7 @@ public class BlockchainBuilder extends SleepyService {
         final Block block = pendingBlock.inflateBlock(blockInflater);
 
         if (block == null) {
-            Logger.warn("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + pendingBlock.getData());
+            Logger.debug("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + pendingBlock.getData());
             return false;
         }
 
@@ -293,7 +293,7 @@ public class BlockchainBuilder extends SleepyService {
             }
         }
         catch (final DatabaseException exception) {
-            Logger.warn(exception);
+            Logger.debug(exception);
         }
 
         return false;
@@ -329,7 +329,7 @@ public class BlockchainBuilder extends SleepyService {
             _hasGenesisBlock = blockDatabaseManager.hasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
         }
         catch (final DatabaseException exception) {
-            Logger.warn(exception);
+            Logger.debug(exception);
             _hasGenesisBlock = false;
         }
     }

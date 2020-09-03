@@ -205,14 +205,13 @@ public class Main {
                 { // Set Log Level...
                     try {
                         final String logDirectory = bitcoinProperties.getLogDirectory();
-                        final Log log = AnnotatedFileLog.newInstance(logDirectory, "node-", 8L * ByteUtil.Unit.Binary.MEBIBYTES);
+                        final Log log = AnnotatedFileLog.newInstance(logDirectory, "node");
                         Logger.setLog(log);
 
                         final Runtime runtime = Runtime.getRuntime();
                         runtime.addShutdownHook(new Thread(new Runnable() {
                             @Override
                             public void run() {
-                                System.out.println("Logger::shutdown");
                                 Logger.close();
                             }
                         }));

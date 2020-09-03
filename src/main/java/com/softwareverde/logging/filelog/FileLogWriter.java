@@ -21,6 +21,9 @@ import java.util.TimeZone;
 import java.util.zip.GZIPOutputStream;
 
 public class FileLogWriter implements AbstractLog.Writer {
+    public static final Long DEFAULT_LOG_BYTE_COUNT = (64L * ByteUtil.Unit.Binary.MEBIBYTES);
+
+    protected static final String NULL = "null";
     protected static final Integer PAGE_SIZE = (int) (16L * ByteUtil.Unit.Binary.KIBIBYTES);
 
     protected static void compressLogFile(final File logFile) throws IOException {
@@ -39,14 +42,11 @@ public class FileLogWriter implements AbstractLog.Writer {
         }
     }
 
-    protected static void finalizeLog(final File file, final OutputStream outputStream, final Boolean executeAsync) {
+    protected static void finalizeLog(final File file, final Boolean executeAsync) {
         final Runnable finalizeRunnable = new Runnable() {
             @Override
             public void run() {
                 try {
-                    outputStream.flush();
-                    outputStream.close();
-
                     FileLogWriter.compressLogFile(file);
 
                     file.delete();
@@ -72,8 +72,7 @@ public class FileLogWriter implements AbstractLog.Writer {
     protected File _currentFile;
     protected OutputStream _currentOutputStream;
 
-    protected void _createNewLogFile() throws IOException {
-
+    protected File _generateNewFile(final String extension) throws IOException {
         final String dateTimeString;
         {
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
@@ -86,40 +85,67 @@ public class FileLogWriter implements AbstractLog.Writer {
         }
 
         Integer sequenceNumber = null;
-        File file;
         while (true) {
             final String postfix = (sequenceNumber == null ? "" : ("-" + sequenceNumber));
-            final String filename = (_logDirectory + File.separator + _logFilePrefix + dateTimeString + postfix + ".log");
-            file = new File(filename);
+            final String filename = (_logDirectory + File.separator + (_logFilePrefix != null ? _logFilePrefix + "-" : "") + dateTimeString + postfix + extension);
+            final File file = new File(filename);
             final boolean newFileWasCreated = file.createNewFile();
 
             if (newFileWasCreated) {
-                break;
+                return file;
             }
 
             sequenceNumber = (Util.coalesce(sequenceNumber) + 1);
         }
+    }
 
-        _currentFile = file;
-        _currentByteCount = 0L;
-        _currentOutputStream = new BufferedOutputStream(new FileOutputStream(_currentFile), PAGE_SIZE);
+    protected File _rotateLog(final Boolean createNewLog) throws IOException {
+        final File oldFile;
+        if (_currentFile != null) {
+            oldFile = _generateNewFile(".log");
+            final boolean moveWasSuccessful = _currentFile.renameTo(oldFile);
+            if (! moveWasSuccessful) {
+                throw new IOException("Unable to rotate log to: " + oldFile);
+            }
+        }
+        else {
+            oldFile = null;
+        }
+
+        if (createNewLog) {
+            _currentFile = new File(_logDirectory + File.separator + (Util.isBlank(_logFilePrefix) ? "log" : _logFilePrefix) + ".log");
+            _currentByteCount = 0L;
+            _currentOutputStream = new BufferedOutputStream(new FileOutputStream(_currentFile), PAGE_SIZE);
+        }
+        else {
+            _currentFile = null;
+            _currentByteCount = 0L;
+            _currentOutputStream = null;
+        }
+
+        return oldFile;
     }
 
     protected void _writeString(final String string) {
         if (_currentOutputStream == null) { return; }
 
         try {
-            final byte[] bytes = string.getBytes(StandardCharsets.UTF_8);
+            final byte[] bytes = Util.coalesce(string, NULL).getBytes(StandardCharsets.UTF_8);
             _currentOutputStream.write(bytes);
 
             _currentByteCount += bytes.length;
+        }
+        catch (final IOException exception) { }
+    }
+
+    protected void _conditionallyRotateLog() {
+        try {
             if (_currentByteCount >= _maxByteCount) {
-                final File oldFile = _currentFile;
-                final OutputStream oldOutputStream = _currentOutputStream;
+                _currentOutputStream.flush();
+                _currentOutputStream.close();
 
-                _createNewLogFile();
-
-                FileLogWriter.finalizeLog(oldFile, oldOutputStream, true);
+                final File oldFile = _rotateLog(true);
+                FileLogWriter.finalizeLog(oldFile, true);
             }
         }
         catch (final IOException exception) { }
@@ -133,8 +159,8 @@ public class FileLogWriter implements AbstractLog.Writer {
         if (logDirectory == null) { throw new IOException("Unable to create log directory: " + null); }
 
         _logDirectory = logDirectory;
-        _logFilePrefix = Util.coalesce(logFilePrefix);
-        _maxByteCount = Util.coalesce(maxByteCount, (64L * ByteUtil.Unit.Binary.MEBIBYTES));
+        _logFilePrefix = logFilePrefix;
+        _maxByteCount = Util.coalesce(maxByteCount, DEFAULT_LOG_BYTE_COUNT);
 
         { // Ensure log directory exists or can can be written to...
             final File logDirectoryFile = new File(logDirectory);
@@ -149,22 +175,29 @@ public class FileLogWriter implements AbstractLog.Writer {
             }
         }
 
-        _createNewLogFile();
+        _rotateLog(true);
     }
 
     @Override
     public synchronized void write(final String string) {
         _writeString(string);
+        _conditionallyRotateLog();
     }
 
     @Override
     public synchronized void write(final Throwable exception) {
+        if (exception == null) {
+            _writeString(null);
+            _conditionallyRotateLog();
+            return;
+        }
+
         try (final StringWriter stringWriter = new StringWriter()) {
-            stringWriter.write(exception.getMessage() + System.lineSeparator());
             try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
                 exception.printStackTrace(printWriter);
-                final String string = printWriter.toString();
+                final String string = stringWriter.toString();
                 _writeString(string);
+                _conditionallyRotateLog();
             }
         }
         catch (final IOException ioException) { }
@@ -179,10 +212,20 @@ public class FileLogWriter implements AbstractLog.Writer {
     }
 
     public synchronized void close() {
-        FileLogWriter.finalizeLog(_currentFile, _currentOutputStream, false);
+        if (_currentOutputStream != null) {
+            try {
+                _currentOutputStream.flush();
+                _currentOutputStream.close();
+            }
+            catch (final IOException exception) { }
+        }
 
-        _currentFile = null;
-        _currentOutputStream = null;
-        _currentByteCount = null;
+        if (_currentFile != null) {
+            try {
+                final File oldLog = _rotateLog(false); // Unsets File and OutputStream members...
+                FileLogWriter.finalizeLog(oldLog, false);
+            }
+            catch (final IOException exception) { }
+        }
     }
 }

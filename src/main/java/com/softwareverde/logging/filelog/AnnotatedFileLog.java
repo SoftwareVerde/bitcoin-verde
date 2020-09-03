@@ -2,7 +2,6 @@ package com.softwareverde.logging.filelog;
 
 import com.softwareverde.logging.LineNumberAnnotatedLog;
 import com.softwareverde.logging.LogLevel;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Package;
 import com.softwareverde.util.type.time.SystemTime;
 
