@@ -30,7 +30,7 @@ public class SocketServer<T extends Socket> {
 
                     final T connection = _socketFactory.newSocket(_socket.accept());
 
-                    final Boolean shouldPurgeConnections = (_nextConnectionId % PURGE_EVERY_COUNT == 0L);
+                    final boolean shouldPurgeConnections = ((_nextConnectionId % PURGE_EVERY_COUNT) == 0L);
                     if (shouldPurgeConnections) {
                         _purgeDisconnectedConnections();
                     }
@@ -65,7 +65,7 @@ public class SocketServer<T extends Socket> {
     protected SocketDisconnectedCallback<T> _socketDisconnectedCallback = null;
 
     protected void _purgeDisconnectedConnections() {
-        final Integer socketCount = _connections.getCount();
+        final int socketCount = _connections.getCount();
         final MutableList<T> disconnectedSockets = new MutableList<T>(socketCount);
 
         synchronized (_connections) {

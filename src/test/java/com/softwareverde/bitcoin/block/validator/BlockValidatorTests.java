@@ -17,6 +17,8 @@ import com.softwareverde.bitcoin.test.fake.FakeBlockValidatorContext;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
@@ -25,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
@@ -82,6 +85,39 @@ public class BlockValidatorTests extends UnitTest {
 
     protected static Block inflateBlock(final BlockInflater blockInflater, final String blockData) {
         return blockInflater.fromBytes(ByteArray.fromHexString(blockData));
+    }
+
+    protected static void assertCoinbaseIsInvalid(final CoinbaseTransaction invalidCoinbase) throws Exception {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+
+        final Block genesisBlock = inflateBlock(blockInflater, BlockData.MainChain.GENESIS_BLOCK);
+
+        final Block originalBlock01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+        final MutableBlock modifiedBlock01 = new MutableBlock(originalBlock01) {
+            @Override
+            public Sha256Hash getHash() {
+                return originalBlock01.getHash();
+            }
+
+            @Override
+            public Boolean isValid() {
+                return originalBlock01.isValid();
+            }
+        };
+
+        modifiedBlock01.replaceTransaction(0, invalidCoinbase);
+
+        final FakeBlockValidatorContext blockValidatorContext = new FakeBlockValidatorContext(NetworkTime.MAX_VALUE);
+        final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
+        blockValidatorContext.addBlock(genesisBlock, 0L);
+        blockValidatorContext.addBlock(modifiedBlock01, 1L);
+
+        // Action
+        final BlockValidationResult blockIsValid = blockValidator.validateBlock(modifiedBlock01, 1L);
+
+        // Assert
+        Assert.assertFalse(blockIsValid.isValid);
     }
 
     @Override @Before
@@ -424,5 +460,71 @@ public class BlockValidatorTests extends UnitTest {
 
             This scenario is essentially covered via BlockValidatorTests::should_not_validate_block_that_contains_a_duplicate_transaction().
         */
+    }
+
+    @Test
+    public void should_not_validate_block_with_invalid_coinbase_due_to_extra_inputs() throws Exception {
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block originalBlock01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+
+        final CoinbaseTransaction invalidCoinbase;
+        { // Coinbase Transaction may only have one TransactionInput...
+            final MutableCoinbaseTransaction mutableCoinbaseTransaction = new MutableCoinbaseTransaction(originalBlock01.getCoinbaseTransaction());
+            mutableCoinbaseTransaction.addTransactionInput(mutableCoinbaseTransaction.getTransactionInputs().get(0));
+            invalidCoinbase = mutableCoinbaseTransaction;
+        }
+
+        BlockValidatorTests.assertCoinbaseIsInvalid(invalidCoinbase);
+    }
+
+    @Test
+    public void should_not_validate_block_with_invalid_coinbase_due_to_invalid_prevout_identifier() throws Exception {
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block originalBlock01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+
+        final CoinbaseTransaction invalidCoinbase;
+        { // Coinbase Transaction prevout must be 0xFFFFFFFF
+            final MutableCoinbaseTransaction mutableCoinbaseTransaction = new MutableCoinbaseTransaction(originalBlock01.getCoinbaseTransaction());
+            final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(mutableCoinbaseTransaction.getTransactionInputs().get(0));
+            mutableTransactionInput.setPreviousOutputIndex(0);
+            mutableCoinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
+            invalidCoinbase = mutableCoinbaseTransaction;
+        }
+
+        BlockValidatorTests.assertCoinbaseIsInvalid(invalidCoinbase);
+    }
+
+    @Test
+    public void should_not_validate_block_with_invalid_coinbase_due_to_invalid_prevout_identifier_2() throws Exception {
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block originalBlock01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+
+        final CoinbaseTransaction invalidCoinbase;
+        { // Coinbase Transaction prevout hash must be Sha256Hash.EMPTY_HASH
+            final MutableCoinbaseTransaction mutableCoinbaseTransaction = new MutableCoinbaseTransaction(originalBlock01.getCoinbaseTransaction());
+            final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(mutableCoinbaseTransaction.getTransactionInputs().get(0));
+            mutableTransactionInput.setPreviousOutputTransactionHash(Sha256Hash.fromHexString("0E3E2357E806B6CDB1F70B54C3A3A17B6714EE1F0E68BEBB44A74B1EFD512098"));
+            mutableCoinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
+            invalidCoinbase = mutableCoinbaseTransaction;
+        }
+
+        BlockValidatorTests.assertCoinbaseIsInvalid(invalidCoinbase);
+    }
+
+    @Test
+    public void should_not_validate_block_with_invalid_coinbase_due_large_input_script() throws Exception {
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block originalBlock01 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+
+        final CoinbaseTransaction invalidCoinbase;
+        { // Coinbase Transaction unlocking script must be no more than 100 bytes...
+            final MutableCoinbaseTransaction mutableCoinbaseTransaction = new MutableCoinbaseTransaction(originalBlock01.getCoinbaseTransaction());
+            final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(mutableCoinbaseTransaction.getTransactionInputs().get(0));
+            mutableTransactionInput.setUnlockingScript(UnlockingScript.castFrom(new ImmutableScript(ByteArray.wrap(new byte[101]))));
+            mutableCoinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
+            invalidCoinbase = mutableCoinbaseTransaction;
+        }
+
+        BlockValidatorTests.assertCoinbaseIsInvalid(invalidCoinbase);
     }
 }

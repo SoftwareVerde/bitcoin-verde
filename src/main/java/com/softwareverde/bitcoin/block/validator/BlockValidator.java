@@ -271,6 +271,14 @@ public class BlockValidator {
             return BlockValidationResult.invalid("Block header is invalid.");
         }
 
+        { // Ensure the Coinbase Transaction is valid.
+            final CoinbaseTransaction coinbaseTransaction = block.getCoinbaseTransaction();
+            final Boolean isValidCoinbase = Transaction.isCoinbaseTransaction(coinbaseTransaction);
+            if (! isValidCoinbase) {
+                return BlockValidationResult.invalid("Coinbase Transaction is invalid.");
+            }
+        }
+
         final boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
         if (shouldValidateInputs) {
             final NanoTimer validateBlockTimer = new NanoTimer();
