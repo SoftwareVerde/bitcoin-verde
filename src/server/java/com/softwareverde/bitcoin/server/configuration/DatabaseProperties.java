@@ -9,6 +9,13 @@ public class DatabaseProperties extends MutableEmbeddedDatabaseProperties {
 
     public DatabaseProperties() { }
 
+    public DatabaseProperties(final DatabaseProperties databaseProperties) {
+        super(databaseProperties);
+        _useEmbeddedDatabase = databaseProperties.useEmbeddedDatabase();
+        _maxMemoryByteCount = databaseProperties.getMaxMemoryByteCount();
+        _logFileByteCount = databaseProperties.getLogFileByteCount();
+    }
+
     public Boolean useEmbeddedDatabase() { return _useEmbeddedDatabase; }
     public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
     public Long getLogFileByteCount() { return _logFileByteCount; }
