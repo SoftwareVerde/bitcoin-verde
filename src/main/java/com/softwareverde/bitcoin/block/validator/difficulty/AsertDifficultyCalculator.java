@@ -1,78 +1,89 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
 import java.math.BigInteger;
 
+/**
+ * BCH Difficulty Calculation via aserti3-2d algorithm.
+ * The aserti3-2d difficulty adjustment algorithm (ASERT DAA) on Bitcoin Cash (BCH) on November 15th, 2020, as designed by Mark Lundeberg and implemented by Jonathan Toomim.
+ *  https://gitlab.com/bitcoin-cash-node/bchn-sw/qa-assets/-/tree/master/test_vectors/aserti3-2d
+ *  https://github.com/pokkst/bitcoincashj/blob/master/core/src/main/java/org/bitcoinj/params/AbstractBitcoinNetParams.java
+ */
 public class AsertDifficultyCalculator {
-    public static final BigInteger TARGET_SPACING = BigInteger.valueOf(10L * 60L);  // 10 minutes per block.
-    public static final Long HALF_LIFE = 2L * 24L * 60L * 60L; // 2 Days, in seconds.
+    public static final Long TARGET_BLOCK_SPACING = (10L * 60L);  // 10 minutes per block.
+    public static final Long HALF_LIFE = (2L * 24L * 60L * 60L); // 2 Days, in seconds.
 
-    protected static BigInteger MAX_DIFFICULTY_BIG_INTEGER = Difficulty.toBigInteger(Difficulty.MAX_DIFFICULTY);
+    public static class ReferenceBlock {
+        public final BigInteger blockHeight;
+        public final MedianBlockTime blockTime;
+        public final Difficulty difficulty;
 
-    public static Difficulty computeAsertTarget(final BigInteger refTarget, final BigInteger referenceBlockAncestorTime, final BigInteger referenceBlockHeight, final BigInteger evalBlockTime, final BigInteger evalBlockHeight) {
-        final BigInteger heightDiff = evalBlockHeight.subtract(referenceBlockHeight);
-        final BigInteger timeDiff = evalBlockTime.subtract(referenceBlockAncestorTime);
-        final BigInteger halfLife = BigInteger.valueOf(HALF_LIFE);
-        final BigInteger rBits = BigInteger.valueOf(16L);
-        final BigInteger radix = BigInteger.ONE.shiftLeft(rBits.intValue());
+        public ReferenceBlock(final BigInteger blockHeight, final MedianBlockTime blockTime, final Difficulty difficulty) {
+            this.blockHeight = blockHeight;
+            this.blockTime = blockTime;
+            this.difficulty = difficulty;
+        }
+    }
 
-        final BigInteger heightDiffWithOffset = heightDiff.add(BigInteger.ONE);
-        final BigInteger targetHeightOffsetMultiple = TARGET_SPACING.multiply(heightDiffWithOffset);
+    protected Difficulty _computeAsertTarget(final ReferenceBlock referenceBlock, final MedianBlockTime blockTime, final BigInteger blockHeight) {
+        final int shiftBitCount = 16;
 
-        final BigInteger numShifts;
+        final MedianBlockTime referenceBlockMedianBlockTime = referenceBlock.blockTime;
+        final BigInteger heightDiff = blockHeight.subtract(referenceBlock.blockHeight);
+        final long blockTimeDifferenceInSeconds = (blockTime.getCurrentTimeInSeconds() - referenceBlockMedianBlockTime.getCurrentTimeInSeconds());
+
+        final BigInteger heightDifferenceWithOffset = heightDiff.add(BigInteger.ONE);
+        final BigInteger desiredHeight = BigInteger.valueOf(TARGET_BLOCK_SPACING).multiply(heightDifferenceWithOffset);
+
+        final int shiftCount;
         final BigInteger exponent;
         {
-            final BigInteger value = timeDiff
-                .subtract(targetHeightOffsetMultiple)
-                .shiftLeft(rBits.intValue())
-                .divide(halfLife);
-            numShifts = value.shiftRight(rBits.intValue());
-            exponent = value.subtract(numShifts.shiftLeft(rBits.intValue()));
+            final BigInteger value = (((BigInteger.valueOf(blockTimeDifferenceInSeconds).subtract(desiredHeight)).shiftLeft(shiftBitCount)).divide(BigInteger.valueOf(HALF_LIFE)));
+            shiftCount = (value.shiftRight(shiftBitCount)).intValue();
+            exponent = value.subtract(BigInteger.valueOf(shiftCount << shiftBitCount));
         }
 
         final BigInteger target;
         {
+            // factor = ((195766423245049 * exponent) + (971821376 * exponent^2) + (5127 * exponent^3) + 2^47) >> 48
             final BigInteger factor =
                 BigInteger.valueOf(195766423245049L)
                 .multiply(exponent)
-                .add(
-                    BigInteger.valueOf(971821376L)
-                    .multiply(exponent.pow(2))
-                )
-                .add(
-                    BigInteger.valueOf(5127L)
-                        .multiply(exponent.pow(3))
-                )
-                .add(
-                    BigInteger.valueOf(2L)
-                        .pow(47)
-                )
+                .add(BigInteger.valueOf(971821376L).multiply(exponent.pow(2)))
+                .add(BigInteger.valueOf(5127L).multiply(exponent.pow(3)))
+                .add(BigInteger.valueOf(2L).pow(47))
                 .shiftRight(48);
 
-            final BigInteger unshiftedTarget = refTarget.multiply(
-                radix.add(factor)
-            );
+            final BigInteger radix = BigInteger.ONE.shiftLeft(shiftBitCount); // 1 << shiftBitCount
+            final BigInteger referenceBlockDifficulty = Difficulty.toBigInteger(referenceBlock.difficulty);
+            final BigInteger unshiftedTargetDifficulty = referenceBlockDifficulty.multiply(radix.add(factor)); // referenceBlockDifficulty * (radix + factor)
 
-            final BigInteger shiftedTarget;
-            if (numShifts.compareTo(BigInteger.ZERO) < 0) {
-                shiftedTarget = unshiftedTarget.shiftRight(-numShifts.intValue());
+            final BigInteger shiftedTargetDifficulty;
+            if (shiftCount < 0) {
+                shiftedTargetDifficulty = unshiftedTargetDifficulty.shiftRight(Math.abs(shiftCount));
             }
             else {
-                shiftedTarget = unshiftedTarget.shiftLeft(numShifts.intValue());
+                shiftedTargetDifficulty = unshiftedTargetDifficulty.shiftLeft(shiftCount);
             }
 
-            target = shiftedTarget.shiftRight(16);
+            target = shiftedTargetDifficulty.shiftRight(shiftBitCount);
         }
 
         if (target.equals(BigInteger.ZERO)) {
             return Difficulty.fromBigInteger(BigInteger.ONE);
         }
 
-        if (target.compareTo(MAX_DIFFICULTY_BIG_INTEGER) > 0) {
+        final BigInteger maxDifficulty = Difficulty.toBigInteger(Difficulty.MAX_DIFFICULTY);
+        if (target.compareTo(maxDifficulty) > 0) {
             return Difficulty.MAX_DIFFICULTY;
         }
 
         return Difficulty.fromBigInteger(target);
+    }
+
+    public Difficulty computeAsertTarget(final ReferenceBlock referenceBlock, final MedianBlockTime blockTime, final Long blockHeight) {
+        return _computeAsertTarget(referenceBlock, blockTime, BigInteger.valueOf(blockHeight));
     }
 }
