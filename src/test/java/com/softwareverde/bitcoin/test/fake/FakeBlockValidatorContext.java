@@ -55,7 +55,8 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     }
 
     public void addBlock(final Block block, final Long blockHeight) {
-        this.addBlock(block, blockHeight, null, null);
+        final MedianBlockTime genesisMedianTimePast = MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+        this.addBlock(block, blockHeight, genesisMedianTimePast, null);
     }
 
     public void addBlock(final Block block, final Long blockHeight, final MedianBlockTime medianBlockTime, final ChainWork chainWork) {
