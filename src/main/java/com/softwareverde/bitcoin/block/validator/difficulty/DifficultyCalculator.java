@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.bip.HF20201115;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
@@ -103,7 +104,13 @@ public class DifficultyCalculator {
         return previousBlockHeader.getDifficulty();
     }
 
-    protected Difficulty _calculateNewBitcoinCashTarget(final Long forBlockHeight) {
+    protected Difficulty _calculateAserti32dBitcoinCashTarget(final Long blockHeight, final MedianBlockTime medianBlockTime) {
+        final AsertDifficultyCalculator asertDifficultyCalculator = new AsertDifficultyCalculator();
+        final AsertReferenceBlock referenceBlock = _context.getAsertReferenceBlock();
+        return asertDifficultyCalculator.computeAsertTarget(referenceBlock, medianBlockTime, blockHeight);
+    }
+
+    protected Difficulty _calculateCw144BitcoinCashTarget(final Long forBlockHeight) {
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3]; // The oldest BlockHeaders...
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3]; // The newest BlockHeaders...
 
@@ -196,8 +203,13 @@ public class DifficultyCalculator {
         final Boolean isFirstBlock = (Util.areEqual(0L, blockHeight));
         if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
+        if (HF20201115.isEnabled(medianBlockTime)) {
+            return _calculateAserti32dBitcoinCashTarget(blockHeight, medianBlockTime);
+        }
+
         if (HF20171113.isEnabled(blockHeight)) {
-            return _calculateNewBitcoinCashTarget(blockHeight);
+            return _calculateCw144BitcoinCashTarget(blockHeight);
         }
 
         final boolean requiresDifficultyEvaluation = (blockHeight % BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT == 0);

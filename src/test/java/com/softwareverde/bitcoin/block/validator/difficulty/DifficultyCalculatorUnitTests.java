@@ -231,6 +231,11 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
 
         final DifficultyCalculatorContext difficultyCalculatorContext = new DifficultyCalculatorContext() {
             @Override
+            public AsertReferenceBlock getAsertReferenceBlock() {
+                return null;
+            }
+
+            @Override
             public BlockHeader getBlockHeader(final Long blockHeight) {
                 if (! blockHeaders.containsKey(blockHeight)) {
                     Assert.fail("Requesting unregistered BlockHeader for blockHeight: " + blockHeight);

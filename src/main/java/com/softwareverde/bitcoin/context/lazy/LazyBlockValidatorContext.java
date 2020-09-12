@@ -6,11 +6,14 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -36,6 +39,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     protected final UnspentTransactionOutputContext _unspentTransactionOutputContext;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final TransactionInflaters _transactionInflaters;
+    protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
 
     protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
@@ -66,6 +70,9 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
         _transactionValidatorFactory = transactionValidatorFactory;
         _databaseManager = databaseManager;
         _networkTime = networkTime;
+
+        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
+        _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
     }
 
     @Override
@@ -224,5 +231,16 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     @Override
     public TransactionDeflater getTransactionDeflater() {
         return _transactionInflaters.getTransactionDeflater();
+    }
+
+    @Override
+    public AsertReferenceBlock getAsertReferenceBlock() {
+        try {
+            return _asertReferenceBlockLoader.getAsertReferenceBlock(_blockchainSegmentId);
+        }
+        catch (final ContextException exception) {
+            Logger.debug(exception);
+            return null;
+        }
     }
 }

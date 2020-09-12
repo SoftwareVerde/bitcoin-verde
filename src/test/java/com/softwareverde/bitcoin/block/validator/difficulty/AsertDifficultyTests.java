@@ -47,7 +47,7 @@ public class AsertDifficultyTests {
     protected static void runCalculations(final List<TestVector> tests, final Difficulty anchorBits, final MedianBlockTime anchorTime, final BigInteger anchorHeight) {
         final AsertDifficultyCalculator asertDifficultyCalculator = new AsertDifficultyCalculator();
         for (TestVector testVector : tests) {
-            final AsertDifficultyCalculator.ReferenceBlock referenceBlock = new AsertDifficultyCalculator.ReferenceBlock(anchorHeight, anchorTime, anchorBits);
+            final AsertReferenceBlock referenceBlock = new AsertReferenceBlock(anchorHeight, anchorTime, anchorBits);
             final Difficulty nextTarget = asertDifficultyCalculator._computeAsertTarget(referenceBlock, testVector.medianBlockTime, testVector.blockHeight);
             Assert.assertEquals(testVector.difficulty, nextTarget);
         }

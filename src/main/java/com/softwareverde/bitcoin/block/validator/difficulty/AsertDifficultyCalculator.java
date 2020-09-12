@@ -15,19 +15,7 @@ public class AsertDifficultyCalculator {
     public static final Long TARGET_BLOCK_SPACING = (10L * 60L);  // 10 minutes per block.
     public static final Long HALF_LIFE = (2L * 24L * 60L * 60L); // 2 Days, in seconds.
 
-    public static class ReferenceBlock {
-        public final BigInteger blockHeight;
-        public final MedianBlockTime blockTime;
-        public final Difficulty difficulty;
-
-        public ReferenceBlock(final BigInteger blockHeight, final MedianBlockTime blockTime, final Difficulty difficulty) {
-            this.blockHeight = blockHeight;
-            this.blockTime = blockTime;
-            this.difficulty = difficulty;
-        }
-    }
-
-    protected Difficulty _computeAsertTarget(final ReferenceBlock referenceBlock, final MedianBlockTime blockTime, final BigInteger blockHeight) {
+    protected Difficulty _computeAsertTarget(final AsertReferenceBlock referenceBlock, final MedianBlockTime blockTime, final BigInteger blockHeight) {
         final int shiftBitCount = 16;
 
         final MedianBlockTime referenceBlockMedianBlockTime = referenceBlock.blockTime;
@@ -83,7 +71,7 @@ public class AsertDifficultyCalculator {
         return Difficulty.fromBigInteger(target);
     }
 
-    public Difficulty computeAsertTarget(final ReferenceBlock referenceBlock, final MedianBlockTime blockTime, final Long blockHeight) {
+    public Difficulty computeAsertTarget(final AsertReferenceBlock referenceBlock, final MedianBlockTime blockTime, final Long blockHeight) {
         return _computeAsertTarget(referenceBlock, blockTime, BigInteger.valueOf(blockHeight));
     }
 }

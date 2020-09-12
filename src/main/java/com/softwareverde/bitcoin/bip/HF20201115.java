@@ -2,11 +2,10 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
-public class HF20191115 {
-    public static final Long ACTIVATION_BLOCK_TIME = 1573819200L;
-    public static final Long ACTIVATION_BLOCK_HEIGHT = 609134L;
+public class HF20201115 {
+    public static final Long ACTIVATION_BLOCK_TIME = 1605441600L;
 
-    // Bitcoin Cash: 2019-11-15 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-11-15-upgrade.md
+    // Bitcoin Cash: 2020-11-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2020-11-15-upgrade.md
     public static Boolean isEnabled(final MedianBlockTime medianBlockTime) {
         if (medianBlockTime == null) { return true; }
 
@@ -14,5 +13,5 @@ public class HF20191115 {
         return (currentTimestamp >= ACTIVATION_BLOCK_TIME);
     }
 
-    protected HF20191115() { }
+    protected HF20201115() { }
 }

@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -27,14 +28,20 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
 
+    protected final AsertReferenceBlock _asertReferenceBlock;
+
     public FakeBlockValidatorContext(final NetworkTime networkTime) {
-        _transactionInflaters = new CoreInflater();
-        _networkTime = VolatileNetworkTimeWrapper.wrap(networkTime);
+        this(new CoreInflater(), networkTime, null);
     }
 
-    public FakeBlockValidatorContext(final TransactionInflaters transactionInflaters, final NetworkTime networkTime) {
+    public FakeBlockValidatorContext(final NetworkTime networkTime, final AsertReferenceBlock asertReferenceBlock) {
+        this(new CoreInflater(), networkTime, asertReferenceBlock);
+    }
+
+    public FakeBlockValidatorContext(final TransactionInflaters transactionInflaters, final NetworkTime networkTime, final AsertReferenceBlock asertReferenceBlock) {
         _transactionInflaters = transactionInflaters;
         _networkTime = VolatileNetworkTimeWrapper.wrap(networkTime);
+        _asertReferenceBlock = asertReferenceBlock;
     }
 
     public void addBlockHeader(final BlockHeader block, final Long blockHeight) {
@@ -107,5 +114,10 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public TransactionDeflater getTransactionDeflater() {
         return _transactionInflaters.getTransactionDeflater();
+    }
+
+    @Override
+    public AsertReferenceBlock getAsertReferenceBlock() {
+        return _asertReferenceBlock;
     }
 }
