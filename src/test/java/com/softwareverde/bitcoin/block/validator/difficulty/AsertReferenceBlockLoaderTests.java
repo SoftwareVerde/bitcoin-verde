@@ -295,4 +295,53 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
     }
+
+    @Test
+    public void should_load_first_reference_block_if_activation_block_shares_identical_mtp() throws Exception {
+        // This test is designed to ensure the correct anchor block is selected if the ActivationBlock+1 shares the same MTP as the ActivationBlock.
+
+        // Setup
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+
+        for (int i = 0; i < 10000; ++i) {
+            final Long blockHeight = (699999L - i);
+            final BlockId blockId = BlockId.wrap(blockHeight + 1L);
+            final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+        }
+
+        {
+            final Long blockHeight = 700000L;
+            final BlockId blockId = BlockId.wrap(blockHeight + 1L);
+            final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+        }
+
+        final int afterCount = 144; // This must at least match the parentCount within the AsertReferenceBlockLoader in order to activate this test case.
+        for (int i = 0; i < afterCount; ++i) {
+            final Long blockHeight = (700001L + i);
+            final BlockId blockId = BlockId.wrap(blockHeight + 1L);
+            final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033274"));
+
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+        }
+
+        final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
+
+        // Action
+        final AsertReferenceBlock asertReferenceBlock = asertReferenceBlockLoader.getAsertReferenceBlock(BLOCKCHAIN_SEGMENT_ID);
+
+        // Assert
+        Logger.debug("Header Lookup Count: " + context.getLookupCount());
+        Logger.debug("MTP Calculation Count: " + context.getMedianTimePastCalculationCount());
+        Assert.assertNotNull(asertReferenceBlock);
+        Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
+        Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
+        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+
+        TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
+        TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
+    }
 }
