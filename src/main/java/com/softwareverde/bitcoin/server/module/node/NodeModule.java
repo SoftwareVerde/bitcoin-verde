@@ -167,14 +167,8 @@ public class NodeModule {
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
     protected void _connectToAdditionalNodes() {
-        final SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
-        final HashSet<String> seedNodeHosts = new HashSet<String>(seedNodes.length);
-        for (final SeedNodeProperties seedNodeProperties : seedNodes) {
-            final String host = seedNodeProperties.getAddress();
-            final Integer port = seedNodeProperties.getPort();
-
-            seedNodeHosts.add(host + port);
-        }
+        final List<SeedNodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
+        final List<String> dnsSeeds = _bitcoinProperties.getDnsSeeds();
 
         final Database database = _environment.getDatabase();
         final Integer maxPeerCount = _bitcoinProperties.getMaxPeerCount();
@@ -190,7 +184,15 @@ public class NodeModule {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
 
-            int connectedNodeCount = seedNodeHosts.size();
+            final HashSet<String> seedNodeSet = new HashSet<String>(seedNodes.getCount());
+            for (final SeedNodeProperties seedNodeProperties : seedNodes) {
+                final String host = seedNodeProperties.getAddress();
+                final Integer port = seedNodeProperties.getPort();
+
+                seedNodeSet.add(host + port);
+            }
+
+            int connectedNodeCount = seedNodeSet.size();
             for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
                 if (connectedNodeCount >= maxPeerCount) { break; }
 
@@ -200,18 +202,40 @@ public class NodeModule {
                 final String host = ip.toString();
                 final Integer port = bitcoinNodeIpAddress.getPort();
 
-                if (seedNodeHosts.contains(host + port)) { continue; } // Exclude SeedNodes...
+                if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
 
+                Logger.info("Connecting to former peer: " + host + ":" + port);
                 final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
                 _bitcoinNodeManager.addNode(node);
                 connectedNodeCount += 1;
 
-                Logger.info("Connecting to former peer: " + host + ":" + port);
+                Thread.sleep(500L);
+            }
 
-                try { Thread.sleep(500L); } catch (final Exception exception) { }
+            if (connectedNodeCount < maxPeerCount) {
+                final Integer port = BitcoinProperties.PORT;
+
+                for (final String seedHost : dnsSeeds) {
+                    final List<Ip> seedIps = Ip.allFromHostName(seedHost);
+                    if (seedIps == null) { continue; }
+
+                    for (final Ip ip : seedIps) {
+                        final String host = ip.toString();
+                        if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
+
+                        Logger.info("Connecting to peer via DNS: " + host + ":" + port + " (" + seedHost + ")");
+                        final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
+                        _bitcoinNodeManager.addNode(node);
+                        connectedNodeCount += 1;
+
+                        if (connectedNodeCount >= maxPeerCount) { return; } // Done.
+
+                        Thread.sleep(500L);
+                    }
+                }
             }
         }
-        catch (final DatabaseException exception) {
+        catch (final Exception exception) {
             Logger.debug(exception);
         }
     }
@@ -990,7 +1014,7 @@ public class NodeModule {
             Logger.info("[Starting Node Manager]");
             _bitcoinNodeManager.startNodeMaintenanceThread();
 
-            final SeedNodeProperties[] whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
+            final List<SeedNodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
             for (final SeedNodeProperties seedNodeProperties : whitelistedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 try {
@@ -1007,7 +1031,7 @@ public class NodeModule {
                 }
             }
 
-            final SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
+            final List<SeedNodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
             for (final SeedNodeProperties seedNodeProperties : seedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();

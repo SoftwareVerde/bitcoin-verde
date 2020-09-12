@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.LogLevel;
-import com.softwareverde.util.Util;
 
 public class BitcoinProperties {
     public static final String DATA_CACHE_DIRECTORY_NAME = "cache";
@@ -11,8 +11,9 @@ public class BitcoinProperties {
 
     protected Integer _bitcoinPort;
     protected Integer _bitcoinRpcPort;
-    protected SeedNodeProperties[] _seedNodeProperties;
-    protected SeedNodeProperties[] _whitelistedNodes;
+    protected List<SeedNodeProperties> _seedNodeProperties;
+    protected List<String> _dnsSeeds;
+    protected List<SeedNodeProperties> _whitelistedNodes;
     protected Boolean _banFilterIsEnabled;
     protected Integer _maxPeerCount;
     protected Integer _maxThreadCount;
@@ -24,7 +25,6 @@ public class BitcoinProperties {
     protected Boolean _bootstrapIsEnabled;
     protected Boolean _trimBlocksIsEnabled;
     protected Boolean _indexingModeIsEnabled;
-    protected Boolean _blockCacheIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
     protected Boolean _shouldRelayInvalidSlpTransactions;
@@ -34,8 +34,9 @@ public class BitcoinProperties {
 
     public Integer getBitcoinPort() { return _bitcoinPort; }
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
-    public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
-    public SeedNodeProperties[] getWhitelistedNodes() { return Util.copyArray(_whitelistedNodes); }
+    public List<SeedNodeProperties> getSeedNodeProperties() { return _seedNodeProperties; }
+    public List<String> getDnsSeeds() { return _dnsSeeds; }
+    public List<SeedNodeProperties> getWhitelistedNodes() { return _whitelistedNodes; }
     public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }
@@ -54,7 +55,6 @@ public class BitcoinProperties {
 
     public Boolean isTrimBlocksEnabled() { return _trimBlocksIsEnabled; }
     public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }
-    public Boolean isBlockCacheEnabled() { return _blockCacheIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
     public String getDataDirectory() { return _dataDirectory; }
