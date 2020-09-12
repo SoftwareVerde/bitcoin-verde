@@ -39,7 +39,8 @@ public class AsertReferenceBlockLoader {
 
         Long maxBlockHeight = headBlockHeight;
         Long minBlockHeight = null;
-        int parentCount = 1;
+        int scaleFactor = 2016;
+        int parentCount = 144;
         while (true) {
             final BlockId blockId = _context.getBlockIdAtHeight(blockchainSegmentId, (headBlockHeight - parentCount)); // blockHeaderDatabaseManager.getAncestorBlockId(parentBlockId, parentCount);
             if (blockId == null) { break; }
@@ -53,7 +54,8 @@ public class AsertReferenceBlockLoader {
                 maxBlockHeight = _context.getBlockHeight(blockId);
             }
 
-            parentCount *= 2;
+            parentCount += scaleFactor;
+            scaleFactor *= 2;
         }
 
         if (minBlockHeight == null) {
