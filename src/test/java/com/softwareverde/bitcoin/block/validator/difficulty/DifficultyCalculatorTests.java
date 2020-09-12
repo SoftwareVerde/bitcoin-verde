@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -29,6 +30,26 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class DifficultyCalculatorTests extends IntegrationTest {
+    public static class LazyDifficultyCalculatorContextWithBlockTimeFallback extends LazyDifficultyCalculatorContext {
+        public LazyDifficultyCalculatorContextWithBlockTimeFallback(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager) {
+            super(blockchainSegmentId, databaseManager);
+        }
+
+        @Override
+        public MedianBlockTime getMedianBlockTime(final Long blockHeight) {
+            // MedianBlockTime is used to determine if Asert DAA has activated.
+            //  These tests use the original DAA, so the Context falls back to the Genesis MTP.
+            //  It's possible that the MTP becomes needed for other functionality, at which point the test should
+            //  store the needed MTPs instead of relying on the fake Genesis MTP.
+
+            try {
+                return super.getMedianBlockTime(blockHeight);
+            }
+            catch (final Exception exception) {
+                return MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+            }
+        }
+    };
     protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -265,7 +286,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(null, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(null, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final BlockInflater blockInflater = new BlockInflater();
@@ -321,7 +342,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
              */
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
@@ -360,7 +381,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
@@ -399,7 +420,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long blockHeight;
@@ -538,7 +559,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(block504031.getHash(), blockHeader.getPreviousBlockHash());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
@@ -684,7 +705,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(block504032.getHash(), blockHeader.getPreviousBlockHash());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
@@ -818,7 +839,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             Assert.assertEquals(block505089.getHash(), blockHeader.getPreviousBlockHash());
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             final Long validationBlockHeight;
@@ -907,7 +928,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             }
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContextWithBlockTimeFallback(blockchainSegmentId, databaseManager);
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
             // Action

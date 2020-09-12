@@ -226,10 +226,16 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00E0FF3FEA3DA6788DDDFB4BC584A6F342CE5AB6C4C67DDB4319860100000000000000003FB1703177952BCFA51D4AD1A099FE56D5E681266BDF4DAE12941DE9AC685AF3F871055D144703183F87E206"));
             blockHeaders.put(blockHeight, blockHeader);
             chainWorks.put(blockHeight, ChainWork.fromHexString("000000000000000000000000000000000000000000F058E7722B23D4DA9E5DF1"));
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1560637323L));
         }
 
 
         final DifficultyCalculatorContext difficultyCalculatorContext = new DifficultyCalculatorContext() {
+            @Override
+            public AsertReferenceBlock getAsertReferenceBlock() {
+                return null;
+            }
+
             @Override
             public BlockHeader getBlockHeader(final Long blockHeight) {
                 if (! blockHeaders.containsKey(blockHeight)) {
@@ -290,6 +296,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         {
             blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00000020F779752E58AA1CDB2CD2F59BFE69D4B327886D2CF43FAA030000000000000000CD2F883DC10C2140CCB5A12E84F188924BF209902FEB31191F60AA318A0D9068EB36F5598AFB031896833D85"));
             blockHeaders.put(blockHeight, blockHeader);
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1509240436L));
         }
 
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
@@ -335,6 +342,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         {
             blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("000000201C9C41FFE35BA49571E759BAD99C416F48594C8BEB7EA5030000000000000000FF562FBEAD0871D7ED63B2BCF2E8D49434980E5CEF8F72C399CCFD6C07BEC8E76FCE82592DE00418F963C170"));
             blockHeaders.put(blockHeight, blockHeader);
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1501730885L));
         }
 
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(context);
