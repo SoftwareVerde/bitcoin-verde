@@ -14,7 +14,6 @@ public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
     void commitDatabaseTransaction() throws ContextException;
     void rollbackDatabaseTransaction();
 
-    AddressId getAddressId(Address address) throws ContextException;
     AddressId storeAddress(Address address) throws ContextException;
 
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws ContextException;

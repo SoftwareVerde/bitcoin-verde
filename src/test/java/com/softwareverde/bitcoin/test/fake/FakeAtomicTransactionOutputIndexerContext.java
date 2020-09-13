@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -87,7 +86,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void startDatabaseTransaction() throws ContextException { _wasCommitted = false; }
+    public void startDatabaseTransaction() { _wasCommitted = false; }
 
     @Override
     public void commitDatabaseTransaction() {
@@ -97,11 +96,6 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     @Override
     public void rollbackDatabaseTransaction() {
         _wasRolledBack = true;
-    }
-
-    @Override
-    public AddressId getAddressId(final Address address) {
-        return _addresses.get(address);
     }
 
     @Override
@@ -140,7 +134,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public TransactionId getTransactionId(final Sha256Hash transactionHash) throws ContextException {
+    public TransactionId getTransactionId(final Sha256Hash transactionHash) {
         return _transactionIds.get(transactionHash);
     }
 
@@ -161,13 +155,13 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws ContextException {
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) {
         final IndexedInput indexedInput = new IndexedInput(transactionId, inputIndex, addressId);
         _indexedInputs.add(indexedInput);
     }
 
     @Override
-    public void close() throws ContextException {
+    public void close() {
         _wasClosed = true;
     }
 }

@@ -60,9 +60,6 @@ public class BlockchainIndexer extends SleepyService {
         final Address address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) { return null; }
 
-        final AddressId addressId = context.getAddressId(address);
-        if (addressId != null) { return addressId; }
-
         return context.storeAddress(address);
     }
 

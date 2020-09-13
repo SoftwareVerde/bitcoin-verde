@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -115,7 +116,8 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     public BlockchainIndexerDatabaseManager getBlockchainIndexerDatabaseManager() {
         if (_blockchainIndexerDatabaseManager == null) {
-            _blockchainIndexerDatabaseManager = new BlockchainIndexerDatabaseManagerCore(this);
+            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+            _blockchainIndexerDatabaseManager = new BlockchainIndexerDatabaseManagerCore(addressInflater, this);
         }
 
         return _blockchainIndexerDatabaseManager;

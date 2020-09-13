@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -19,6 +20,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -35,6 +37,7 @@ import java.util.Set;
 
 public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDatabaseManager {
     protected final FullNodeDatabaseManager _databaseManager;
+    protected final AddressInflater _addressInflater;
 
     protected AddressId _getAddressId(final Address address) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -49,8 +52,9 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return AddressId.wrap(addressId);
     }
 
-    public BlockchainIndexerDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
+    public BlockchainIndexerDatabaseManagerCore(final AddressInflater addressInflater, final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
+        _addressInflater = addressInflater;
     }
 
     @Override
@@ -65,6 +69,45 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         }
 
         return _getAddressId(address);
+    }
+
+    @Override
+    public Map<Address, AddressId> storeAddresses(final List<Address> addresses) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final BatchRunner<Address> batchRunner = new BatchRunner<Address>(1024);
+        batchRunner.run(addresses, new BatchRunner.Batch<Address>() {
+            @Override
+            public void run(final List<Address> batchItems) throws Exception {
+                final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
+                for (final Address address : batchItems) {
+                    query.setParameter(address);
+                }
+
+                databaseConnection.executeSql(query);
+            }
+        });
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, address FROM addresses WHERE address IN (?)")
+                .setInClauseParameters(addresses, ValueExtractor.BYTE_ARRAY)
+        );
+
+        final HashMap<Address, AddressId> addressMap = new HashMap<Address, AddressId>(rows.size());
+        for (final Row row : rows) {
+            final AddressId addressId = AddressId.wrap(row.getLong("id"));
+            final Address address = _addressInflater.fromBytes(ByteArray.wrap(row.getBytes("address")));
+
+            addressMap.put(address, addressId);
+        }
+
+        for (final Address address : addresses) {
+            if (! addressMap.containsKey(address)) {
+                throw new DatabaseException("Unable to store address: " + address);
+            }
+        }
+
+        return addressMap;
     }
 
     @Override

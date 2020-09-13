@@ -9,8 +9,11 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.Map;
+
 public interface BlockchainIndexerDatabaseManager {
     AddressId storeAddress(Address address) throws DatabaseException;
+    Map<Address, AddressId> storeAddresses(List<Address> addresses) throws DatabaseException;
     AddressId getAddressId(Address address) throws DatabaseException;
     List<AddressId> getAddressIds(TransactionId transactionId) throws DatabaseException;
 
