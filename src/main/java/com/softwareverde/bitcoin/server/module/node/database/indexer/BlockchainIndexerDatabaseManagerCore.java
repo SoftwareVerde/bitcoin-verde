@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.indexer;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -392,29 +393,83 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws DatabaseException {
+    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<AddressId> addressIds, final List<TransactionId> slpTransactionIds) throws DatabaseException {
+        final int itemCount = transactionIds.getCount();
+        if (transactionIds.getCount()       != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "     + itemCount + " got " + transactionIds.getCount()); }
+        if (outputIndexes.getCount()        != itemCount) { throw new DatabaseException("Mismatch parameter count outputIndexes expected "      + itemCount + " got " + outputIndexes.getCount()); }
+        if (amounts.getCount()              != itemCount) { throw new DatabaseException("Mismatch parameter count amounts expected "            + itemCount + " got " + amounts.getCount()); }
+        if (scriptTypes.getCount()          != itemCount) { throw new DatabaseException("Mismatch parameter count scriptTypes expected "        + itemCount + " got " + scriptTypes.getCount()); }
+        if (addressIds.getCount()           != itemCount) { throw new DatabaseException("Mismatch parameter count addressIds expected "         + itemCount + " got " + addressIds.getCount()); }
+        if (slpTransactionIds.getCount()    != itemCount) { throw new DatabaseException("Mismatch parameter count slpTransactionIds expected "  + itemCount + " got " + slpTransactionIds.getCount()); }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            new Query("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address_id = VALUES(address_id), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)")
-                .setParameter(transactionId)
-                .setParameter(outputIndex)
-                .setParameter(amount)
-                .setParameter(addressId)
-                .setParameter(scriptType.getScriptTypeId())
-                .setParameter(slpTransactionId)
-        );
+        // The BatchRunner expects to receive a single list; in order to use it here, a list of indexes is created as the batch.
+        final MutableList<Integer> indexes = new MutableList<Integer>(itemCount);
+        for (int i = 0; i < itemCount; ++i) {
+            indexes.add(i);
+        }
+
+        final BatchRunner<Integer> batchRunner = new BatchRunner<Integer>(1024);
+        batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
+            @Override
+            public void run(final List<Integer> batchItems) throws Exception {
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address_id = VALUES(address_id), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)");
+                for (final Integer itemIndex : batchItems) {
+                    final TransactionId transactionId = transactionIds.get(itemIndex);
+                    final Integer outputIndex = outputIndexes.get(itemIndex);
+                    final Long amount = amounts.get(itemIndex);
+                    final ScriptType scriptType = scriptTypes.get(itemIndex);
+                    final AddressId addressId = addressIds.get(itemIndex);
+                    final TransactionId slpTransactionId = slpTransactionIds.get(itemIndex);
+
+                    batchedInsertQuery
+                        .setParameter(transactionId)
+                        .setParameter(outputIndex)
+                        .setParameter(amount)
+                        .setParameter(addressId)
+                        .setParameter(scriptType.getScriptTypeId())
+                        .setParameter(slpTransactionId);
+                }
+
+                databaseConnection.executeSql(batchedInsertQuery);
+            }
+        });
     }
 
     @Override
-    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws DatabaseException {
+    public void indexTransactionInputs(final List<TransactionId> transactionIds, final List<Integer> inputIndexes, final List<AddressId> addressIds) throws DatabaseException {
+        final int itemCount = transactionIds.getCount();
+        if (transactionIds.getCount()       != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "     + itemCount + " got " + transactionIds.getCount()); }
+        if (inputIndexes.getCount()         != itemCount) { throw new DatabaseException("Mismatch parameter count inputIndexes expected "       + itemCount + " got " + inputIndexes.getCount()); }
+        if (addressIds.getCount()           != itemCount) { throw new DatabaseException("Mismatch parameter count addressIds expected "         + itemCount + " got " + addressIds.getCount()); }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        databaseConnection.executeSql(
-            new Query("INSERT INTO indexed_transaction_inputs (transaction_id, input_index, address_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address_id = VALUES(address_id)")
-                .setParameter(transactionId)
-                .setParameter(inputIndex)
-                .setParameter(addressId)
-        );
+        // The BatchRunner expects to receive a single list; in order to use it here, a list of indexes is created as the batch.
+        final MutableList<Integer> indexes = new MutableList<Integer>(itemCount);
+        for (int i = 0; i < itemCount; ++i) {
+            indexes.add(i);
+        }
+
+        final BatchRunner<Integer> batchRunner = new BatchRunner<Integer>(1024);
+        batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
+            @Override
+            public void run(final List<Integer> batchItems) throws Exception {
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_inputs (transaction_id, input_index, address_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address_id = VALUES(address_id)");
+                for (final Integer itemIndex : batchItems) {
+                    final TransactionId transactionId = transactionIds.get(itemIndex);
+                    final Integer inputIndex = inputIndexes.get(itemIndex);
+                    final AddressId addressId = addressIds.get(itemIndex);
+
+                    batchedInsertQuery
+                        .setParameter(transactionId)
+                        .setParameter(inputIndex)
+                        .setParameter(addressId);
+                }
+
+                databaseConnection.executeSql(batchedInsertQuery);
+            }
+        });
     }
 }

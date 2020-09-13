@@ -10,6 +10,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
+    void startDatabaseTransaction() throws ContextException;
     void commitDatabaseTransaction() throws ContextException;
     void rollbackDatabaseTransaction();
 

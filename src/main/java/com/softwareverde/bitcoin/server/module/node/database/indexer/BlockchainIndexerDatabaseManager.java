@@ -26,6 +26,6 @@ public interface BlockchainIndexerDatabaseManager {
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws DatabaseException;
     void dequeueTransactionsForProcessing(List<TransactionId> transactionIds) throws DatabaseException;
 
-    void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, AddressId addressId, TransactionId slpTransactionId) throws DatabaseException;
-    void indexTransactionInput(TransactionId transactionId, Integer inputIndex, AddressId addressId) throws DatabaseException;
+    void indexTransactionOutputs(List<TransactionId> transactionIds, List<Integer> outputIndexes, List<Long> amounts, List<ScriptType> scriptTypes, List<AddressId> addressIds, List<TransactionId> slpTransactionIds) throws DatabaseException;
+    void indexTransactionInputs(List<TransactionId> transactionIds, List<Integer> inputIndexes, List<AddressId> addressIds) throws DatabaseException;
 }

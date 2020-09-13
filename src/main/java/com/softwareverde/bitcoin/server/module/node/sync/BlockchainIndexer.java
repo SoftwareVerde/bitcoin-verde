@@ -293,6 +293,7 @@ public class BlockchainIndexer extends SleepyService {
             int inputCount = 0;
             int outputCount = 0;
             processTimer.start();
+            context.startDatabaseTransaction();
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(BATCH_SIZE);
             if (queuedTransactionIds.isEmpty()) { return false; }
 

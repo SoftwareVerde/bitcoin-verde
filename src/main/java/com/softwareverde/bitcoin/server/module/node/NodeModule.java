@@ -1111,28 +1111,22 @@ public class NodeModule {
         _databaseMaintenanceThread.start();
 
         final Runtime runtime = Runtime.getRuntime();
+        int sleepCount = 1;
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
-            try { Thread.sleep(60000); } catch (final Exception exception) { break; }
-            runtime.gc();
+            try { Thread.sleep(5000); } catch (final Exception exception) { break; }
 
-            // Wakeup the Spent UTXO Cleanup Service...
-            if (_spentTransactionOutputsCleanupService != null) {
-                _spentTransactionOutputsCleanupService.wakeUp();
+            if (sleepCount == 0) {
+                runtime.gc();
+
+                // Wakeup the Spent UTXO Cleanup Service...
+                if (_spentTransactionOutputsCleanupService != null) {
+                    _spentTransactionOutputsCleanupService.wakeUp();
+                }
             }
 
-            // Logger.debug("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
-            // Logger.debug("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
-            //
-            // final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            // Logger.debug("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
-            // Logger.debug("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
-            // Logger.debug("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
-            //
-            // Logger.flush();
-            //
-            // try { Thread.sleep(5000); } catch (final Exception exception) { break; }
-
             Logger.flush();
+
+            sleepCount = ((sleepCount + 1) % 12);
         }
 
         _shutdown();

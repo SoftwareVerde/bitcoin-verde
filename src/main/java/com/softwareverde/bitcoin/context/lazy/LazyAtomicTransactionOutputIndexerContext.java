@@ -13,23 +13,45 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 
 public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransactionOutputIndexerContext {
-    protected FullNodeDatabaseManager _databaseManager;
+
+    protected static class QueuedOutputs {
+        public final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
+        public final MutableList<Integer> outputIndexes = new MutableList<Integer>();
+        public final MutableList<Long> amounts = new MutableList<Long>();
+        public final MutableList<ScriptType> scriptTypes = new MutableList<ScriptType>();
+        public final MutableList<AddressId> addressIds = new MutableList<AddressId>();
+        public final MutableList<TransactionId> slpTransactionIds = new MutableList<TransactionId>();
+    }
+
+    protected static class QueuedInputs {
+        public final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
+        public final MutableList<Integer> inputIndexes = new MutableList<Integer>();
+        public final MutableList<AddressId> addressIds = new MutableList<AddressId>();
+    }
+
+    protected final FullNodeDatabaseManager _databaseManager;
+    protected final QueuedInputs _queuedInputs = new QueuedInputs();
+    protected final QueuedOutputs _queuedOutputs = new QueuedOutputs();
 
     public LazyAtomicTransactionOutputIndexerContext(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
+    }
 
+    @Override
+    public void startDatabaseTransaction() throws ContextException {
         try {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
             TransactionUtil.startTransaction(databaseConnection);
         }
-        catch (final Exception exception) {
-            Logger.debug(exception);
+        catch (final DatabaseException databaseException) {
+            throw new ContextException(databaseException);
         }
     }
 
@@ -37,6 +59,11 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     public void commitDatabaseTransaction() throws ContextException {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
+            blockchainIndexerDatabaseManager.indexTransactionOutputs(_queuedOutputs.transactionIds, _queuedOutputs.outputIndexes, _queuedOutputs.amounts, _queuedOutputs.scriptTypes, _queuedOutputs.addressIds, _queuedOutputs.slpTransactionIds);
+            blockchainIndexerDatabaseManager.indexTransactionInputs(_queuedInputs.transactionIds, _queuedInputs.inputIndexes, _queuedInputs.addressIds);
+
             TransactionUtil.commitTransaction(databaseConnection);
         }
         catch (final DatabaseException databaseException) {
@@ -133,25 +160,20 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws ContextException {
-        try {
-            final BlockchainIndexerDatabaseManager indexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
-            indexerDatabaseManager.indexTransactionOutput(transactionId, outputIndex, amount, scriptType, addressId, slpTransactionId);
-        }
-        catch (final DatabaseException databaseException) {
-            throw new ContextException(databaseException);
-        }
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) {
+        _queuedOutputs.transactionIds.add(transactionId);
+        _queuedOutputs.outputIndexes.add(outputIndex);
+        _queuedOutputs.amounts.add(amount);
+        _queuedOutputs.scriptTypes.add(scriptType);
+        _queuedOutputs.addressIds.add(addressId);
+        _queuedOutputs.slpTransactionIds.add(slpTransactionId);
     }
 
     @Override
-    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws ContextException {
-        try {
-            final BlockchainIndexerDatabaseManager indexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
-            indexerDatabaseManager.indexTransactionInput(transactionId, inputIndex, addressId);
-        }
-        catch (final DatabaseException databaseException) {
-            throw new ContextException(databaseException);
-        }
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) {
+        _queuedInputs.transactionIds.add(transactionId);
+        _queuedInputs.inputIndexes.add(inputIndex);
+        _queuedInputs.addressIds.add(addressId);
     }
 
     @Override

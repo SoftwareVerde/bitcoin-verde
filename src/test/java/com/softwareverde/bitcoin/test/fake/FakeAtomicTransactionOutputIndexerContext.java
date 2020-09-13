@@ -24,7 +24,7 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     protected final MutableList<IndexedOutput> _indexedOutputs = new MutableList<IndexedOutput>(0);
     protected final MutableList<IndexedInput> _indexedInputs = new MutableList<IndexedInput>(0);
 
-    protected Boolean _wasCommitted = false;
+    protected Boolean _wasCommitted = null;
     protected Boolean _wasRolledBack = false;
     protected Boolean _wasClosed = false;
 
@@ -85,6 +85,9 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     public List<Address> getStoredAddresses() {
         return _storedAddresses;
     }
+
+    @Override
+    public void startDatabaseTransaction() throws ContextException { _wasCommitted = false; }
 
     @Override
     public void commitDatabaseTransaction() {
