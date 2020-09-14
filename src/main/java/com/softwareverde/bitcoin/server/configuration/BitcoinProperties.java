@@ -7,9 +7,6 @@ import com.softwareverde.util.Util;
 
 public class BitcoinProperties {
     public static final String DATA_CACHE_DIRECTORY_NAME = "cache"; // TODO
-    public static final Integer PORT = 8333;
-    public static final Integer RPC_PORT = 8334;
-    public static final Integer TEST_NET_PORT = 18333;
 
     protected Integer _bitcoinPort;
     protected Integer _testNetBitcoinPort;

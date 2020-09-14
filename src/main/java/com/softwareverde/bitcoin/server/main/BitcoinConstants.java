@@ -7,24 +7,30 @@ public class BitcoinConstants {
     public static class Default {
         public final String genesisBlockHash;
         public final Long genesisBlockTimestamp;
+        public final Integer defaultNetworkPort;
         public final String netMagicNumber;
+        public final Integer defaultRpcPort;
 
-        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final String netMagicNumber) {
+        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber) {
             this.genesisBlockHash = genesisBlockHash;
             this.genesisBlockTimestamp = genesisBlockTimestamp;
+            this.defaultNetworkPort = defaultNetworkPort;
             this.netMagicNumber = netMagicNumber;
+            this.defaultRpcPort = 8334;
         }
     }
 
     public static final Default MainNet = new Default(
         "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
         1231006505L, // In seconds.
+        8333,
         "E8F3E1E3"
     );
 
     public static final Default TestNet = new Default(
         "000000000933EA01AD0EE984209779BAAEC3CED90FA3F408719526F8D77F4943",
         1296688602L, // In seconds.
+        18333,
         "F4F3E5F4"
     );
 
@@ -36,6 +42,8 @@ public class BitcoinConstants {
     protected static String GENESIS_BLOCK_HASH;
     protected static Long GENESIS_BLOCK_TIMESTAMP;
     protected static String NET_MAGIC_NUMBER;
+    protected static Integer DEFAULT_NETWORK_PORT;
+    protected static Integer DEFAULT_RPC_PORT;
 
     protected static Long BLOCK_VERSION;
     protected static Long TRANSACTION_VERSION;
@@ -58,7 +66,9 @@ public class BitcoinConstants {
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", MainNet.genesisBlockTimestamp.toString()));
+        DEFAULT_NETWORK_PORT = Util.parseInt(System.getProperty("NETWORK_PORT", MainNet.defaultNetworkPort.toString()));
         NET_MAGIC_NUMBER = System.getProperty("NET_MAGIC_NUMBER", MainNet.netMagicNumber);
+        DEFAULT_RPC_PORT = Util.parseInt(System.getProperty("RPC_PORT", MainNet.defaultRpcPort.toString()));
         BLOCK_VERSION = Util.parseLong(System.getProperty("BLOCK_VERSION", defaultBlockVersion.toString()), defaultBlockVersion);
         TRANSACTION_VERSION = Util.parseLong(System.getProperty("TRANSACTION_VERSION", defaultTransactionVersion.toString()), defaultTransactionVersion);
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", defaultProtocolVersion.toString()), defaultProtocolVersion);
@@ -100,6 +110,20 @@ public class BitcoinConstants {
         GENESIS_BLOCK_TIMESTAMP = genesisBlockTimestamp;
     }
 
+    public static Integer getDefaultNetworkPort() {
+        LOCKED = true;
+        return DEFAULT_NETWORK_PORT;
+    }
+
+    public static void setDefaultNetworkPort(final Integer defaultNetworkPort) {
+        if (LOCKED) {
+            Logger.error(LOCKED_ERROR_MESSAGE);
+            return;
+        }
+
+        DEFAULT_NETWORK_PORT = defaultNetworkPort;
+    }
+
     public static String getNetMagicNumber() {
         LOCKED = true;
         return NET_MAGIC_NUMBER;
@@ -112,6 +136,20 @@ public class BitcoinConstants {
         }
 
         NET_MAGIC_NUMBER = netMagicNumber;
+    }
+
+    public static Integer getDefaultRpcPort() {
+        LOCKED = true;
+        return DEFAULT_RPC_PORT;
+    }
+
+    public static void setDefaultRpcPort(final Integer defaultRpcPort) {
+        if (LOCKED) {
+            Logger.error(LOCKED_ERROR_MESSAGE);
+            return;
+        }
+
+        DEFAULT_RPC_PORT = defaultRpcPort;
     }
 
     public static Long getBlockVersion() {

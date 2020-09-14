@@ -25,6 +25,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
@@ -214,7 +215,7 @@ public class NodeModule {
             }
 
             if (connectedNodeCount < maxPeerCount) {
-                final Integer port = BitcoinProperties.PORT;
+                final Integer port = BitcoinConstants.getDefaultNetworkPort();
 
                 for (final String seedHost : dnsSeeds) {
                     final List<Ip> seedIps = Ip.allFromHostName(seedHost);

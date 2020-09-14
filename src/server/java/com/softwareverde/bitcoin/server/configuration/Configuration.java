@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -69,7 +70,7 @@ public class Configuration {
             final NodeProperties nodeProperties;
             final int indexOfColon = propertiesString.indexOf(":");
             if (indexOfColon < 0) {
-                nodeProperties = new NodeProperties(propertiesString, BitcoinProperties.PORT);
+                nodeProperties = new NodeProperties(propertiesString, BitcoinConstants.getDefaultNetworkPort());
             }
             else {
                 final String address = propertiesString.substring(0, indexOfColon);
@@ -84,8 +85,8 @@ public class Configuration {
 
     protected void _loadBitcoinProperties() {
         _bitcoinProperties = new BitcoinProperties();
-        _bitcoinProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BitcoinProperties.PORT.toString()));
-        _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinProperties.RPC_PORT.toString()));
+        _bitcoinProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BitcoinConstants.getDefaultNetworkPort().toString()));
+        _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinConstants.getDefaultRpcPort().toString()));
 
         { // Parse Seed Nodes...
             final NodeProperties[] nodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]");
@@ -158,7 +159,7 @@ public class Configuration {
         _bitcoinProperties._shouldRelayInvalidSlpTransactions = Util.parseBool(_properties.getProperty("bitcoin.relayInvalidSlpTransactions", "1"));
 
         _bitcoinProperties._testNet = Util.parseInt(_properties.getProperty("bitcoin.testNet", "0"));
-        _bitcoinProperties._testNetBitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.testNetPort", BitcoinProperties.TEST_NET_PORT.toString()));
+        _bitcoinProperties._testNetBitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.testNetPort", BitcoinConstants.TestNet.defaultNetworkPort.toString()));
     }
 
     protected void _loadExplorerProperties() {
@@ -166,7 +167,7 @@ public class Configuration {
         final String rootDirectory = _properties.getProperty("explorer.rootDirectory", "explorer/www");
 
         final String bitcoinRpcUrl = _properties.getProperty("explorer.bitcoinRpcUrl", "");
-        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("explorer.bitcoinRpcPort", BitcoinProperties.RPC_PORT.toString()));
+        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("explorer.bitcoinRpcPort", BitcoinConstants.MainNet.defaultRpcPort.toString()));
 
         final String stratumRpcUrl = _properties.getProperty("explorer.stratumRpcUrl", "");
         final Integer stratumRpcPort = Util.parseInt(_properties.getProperty("explorer.stratumRpcPort", StratumProperties.RPC_PORT.toString()));
@@ -196,7 +197,7 @@ public class Configuration {
         final Integer port = Util.parseInt(_properties.getProperty("stratum.port", StratumProperties.PORT.toString()));
         final Integer rpcPort = Util.parseInt(_properties.getProperty("stratum.rpcPort", StratumProperties.RPC_PORT.toString()));
         final String bitcoinRpcUrl = _properties.getProperty("stratum.bitcoinRpcUrl", "");
-        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("stratum.bitcoinRpcPort", BitcoinProperties.RPC_PORT.toString()));
+        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("stratum.bitcoinRpcPort", BitcoinConstants.MainNet.defaultRpcPort.toString()));
         final Integer httpPort = Util.parseInt(_properties.getProperty("stratum.httpPort", StratumProperties.HTTP_PORT.toString()));
         final Integer tlsPort = Util.parseInt(_properties.getProperty("stratum.tlsPort", StratumProperties.TLS_PORT.toString()));
         final String rootDirectory = _properties.getProperty("stratum.rootDirectory", "stratum/www");

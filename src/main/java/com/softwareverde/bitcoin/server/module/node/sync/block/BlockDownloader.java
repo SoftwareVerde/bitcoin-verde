@@ -191,8 +191,6 @@ public class BlockDownloader extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        Logger.trace("Downloader awake.");
-
         final SystemTime systemTime = _context.getSystemTime();
         final BitcoinNodeManager nodeManager = _context.getNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -335,7 +333,6 @@ public class BlockDownloader extends SleepyService {
     @Override
     protected void _onSleep() {
         final SynchronizationStatus synchronizationStatus = _context.getSynchronizationStatus();
-        Logger.trace("Downloader getting sleepy.");
 
         synchronized (this) {
             final boolean isInterrupted;
@@ -370,8 +367,6 @@ public class BlockDownloader extends SleepyService {
                 _unsynchronizedWatcher.start();
             }
         }
-
-        Logger.trace("Downloader sleeps.");
     }
 
     public BlockDownloader(final Context context) {

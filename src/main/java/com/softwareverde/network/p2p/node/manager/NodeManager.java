@@ -1,7 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.async.ConcurrentHashSet;
-import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -98,7 +98,7 @@ public class NodeManager<NODE extends Node> {
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
     protected Boolean _isShuttingDown = false;
 
-    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
+    protected Integer _defaultExternalPort = BitcoinConstants.getDefaultNetworkPort();
     protected NodeIpAddress _localNodeIpAddress = null;
 
     protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The current batch of new addresses advertised by peers that have not yet been seen.
