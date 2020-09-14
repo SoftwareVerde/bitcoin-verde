@@ -950,14 +950,20 @@ public class NodeModule {
             headBlockHeight = Util.coalesce(blockHeight);
         }
 
-        if (headBlockHeight < 2016L) { // Index previously downloaded blocks...
+        final boolean pendingBlockDataExists;
+        {
+            final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
+            final File file = new File(pendingBlockDataDirectory);
+            pendingBlockDataExists = file.exists();
+        }
+        if ( pendingBlockDataExists && (headBlockHeight < 2016L) ) { // Index previously downloaded blocks...
             Logger.info("[Indexing Pending Blocks]");
+            final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                 final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
-                final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
                 try (final DirectoryStream<Path> pendingBlockSubDirectories = Files.newDirectoryStream(Paths.get(pendingBlockDataDirectory))) {
                     for (final Path pendingBlockSubDirectory : pendingBlockSubDirectories) {
                         try (final DirectoryStream<Path> pendingBlockPaths = Files.newDirectoryStream(pendingBlockSubDirectory)) {

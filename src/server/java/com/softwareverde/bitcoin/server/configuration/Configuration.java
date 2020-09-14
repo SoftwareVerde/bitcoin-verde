@@ -107,6 +107,11 @@ public class Configuration {
             _bitcoinProperties._dnsSeeds = dnsSeeds;
         }
 
+        { // Parse TestNet Seed Nodes...
+            final NodeProperties[] nodeProperties = _parseSeedNodeProperties("bitcoin.testNetSeedNodes", "[]");
+            _bitcoinProperties._testNetSeedNodeProperties = new ImmutableList<NodeProperties>(nodeProperties);
+        }
+
         { // Parse TestNet DNS Seed Nodes...
             final String defaultSeedsString = "[\"testnet-seed-bch.bitcoinforks.org\", \"testnet-seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.testNetDnsSeeds", defaultSeedsString));

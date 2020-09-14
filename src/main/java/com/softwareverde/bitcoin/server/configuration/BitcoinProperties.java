@@ -15,6 +15,7 @@ public class BitcoinProperties {
     protected Integer _testNetBitcoinPort;
     protected Integer _bitcoinRpcPort;
     protected List<NodeProperties> _seedNodeProperties;
+    protected List<NodeProperties> _testNetSeedNodeProperties;
     protected List<String> _dnsSeeds;
     protected List<String> _testNetDnsSeeds;
     protected List<NodeProperties> _whitelistedNodes;
@@ -42,7 +43,7 @@ public class BitcoinProperties {
 
     public Integer getBitcoinPort() { return (_isTestNet() ? _testNetBitcoinPort : _bitcoinPort); }
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
-    public List<NodeProperties> getSeedNodeProperties() { return _seedNodeProperties; }
+    public List<NodeProperties> getSeedNodeProperties() { return (_isTestNet() ? _testNetSeedNodeProperties : _seedNodeProperties); }
     public List<String> getDnsSeeds() { return (_isTestNet() ? _testNetDnsSeeds : _dnsSeeds); }
     public List<NodeProperties> getWhitelistedNodes() { return _whitelistedNodes; }
     public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
@@ -65,7 +66,7 @@ public class BitcoinProperties {
 
     public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
-    public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
+    public Boolean isBootstrapEnabled() { return (_isTestNet() ? false : _bootstrapIsEnabled); }
     public String getDataDirectory() { return _dataDirectory; }
     public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
 }
