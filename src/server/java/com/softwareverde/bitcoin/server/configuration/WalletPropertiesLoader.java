@@ -6,10 +6,10 @@ import java.util.Properties;
 
 public class WalletPropertiesLoader {
     public static WalletProperties loadWalletProperties(final Properties properties) {
-        final Integer port = Util.parseInt(properties.getProperty("wallet.port", WalletProperties.PORT.toString()));
+        final Integer port = Util.parseInt(properties.getProperty("wallet.port", String.valueOf(WalletProperties.PORT)));
         final String rootDirectory = properties.getProperty("wallet.rootDirectory", "wallet/www");
 
-        final Integer tlsPort = Util.parseInt(properties.getProperty("wallet.tlsPort", WalletProperties.TLS_PORT.toString()));
+        final Integer tlsPort = Util.parseInt(properties.getProperty("wallet.tlsPort", String.valueOf(WalletProperties.TLS_PORT)));
         final String tlsKeyFile = properties.getProperty("wallet.tlsKeyFile", "");
         final String tlsCertificateFile = properties.getProperty("wallet.tlsCertificateFile", "");
 

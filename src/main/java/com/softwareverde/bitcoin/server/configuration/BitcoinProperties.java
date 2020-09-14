@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.LogLevel;
@@ -9,8 +10,9 @@ public class BitcoinProperties {
     public static final String DATA_CACHE_DIRECTORY_NAME = "cache"; // TODO
 
     protected Integer _bitcoinPort;
-    protected Integer _testNetBitcoinPort;
+    protected Integer _testNetworkBitcoinPort;
     protected Integer _bitcoinRpcPort;
+    protected Integer _testNetworkRpcPort;
     protected List<NodeProperties> _seedNodeProperties;
     protected List<NodeProperties> _testNetSeedNodeProperties;
     protected List<String> _dnsSeeds;
@@ -38,11 +40,37 @@ public class BitcoinProperties {
         return (Util.coalesce(_testNet) > 0);
     }
 
-    public Integer getBitcoinPort() { return (_isTestNet() ? _testNetBitcoinPort : _bitcoinPort); }
-    public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+    public Integer getBitcoinPort() {
+        final Integer defaultNetworkPort = BitcoinConstants.getDefaultNetworkPort();
+        final Integer defaultTestNetworkPort = BitcoinConstants.getDefaultTestNetworkPort();
+
+        if (_isTestNet()) {
+            return Util.coalesce(_testNetworkBitcoinPort, defaultTestNetworkPort);
+        }
+
+        return Util.coalesce(_bitcoinPort, defaultNetworkPort);
+    }
+
+    public Integer getBitcoinRpcPort() {
+        final Integer defaultRpcPort = BitcoinConstants.getDefaultRpcPort();
+        final Integer defaultTestRpcPort = BitcoinConstants.getDefaultTestRpcPort();
+
+        if (_isTestNet()) {
+            return Util.coalesce(_testNetworkRpcPort, defaultTestRpcPort);
+        }
+
+        return Util.coalesce(_bitcoinRpcPort, defaultRpcPort);
+    }
+
     public List<NodeProperties> getSeedNodeProperties() { return (_isTestNet() ? _testNetSeedNodeProperties : _seedNodeProperties); }
     public List<String> getDnsSeeds() { return (_isTestNet() ? _testNetDnsSeeds : _dnsSeeds); }
+
+    /**
+     * Returns a list of IPs/Hosts that should never be added to the Ban Filter.
+     *  NodeProperties.getPort() of a whitelisted Node is always null.
+     */
     public List<NodeProperties> getWhitelistedNodes() { return _whitelistedNodes; }
+
     public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }

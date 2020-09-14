@@ -1,18 +1,17 @@
 package com.softwareverde.bitcoin.server.configuration;
 
-import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.util.Util;
 
 import java.util.Properties;
 
 public class StratumPropertiesLoader {
     public static StratumProperties loadStratumProperties(final Properties properties) {
-        final Integer port = Util.parseInt(properties.getProperty("stratum.port", StratumProperties.PORT.toString()));
-        final Integer rpcPort = Util.parseInt(properties.getProperty("stratum.rpcPort", StratumProperties.RPC_PORT.toString()));
+        final Integer port = Util.parseInt(properties.getProperty("stratum.port", String.valueOf(StratumProperties.PORT)));
+        final Integer rpcPort = Util.parseInt(properties.getProperty("stratum.rpcPort", String.valueOf(StratumProperties.RPC_PORT)));
         final String bitcoinRpcUrl = properties.getProperty("stratum.bitcoinRpcUrl", "");
-        final Integer bitcoinRpcPort = Util.parseInt(properties.getProperty("stratum.bitcoinRpcPort", BitcoinConstants.MainNet.defaultRpcPort.toString()));
-        final Integer httpPort = Util.parseInt(properties.getProperty("stratum.httpPort", StratumProperties.HTTP_PORT.toString()));
-        final Integer tlsPort = Util.parseInt(properties.getProperty("stratum.tlsPort", StratumProperties.TLS_PORT.toString()));
+        final Integer bitcoinRpcPort = Util.parseInt(properties.getProperty("stratum.bitcoinRpcPort", null));
+        final Integer httpPort = Util.parseInt(properties.getProperty("stratum.httpPort", String.valueOf(StratumProperties.HTTP_PORT)));
+        final Integer tlsPort = Util.parseInt(properties.getProperty("stratum.tlsPort", String.valueOf(StratumProperties.TLS_PORT)));
         final String rootDirectory = properties.getProperty("stratum.rootDirectory", "stratum/www");
         final String tlsKeyFile = properties.getProperty("stratum.tlsKeyFile", "");
         final String tlsCertificateFile = properties.getProperty("stratum.tlsCertificateFile", "");

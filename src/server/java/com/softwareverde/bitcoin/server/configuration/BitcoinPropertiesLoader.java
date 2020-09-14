@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.configuration;
 
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.LogLevel;
@@ -13,12 +12,12 @@ import java.util.Properties;
 public class BitcoinPropertiesLoader {
     public static BitcoinProperties loadBitcoinProperties(final Properties properties) {
         final BitcoinProperties bitcoinProperties = new BitcoinProperties();
-        bitcoinProperties._bitcoinPort = Util.parseInt(properties.getProperty("bitcoin.port", BitcoinConstants.getDefaultNetworkPort().toString()));
-        bitcoinProperties._bitcoinRpcPort = Util.parseInt(properties.getProperty("bitcoin.rpcPort", BitcoinConstants.getDefaultRpcPort().toString()));
+        bitcoinProperties._bitcoinPort = Util.parseInt(properties.getProperty("bitcoin.port", null));
+        bitcoinProperties._bitcoinRpcPort = Util.parseInt(properties.getProperty("bitcoin.rpcPort", null));
 
         { // Parse Seed Nodes...
-            final NodeProperties[] nodeProperties = PropertiesUtil.parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]", properties);
-            bitcoinProperties._seedNodeProperties = new ImmutableList<NodeProperties>(nodeProperties);
+            final String defaultSeedNodes = "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]";
+            bitcoinProperties._seedNodeProperties = PropertiesUtil.parseSeedNodeProperties("bitcoin.seedNodes", BitcoinConstants.MainNet.defaultNetworkPort, defaultSeedNodes, properties);
         }
 
         { // Parse DNS Seed Nodes...
@@ -37,8 +36,8 @@ public class BitcoinPropertiesLoader {
         }
 
         { // Parse TestNet Seed Nodes...
-            final NodeProperties[] nodeProperties = PropertiesUtil.parseSeedNodeProperties("bitcoin.testNetSeedNodes", "[]", properties);
-            bitcoinProperties._testNetSeedNodeProperties = new ImmutableList<NodeProperties>(nodeProperties);
+            final String defaultTestNetSeedNodes = "[]";
+            bitcoinProperties._testNetSeedNodeProperties = PropertiesUtil.parseSeedNodeProperties("bitcoin.testNetSeedNodes", BitcoinConstants.TestNet.defaultNetworkPort, defaultTestNetSeedNodes, properties);
         }
 
         { // Parse TestNet DNS Seed Nodes...
@@ -57,8 +56,8 @@ public class BitcoinPropertiesLoader {
         }
 
         { // Parse Whitelisted Nodes...
-            final NodeProperties[] nodeProperties = PropertiesUtil.parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]", properties);
-            bitcoinProperties._whitelistedNodes = new ImmutableList<NodeProperties>(nodeProperties);
+            final String defaultNodeWhitelist = "[]";
+            bitcoinProperties._whitelistedNodes = PropertiesUtil.parseSeedNodeProperties("bitcoin.whitelistedNodes", null, defaultNodeWhitelist, properties);
         }
 
         bitcoinProperties._banFilterIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBanFilter", "1"));
@@ -67,14 +66,17 @@ public class BitcoinPropertiesLoader {
         bitcoinProperties._trustedBlockHeight = Util.parseLong(properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         bitcoinProperties._shouldSkipNetworking = Util.parseBool(properties.getProperty("bitcoin.skipNetworking", "0"));
         bitcoinProperties._deletePendingBlocksIsEnabled = Util.parseBool(properties.getProperty("bitcoin.deletePendingBlocks", "1"));
-        bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO)));
+
+        final Long defaultMaxUtxoCacheByteCount = (UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
+        bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(defaultMaxUtxoCacheByteCount)));
+
         bitcoinProperties._utxoCommitFrequency = Util.parseLong(properties.getProperty("bitcoin.utxoCommitFrequency", "2016"));
         bitcoinProperties._logDirectory = properties.getProperty("bitcoin.logDirectory", "logs");
         bitcoinProperties._logLevel = LogLevel.fromString(properties.getProperty("bitcoin.logLevel", "INFO"));
 
         bitcoinProperties._utxoPurgePercent = Util.parseFloat(properties.getProperty("bitcoin.utxoPurgePercent", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT)));
-        if (bitcoinProperties._utxoPurgePercent < 0F) {
-            bitcoinProperties._utxoPurgePercent = 0F;
+        if (bitcoinProperties._utxoPurgePercent < 0.05F) {
+            bitcoinProperties._utxoPurgePercent = 0.05F;
         }
         else if (bitcoinProperties._utxoPurgePercent > 1F) {
             bitcoinProperties._utxoPurgePercent = 1F;
@@ -87,7 +89,8 @@ public class BitcoinPropertiesLoader {
         bitcoinProperties._shouldRelayInvalidSlpTransactions = Util.parseBool(properties.getProperty("bitcoin.relayInvalidSlpTransactions", "1"));
 
         bitcoinProperties._testNet = Util.parseInt(properties.getProperty("bitcoin.testNet", "0"));
-        bitcoinProperties._testNetBitcoinPort = Util.parseInt(properties.getProperty("bitcoin.testNetPort", BitcoinConstants.TestNet.defaultNetworkPort.toString()));
+        bitcoinProperties._testNetworkBitcoinPort = Util.parseInt(properties.getProperty("bitcoin.testNetPort", null));
+        bitcoinProperties._testNetworkRpcPort = Util.parseInt(properties.getProperty("bitcoin.testNetRpcPort", null));
 
         return bitcoinProperties;
     }

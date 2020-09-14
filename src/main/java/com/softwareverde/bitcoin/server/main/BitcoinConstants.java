@@ -42,7 +42,9 @@ public class BitcoinConstants {
     protected static Long GENESIS_BLOCK_TIMESTAMP;
     protected static String NET_MAGIC_NUMBER;
     protected static Integer DEFAULT_NETWORK_PORT;
+    protected static Integer DEFAULT_TEST_NETWORK_PORT;
     protected static Integer DEFAULT_RPC_PORT;
+    protected static Integer DEFAULT_TEST_RPC_PORT;
 
     protected static Long BLOCK_VERSION;
     protected static Long TRANSACTION_VERSION;
@@ -64,13 +66,15 @@ public class BitcoinConstants {
         final String coinbaseMessage = "/pool.bitcoinverde.org/";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
-        GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", MainNet.genesisBlockTimestamp.toString()));
-        DEFAULT_NETWORK_PORT = Util.parseInt(System.getProperty("NETWORK_PORT", MainNet.defaultNetworkPort.toString()));
+        GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
+        DEFAULT_NETWORK_PORT = Util.parseInt(System.getProperty("NETWORK_PORT", String.valueOf(MainNet.defaultNetworkPort)));
+        DEFAULT_TEST_NETWORK_PORT = Util.parseInt(System.getProperty("TEST_NETWORK_PORT", String.valueOf(TestNet.defaultNetworkPort)));
+        DEFAULT_TEST_RPC_PORT = Util.parseInt(System.getProperty("TEST_RPC_PORT", String.valueOf(TestNet.defaultRpcPort)));
         NET_MAGIC_NUMBER = System.getProperty("NET_MAGIC_NUMBER", MainNet.netMagicNumber);
-        DEFAULT_RPC_PORT = Util.parseInt(System.getProperty("RPC_PORT", MainNet.defaultRpcPort.toString()));
-        BLOCK_VERSION = Util.parseLong(System.getProperty("BLOCK_VERSION", defaultBlockVersion.toString()), defaultBlockVersion);
-        TRANSACTION_VERSION = Util.parseLong(System.getProperty("TRANSACTION_VERSION", defaultTransactionVersion.toString()), defaultTransactionVersion);
-        PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", defaultProtocolVersion.toString()), defaultProtocolVersion);
+        DEFAULT_RPC_PORT = Util.parseInt(System.getProperty("RPC_PORT", String.valueOf(MainNet.defaultRpcPort)));
+        BLOCK_VERSION = Util.parseLong(System.getProperty("BLOCK_VERSION", String.valueOf(defaultBlockVersion)), defaultBlockVersion);
+        TRANSACTION_VERSION = Util.parseLong(System.getProperty("TRANSACTION_VERSION", String.valueOf(defaultTransactionVersion)), defaultTransactionVersion);
+        PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", String.valueOf(defaultProtocolVersion)), defaultProtocolVersion);
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
 
@@ -118,6 +122,32 @@ public class BitcoinConstants {
         }
 
         DEFAULT_NETWORK_PORT = defaultNetworkPort;
+    }
+
+    public static Integer getDefaultTestNetworkPort() {
+        LOCKED = true;
+        return DEFAULT_TEST_NETWORK_PORT;
+    }
+
+    public static void setDefaultTestNetworkPort(final Integer defaultNetworkPort) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        DEFAULT_TEST_NETWORK_PORT = defaultNetworkPort;
+    }
+
+    public static Integer getDefaultTestRpcPort() {
+        LOCKED = true;
+        return DEFAULT_TEST_RPC_PORT;
+    }
+
+    public static void setDefaultTestRpcPort(final Integer defaultTestRpcPort) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        DEFAULT_TEST_RPC_PORT = defaultTestRpcPort;
     }
 
     public static String getNetMagicNumber() {
