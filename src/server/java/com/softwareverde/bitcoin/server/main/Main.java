@@ -201,6 +201,12 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
+                if (bitcoinProperties.isTestNet()) {
+                    BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet.genesisBlockHash);
+                    BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet.genesisBlockTimestamp);
+                    BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet.netMagicNumber);
+                }
+
                 { // Set Log Level...
                     try {
                         final String logDirectory = bitcoinProperties.getLogDirectory();

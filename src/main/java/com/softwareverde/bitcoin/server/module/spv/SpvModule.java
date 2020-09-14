@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
-import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
+import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -93,7 +93,7 @@ public class SpvModule {
     protected final Object _initPin = new Object();
     protected Boolean _isInitialized = false;
 
-    protected final SeedNodeProperties[] _seedNodes;
+    protected final NodeProperties[] _seedNodes;
     protected final Environment _environment;
 
     protected final Wallet _wallet;
@@ -149,8 +149,8 @@ public class SpvModule {
     }
 
     protected void _connectToSeedNodes() {
-        for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
-            final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
+        for (final NodeProperties nodeProperties : _seedNodes) {
+            final NodeIpAddress nodeIpAddress = NodeProperties.toNodeIpAddress(nodeProperties);
             if (nodeIpAddress == null) { continue; }
 
             final boolean isAlreadyConnectedToNode = _bitcoinNodeManager.isConnectedToNode(nodeIpAddress);
@@ -306,7 +306,7 @@ public class SpvModule {
         }
     }
 
-    public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Wallet wallet) {
+    public SpvModule(final Environment environment, final NodeProperties[] seedNodes, final Wallet wallet) {
         _seedNodes = seedNodes;
         _wallet = wallet;
         final Integer maxPeerCount = seedNodes.length; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
@@ -665,8 +665,8 @@ public class SpvModule {
             _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
 
-            for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
-                final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
+            for (final NodeProperties nodeProperties : _seedNodes) {
+                final NodeIpAddress nodeIpAddress = NodeProperties.toNodeIpAddress(nodeProperties);
                 if (nodeIpAddress == null) { continue; }
 
                 _bitcoinNodeManager.defineSeedNode(nodeIpAddress);

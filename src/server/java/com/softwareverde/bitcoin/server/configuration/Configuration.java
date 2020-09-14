@@ -60,26 +60,26 @@ public class Configuration {
         return databaseProperties;
     }
 
-    protected SeedNodeProperties[] _parseSeedNodeProperties(final String propertyName, final String defaultValue) {
+    protected NodeProperties[] _parseSeedNodeProperties(final String propertyName, final String defaultValue) {
         final Json seedNodesJson = Json.parse(_properties.getProperty(propertyName, defaultValue));
-        final SeedNodeProperties[] seedNodePropertiesArray = new SeedNodeProperties[seedNodesJson.length()];
+        final NodeProperties[] nodePropertiesArray = new NodeProperties[seedNodesJson.length()];
         for (int i = 0; i < seedNodesJson.length(); ++i) {
             final String propertiesString = seedNodesJson.getString(i);
 
-            final SeedNodeProperties seedNodeProperties;
+            final NodeProperties nodeProperties;
             final int indexOfColon = propertiesString.indexOf(":");
             if (indexOfColon < 0) {
-                seedNodeProperties = new SeedNodeProperties(propertiesString, BitcoinProperties.PORT);
+                nodeProperties = new NodeProperties(propertiesString, BitcoinProperties.PORT);
             }
             else {
                 final String address = propertiesString.substring(0, indexOfColon);
                 final Integer port = Util.parseInt(propertiesString.substring(indexOfColon + 1));
-                seedNodeProperties = new SeedNodeProperties(address, port);
+                nodeProperties = new NodeProperties(address, port);
             }
 
-            seedNodePropertiesArray[i] = seedNodeProperties;
+            nodePropertiesArray[i] = nodeProperties;
         }
-        return seedNodePropertiesArray;
+        return nodePropertiesArray;
     }
 
     protected void _loadBitcoinProperties() {
@@ -88,11 +88,11 @@ public class Configuration {
         _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinProperties.RPC_PORT.toString()));
 
         { // Parse Seed Nodes...
-            final SeedNodeProperties[] seedNodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]");
-            _bitcoinProperties._seedNodeProperties = new ImmutableList<SeedNodeProperties>(seedNodeProperties);
+            final NodeProperties[] nodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]");
+            _bitcoinProperties._seedNodeProperties = new ImmutableList<NodeProperties>(nodeProperties);
         }
 
-        { // Parse Whitelisted Nodes...
+        { // Parse DNS Seed Nodes...
             final String defaultSeedsString = "[\"seed.flowee.cash\", \"seed-bch.bitcoinforks.org\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
             final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.dnsSeeds", defaultSeedsString));
 
@@ -107,9 +107,24 @@ public class Configuration {
             _bitcoinProperties._dnsSeeds = dnsSeeds;
         }
 
+        { // Parse TestNet DNS Seed Nodes...
+            final String defaultSeedsString = "[\"testnet-seed-bch.bitcoinforks.org\", \"testnet-seed.bchd.cash\"]";
+            final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.testNetDnsSeeds", defaultSeedsString));
+
+            final MutableList<String> dnsSeeds = new MutableList<String>(seedNodesJson.length());
+            for (int i = 0; i < seedNodesJson.length(); ++i) {
+                final String seedHost = seedNodesJson.getString(i);
+                if (seedHost != null) {
+                    dnsSeeds.add(seedHost);
+                }
+            }
+
+            _bitcoinProperties._testNetDnsSeeds = dnsSeeds;
+        }
+
         { // Parse Whitelisted Nodes...
-            final SeedNodeProperties[] seedNodeProperties = _parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]");
-            _bitcoinProperties._whitelistedNodes = new ImmutableList<SeedNodeProperties>(seedNodeProperties);
+            final NodeProperties[] nodeProperties = _parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]");
+            _bitcoinProperties._whitelistedNodes = new ImmutableList<NodeProperties>(nodeProperties);
         }
 
         _bitcoinProperties._banFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBanFilter", "1"));
@@ -132,11 +147,13 @@ public class Configuration {
         }
 
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
-        _bitcoinProperties._trimBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
         _bitcoinProperties._indexingModeIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.indexBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
         _bitcoinProperties._shouldRelayInvalidSlpTransactions = Util.parseBool(_properties.getProperty("bitcoin.relayInvalidSlpTransactions", "1"));
+
+        _bitcoinProperties._testNet = Util.parseInt(_properties.getProperty("bitcoin.testNet", "0"));
+        _bitcoinProperties._testNetBitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.testNetPort", BitcoinProperties.TEST_NET_PORT.toString()));
     }
 
     protected void _loadExplorerProperties() {

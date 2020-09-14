@@ -1,15 +1,42 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
+    public static class Default {
+        public final String genesisBlockHash;
+        public final Long genesisBlockTimestamp;
+        public final String netMagicNumber;
+
+        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final String netMagicNumber) {
+            this.genesisBlockHash = genesisBlockHash;
+            this.genesisBlockTimestamp = genesisBlockTimestamp;
+            this.netMagicNumber = netMagicNumber;
+        }
+    }
+
+    public static final Default MainNet = new Default(
+        "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
+        1231006505L, // In seconds.
+        "E8F3E1E3"
+    );
+
+    public static final Default TestNet = new Default(
+        "000000000933EA01AD0EE984209779BAAEC3CED90FA3F408719526F8D77F4943",
+        1296688602L, // In seconds.
+        "F4F3E5F4"
+    );
+
     protected static final Integer DATABASE_VERSION = 2;
 
     private static final String LOCKED_ERROR_MESSAGE = "Attempting to set SystemProperty after initialization.";
     private static Boolean LOCKED = false;
 
     protected static String GENESIS_BLOCK_HASH;
+    protected static Long GENESIS_BLOCK_TIMESTAMP;
     protected static String NET_MAGIC_NUMBER;
+
     protected static Long BLOCK_VERSION;
     protected static Long TRANSACTION_VERSION;
     protected static Integer PROTOCOL_VERSION;
@@ -23,16 +50,15 @@ public class BitcoinConstants {
     protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
 
     static {
-        final String defaultBlockHash = "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F";
-        final String defaultNetMagicNumber = "E8F3E1E3";
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
         final String defaultUserAgent = "/Bitcoin Verde:1.2.2/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/";
 
-        GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", defaultBlockHash);
-        NET_MAGIC_NUMBER = System.getProperty("NET_MAGIC_NUMBER", defaultNetMagicNumber);
+        GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
+        GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", MainNet.genesisBlockTimestamp.toString()));
+        NET_MAGIC_NUMBER = System.getProperty("NET_MAGIC_NUMBER", MainNet.netMagicNumber);
         BLOCK_VERSION = Util.parseLong(System.getProperty("BLOCK_VERSION", defaultBlockVersion.toString()), defaultBlockVersion);
         TRANSACTION_VERSION = Util.parseLong(System.getProperty("TRANSACTION_VERSION", defaultTransactionVersion.toString()), defaultTransactionVersion);
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", defaultProtocolVersion.toString()), defaultProtocolVersion);
@@ -53,11 +79,25 @@ public class BitcoinConstants {
 
     public static void setGenesisBlockHash(final String genesisBlockHash) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 
         GENESIS_BLOCK_HASH = genesisBlockHash;
+    }
+
+    public static Long getGenesisBlockTimestamp() {
+        LOCKED = true;
+        return GENESIS_BLOCK_TIMESTAMP;
+    }
+
+    public static void setGenesisBlockTimestamp(final Long genesisBlockTimestamp) {
+        if (LOCKED) {
+            Logger.error(LOCKED_ERROR_MESSAGE);
+            return;
+        }
+
+        GENESIS_BLOCK_TIMESTAMP = genesisBlockTimestamp;
     }
 
     public static String getNetMagicNumber() {
@@ -67,7 +107,7 @@ public class BitcoinConstants {
 
     public static void setNetMagicNumber(final String netMagicNumber) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 
@@ -81,7 +121,7 @@ public class BitcoinConstants {
 
     public static void setBlockVersion(final Long blockVersion) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 
@@ -95,7 +135,7 @@ public class BitcoinConstants {
 
     public static void setTransactionVersion(final Long blockVersion) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 
@@ -109,7 +149,7 @@ public class BitcoinConstants {
 
     public static void setProtocolVersion(final Integer protocolVersion) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 
@@ -123,7 +163,7 @@ public class BitcoinConstants {
 
     public static void setUserAgent(final String userAgent) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 
@@ -137,7 +177,7 @@ public class BitcoinConstants {
 
     public static void setCoinbaseMessage(final String coinbaseMessage) {
         if (LOCKED) {
-            System.err.println(LOCKED_ERROR_MESSAGE);
+            Logger.error(LOCKED_ERROR_MESSAGE);
             return;
         }
 

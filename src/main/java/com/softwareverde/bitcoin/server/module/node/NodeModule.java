@@ -19,12 +19,13 @@ import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
-import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
+import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -167,7 +168,7 @@ public class NodeModule {
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
     protected void _connectToAdditionalNodes() {
-        final List<SeedNodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
+        final List<NodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
         final List<String> dnsSeeds = _bitcoinProperties.getDnsSeeds();
 
         final Database database = _environment.getDatabase();
@@ -185,9 +186,9 @@ public class NodeModule {
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
 
             final HashSet<String> seedNodeSet = new HashSet<String>(seedNodes.getCount());
-            for (final SeedNodeProperties seedNodeProperties : seedNodes) {
-                final String host = seedNodeProperties.getAddress();
-                final Integer port = seedNodeProperties.getPort();
+            for (final NodeProperties nodeProperties : seedNodes) {
+                final String host = nodeProperties.getAddress();
+                final Integer port = nodeProperties.getPort();
 
                 seedNodeSet.add(host + port);
             }
@@ -363,6 +364,8 @@ public class NodeModule {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
+        final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
@@ -447,9 +450,7 @@ public class NodeModule {
             public NodeFeatures getNodeFeatures() {
                 final NodeFeatures nodeFeatures = new NodeFeatures();
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                if (! bitcoinProperties.isTrimBlocksEnabled()) {
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                }
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
@@ -512,7 +513,7 @@ public class NodeModule {
                 }
             };
 
-            nodeInitializerContext.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+            nodeInitializerContext.binaryPacketFormat = binaryPacketFormat;
 
             nodeInitializerContext.onNewBloomFilterCallback = new BitcoinNode.OnNewBloomFilterCallback() {
                 @Override
@@ -528,7 +529,7 @@ public class NodeModule {
             final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
                 context.databaseManagerFactory = databaseManagerFactory;
-                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
+                context.nodeFactory = new BitcoinNodeFactory(binaryPacketFormat, nodeThreadPoolFactory, localNodeFeatures);
                 context.maxNodeCount = maxPeerCount;
                 context.networkTime = _mutableNetworkTime;
                 context.nodeInitializer = _nodeInitializer;
@@ -542,7 +543,6 @@ public class NodeModule {
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
         }
 
-        // final NodeModuleContext context = new NodeModuleContext(_masterInflater, _blockStore, databaseManagerFactory, _bitcoinNodeManager, synchronizationStatusHandler, _medianBlockTime, _systemTime, _mainThreadPool, _mutableNetworkTime);
         final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory() {
             @Override
             public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
@@ -775,7 +775,7 @@ public class NodeModule {
             });
         }
 
-        _socketServer = new BinarySocketServer(bitcoinProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT, _mainThreadPool);
+        _socketServer = new BinarySocketServer(bitcoinProperties.getBitcoinPort(), binaryPacketFormat, _mainThreadPool);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
@@ -1014,9 +1014,9 @@ public class NodeModule {
             Logger.info("[Starting Node Manager]");
             _bitcoinNodeManager.startNodeMaintenanceThread();
 
-            final List<SeedNodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
-            for (final SeedNodeProperties seedNodeProperties : whitelistedNodes) {
-                final String host = seedNodeProperties.getAddress();
+            final List<NodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
+            for (final NodeProperties nodeProperties : whitelistedNodes) {
+                final String host = nodeProperties.getAddress();
                 try {
                     final Ip ip = Ip.fromStringOrHost(host);
                     if (ip == null) {
@@ -1031,10 +1031,10 @@ public class NodeModule {
                 }
             }
 
-            final List<SeedNodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
-            for (final SeedNodeProperties seedNodeProperties : seedNodes) {
-                final String host = seedNodeProperties.getAddress();
-                final Integer port = seedNodeProperties.getPort();
+            final List<NodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
+            for (final NodeProperties nodeProperties : seedNodes) {
+                final String host = nodeProperties.getAddress();
+                final Integer port = nodeProperties.getPort();
                 try {
                     final Ip ip = Ip.fromStringOrHost(host);
                     if (ip == null) {
