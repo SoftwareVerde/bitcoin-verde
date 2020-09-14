@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
@@ -89,8 +88,7 @@ public class BitcoinConstants {
 
     public static void setGenesisBlockHash(final String genesisBlockHash) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         GENESIS_BLOCK_HASH = genesisBlockHash;
@@ -103,8 +101,7 @@ public class BitcoinConstants {
 
     public static void setGenesisBlockTimestamp(final Long genesisBlockTimestamp) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         GENESIS_BLOCK_TIMESTAMP = genesisBlockTimestamp;
@@ -117,8 +114,7 @@ public class BitcoinConstants {
 
     public static void setDefaultNetworkPort(final Integer defaultNetworkPort) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         DEFAULT_NETWORK_PORT = defaultNetworkPort;
@@ -131,8 +127,7 @@ public class BitcoinConstants {
 
     public static void setNetMagicNumber(final String netMagicNumber) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         NET_MAGIC_NUMBER = netMagicNumber;
@@ -145,8 +140,7 @@ public class BitcoinConstants {
 
     public static void setDefaultRpcPort(final Integer defaultRpcPort) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         DEFAULT_RPC_PORT = defaultRpcPort;
@@ -159,8 +153,7 @@ public class BitcoinConstants {
 
     public static void setBlockVersion(final Long blockVersion) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         BLOCK_VERSION = blockVersion;
@@ -173,8 +166,7 @@ public class BitcoinConstants {
 
     public static void setTransactionVersion(final Long blockVersion) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         TRANSACTION_VERSION = blockVersion;
@@ -187,8 +179,7 @@ public class BitcoinConstants {
 
     public static void setProtocolVersion(final Integer protocolVersion) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         PROTOCOL_VERSION = protocolVersion;
@@ -201,8 +192,7 @@ public class BitcoinConstants {
 
     public static void setUserAgent(final String userAgent) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         USER_AGENT = userAgent;
@@ -215,8 +205,7 @@ public class BitcoinConstants {
 
     public static void setCoinbaseMessage(final String coinbaseMessage) {
         if (LOCKED) {
-            Logger.error(LOCKED_ERROR_MESSAGE);
-            return;
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         COINBASE_MESSAGE = coinbaseMessage;

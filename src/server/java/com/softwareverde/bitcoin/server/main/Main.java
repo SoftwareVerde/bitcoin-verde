@@ -205,6 +205,8 @@ public class Main {
                     BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet.genesisBlockHash);
                     BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet.genesisBlockTimestamp);
                     BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet.netMagicNumber);
+                    BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet.defaultNetworkPort);
+                    BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet.defaultRpcPort);
                 }
 
                 { // Set Log Level...
