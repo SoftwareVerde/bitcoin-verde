@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
@@ -56,6 +57,7 @@ import com.softwareverde.network.time.VolatileNetworkTime;
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final TransactionInflaters _transactionInflaters;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
     protected final TransactionDownloader _transactionDownloader;
@@ -88,9 +90,10 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return returnedTransactions;
     }
 
-    public RpcDataHandler(final TransactionInflaters transactionInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
+    public RpcDataHandler(final TransactionInflaters transactionInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
         _transactionInflaters = transactionInflaters;
         _databaseManagerFactory = databaseManagerFactory;
+        _difficultyCalculatorFactory = difficultyCalculatorFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
 
         _transactionDownloader = transactionDownloader;
@@ -344,8 +347,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             final Long nextBlockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
 
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
+            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager, _difficultyCalculatorFactory);
+            final DifficultyCalculator difficultyCalculator = difficultyCalculatorContext.newDifficultyCalculator();
             return difficultyCalculator.calculateRequiredDifficulty(nextBlockHeight);
         }
         catch (final DatabaseException exception) {
@@ -485,7 +488,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet();
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, _networkTime);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }

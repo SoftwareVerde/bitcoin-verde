@@ -71,7 +71,7 @@ public class BlockHeaderValidator {
         }
 
         { // Validate block (calculated) difficulty...
-            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_context);
+            final DifficultyCalculator difficultyCalculator = _context.newDifficultyCalculator();
             final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeight);
             if (calculatedRequiredDifficulty == null) {
                 return BlockHeaderValidationResult.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());

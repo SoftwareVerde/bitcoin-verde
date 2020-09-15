@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.test.fake;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import org.junit.Assert;
@@ -63,5 +64,10 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
     @Override
     public AsertReferenceBlock getAsertReferenceBlock() {
         return _asertReferenceBlock;
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator() {
+        return new DifficultyCalculator(this);
     }
 }

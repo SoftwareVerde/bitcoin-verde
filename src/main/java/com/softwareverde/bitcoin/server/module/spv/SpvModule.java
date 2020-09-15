@@ -2,7 +2,11 @@ package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
+import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
@@ -674,7 +678,20 @@ public class SpvModule {
         }
 
         { // Initialize BlockHeaderDownloader...
-            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
+            final Boolean isTestNet = false; // TODO
+
+            final DifficultyCalculatorFactory difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                @Override
+                public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                    if (isTestNet) {
+                        return new TestNetDifficultyCalculator(context);
+                    }
+
+                    return new DifficultyCalculator(context);
+                }
+            };
+
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMaxHeaderBatchSize(100);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());

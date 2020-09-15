@@ -2,6 +2,9 @@ package com.softwareverde.bitcoin.context.core;
 
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
@@ -22,15 +25,17 @@ public class BlockProcessorContext implements BlockProcessor.Context {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final VolatileNetworkTime _networkTime;
     protected final SynchronizationStatus _synchronizationStatus;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
-    public BlockProcessorContext(final BlockInflaters blockInflaters, final TransactionInflaters transactionInflaters, final BlockStore blockStore, final FullNodeDatabaseManagerFactory databaseManagerFactory, final VolatileNetworkTime networkTime, final SynchronizationStatus synchronizationStatus, final TransactionValidatorFactory transactionValidatorFactory) {
+    public BlockProcessorContext(final BlockInflaters blockInflaters, final TransactionInflaters transactionInflaters, final BlockStore blockStore, final FullNodeDatabaseManagerFactory databaseManagerFactory, final VolatileNetworkTime networkTime, final SynchronizationStatus synchronizationStatus, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory) {
         _blockInflaters = blockInflaters;
         _transactionInflaters = transactionInflaters;
         _blockStore = blockStore;
         _databaseManagerFactory = databaseManagerFactory;
         _networkTime = networkTime;
         _synchronizationStatus = synchronizationStatus;
+        _difficultyCalculatorFactory = difficultyCalculatorFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
     }
 
@@ -77,5 +82,10 @@ public class BlockProcessorContext implements BlockProcessor.Context {
     @Override
     public TransactionDeflater getTransactionDeflater() {
         return _transactionInflaters.getTransactionDeflater();
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+        return _difficultyCalculatorFactory.newDifficultyCalculator(context);
     }
 }

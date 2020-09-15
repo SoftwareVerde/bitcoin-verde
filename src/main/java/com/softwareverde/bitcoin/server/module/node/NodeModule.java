@@ -3,9 +3,13 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
+import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
@@ -154,6 +158,7 @@ public class NodeModule {
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final MutableMedianBlockTime _medianBlockTime;
 
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
@@ -526,6 +531,20 @@ public class NodeModule {
             _nodeInitializer = new NodeInitializer(nodeInitializerContext);
         }
 
+        { // Initialize DifficultyCalculatorFactory...
+            final Boolean isTestNet = bitcoinProperties.isTestNet();
+            _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                @Override
+                public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                    if (isTestNet) {
+                        return new TestNetDifficultyCalculator(context);
+                    }
+
+                    return new DifficultyCalculator(context);
+                }
+            };
+        }
+
         { // Initialize NodeManager...
             final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
@@ -562,7 +581,7 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, transactionValidatorFactory);
+            final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory);
             blockProcessor = new BlockProcessor(blockProcessorContext);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
@@ -571,7 +590,7 @@ public class NodeModule {
 
         final BlockDownloadRequester blockDownloadRequester;
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
-            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _mainThreadPool);
+            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _mainThreadPool);
             _blockDownloader = new BlockDownloader(blockDownloaderContext);
             blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockDownloaderContext, blockDownloadRequester);
@@ -814,7 +833,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
                 final TransactionInflaters transactionInflaters = _masterInflater;
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(transactionInflaters, databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(transactionInflaters, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);

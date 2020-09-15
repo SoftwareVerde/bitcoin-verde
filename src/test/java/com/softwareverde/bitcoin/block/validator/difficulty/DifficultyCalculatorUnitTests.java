@@ -232,6 +232,11 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
 
         final DifficultyCalculatorContext difficultyCalculatorContext = new DifficultyCalculatorContext() {
             @Override
+            public DifficultyCalculator newDifficultyCalculator() {
+                return new DifficultyCalculator(this);
+            }
+
+            @Override
             public AsertReferenceBlock getAsertReferenceBlock() {
                 return null;
             }
