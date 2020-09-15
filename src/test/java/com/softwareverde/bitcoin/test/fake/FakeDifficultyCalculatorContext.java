@@ -6,14 +6,18 @@ import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import org.junit.Assert;
 
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class FakeDifficultyCalculatorContext implements DifficultyCalculatorContext {
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
     protected final HashMap<Long, MedianBlockTime> _medianBlockTimes = new HashMap<Long, MedianBlockTime>();
+    protected final HashSet<BlockHeader> _requestedBlocks = new HashSet<BlockHeader>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
 
@@ -30,7 +34,10 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
         if (! _blockHeaders.containsKey(blockHeight)) {
             Assert.fail("Requesting unregistered BlockHeader for blockHeight: " + blockHeight);
         }
-        return _blockHeaders.get(blockHeight);
+
+        final BlockHeader blockHeader = _blockHeaders.get(blockHeight);
+        _requestedBlocks.add(blockHeader);
+        return blockHeader;
     }
 
     @Override
@@ -49,6 +56,17 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
         return _medianBlockTimes.get(blockHeight);
     }
 
+    @Override
+    public AsertReferenceBlock getAsertReferenceBlock() {
+        return _asertReferenceBlock;
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator() {
+        return new DifficultyCalculator(this);
+    }
+
+
     public HashMap<Long, BlockHeader> getBlockHeaders() {
         return _blockHeaders;
     }
@@ -61,13 +79,13 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
         return _medianBlockTimes;
     }
 
-    @Override
-    public AsertReferenceBlock getAsertReferenceBlock() {
-        return _asertReferenceBlock;
-    }
-
-    @Override
-    public DifficultyCalculator newDifficultyCalculator() {
-        return new DifficultyCalculator(this);
+    public List<BlockHeader> getUnusedBlocks() {
+        final MutableList<BlockHeader> unusedBlocks = new MutableList<BlockHeader>();
+        for (final BlockHeader blockHeader : _blockHeaders.values()) {
+            if (! _requestedBlocks.contains(blockHeader)) {
+                unusedBlocks.add(blockHeader);
+            }
+        }
+        return unusedBlocks;
     }
 }
