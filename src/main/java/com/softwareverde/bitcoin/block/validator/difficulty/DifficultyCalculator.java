@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.Buip55;
-import com.softwareverde.bitcoin.bip.HF20171113;
-import com.softwareverde.bitcoin.bip.HF20201115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
@@ -204,15 +202,18 @@ public class DifficultyCalculator {
     }
 
     public Difficulty calculateRequiredDifficulty(final Long blockHeight) {
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+
         final Boolean isFirstBlock = (Util.areEqual(0L, blockHeight));
         if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
         final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
-        if (HF20201115.isEnabled(medianBlockTime)) {
+
+        if (upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianBlockTime)) {
             return _calculateAserti32dBitcoinCashTarget(blockHeight);
         }
 
-        if (HF20171113.isEnabled(blockHeight)) {
+        if (upgradeSchedule.isCw144DifficultyAdjustmentAlgorithmEnabled(blockHeight)) {
             return _calculateCw144BitcoinCashTarget(blockHeight);
         }
 
@@ -221,7 +222,7 @@ public class DifficultyCalculator {
             return _calculateNewBitcoinCoreTarget(blockHeight);
         }
 
-        if (Buip55.isEnabled(blockHeight)) {
+        if (upgradeSchedule.isEmergencyDifficultyAdjustmentAlgorithmEnabled(blockHeight)) {
             return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockHeight);
         }
 

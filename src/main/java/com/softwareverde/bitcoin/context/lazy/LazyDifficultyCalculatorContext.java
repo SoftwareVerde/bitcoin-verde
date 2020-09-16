@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.lazy;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
@@ -15,15 +16,17 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
 public class LazyDifficultyCalculatorContext implements DifficultyCalculatorContext {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
 
-    public LazyDifficultyCalculatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager) {
+    public LazyDifficultyCalculatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
         _blockchainSegmentId = blockchainSegmentId;
         _databaseManager = databaseManager;
 
-        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
+        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager, _upgradeSchedule);
         _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
     }
 
@@ -81,5 +84,10 @@ public class LazyDifficultyCalculatorContext implements DifficultyCalculatorCont
             Logger.debug(exception);
             return null;
         }
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.util.Util;
 
-public class Buip55 {
+class Buip55 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 478559L;
 
     // Bitcoin Cash: UAHF - https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md

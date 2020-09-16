@@ -1,26 +1,26 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
-public class MutableTransactionContext implements TransactionContext, Const {
-    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent) {
-        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE);
+public class MutableTransactionContext implements TransactionContext {
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final UpgradeSchedule upgradeSchedule) {
+        return MutableTransactionContext.getContextForVerification(signedTransaction, transactionInputIndex, transactionOutputBeingSpent, MedianBlockTime.MAX_VALUE, upgradeSchedule);
     }
 
-    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime) {
+    public static MutableTransactionContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         final TransactionInput signedTransactionInput = signedTransactionInputs.get(transactionInputIndex);
 
-        final MutableTransactionContext mutableContext = new MutableTransactionContext();
+        final MutableTransactionContext mutableContext = new MutableTransactionContext(upgradeSchedule);
         mutableContext.setCurrentScript(null);
         mutableContext.setTransactionInputIndex(transactionInputIndex);
         mutableContext.setTransactionInput(signedTransactionInput);
@@ -31,6 +31,8 @@ public class MutableTransactionContext implements TransactionContext, Const {
         mutableContext.setCurrentScriptLastCodeSeparatorIndex(0);
         return mutableContext;
     }
+
+    protected final UpgradeSchedule _upgradeSchedule;
 
     protected Long _blockHeight;
     protected MedianBlockTime _medianBlockTime;
@@ -45,9 +47,12 @@ public class MutableTransactionContext implements TransactionContext, Const {
     protected Integer _scriptLastCodeSeparatorIndex = 0;
     protected Integer _signatureOperationCount = 0;
 
-    public MutableTransactionContext() { }
+    public MutableTransactionContext(final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
+    }
 
     public MutableTransactionContext(final TransactionContext transactionContext) {
+        _upgradeSchedule = transactionContext.getUpgradeSchedule();
         _blockHeight = transactionContext.getBlockHeight();
         _medianBlockTime = transactionContext.getMedianBlockTime();
         _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
@@ -154,6 +159,11 @@ public class MutableTransactionContext implements TransactionContext, Const {
     @Override
     public Integer getSignatureOperationCount() {
         return _signatureOperationCount;
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 
     @Override

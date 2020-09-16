@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.HF20191115;
-import com.softwareverde.bitcoin.bip.HF20200515;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
@@ -37,6 +36,8 @@ public class StringOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
+        final UpgradeSchedule upgradeSchedule = context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
 
         if (! _opcode.isEnabled()) {
             Logger.debug("Opcode is disabled: " + _opcode);
@@ -140,8 +141,7 @@ public class StringOperation extends SubTypedOperation {
                 final Value byteCountValue = stack.pop();
                 final Value value = stack.pop();
 
-                final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
-                if (HF20191115.isEnabled(medianBlockTime)) {
+                if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
                     if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
                 }
 
@@ -191,8 +191,7 @@ public class StringOperation extends SubTypedOperation {
             }
 
             case REVERSE_BYTES: {
-                final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
-                if (! HF20200515.isEnabled(medianBlockTime)) { return false; }
+                if (! upgradeSchedule.isReverseBytesOperationEnabled(medianBlockTime)) { return false; }
 
                 final Value value = stack.pop();
                 final Value reversedValue = Value.fromBytes(ByteUtil.reverseEndian(value));

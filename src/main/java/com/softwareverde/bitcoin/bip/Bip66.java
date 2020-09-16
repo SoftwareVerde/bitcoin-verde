@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.util.Util;
 
-public class Bip66 {
+class Bip66 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 363725L; // Block: 00000000000000000379EAA19DCE8C9B722D46AE6A57C2F1A988119488B50931
 
     // Strict DER signatures -- https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki

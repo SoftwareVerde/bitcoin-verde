@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
-public class HF20200515 {
+class HF20200515 {
     public static final Long ACTIVATION_BLOCK_TIME = 1589544000L;
     public static final Long ACTIVATION_BLOCK_HEIGHT = 635257L;
 

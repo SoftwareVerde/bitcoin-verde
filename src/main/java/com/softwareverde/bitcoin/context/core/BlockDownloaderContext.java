@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.core;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
@@ -17,8 +18,8 @@ public class BlockDownloaderContext extends BlockHeaderDownloaderContext impleme
     protected final PendingBlockStore _pendingBlockStore;
     protected final SynchronizationStatus _synchronizationStatus;
 
-    public BlockDownloaderContext(final BitcoinNodeManager nodeManager, final BlockInflaters blockInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final VolatileNetworkTime networkTime, final PendingBlockStore pendingBlockStore, final SynchronizationStatus synchronizationStatus, final SystemTime systemTime, final ThreadPool threadPool) {
-        super(nodeManager, databaseManagerFactory, networkTime, systemTime, threadPool);
+    public BlockDownloaderContext(final BitcoinNodeManager nodeManager, final BlockInflaters blockInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final VolatileNetworkTime networkTime, final PendingBlockStore pendingBlockStore, final SynchronizationStatus synchronizationStatus, final SystemTime systemTime, final ThreadPool threadPool, final UpgradeSchedule upgradeSchedule) {
+        super(nodeManager, databaseManagerFactory, networkTime, systemTime, threadPool, upgradeSchedule);
 
         _blockInflaters = blockInflaters;
         _pendingBlockStore = pendingBlockStore;

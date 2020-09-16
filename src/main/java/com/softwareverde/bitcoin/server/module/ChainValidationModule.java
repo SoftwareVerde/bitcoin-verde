@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -183,9 +185,10 @@ public class ChainValidationModule {
                         }
                     };
 
+                    final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
                     final TransactionInflaters transactionInflaters = masterInflater;
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, transactionValidatorFactory, databaseManager, networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, transactionValidatorFactory, databaseManager, networkTime, upgradeSchedule);
                     blockValidator = new BlockValidator(blockValidatorContext);
                     blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
                     blockValidator.setShouldLogValidBlocks(true);

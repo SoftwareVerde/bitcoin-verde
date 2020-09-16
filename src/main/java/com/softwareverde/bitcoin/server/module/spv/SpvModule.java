@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -358,6 +360,8 @@ public class SpvModule {
             maxQueryBatchSize = database.getMaxQueryBatchSize();
         }
 
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(final Thread thread, final Throwable throwable) {
@@ -697,7 +701,7 @@ public class SpvModule {
         }
 
         { // Initialize BlockHeaderDownloader...
-            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _mutableNetworkTime, _systemTime, _mainThreadPool, upgradeSchedule);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }

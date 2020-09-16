@@ -1,3 +1,3 @@
 package com.softwareverde.bitcoin.context;
 
-public interface DifficultyCalculatorContext extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, AsertReferenceBlockContext { }
+public interface DifficultyCalculatorContext extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, UpgradeScheduleContext, AsertReferenceBlockContext { }

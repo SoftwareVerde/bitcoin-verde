@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -10,20 +11,22 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
 
 public class ImmutableTransactionContext implements TransactionContext, Const {
-    protected Long _blockHeight;
-    protected MedianBlockTime _medianBlockTime;
-    protected Transaction _transaction;
+    protected final UpgradeSchedule _upgradeSchedule;
+    protected final Long _blockHeight;
+    protected final MedianBlockTime _medianBlockTime;
+    protected final Transaction _transaction;
 
-    protected Integer _transactionInputIndex;
-    protected TransactionInput _transactionInput;
-    protected TransactionOutput _transactionOutput;
+    protected final Integer _transactionInputIndex;
+    protected final TransactionInput _transactionInput;
+    protected final TransactionOutput _transactionOutput;
 
-    protected Script _currentScript;
-    protected Integer _currentScriptIndex;
-    protected Integer _scriptLastCodeSeparatorIndex;
-    protected Integer _signatureOperationCount;
+    protected final Script _currentScript;
+    protected final Integer _currentScriptIndex;
+    protected final Integer _scriptLastCodeSeparatorIndex;
+    protected final Integer _signatureOperationCount;
 
     public ImmutableTransactionContext(final TransactionContext transactionContext) {
+        _upgradeSchedule = transactionContext.getUpgradeSchedule();
         _blockHeight = transactionContext.getBlockHeight();
         _medianBlockTime = ConstUtil.asConstOrNull(transactionContext.getMedianBlockTime());
         _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
@@ -87,6 +90,11 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     @Override
     public Integer getSignatureOperationCount() {
         return _signatureOperationCount;
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 
     @Override

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.util.Util;
 
-public class Bip34 {
+class Bip34 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 227835L;
 
     // Block v2. Height in Coinbase

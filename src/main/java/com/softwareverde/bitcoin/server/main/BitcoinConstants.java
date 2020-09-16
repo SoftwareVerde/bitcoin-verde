@@ -16,7 +16,6 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static Boolean FAIL_ON_BAD_SIGNATURE;
     protected static Boolean REQUIRE_BITCOIN_CASH_FORK_ID;
     protected static Boolean REQUIRE_MINIMAL_ENCODED_VALUES;
 
@@ -39,7 +38,6 @@ public class BitcoinConstants {
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
 
-        FAIL_ON_BAD_SIGNATURE = true;
         REQUIRE_BITCOIN_CASH_FORK_ID = true;
         REQUIRE_MINIMAL_ENCODED_VALUES = true;
 
@@ -142,11 +140,6 @@ public class BitcoinConstants {
         }
 
         COINBASE_MESSAGE = coinbaseMessage;
-    }
-
-    // Aka the "NULLFAIL" flag.
-    public static Boolean immediatelyFailOnNonEmptyInvalidSignatures() {
-        return FAIL_ON_BAD_SIGNATURE;
     }
 
     // Aka the "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID" flags.
