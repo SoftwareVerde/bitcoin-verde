@@ -115,9 +115,6 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     protected final QueuedInputs _queuedInputs = new QueuedInputs();
     protected final QueuedOutputs _queuedOutputs = new QueuedOutputs();
 
-    // protected final ConcurrentHashMap<Sha256Hash, TransactionId> _cachedTransactionIds = new ConcurrentHashMap<Sha256Hash, TransactionId>();
-    // protected final ConcurrentHashMap<TransactionId, Transaction> _cachedTransactions = new ConcurrentHashMap<TransactionId, Transaction>();
-
     protected Double _storeAddressMs = 0D;
     protected Double _getUnprocessedTransactionsMs = 0D;
     protected Double _dequeueTransactionsForProcessingMs = 0D;
@@ -127,16 +124,12 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     protected Double _indexTransactionInputMs = 0D;
 
     protected TransactionId _getTransactionId(final Sha256Hash transactionHash) throws ContextException {
-        // final TransactionId cachedTransactionId = _cachedTransactionIds.get(transactionHash);
-        // if (cachedTransactionId != null) { return cachedTransactionId; }
-
         try {
             final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-            // _cachedTransactionIds.put(transactionHash, transactionId);
             nanoTimer.stop();
             _getTransactionIdMs += nanoTimer.getMillisecondsElapsed();
             return transactionId;
@@ -147,16 +140,12 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     protected Transaction _getTransaction(final TransactionId transactionId) throws ContextException {
-        // final Transaction cachedTransaction = _cachedTransactions.get(transactionId);
-        // if (cachedTransaction != null) { return cachedTransaction; }
-
         try {
             final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-            // _cachedTransactions.put(transactionId, transaction);
             nanoTimer.stop();
             _getTransactionMs += nanoTimer.getMillisecondsElapsed();
             return transaction;

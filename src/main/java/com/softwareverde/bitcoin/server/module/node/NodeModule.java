@@ -266,7 +266,7 @@ public class NodeModule {
         }
 
         if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
-            Logger.info("[Stopping Addresses Processor]");
+            Logger.info("[Stopping Blockchain Indexer]");
             _blockchainIndexer.stop();
         }
 
@@ -1088,7 +1088,7 @@ public class NodeModule {
         _transactionRelay.start();
 
         if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
-            Logger.info("[Starting Address Processor]");
+            Logger.info("[Starting Blockchain Indexer]");
             _blockchainIndexer.start();
         }
 

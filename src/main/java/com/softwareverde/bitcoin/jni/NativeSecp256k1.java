@@ -76,7 +76,7 @@ public class NativeSecp256k1 {
             contextRef = secp256k1_init_context();
         }
         catch (final Throwable exception) {
-            Logger.warn("NOTICE: libsecp256k1 failed to load.", exception);
+            Logger.debug("NOTICE: libsecp256k1 failed to load.", exception);
             isEnabled = false;
         }
         _libraryLoadedCorrectly = isEnabled;

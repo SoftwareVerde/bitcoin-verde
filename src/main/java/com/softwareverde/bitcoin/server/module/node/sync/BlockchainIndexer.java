@@ -277,12 +277,12 @@ public class BlockchainIndexer extends SleepyService {
 
     @Override
     protected void _onStart() {
-        Logger.trace("AddressProcessor Starting.");
+        Logger.trace("BlockchainIndexer Starting.");
     }
 
     @Override
     protected Boolean _run() {
-        Logger.trace("AddressProcessor Running.");
+        Logger.trace("BlockchainIndexer Running.");
 
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final MilliTimer processTimer = new MilliTimer();
@@ -292,13 +292,16 @@ public class BlockchainIndexer extends SleepyService {
             processTimer.start();
             context.startDatabaseTransaction();
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(BATCH_SIZE);
-            if (queuedTransactionIds.isEmpty()) { return false; }
+            if (queuedTransactionIds.isEmpty()) {
+                Logger.trace("BlockchainIndexer has nothing to do.");
+                return false;
+            }
 
             for (final TransactionId transactionId : queuedTransactionIds) {
                 final Transaction transaction = context.getTransaction(transactionId);
                 if (transaction == null) {
                     Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
-                    return false;
+                    continue;
                 }
 
                 final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(context, transactionId, transaction);
@@ -325,13 +328,13 @@ public class BlockchainIndexer extends SleepyService {
             return false;
         }
 
-        Logger.trace("AddressProcessor Stopping.");
+        Logger.trace("BlockchainIndexer Stopping.");
         return true;
     }
 
     @Override
     protected void _onSleep() {
-        Logger.trace("AddressProcessor Sleeping.");
+        Logger.trace("BlockchainIndexer Sleeping.");
         final Runnable onSleepCallback = _onSleepCallback;
         if (onSleepCallback != null) {
             onSleepCallback.run();
