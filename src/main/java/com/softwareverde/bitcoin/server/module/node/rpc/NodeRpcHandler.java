@@ -1096,17 +1096,17 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final List<Address> addressFilter;
         {
             final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-            final Json addressFilterJson = parameters.get("addressFilter");
-            final int itemCount = addressFilterJson.length();
-            final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<Address>(itemCount);
-            for (int i = 0; i < itemCount; ++i) {
-                final String addressString = addressFilterJson.getString(i);
-                final Address address = addressInflater.fromBase58Check(addressString);
-                if (address != null) {
-                    listBuilder.add(address);
+            final Json addressFilterJson = parameters.getOrNull("addressFilter", Json.Types.JSON);
+            if ( (addressFilterJson != null) && addressFilterJson.isArray() ) {
+                final int itemCount = addressFilterJson.length();
+                final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<Address>(itemCount);
+                for (int i = 0; i < itemCount; ++i) {
+                    final String addressString = addressFilterJson.getString(i);
+                    final Address address = addressInflater.fromBase58Check(addressString);
+                    if (address != null) {
+                        listBuilder.add(address);
+                    }
                 }
-            }
-            if (listBuilder.getCount() > 0) {
                 addressFilter = listBuilder.build();
             }
             else {
