@@ -413,7 +413,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT transaction_id FROM transaction_output_processor_queue LIMIT " + batchSize));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT transaction_id FROM transaction_output_processor_queue ORDER BY id ASC LIMIT " + batchSize));
 
         final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
         for (final Row row : rows) {

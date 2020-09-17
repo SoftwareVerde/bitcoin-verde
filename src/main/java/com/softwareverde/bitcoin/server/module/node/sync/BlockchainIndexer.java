@@ -384,6 +384,8 @@ public class BlockchainIndexer extends SleepyService {
 
             final MutableList<TransactionId> processedTransactionIds = new MutableList<TransactionId>(transactions.getCount());
             for (final Transaction transaction : transactions) {
+                if (Transaction.isSlpTransaction(transaction)) { continue; } // SLP Transactions must be validated in-order due to their recursive nature.
+
                 final TransactionId transactionId = _indexTransaction(null, transaction, context);
                 if (transactionId == null) { continue; }
 
