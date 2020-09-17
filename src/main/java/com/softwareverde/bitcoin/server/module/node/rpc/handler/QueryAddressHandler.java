@@ -74,9 +74,11 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
                         transactionTimestamps.put(transactionTimestamp, transactions);
                     }
 
-                    transactions.add(transaction);
+                    if (transaction != null) {
+                        transactions.add(transaction);
+                    }
                 }
-                else {
+                else if (transaction != null) {
                     pendingTransactions.add(transaction);
                 }
             }

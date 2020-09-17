@@ -822,6 +822,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             final MetadataHandler metadataHandler = _metadataHandler;
             for (final Transaction transaction : addressTransactions) {
+                if (transaction == null) { continue; }
+
                 final Json transactionJson = transaction.toJson();
 
                 if (metadataHandler != null) {
