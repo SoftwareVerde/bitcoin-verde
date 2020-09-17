@@ -34,7 +34,6 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
 
     protected final MasterInflater _masterInflater;
-
     protected final JsonSocket _jsonSocket;
     protected final Object _newMessageNotifier = new Object();
 
@@ -48,6 +47,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     };
 
     protected Boolean _isUpgradedToHook = false;
+    protected Boolean _announcementHookExpectsRawTransactionData = null;
 
     protected Json _executeJsonRequest(final Json rpcRequestJson) {
         if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to a hook-upgraded socket."); }
@@ -441,7 +441,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return this.upgradeToAnnouncementHook(announcementHookCallback, null);
     }
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
-        if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
+        if (announcementHookCallback == null) { throw new NullPointerException("Attempted to create AnnouncementHook without a callback."); }
 
         final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true, addressesFilter);
 
@@ -471,7 +471,18 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         });
 
         _isUpgradedToHook = true;
+        _announcementHookExpectsRawTransactionData = false;
 
+        return true;
+    }
+
+    public Boolean replaceAnnouncementHookAddressFilter(final List<Address> addressesFilter) {
+        if (! _isUpgradedToHook) { return false; }
+
+        final boolean returnRawData = _announcementHookExpectsRawTransactionData;
+        final Json rpcRequestJson = _createRegisterHookRpcJson(returnRawData, true, addressesFilter);
+        rpcRequestJson.put("query", "UPDATE_HOOK");
+        _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
         return true;
     }
 
@@ -539,6 +550,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         });
 
         _isUpgradedToHook = true;
+        _announcementHookExpectsRawTransactionData = true;
 
         return true;
     }

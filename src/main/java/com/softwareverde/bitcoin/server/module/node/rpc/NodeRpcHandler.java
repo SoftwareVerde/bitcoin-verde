@@ -1129,6 +1129,27 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         return true;
     }
 
+    /**
+     * Replaces any existing HookListeners associated with the connection with the new HookListener configuration.
+     */
+    protected Boolean _updateHook(final Json parameters, final Json response, final JsonSocket connection) {
+        synchronized (_eventHooks) {
+            // Uninstall the original HookListener...
+            for (final MutableList<HookListener> hookListeners : _eventHooks.values()) {
+                final Iterator<HookListener> mutableIterator = hookListeners.mutableIterator();
+                while (mutableIterator.hasNext()) {
+                    final HookListener hookListener = mutableIterator.next();
+                    if (hookListener.socket == connection) {
+                        mutableIterator.remove();
+                    }
+                }
+            }
+        }
+
+        // Install the new HookListener...
+        return _addHook(parameters, response, connection);
+    }
+
     // Requires POST: <transaction>
     protected void _receiveTransaction(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
@@ -1602,7 +1623,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             }
                         }
 
-
                         final ProtocolMessage protocolMessage;
                         if (hookListener.rawFormat) {
                             protocolMessage = (hookListener.includeTransactionFees ? lazyRawProtocolMessageWithFee.getProtocolMessage() : lazyRawProtocolMessage.getProtocolMessage());
@@ -1754,6 +1774,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "ADD_HOOK": {
                                 final Boolean keepSocketOpen = _addHook(parameters, response, socketConnection);
+                                closeConnection = (! keepSocketOpen);
+                            } break;
+
+                            case "UPDATE_HOOK": {
+                                final Boolean keepSocketOpen = _updateHook(parameters, response, socketConnection);
                                 closeConnection = (! keepSocketOpen);
                             } break;
 
