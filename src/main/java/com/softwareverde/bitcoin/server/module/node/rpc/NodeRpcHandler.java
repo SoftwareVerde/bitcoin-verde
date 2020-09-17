@@ -1822,7 +1822,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                 socketConnection.write(new JsonProtocolMessage(response));
 
-                if (closeConnection) {
+                if (closeConnection) { // TODO: Allow for keeping the connection alive...
                     socketConnection.close();
                 }
             }

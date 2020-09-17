@@ -761,7 +761,10 @@ public class NodeModule {
             _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
                 @Override
                 public void onNewTransactions(final List<Transaction> transactions) {
-                    _blockchainIndexer.wakeUp();
+                    if (indexModeIsEnabled) { // Bypass the queue in order to more quickly serve indexed data on new Transactions.
+                        _blockchainIndexer.indexTransactions(transactions);
+                        _blockchainIndexer.wakeUp();
+                    }
 
                     for (final Transaction transaction : transactions) {
                         final Sha256Hash transactionHash = transaction.getHash();

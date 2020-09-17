@@ -275,6 +275,46 @@ public class BlockchainIndexer extends SleepyService {
         _context = context;
     }
 
+    protected TransactionId _indexTransaction(final TransactionId nullableTransactionId, final Transaction nullableTransaction, final AtomicTransactionOutputIndexerContext context) throws ContextException {
+        final TransactionId transactionId;
+        final Transaction transaction;
+        {
+            if (nullableTransaction != null) {
+                transaction = nullableTransaction;
+
+                if (nullableTransactionId != null) {
+                    transactionId = nullableTransactionId;
+                }
+                else {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    transactionId = context.getTransactionId(transactionHash);
+                }
+            }
+            else if (nullableTransactionId != null) {
+                transactionId = nullableTransactionId;
+                transaction = context.getTransaction(transactionId);
+            }
+            else { return null; }
+        }
+
+        if (transaction == null) {
+            Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
+            return null;
+        }
+
+        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(context, transactionId, transaction);
+        for (final OutputIndexData indexData : outputIndexData.values()) {
+            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
+        }
+
+        final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);
+        for (final InputIndexData inputIndexData : inputIndexDataList) {
+            context.indexTransactionInput(inputIndexData.transactionId, inputIndexData.inputIndex, inputIndexData.addressId);
+        }
+
+        return transactionId;
+    }
+
     @Override
     protected void _onStart() {
         Logger.trace("BlockchainIndexer Starting.");
@@ -287,8 +327,6 @@ public class BlockchainIndexer extends SleepyService {
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final MilliTimer processTimer = new MilliTimer();
 
-            int inputCount = 0;
-            int outputCount = 0;
             processTimer.start();
             context.startDatabaseTransaction();
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(BATCH_SIZE);
@@ -298,30 +336,14 @@ public class BlockchainIndexer extends SleepyService {
             }
 
             for (final TransactionId transactionId : queuedTransactionIds) {
-                final Transaction transaction = context.getTransaction(transactionId);
-                if (transaction == null) {
-                    Logger.debug("Unable to inflate Transaction for address processing: " + transactionId);
-                    continue;
-                }
-
-                final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(context, transactionId, transaction);
-                for (final OutputIndexData indexData : outputIndexData.values()) {
-                    context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
-                    outputCount += 1;
-                }
-
-                final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);
-                for (final InputIndexData inputIndexData : inputIndexDataList) {
-                    context.indexTransactionInput(inputIndexData.transactionId, inputIndexData.inputIndex, inputIndexData.addressId);
-                    inputCount += 1;
-                }
+                _indexTransaction(transactionId, null, context);
             }
 
             context.dequeueTransactionsForProcessing(queuedTransactionIds);
             context.commitDatabaseTransaction();
             processTimer.stop();
 
-            Logger.info("Indexed " + inputCount + " Inputs, " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
+            // Logger.info("Indexed " + inputCount + " Inputs, " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -343,5 +365,39 @@ public class BlockchainIndexer extends SleepyService {
 
     public void setOnSleepCallback(final Runnable onSleepCallback) {
         _onSleepCallback = onSleepCallback;
+    }
+
+    public Boolean indexTransaction(final TransactionId transactionId) {
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            final Object indexResult = _indexTransaction(transactionId, null, context);
+            return (indexResult != null);
+        }
+        catch (final ContextException contextException) {
+            Logger.debug(contextException);
+            return false;
+        }
+    }
+
+    public Boolean indexTransactions(final List<Transaction> transactions) {
+        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+            context.startDatabaseTransaction();
+
+            final MutableList<TransactionId> processedTransactionIds = new MutableList<TransactionId>(transactions.getCount());
+            for (final Transaction transaction : transactions) {
+                final TransactionId transactionId = _indexTransaction(null, transaction, context);
+                if (transactionId == null) { continue; }
+
+                processedTransactionIds.add(transactionId);
+            }
+
+            context.dequeueTransactionsForProcessing(processedTransactionIds);
+            context.commitDatabaseTransaction();
+
+            return (processedTransactionIds.getCount() > 0);
+        }
+        catch (final ContextException contextException) {
+            Logger.debug(contextException);
+            return false;
+        }
     }
 }
