@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.header.AbstractBlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -20,8 +21,11 @@ import com.softwareverde.util.Util;
 
 public class MutableBlock extends AbstractBlockHeader implements Block {
     protected static final BlockDeflater DEFAULT_BLOCK_DEFLATER = new BlockDeflater();
+    protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
     protected final BlockDeflater _blockDeflater;
+    protected final AddressInflater _addressInflater;
+
     protected final MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<Transaction>();
     protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
 
@@ -44,19 +48,22 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         _cachedByteCount = byteCount;
     }
 
-    protected MutableBlock(final BlockHasher blockHasher, final BlockDeflater blockDeflater) {
+    protected MutableBlock(final BlockHasher blockHasher, final BlockDeflater blockDeflater, final AddressInflater addressInflater) {
         super(blockHasher);
         _blockDeflater = blockDeflater;
+        _addressInflater = addressInflater;
     }
 
     public MutableBlock() {
         _blockDeflater = DEFAULT_BLOCK_DEFLATER;
+        _addressInflater = DEFAULT_ADDRESS_INFLATER;
         _merkleRoot = null;
     }
 
     public MutableBlock(final BlockHeader blockHeader) {
         super(blockHeader);
         _blockDeflater = DEFAULT_BLOCK_DEFLATER;
+        _addressInflater = DEFAULT_ADDRESS_INFLATER;
         _merkleRoot = null;
     }
 
@@ -67,6 +74,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
     public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
         _blockDeflater = DEFAULT_BLOCK_DEFLATER;
+        _addressInflater = DEFAULT_ADDRESS_INFLATER;
 
         if (transactions != null) {
             for (final Transaction transaction : transactions) {
@@ -237,7 +245,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
 
     @Override
     public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _addressInflater);
         return _merkleTree.getPartialTree(transactionBloomFilterMatcher);
     }
 

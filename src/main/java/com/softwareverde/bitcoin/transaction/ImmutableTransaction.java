@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -17,8 +18,11 @@ import com.softwareverde.util.Util;
 
 public class ImmutableTransaction implements ConstTransaction {
     protected static final TransactionDeflater DEFAULT_TRANSACTION_DEFLATER = new TransactionDeflater();
+    protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
     protected final TransactionDeflater _transactionDeflater;
+    protected final AddressInflater _addressInflater;
+
     protected final ImmutableSha256Hash _hash;
     protected final Long _version;
     protected final List<ImmutableTransactionInput> _transactionInputs;
@@ -32,8 +36,9 @@ public class ImmutableTransaction implements ConstTransaction {
         return _transactionDeflater.getByteCount(this);
     }
 
-    protected ImmutableTransaction(final TransactionDeflater transactionDeflater, final Transaction transaction) {
+    protected ImmutableTransaction(final TransactionDeflater transactionDeflater, final AddressInflater addressInflater, final Transaction transaction) {
         _transactionDeflater = transactionDeflater;
+        _addressInflater = addressInflater;
 
         final Sha256Hash hash = transaction.getHash();
         _hash = hash.asConst();
@@ -45,7 +50,7 @@ public class ImmutableTransaction implements ConstTransaction {
     }
 
     public ImmutableTransaction(final Transaction transaction) {
-        this(DEFAULT_TRANSACTION_DEFLATER, transaction);
+        this(DEFAULT_TRANSACTION_DEFLATER, DEFAULT_ADDRESS_INFLATER, transaction);
     }
 
     @Override
@@ -82,7 +87,7 @@ public class ImmutableTransaction implements ConstTransaction {
 
     @Override
     public Boolean matches(final BloomFilter bloomFilter) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _addressInflater);
         return transactionBloomFilterMatcher.shouldInclude(this);
     }
 

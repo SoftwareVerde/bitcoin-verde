@@ -1,9 +1,12 @@
 package com.softwareverde.bitcoin.server.module.spv;
 
+import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
@@ -95,6 +98,8 @@ public class SpvModule {
 
     protected final SeedNodeProperties[] _seedNodes;
     protected final Environment _environment;
+
+    protected final MasterInflater _masterInflater;
 
     protected final Wallet _wallet;
 
@@ -307,6 +312,7 @@ public class SpvModule {
     }
 
     public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Wallet wallet) {
+        _masterInflater = new CoreInflater();
         _seedNodes = seedNodes;
         _wallet = wallet;
         final Integer maxPeerCount = seedNodes.length; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
@@ -401,7 +407,8 @@ public class SpvModule {
             @Override
             public void newMerkleBlockDownloaded(final MerkleBlock merkleBlock, final List<Transaction> transactions) {
                 final BloomFilter walletBloomFilter = _wallet.getBloomFilter();
-                final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter);
+                final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+                final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter, addressInflater);
 
                 try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                     final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -481,7 +488,8 @@ public class SpvModule {
                         Logger.debug("Received Transaction: " + transactionHash);
 
                         final BloomFilter walletBloomFilter = _wallet.getBloomFilter();
-                        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter);
+                        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+                        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter, addressInflater);
                         if (! transactionBloomFilterMatcher.shouldInclude(transaction)) {
                             Logger.debug("Skipping Transaction that does not match filter: " + transactionHash);
                             return;

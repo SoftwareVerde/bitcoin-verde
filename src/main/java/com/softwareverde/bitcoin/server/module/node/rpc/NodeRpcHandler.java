@@ -22,10 +22,13 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -47,6 +50,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback {
+    public static final Integer MAX_ADDRESS_FILTER_SIZE = 256;
+
     protected static final String ERROR_MESSAGE_KEY = "errorMessage";
     protected static final String WAS_SUCCESS_KEY = "wasSuccess";
 
@@ -181,11 +186,24 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         public final JsonSocket socket;
         public final Boolean rawFormat;
         public final Boolean includeTransactionFees;
+        public final BloomFilter addressFilter;
 
-        public HookListener(final JsonSocket socket, final Boolean rawFormat, final Boolean includeTransactionFees) {
+        public HookListener(final JsonSocket socket, final Boolean rawFormat, final Boolean includeTransactionFees, final List<Address> addressesFilter) {
             this.socket = socket;
             this.rawFormat = rawFormat;
             this.includeTransactionFees = includeTransactionFees;
+
+            if (addressesFilter != null) {
+                final Long itemCount = Math.min(MAX_ADDRESS_FILTER_SIZE, addressesFilter.getCount() * 2L);
+                final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(itemCount, 0.005D);
+                for (final Address address : addressesFilter) {
+                    bloomFilter.addItem(address);
+                }
+                this.addressFilter = bloomFilter;
+            }
+            else {
+                this.addressFilter = null;
+            }
         }
     }
 
@@ -1075,6 +1093,27 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Boolean shouldReturnRawData = parameters.getBoolean("rawFormat");
         final Boolean shouldIncludeTransactionFees = parameters.getBoolean("includeTransactionFees");
 
+        final List<Address> addressFilter;
+        {
+            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+            final Json addressFilterJson = parameters.get("addressFilter");
+            final int itemCount = addressFilterJson.length();
+            final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<Address>(itemCount);
+            for (int i = 0; i < itemCount; ++i) {
+                final String addressString = addressFilterJson.getString(i);
+                final Address address = addressInflater.fromBase58Check(addressString);
+                if (address != null) {
+                    listBuilder.add(address);
+                }
+            }
+            if (listBuilder.getCount() > 0) {
+                addressFilter = listBuilder.build();
+            }
+            else {
+                addressFilter = null;
+            }
+        }
+
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
                 if (! _eventHooks.containsKey(hookEvent)) {
@@ -1082,7 +1121,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 }
 
                 final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);
-                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees));
+                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees, addressFilter));
             }
         }
 
@@ -1555,6 +1594,14 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     while (iterator.hasNext()) {
                         final HookListener hookListener = iterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
+
+                        final BloomFilter addressFilter = hookListener.addressFilter;
+                        if (addressFilter != null) {
+                            if (! transaction.matches(addressFilter)) {
+                                continue;
+                            }
+                        }
+
 
                         final ProtocolMessage protocolMessage;
                         if (hookListener.rawFormat) {

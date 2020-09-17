@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -24,9 +25,12 @@ public class MutableTransaction implements Transaction {
 
     protected static final TransactionHasher DEFAULT_TRANSACTION_HASHER = new TransactionHasher();
     protected static final TransactionDeflater DEFAULT_TRANSACTION_DEFLATER = new TransactionDeflater();
+    protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
     protected final TransactionHasher _transactionHasher;
     protected final TransactionDeflater _transactionDeflater;
+    protected final AddressInflater _addressInflater;
+
     protected Long _version = Transaction.VERSION;
     protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
     protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();
@@ -50,19 +54,22 @@ public class MutableTransaction implements Transaction {
         _cachedByteCount = byteCount;
     }
 
-    protected MutableTransaction(final TransactionHasher transactionHasher, final TransactionDeflater transactionDeflater) {
+    protected MutableTransaction(final TransactionHasher transactionHasher, final TransactionDeflater transactionDeflater, final AddressInflater addressInflater) {
         _transactionHasher = transactionHasher;
         _transactionDeflater = transactionDeflater;
+        _addressInflater = addressInflater;
     }
 
     public MutableTransaction() {
         _transactionHasher = DEFAULT_TRANSACTION_HASHER;
         _transactionDeflater = DEFAULT_TRANSACTION_DEFLATER;
+        _addressInflater = DEFAULT_ADDRESS_INFLATER;
     }
 
     public MutableTransaction(final Transaction transaction) {
         _transactionHasher = DEFAULT_TRANSACTION_HASHER;
         _transactionDeflater = DEFAULT_TRANSACTION_DEFLATER;
+        _addressInflater = DEFAULT_ADDRESS_INFLATER;
 
         _version = transaction.getVersion();
 
@@ -157,7 +164,7 @@ public class MutableTransaction implements Transaction {
 
     @Override
     public Boolean matches(final BloomFilter bloomFilter) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _addressInflater);
         return transactionBloomFilterMatcher.shouldInclude(this);
     }
 

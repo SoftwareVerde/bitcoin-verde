@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -83,6 +84,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
+    protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
     public interface BlockInventoryMessageCallback {
         void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
@@ -262,6 +264,7 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
     protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
@@ -541,11 +544,20 @@ public class BitcoinNode extends Node {
     }
 
     public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
-        this(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, localNodeFeatures);
+        this(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, localNodeFeatures, DEFAULT_ADDRESS_INFLATER);
+    }
+
+    public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures, final AddressInflater addressInflater) {
+        this(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, localNodeFeatures, addressInflater);
     }
 
     public BitcoinNode(final String host, final Integer port, final BitcoinBinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
+        this(host, port, binaryPacketFormat, threadPool, localNodeFeatures, DEFAULT_ADDRESS_INFLATER);
+    }
+
+    public BitcoinNode(final String host, final Integer port, final BitcoinBinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures, final AddressInflater addressInflater) {
         super(host, port, binaryPacketFormat, threadPool);
+        _addressInflater = addressInflater;
         _localNodeFeatures = localNodeFeatures;
 
         _protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
@@ -559,8 +571,13 @@ public class BitcoinNode extends Node {
      *  The BinarySocket must have been created with a BitcoinProtocolMessageFactory.
      */
     public BitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
+        this(binarySocket, threadPool, localNodeFeatures, DEFAULT_ADDRESS_INFLATER);
+    }
+
+    public BitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures, final AddressInflater addressInflater) {
         super(binarySocket, threadPool);
         _localNodeFeatures = localNodeFeatures;
+        _addressInflater = addressInflater;
 
         final BinaryPacketFormat binaryPacketFormat = _connection.getBinaryPacketFormat();
         _protocolMessageFactory = (BitcoinProtocolMessageFactory) binaryPacketFormat.getProtocolMessageFactory();
@@ -1307,12 +1324,11 @@ public class BitcoinNode extends Node {
             //      matching the filter should also be sent in separate tx messages after the merkleblock is sent. This
             //      avoids a slow roundtrip that would otherwise be required (receive hashes, didn't see some of these
             //      transactions yet, ask for them)."
-
             final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
-            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode);
+            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode, _addressInflater);
             final List<Transaction> transactions = block.getTransactions();
             for (final Transaction transaction : transactions) {
-                final Boolean transactionMatches = transactionBloomFilterMatcher.shouldInclude(transaction);
+                final boolean transactionMatches = transactionBloomFilterMatcher.shouldInclude(transaction);
                 if (transactionMatches) {
                     final TransactionMessage transactionMessage = _protocolMessageFactory.newTransactionMessage();
                     transactionMessage.setTransaction(transaction);
@@ -1443,7 +1459,7 @@ public class BitcoinNode extends Node {
         if (bloomFilter == null) { return true; }
 
         final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode, _addressInflater);
         return transactionBloomFilterMatcher.shouldInclude(transaction);
     }
 
@@ -1451,7 +1467,7 @@ public class BitcoinNode extends Node {
      * Returns true if the Transaction matches the BitcoinNode's BloomFilter, or if a BloomFilter has not been set.
      */
     public Boolean matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(_bloomFilter, updateBloomFilterMode);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(_bloomFilter, updateBloomFilterMode, _addressInflater);
         return transactionBloomFilterMatcher.shouldInclude(transaction);
     }
 

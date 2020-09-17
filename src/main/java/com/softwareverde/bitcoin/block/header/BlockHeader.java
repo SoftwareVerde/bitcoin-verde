@@ -37,6 +37,8 @@ public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader>, 
 }
 
 abstract class BlockHeaderCore implements BlockHeader {
+    protected static final BlockHasher DEFAULT_BLOCK_HASHER = new BlockHasher();
+
     protected final BlockHasher _blockHasher;
     protected final BlockHeaderDeflater _blockHeaderDeflater;
 
@@ -54,13 +56,13 @@ abstract class BlockHeaderCore implements BlockHeader {
     }
 
     public BlockHeaderCore() {
-        _blockHasher = new BlockHasher();
+        _blockHasher = DEFAULT_BLOCK_HASHER;
         _blockHeaderDeflater = _blockHasher.getBlockHeaderDeflater();
         _version = VERSION;
     }
 
     public BlockHeaderCore(final BlockHeader blockHeader) {
-        _blockHasher = new BlockHasher();
+        _blockHasher = DEFAULT_BLOCK_HASHER;
         _blockHeaderDeflater = _blockHasher.getBlockHeaderDeflater();
 
         _version = blockHeader.getVersion();

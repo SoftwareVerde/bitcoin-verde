@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -71,7 +72,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return (jsonProtocolMessage != null ? jsonProtocolMessage.getMessage() : null);
     }
 
-    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees) {
+    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees, final List<Address> addressFilter) {
         final Json eventTypesJson = new Json(true);
         eventTypesJson.add("NEW_BLOCK");
         eventTypesJson.add("NEW_TRANSACTION");
@@ -80,6 +81,15 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         parametersJson.put("events", eventTypesJson);
         parametersJson.put("rawFormat", (returnRawData ? 1 : 0));
         parametersJson.put("includeTransactionFees", (includeTransactionFees ? 1 : 0));
+
+        if (addressFilter != null) {
+            final Json addressFilterJson = new Json(true);
+            for (final Address address : addressFilter) {
+                final String addressString = address.toBase58CheckEncoded();
+                addressFilterJson.add(addressString);
+            }
+            parametersJson.put("addressFilter", addressFilterJson);
+        }
 
         final Json registerHookRpcJson = new Json();
         registerHookRpcJson.put("method", "POST");
@@ -428,9 +438,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
      *  The underlying JsonSocket remains connected and must be closed when announcements are no longer desired.
      */
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback) {
+        return this.upgradeToAnnouncementHook(announcementHookCallback, null);
+    }
+    public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true, addressesFilter);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
@@ -463,9 +476,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback) {
+        return this.upgradeToAnnouncementHook(announcementHookCallback, null);
+    }
+    public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(true, true);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(true, true, addressesFilter);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
@@ -20,8 +21,10 @@ import com.softwareverde.util.Util;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
     protected static final BlockDeflater DEFAULT_BLOCK_DEFLATER = new BlockDeflater();
+    protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
     protected final BlockDeflater _blockDeflater;
+    protected final AddressInflater _addressInflater;
     protected final List<Transaction> _transactions;
     protected MerkleTree<Transaction> _merkleTree = null;
 
@@ -45,7 +48,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
         _cachedByteCount = byteCount;
     }
 
-    protected ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions, final BlockDeflater blockDeflater) {
+    protected ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions, final BlockDeflater blockDeflater, final AddressInflater addressInflater) {
         super(blockHeader);
 
         final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<Transaction>(transactions.getCount());
@@ -54,10 +57,11 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
         }
         _transactions = immutableListBuilder.build();
         _blockDeflater = blockDeflater;
+        _addressInflater = addressInflater;
     }
 
     public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
-        this(blockHeader, transactions, DEFAULT_BLOCK_DEFLATER);
+        this(blockHeader, transactions, DEFAULT_BLOCK_DEFLATER, DEFAULT_ADDRESS_INFLATER);
     }
 
     public ImmutableBlock(final Block block) {
@@ -151,7 +155,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _addressInflater);
         return _merkleTree.getPartialTree(transactionBloomFilterMatcher);
     }
 
