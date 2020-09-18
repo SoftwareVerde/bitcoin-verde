@@ -18,12 +18,14 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class SlpTransactionValidator {
+    protected final Integer _maxRecursionDepth = 1024;
     protected final SlpTransactionValidationCache _validationCache;
     protected final TransactionAccumulator _transactionAccumulator;
     protected Boolean _allowUnconfirmedTransactions = true;
@@ -47,7 +49,9 @@ public class SlpTransactionValidator {
         return _transactionAccumulator.getTransactions(transactionHashes.build(), allowUnconfirmedTransactions);
     }
 
-    protected Boolean _validateRecursiveTransactions(final Map<SlpScriptType, ? extends List<Transaction>> recursiveTransactionsToValidate) {
+    protected Boolean _validateRecursiveTransactions(final Map<SlpScriptType, ? extends List<Transaction>> recursiveTransactionsToValidate, final Integer recursionDepth) {
+        if (recursionDepth >= _maxRecursionDepth) { return true; } // TODO: If processed in order then this should never happen, but there is evidence to the contrary.
+
         for (final SlpScriptType slpScriptType : recursiveTransactionsToValidate.keySet()) {
             final List<Transaction> transactions = recursiveTransactionsToValidate.get(slpScriptType);
 
@@ -72,7 +76,7 @@ public class SlpTransactionValidator {
                             else { return false; }
                         }
 
-                        final Boolean isValid = _validateSlpMintTransaction(transaction, null);
+                        final Boolean isValid = _validateSlpMintTransaction(transaction, null, (recursionDepth + 1));
                         if (! isValid) { return false; }
                     }
                 } break;
@@ -84,7 +88,7 @@ public class SlpTransactionValidator {
                             else { return false; }
                         }
 
-                        final Boolean isValid = _validateSlpSendTransaction(transaction, null);
+                        final Boolean isValid = _validateSlpSendTransaction(transaction, null, (recursionDepth + 1));
                         if (! isValid) { return false; }
                     }
                 } break;
@@ -142,7 +146,7 @@ public class SlpTransactionValidator {
         return (slpScript instanceof SlpCommitScript);
     }
 
-    protected Boolean _validateSlpMintTransaction(final Transaction transaction, final SlpMintScript nullableSlpMintScript) {
+    protected Boolean _validateSlpMintTransaction(final Transaction transaction, final SlpMintScript nullableSlpMintScript, final Integer recursionDepth) {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         final SlpMintScript slpMintScript = ((nullableSlpMintScript != null) ? nullableSlpMintScript : ((SlpMintScript) _getSlpScript(transaction)));
         final SlpTokenId slpTokenId = slpMintScript.getTokenId();
@@ -199,10 +203,10 @@ public class SlpTransactionValidator {
 
         if (! hasBaton) { return false; }
 
-        return _validateRecursiveTransactions(recursiveTransactionsToValidate);
+        return _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth);
     }
 
-    protected Boolean _validateSlpSendTransaction(final Transaction transaction, final SlpSendScript nullableSlpSendScript) {
+    protected Boolean _validateSlpSendTransaction(final Transaction transaction, final SlpSendScript nullableSlpSendScript, final Integer recursionDepth) {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         final SlpSendScript slpSendScript = ((nullableSlpSendScript != null) ? nullableSlpSendScript : ((SlpSendScript) _getSlpScript(transaction)));
         final SlpTokenId slpTokenId = slpSendScript.getTokenId();
@@ -237,7 +241,7 @@ public class SlpTransactionValidator {
                     {
                         final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
                         ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
-                        isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate);
+                        isValid = true; // _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
                     }
 
@@ -255,7 +259,7 @@ public class SlpTransactionValidator {
                     {
                         final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
                         ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
-                        isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate);
+                        isValid = true; // _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                         recursiveTransactionsToValidate.clear();
                     }
 
@@ -272,7 +276,7 @@ public class SlpTransactionValidator {
                 {
                     final HashMap<SlpScriptType, MutableList<Transaction>> recursiveTransactionsToValidate = new HashMap<SlpScriptType, MutableList<Transaction>>();
                     ConstUtil.addToListMap(SlpScriptType.SEND, previousTransaction, recursiveTransactionsToValidate);
-                    isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate);
+                    isValid = true; // _validateRecursiveTransactions(recursiveTransactionsToValidate, (recursionDepth + 1));
                     recursiveTransactionsToValidate.clear();
                 }
 
@@ -322,7 +326,7 @@ public class SlpTransactionValidator {
             }
             case MINT: {
                 final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
-                return _validateSlpMintTransaction(transaction, slpMintScript);
+                return _validateSlpMintTransaction(transaction, slpMintScript, 0);
             }
             case COMMIT: {
                 final SlpCommitScript slpCommitScript = (SlpCommitScript) slpScript;
@@ -330,7 +334,7 @@ public class SlpTransactionValidator {
             }
             case SEND: {
                 final SlpSendScript slpSendScript = (SlpSendScript) slpScript;
-                return _validateSlpSendTransaction(transaction, slpSendScript);
+                return _validateSlpSendTransaction(transaction, slpSendScript, 0);
             }
             default: {
                 return false;

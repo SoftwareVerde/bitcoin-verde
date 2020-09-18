@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockchainIndexer extends SleepyService {
-    public static final Integer BATCH_SIZE = 4096;
+    public static final Integer BATCH_SIZE = 1024;
 
     protected static class OutputIndexData {
         TransactionId transactionId;
@@ -343,7 +343,9 @@ public class BlockchainIndexer extends SleepyService {
             context.commitDatabaseTransaction();
             processTimer.stop();
 
-            // Logger.info("Indexed " + inputCount + " Inputs, " + outputCount + " Outputs in " + processTimer.getMillisecondsElapsed() + "ms.");
+            final int transactionCount = queuedTransactionIds.getCount();
+            final Long msElapsed = processTimer.getMillisecondsElapsed();
+            Logger.info("Indexed " + transactionCount + " Transactions " + msElapsed + "ms. (" + ((transactionCount * 1000L) / msElapsed) + " tps)");
         }
         catch (final Exception exception) {
             Logger.warn(exception);
