@@ -23,6 +23,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.identifier.Identifier;
 
+import java.sql.Connection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -163,9 +164,13 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     public void startDatabaseTransaction() throws ContextException {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            { // Reduce SqlTransaction Isolation for concurrent work...
+                final Connection connection = databaseConnection.getRawConnection();
+                connection.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+            }
             TransactionUtil.startTransaction(databaseConnection);
         }
-        catch (final DatabaseException databaseException) {
+        catch (final Exception databaseException) {
             throw new ContextException(databaseException);
         }
     }
@@ -307,9 +312,16 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     @Override
     public void close() throws ContextException {
         try {
-            _databaseManager.close();
+            try { // Reset SqlTransaction Isolation...
+                final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                final Connection connection = databaseConnection.getRawConnection();
+                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+            }
+            finally {
+                _databaseManager.close();
+            }
         }
-        catch (final DatabaseException databaseException) {
+        catch (final Exception databaseException) {
             throw new ContextException(databaseException);
         }
     }
