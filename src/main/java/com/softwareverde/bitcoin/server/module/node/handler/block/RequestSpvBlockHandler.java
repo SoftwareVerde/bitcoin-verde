@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -44,10 +43,7 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
 
             final HashSet<TransactionId> transactionIds = new HashSet<TransactionId>();
             for (final Address address : addresses) {
-                final AddressId addressId = blockchainIndexerDatabaseManager.getAddressId(address);
-                if (addressId == null) { continue; }
-
-                final List<TransactionId> matchedTransactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headBlockchainSegmentId, addressId, false);
+                final List<TransactionId> matchedTransactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headBlockchainSegmentId, address, false);
                 for (final TransactionId transactionId : matchedTransactionIds) {
                     transactionIds.add(transactionId);
                 }

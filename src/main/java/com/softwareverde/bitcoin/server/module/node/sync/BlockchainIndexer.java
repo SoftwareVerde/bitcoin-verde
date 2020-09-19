@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -39,14 +39,14 @@ public class BlockchainIndexer extends SleepyService {
         Integer outputIndex;
         Long amount;
         ScriptType scriptType;
-        AddressId addressId;
+        Address address;
         TransactionId slpTransactionId;
     }
 
     protected static class InputIndexData {
         TransactionId transactionId;
         Integer inputIndex;
-        AddressId addressId;
+        TransactionOutputId transactionOutputId;
     }
 
     protected final TransactionOutputIndexerContext _context;
@@ -54,14 +54,6 @@ public class BlockchainIndexer extends SleepyService {
     protected final SlpScriptInflater _slpScriptInflater = new SlpScriptInflater();
 
     protected Runnable _onSleepCallback;
-
-    protected AddressId _getAddressId(final AtomicTransactionOutputIndexerContext context, final LockingScript lockingScript) throws ContextException {
-        final ScriptType scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
-        final Address address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-        if (address == null) { return null; }
-
-        return context.storeAddress(address);
-    }
 
     protected TransactionId _getSlpTokenTransactionId(final TransactionId transactionId, final SlpScript slpScript) throws ContextException {
         final SlpTokenId slpTokenId;
@@ -121,16 +113,12 @@ public class BlockchainIndexer extends SleepyService {
                 continue;
             }
 
-            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
-            final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousTransactionOutputIndex);
-            final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
-
-            final AddressId addressId = _getAddressId(context, lockingScript);
+            final TransactionOutputId transactionOutputId = new TransactionOutputId(previousTransactionId, previousTransactionOutputIndex);
 
             final InputIndexData inputIndexData = new InputIndexData();
             inputIndexData.transactionId = transactionId;
             inputIndexData.inputIndex = inputIndex;
-            inputIndexData.addressId = addressId;
+            inputIndexData.transactionOutputId = transactionOutputId;
 
             inputIndexDataList.add(inputIndexData);
         }
@@ -155,14 +143,20 @@ public class BlockchainIndexer extends SleepyService {
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
             if (! outputIndexData.containsKey(transactionOutputIdentifier)) {
-                final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+                final Address address;
+                {
+                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                    final ScriptType scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
+                    address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                }
 
                 final OutputIndexData indexData = new OutputIndexData();
                 indexData.transactionId = transactionId;
                 indexData.outputIndex = outputIndex;
                 indexData.amount = transactionOutput.getAmount();
                 indexData.scriptType = ScriptType.UNKNOWN;
-                indexData.addressId = _getAddressId(context, lockingScript);
+                indexData.address = address;
                 indexData.slpTransactionId = null;
 
                 outputIndexData.put(transactionOutputIdentifier, indexData);
@@ -304,12 +298,12 @@ public class BlockchainIndexer extends SleepyService {
 
         final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(context, transactionId, transaction);
         for (final OutputIndexData indexData : outputIndexData.values()) {
-            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.addressId, indexData.slpTransactionId);
+            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId);
         }
 
         final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);
         for (final InputIndexData inputIndexData : inputIndexDataList) {
-            context.indexTransactionInput(inputIndexData.transactionId, inputIndexData.inputIndex, inputIndexData.addressId);
+            context.indexTransactionInput(inputIndexData.transactionId, inputIndexData.inputIndex, inputIndexData.transactionOutputId);
         }
 
         return transactionId;

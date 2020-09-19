@@ -1,114 +1,39 @@
 package com.softwareverde.bitcoin.context.lazy;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
-import com.softwareverde.util.type.identifier.Identifier;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransactionOutputIndexerContext {
-
-    public static class FutureAddressId extends AddressId {
-        protected final Object _pin = new Object();
-        protected Long _value;
-
-        protected void _requireValue() {
-            synchronized (_pin) {
-                if (_value == null) {
-                    try {
-                        _pin.wait();
-                    }
-                    catch (final InterruptedException exception) {
-                        throw new RuntimeException(exception);
-                    }
-                }
-
-                if (_value == null) {
-                    throw new RuntimeException("Value failed to load.");
-                }
-            }
-        }
-
-        public FutureAddressId() {
-            super(0L);
-        }
-
-        public void setValue(final Long value) {
-            synchronized (_pin) {
-                _value = value;
-                _pin.notifyAll();
-            }
-        }
-
-        @Override
-        public long longValue() {
-            _requireValue();
-            return _value;
-        }
-
-        @Override
-        public int hashCode() {
-            _requireValue();
-            return _value.hashCode();
-        }
-
-        @Override
-        public boolean equals(final Object object) {
-            _requireValue();
-            if (object instanceof Identifier) {
-                final Identifier identifier = (Identifier) object;
-                return Util.areEqual(_value, identifier.longValue());
-            }
-
-            return Util.areEqual(_value, object);
-        }
-
-        @Override
-        public String toString() {
-            _requireValue();
-            return _value.toString();
-        }
-
-        @Override
-        public int compareTo(final Identifier value) {
-            _requireValue();
-            return _value.compareTo(value.longValue());
-        }
-    }
-
     protected static class QueuedOutputs {
         public final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
         public final MutableList<Integer> outputIndexes = new MutableList<Integer>();
         public final MutableList<Long> amounts = new MutableList<Long>();
         public final MutableList<ScriptType> scriptTypes = new MutableList<ScriptType>();
-        public final MutableList<AddressId> addressIds = new MutableList<AddressId>();
+        public final MutableList<Address> addresses = new MutableList<Address>();
         public final MutableList<TransactionId> slpTransactionIds = new MutableList<TransactionId>();
     }
 
     protected static class QueuedInputs {
         public final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
         public final MutableList<Integer> inputIndexes = new MutableList<Integer>();
-        public final MutableList<AddressId> addressIds = new MutableList<AddressId>();
+        public final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>();
     }
 
     protected final FullNodeDatabaseManager _databaseManager;
@@ -175,26 +100,11 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            {
-                final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
-
-                final NanoTimer nanoTimer = new NanoTimer();
-                nanoTimer.start();
-                final Map<Address, AddressId> addressIds = blockchainIndexerDatabaseManager.storeAddresses(new ImmutableList<Address>(_futureAddresses.keySet()));
-                for (final Address address : _futureAddresses.keySet()) {
-                    final AddressId addressId = addressIds.get(address);
-                    final FutureAddressId futureAddressId = _futureAddresses.get(address);
-                    futureAddressId.setValue(addressId.longValue());
-                }
-                nanoTimer.stop();
-                _storeAddressMs += nanoTimer.getMillisecondsElapsed();
-            }
-
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = _databaseManager.getBlockchainIndexerDatabaseManager();
             {
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
-                blockchainIndexerDatabaseManager.indexTransactionOutputs(_queuedOutputs.transactionIds, _queuedOutputs.outputIndexes, _queuedOutputs.amounts, _queuedOutputs.scriptTypes, _queuedOutputs.addressIds, _queuedOutputs.slpTransactionIds);
+                blockchainIndexerDatabaseManager.indexTransactionOutputs(_queuedOutputs.transactionIds, _queuedOutputs.outputIndexes, _queuedOutputs.amounts, _queuedOutputs.scriptTypes, _queuedOutputs.addresses, _queuedOutputs.slpTransactionIds);
                 nanoTimer.stop();
                 _indexTransactionOutputMs += nanoTimer.getMillisecondsElapsed();
             }
@@ -202,7 +112,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
             {
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
-                blockchainIndexerDatabaseManager.indexTransactionInputs(_queuedInputs.transactionIds, _queuedInputs.inputIndexes, _queuedInputs.addressIds);
+                blockchainIndexerDatabaseManager.indexTransactionInputs(_queuedInputs.transactionIds, _queuedInputs.inputIndexes, _queuedInputs.transactionOutputIds);
                 nanoTimer.stop();
                 _indexTransactionInputMs += nanoTimer.getMillisecondsElapsed();
             }
@@ -225,18 +135,6 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         catch (final DatabaseException databaseException) {
             Logger.debug(databaseException);
         }
-    }
-
-    protected ConcurrentHashMap<Address, FutureAddressId> _futureAddresses = new ConcurrentHashMap<Address, FutureAddressId>();
-
-    @Override
-    public AddressId storeAddress(final Address address) throws ContextException {
-        final FutureAddressId existingFutureAddressId = _futureAddresses.get(address);
-        if (existingFutureAddressId != null) { return existingFutureAddressId; }
-
-        final FutureAddressId futureAddressId = new FutureAddressId();
-        _futureAddresses.put(address, futureAddressId);
-        return futureAddressId;
     }
 
     @Override
@@ -288,20 +186,20 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) throws ContextException {
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId) throws ContextException {
         _queuedOutputs.transactionIds.add(transactionId);
         _queuedOutputs.outputIndexes.add(outputIndex);
         _queuedOutputs.amounts.add(amount);
         _queuedOutputs.scriptTypes.add(scriptType);
-        _queuedOutputs.addressIds.add(addressId);
+        _queuedOutputs.addresses.add(address);
         _queuedOutputs.slpTransactionIds.add(slpTransactionId);
     }
 
     @Override
-    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) throws ContextException {
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final TransactionOutputId transactionOutputId) throws ContextException {
         _queuedInputs.transactionIds.add(transactionId);
         _queuedInputs.inputIndexes.add(inputIndex);
-        _queuedInputs.addressIds.add(addressId);
+        _queuedInputs.transactionOutputIds.add(transactionOutputId);
     }
 
     @Override

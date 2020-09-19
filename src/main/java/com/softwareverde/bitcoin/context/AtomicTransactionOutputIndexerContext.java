@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.context;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -14,8 +14,6 @@ public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
     void commitDatabaseTransaction() throws ContextException;
     void rollbackDatabaseTransaction();
 
-    AddressId storeAddress(Address address) throws ContextException;
-
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws ContextException;
     void dequeueTransactionsForProcessing(List<TransactionId> transactionIds) throws ContextException;
 
@@ -23,8 +21,8 @@ public interface AtomicTransactionOutputIndexerContext extends AutoCloseable {
     TransactionId getTransactionId(SlpTokenId slpTokenId) throws ContextException;
     Transaction getTransaction(TransactionId transactionId) throws ContextException;
 
-    void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, AddressId addressId, TransactionId slpTransactionId) throws ContextException;
-    void indexTransactionInput(TransactionId transactionId, Integer inputIndex, AddressId addressId) throws ContextException;
+    void indexTransactionOutput(TransactionId transactionId, Integer outputIndex, Long amount, ScriptType scriptType, Address address, TransactionId slpTransactionId) throws ContextException;
+    void indexTransactionInput(TransactionId transactionId, Integer inputIndex, TransactionOutputId transactionOutputId) throws ContextException;
 
     @Override
     void close() throws ContextException;
