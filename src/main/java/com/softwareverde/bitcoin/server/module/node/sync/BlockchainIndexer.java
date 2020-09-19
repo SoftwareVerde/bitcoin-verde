@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -26,7 +27,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -316,37 +317,53 @@ public class BlockchainIndexer extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        Logger.trace("BlockchainIndexer Running.");
+        final NanoTimer nanoTimer = new NanoTimer();
+        nanoTimer.start();
 
+        final int threadCount = 8;
+        final int batchCount = (BATCH_SIZE * threadCount);
+        final MutableList<TransactionId> transactionIdQueue = new MutableList<TransactionId>(batchCount);
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
-            final MilliTimer processTimer = new MilliTimer();
-
-            processTimer.start();
-            context.startDatabaseTransaction();
-            final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(BATCH_SIZE);
-            if (queuedTransactionIds.isEmpty()) {
-                Logger.trace("BlockchainIndexer has nothing to do.");
-                return false;
-            }
-
-            for (final TransactionId transactionId : queuedTransactionIds) {
-                _indexTransaction(transactionId, null, context);
-            }
-
-            context.dequeueTransactionsForProcessing(queuedTransactionIds);
-            context.commitDatabaseTransaction();
-            processTimer.stop();
-
-            final int transactionCount = queuedTransactionIds.getCount();
-            final Long msElapsed = processTimer.getMillisecondsElapsed();
-            Logger.info("Indexed " + transactionCount + " Transactions " + msElapsed + "ms. (" + ((transactionCount * 1000L) / msElapsed) + " tps)");
+            final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(batchCount);
+            transactionIdQueue.addAll(queuedTransactionIds);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
             return false;
         }
 
-        Logger.trace("BlockchainIndexer Stopping.");
+        if (transactionIdQueue.isEmpty()) {
+            Logger.trace("BlockchainIndexer has nothing to do.");
+            return false;
+        }
+
+        final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(BATCH_SIZE, true);
+        try {
+            batchRunner.run(transactionIdQueue, new BatchRunner.Batch<TransactionId>() {
+                @Override
+                public void run(final List<TransactionId> transactionIds) throws Exception {
+                    try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
+                        context.startDatabaseTransaction();
+
+                        for (final TransactionId transactionId : transactionIds) {
+                            _indexTransaction(transactionId, null, context);
+                        }
+
+                        context.dequeueTransactionsForProcessing(transactionIds);
+                        context.commitDatabaseTransaction();
+                    }
+                }
+            });
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+
+        nanoTimer.stop();
+        final double msElapsed = nanoTimer.getMillisecondsElapsed();
+        Logger.info("Indexed " + batchCount + " transactions in " + msElapsed + "ms. (" + ((batchCount * 1000L) / ((long) msElapsed)) + "tps)");
+
         return true;
     }
 

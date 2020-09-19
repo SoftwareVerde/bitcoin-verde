@@ -90,7 +90,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
             TransactionUtil.startTransaction(databaseConnection);
         }
-        catch (final DatabaseException databaseException) {
+        catch (final Exception databaseException) {
             throw new ContextException(databaseException);
         }
     }
@@ -207,7 +207,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         try {
             _databaseManager.close();
         }
-        catch (final DatabaseException databaseException) {
+        catch (final Exception databaseException) {
             throw new ContextException(databaseException);
         }
     }
