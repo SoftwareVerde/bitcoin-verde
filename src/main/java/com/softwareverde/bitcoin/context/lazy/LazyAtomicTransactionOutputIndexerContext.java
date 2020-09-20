@@ -20,6 +20,8 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.util.TreeMap;
+
 public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransactionOutputIndexerContext {
     protected static class QueuedOutputs {
         public final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
@@ -104,7 +106,30 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
             {
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
-                blockchainIndexerDatabaseManager.indexTransactionOutputs(_queuedOutputs.transactionIds, _queuedOutputs.outputIndexes, _queuedOutputs.amounts, _queuedOutputs.scriptTypes, _queuedOutputs.addresses, _queuedOutputs.slpTransactionIds);
+
+                final QueuedOutputs queuedOutputs = new QueuedOutputs();
+                { // Sort the items...
+                    final int itemCount = _queuedOutputs.transactionIds.getCount();
+                    final TreeMap<TransactionOutputId, Integer> treeMap = new TreeMap<TransactionOutputId, Integer>();
+                    for (int i = 0; i < itemCount; ++i) {
+                        final TransactionId transactionId = _queuedOutputs.transactionIds.get(i);
+                        final Integer outputIndex = _queuedOutputs.outputIndexes.get(i);
+
+                        treeMap.put(new TransactionOutputId(transactionId, outputIndex), i);
+                    }
+
+                    for (final TransactionOutputId transactionOutputId : treeMap.keySet()) {
+                        final int index = treeMap.get(transactionOutputId);
+                        queuedOutputs.transactionIds.add(_queuedOutputs.transactionIds.get(index));
+                        queuedOutputs.outputIndexes.add(_queuedOutputs.outputIndexes.get(index));
+                        queuedOutputs.amounts.add(_queuedOutputs.amounts.get(index));
+                        queuedOutputs.scriptTypes.add(_queuedOutputs.scriptTypes.get(index));
+                        queuedOutputs.addresses.add(_queuedOutputs.addresses.get(index));
+                        queuedOutputs.slpTransactionIds.add(_queuedOutputs.slpTransactionIds.get(index));
+                    }
+                }
+
+                blockchainIndexerDatabaseManager.indexTransactionOutputs(queuedOutputs.transactionIds, queuedOutputs.outputIndexes, queuedOutputs.amounts, queuedOutputs.scriptTypes, queuedOutputs.addresses, queuedOutputs.slpTransactionIds);
                 nanoTimer.stop();
                 _indexTransactionOutputMs += nanoTimer.getMillisecondsElapsed();
             }
@@ -112,7 +137,27 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
             {
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
-                blockchainIndexerDatabaseManager.indexTransactionInputs(_queuedInputs.transactionIds, _queuedInputs.inputIndexes, _queuedInputs.transactionOutputIds);
+
+                final QueuedInputs queuedInputs = new QueuedInputs();
+                { // Sort the items...
+                    final int itemCount = _queuedInputs.transactionIds.getCount();
+                    final TreeMap<TransactionOutputId, Integer> treeMap = new TreeMap<TransactionOutputId, Integer>();
+                    for (int i = 0; i < itemCount; ++i) {
+                        final TransactionId transactionId = _queuedInputs.transactionIds.get(i);
+                        final Integer inputIndex = _queuedInputs.inputIndexes.get(i);
+
+                        treeMap.put(new TransactionOutputId(transactionId, inputIndex), i);
+                    }
+
+                    for (final TransactionOutputId transactionOutputId : treeMap.keySet()) {
+                        final int index = treeMap.get(transactionOutputId);
+                        queuedInputs.transactionIds.add(_queuedInputs.transactionIds.get(index));
+                        queuedInputs.inputIndexes.add(_queuedInputs.inputIndexes.get(index));
+                        queuedInputs.transactionOutputIds.add(_queuedInputs.transactionOutputIds.get(index));
+                    }
+                }
+
+                blockchainIndexerDatabaseManager.indexTransactionInputs(queuedInputs.transactionIds, queuedInputs.inputIndexes, queuedInputs.transactionOutputIds);
                 nanoTimer.stop();
                 _indexTransactionInputMs += nanoTimer.getMillisecondsElapsed();
             }

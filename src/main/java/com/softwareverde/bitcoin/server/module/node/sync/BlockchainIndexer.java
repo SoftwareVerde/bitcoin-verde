@@ -50,6 +50,7 @@ public class BlockchainIndexer extends SleepyService {
         TransactionOutputId transactionOutputId;
     }
 
+    protected final Integer _threadCount;
     protected final TransactionOutputIndexerContext _context;
     protected final ScriptPatternMatcher _scriptPatternMatcher = new ScriptPatternMatcher();
     protected final SlpScriptInflater _slpScriptInflater = new SlpScriptInflater();
@@ -266,8 +267,9 @@ public class BlockchainIndexer extends SleepyService {
         return outputIndexData;
     }
 
-    public BlockchainIndexer(final TransactionOutputIndexerContext context) {
+    public BlockchainIndexer(final TransactionOutputIndexerContext context, final Integer threadCount) {
         _context = context;
+        _threadCount = threadCount;
     }
 
     protected TransactionId _indexTransaction(final TransactionId nullableTransactionId, final Transaction nullableTransaction, final AtomicTransactionOutputIndexerContext context) throws ContextException {
@@ -320,8 +322,7 @@ public class BlockchainIndexer extends SleepyService {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
-        final int threadCount = 8;
-        final int batchCount = (BATCH_SIZE * threadCount);
+        final int batchCount = (BATCH_SIZE * _threadCount);
         final MutableList<TransactionId> transactionIdQueue = new MutableList<TransactionId>(batchCount);
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(batchCount);
