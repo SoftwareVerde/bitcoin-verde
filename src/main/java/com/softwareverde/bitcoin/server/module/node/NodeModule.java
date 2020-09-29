@@ -595,8 +595,9 @@ public class NodeModule {
         else {
             _slpTransactionProcessor = new SlpTransactionProcessor(databaseManagerFactory);
 
+            final Integer threadCount = bitcoinProperties.getMaxThreadCount();
             final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(databaseManagerFactory);
-            _blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+            _blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, threadCount);
             _blockchainIndexer.setOnSleepCallback(new Runnable() {
                 @Override
                 public void run() {

@@ -261,13 +261,6 @@ CREATE TABLE node_transactions_inventory (
 
 -- Optional Indexing Tables
 
-CREATE TABLE addresses (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    address BINARY(20) NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY addresses_uq (address)
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
-
 CREATE TABLE script_types (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     type VARCHAR(255) NOT NULL,
@@ -280,30 +273,25 @@ INSERT INTO script_types (id, type) VALUES
     (6, 'SLP_GENESIS_SCRIPT'), (7, 'SLP_SEND_SCRIPT'), (8, 'SLP_MINT_SCRIPT'), (9, 'SLP_COMMIT_SCRIPT');
 
 CREATE TABLE indexed_transaction_outputs (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     output_index INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
-    address_id INT UNSIGNED,
+    address BINARY(20),
     script_type_id INT UNSIGNED NOT NULL DEFAULT 1,
     slp_transaction_id INT UNSIGNED,
-    PRIMARY KEY (id),
-    UNIQUE KEY transaction_output_addresses_uq (transaction_id, output_index),
-    FOREIGN KEY transaction_output_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
-    FOREIGN KEY transaction_output_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE,
-    FOREIGN KEY transaction_output_addresses_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
-    FOREIGN KEY transaction_output_addresses_slp_tx_fk (slp_transaction_id) REFERENCES transactions (id)
+    PRIMARY KEY (transaction_id, output_index),
+    INDEX indexed_transaction_outputs_addr_ix (address) USING BTREE,
+    INDEX indexed_transaction_outputs_scripts_type_ix (script_type_id) USING BTREE,
+    INDEX indexed_transaction_outputs_slp_tx_ix (slp_transaction_id) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE indexed_transaction_inputs (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     input_index INT UNSIGNED NOT NULL,
-    address_id INT UNSIGNED,
-    PRIMARY KEY (id),
-    UNIQUE KEY transaction_input_addresses_uq (transaction_id, input_index),
-    FOREIGN KEY transaction_input_addresses_tx_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
-    FOREIGN KEY transaction_input_addresses_addr_fk (address_id) REFERENCES addresses (id) ON DELETE CASCADE
+    spends_transaction_id INT UNSIGNED,
+    spends_output_index INT UNSIGNED,
+    PRIMARY KEY (transaction_id, input_index),
+    INDEX indexed_transaction_inputs_prevout_ix (spends_transaction_id, spends_output_index) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE transaction_output_processor_queue (

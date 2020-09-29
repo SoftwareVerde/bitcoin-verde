@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -35,9 +34,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-            final AddressId addressId = blockchainIndexerDatabaseManager.getAddressId(address);
-            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
+            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, address);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -53,10 +50,9 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
-            final AddressId addressId = blockchainIndexerDatabaseManager.getAddressId(address);
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final List<TransactionId> transactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
+            final List<TransactionId> transactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headChainSegmentId, address, true);
 
             final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
             final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getCount());

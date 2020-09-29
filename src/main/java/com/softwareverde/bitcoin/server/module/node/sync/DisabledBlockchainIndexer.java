@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 public class DisabledBlockchainIndexer extends BlockchainIndexer {
     public DisabledBlockchainIndexer() {
-        super(null);
+        super(null, 0);
     }
 
     @Override

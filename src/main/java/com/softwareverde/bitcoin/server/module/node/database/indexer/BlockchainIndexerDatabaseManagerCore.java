@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.indexer;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
@@ -20,12 +19,14 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
-import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.query.parameter.InClauseParameter;
+import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
@@ -36,122 +37,33 @@ import java.util.Map;
 import java.util.Set;
 
 public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDatabaseManager {
+    protected static class AddressTransactions {
+        public final BlockchainSegmentId blockchainSegmentId;
+        public final List<TransactionId> transactionIds;
+        public final Map<TransactionId, MutableList<Integer>> outputIndexes;
+        public final Map<TransactionId, MutableList<Integer>> inputIndexes;
+
+        public AddressTransactions(final BlockchainSegmentId blockchainSegmentId) {
+            this.blockchainSegmentId = blockchainSegmentId;
+            this.transactionIds = new ImmutableList<TransactionId>();
+            this.outputIndexes = new HashMap<TransactionId, MutableList<Integer>>(0);
+            this.inputIndexes = new HashMap<TransactionId, MutableList<Integer>>(0);
+        }
+
+        public AddressTransactions(final BlockchainSegmentId blockchainSegmentId, final List<TransactionId> transactionIds, final HashMap<TransactionId, MutableList<Integer>> outputIndexes, final HashMap<TransactionId, MutableList<Integer>> inputIndexes) {
+            this.blockchainSegmentId = blockchainSegmentId;
+            this.transactionIds = transactionIds;
+            this.outputIndexes = outputIndexes;
+            this.inputIndexes = inputIndexes;
+        }
+    }
+
     protected final FullNodeDatabaseManager _databaseManager;
     protected final AddressInflater _addressInflater;
-
-    protected AddressId _getAddressId(final Address address) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM addresses WHERE address = ?")
-                .setParameter(address)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final Long addressId = row.getLong("id");
-        return AddressId.wrap(addressId);
-    }
 
     public BlockchainIndexerDatabaseManagerCore(final AddressInflater addressInflater, final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
         _addressInflater = addressInflater;
-    }
-
-    @Override
-    public AddressId storeAddress(final Address address) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final Long addressId = databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO addresses (address) VALUES (?)")
-                .setParameter(address)
-        );
-        if (databaseConnection.getRowsAffectedCount() > 0) {
-            return AddressId.wrap(addressId);
-        }
-
-        return _getAddressId(address);
-    }
-
-    @Override
-    public Map<Address, AddressId> storeAddresses(final List<Address> addresses) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final BatchRunner<Address> batchRunner = new BatchRunner<Address>(1024);
-        batchRunner.run(addresses, new BatchRunner.Batch<Address>() {
-            @Override
-            public void run(final List<Address> batchItems) throws Exception {
-                final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
-                for (final Address address : batchItems) {
-                    query.setParameter(address);
-                }
-
-                databaseConnection.executeSql(query);
-            }
-        });
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, address FROM addresses WHERE address IN (?)")
-                .setInClauseParameters(addresses, ValueExtractor.BYTE_ARRAY)
-        );
-
-        final HashMap<Address, AddressId> addressMap = new HashMap<Address, AddressId>(rows.size());
-        for (final Row row : rows) {
-            final AddressId addressId = AddressId.wrap(row.getLong("id"));
-            final Address address = _addressInflater.fromBytes(ByteArray.wrap(row.getBytes("address")));
-
-            addressMap.put(address, addressId);
-        }
-
-        for (final Address address : addresses) {
-            if (! addressMap.containsKey(address)) {
-                throw new DatabaseException("Unable to store address: " + address);
-            }
-        }
-
-        return addressMap;
-    }
-
-    @Override
-    public List<AddressId> getAddressIds(final TransactionId transactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT address_id FROM indexed_transaction_outputs WHERE transaction_id = ?")
-        );
-        rows.addAll(databaseConnection.query(
-            new Query("SELECT address_id FROM indexed_transaction_inputs WHERE transaction_id = ?")
-        ));
-
-        final HashSet<AddressId> addressIds = new HashSet<AddressId>(rows.size());
-        for (final Row row : rows) {
-            final Long addressId = row.getLong("address_id");
-            addressIds.add(AddressId.wrap(addressId));
-        }
-        return new ImmutableList<AddressId>(addressIds);
-    }
-
-    @Override
-    public AddressId getAddressId(final Address address) throws DatabaseException {
-        if (address == null) { return null; }
-        return _getAddressId(address);
-    }
-
-    /**
-     * Returns a list of rows of {blockchain_segment_id, transaction_id} from indexed_transaction_inputs for the provided addressId.
-     */
-    protected java.util.List<Row> _getTransactionIdsSpendingFrom(final AddressId addressId, final DatabaseConnection databaseConnection) throws DatabaseException {
-        return databaseConnection.query(
-            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_inputs.address_id = ? GROUP BY indexed_transaction_inputs.transaction_id, blocks.blockchain_segment_id")
-                .setParameter(addressId)
-        );
-    }
-
-    /**
-     * Returns a list of rows of {blockchain_segment_id, transaction_id} from indexed_transaction_outputs for the provided addressId.
-     */
-    protected java.util.List<Row> _getTransactionIdsSendingTo(final AddressId addressId, final DatabaseConnection databaseConnection) throws DatabaseException {
-        return databaseConnection.query(
-            new Query("SELECT blocks.blockchain_segment_id, block_transactions.transaction_id FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address_id = ? GROUP BY indexed_transaction_outputs.transaction_id, blocks.blockchain_segment_id")
-                .setParameter(addressId)
-        );
     }
 
     /**
@@ -217,55 +129,19 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new ImmutableList<TransactionId>(transactionIds);
     }
 
-    @Override
-    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = _getTransactionIdsSpendingFrom(addressId, databaseConnection);
-        rows.addAll(_getTransactionIdsSendingTo(addressId, databaseConnection));
-
-        if (rows.isEmpty()) { return new MutableList<TransactionId>(0); }
-
-        final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = _extractTransactionBlockchainSegmentIds(rows);
-        return _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, includeUnconfirmedTransactions);
-    }
-
-    @Override
-    public List<TransactionId> getTransactionIdsSendingTo(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = _getTransactionIdsSendingTo(addressId, databaseConnection);
-
-        if (rows.isEmpty()) { return new MutableList<TransactionId>(0); }
-
-        final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = _extractTransactionBlockchainSegmentIds(rows);
-        return _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, includeUnconfirmedTransactions);
-    }
-
-    @Override
-    public List<TransactionId> getTransactionIdsSpendingFrom(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = _getTransactionIdsSpendingFrom(addressId, databaseConnection);
-
-        if (rows.isEmpty()) { return new MutableList<TransactionId>(0); }
-
-        final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = _extractTransactionBlockchainSegmentIds(rows);
-        return _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, includeUnconfirmedTransactions);
-    }
-
-    @Override
-    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {
+    protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows;
         final HashMap<TransactionId, MutableList<Integer>> outputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
         { // Load debits, with output_indexes...
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_outputs.transaction_id, indexed_transaction_outputs.output_index FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address_id = ?")
-                    .setParameter(addressId)
+                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_outputs.transaction_id, indexed_transaction_outputs.output_index FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address = ?")
+                    .setParameter(address)
             );
-            if (transactionOutputRows.isEmpty()) { return 0L; }
+            if (transactionOutputRows.isEmpty()) {
+                new AddressTransactions(blockchainSegmentId);
+            }
 
             // Build the outputIndexes map...
             for (final Row row : transactionOutputRows) {
@@ -287,8 +163,17 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         final HashMap<TransactionId, MutableList<Integer>> inputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
         { // Load credits, with input_indexes...
             final java.util.List<Row> transactionInputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.input_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_inputs.address_id = ?")
-                    .setParameter(addressId)
+                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.input_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE (indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index) IN (?)")
+                    .setInClauseParameters(rows, new ValueExtractor<Row>() {
+                        @Override
+                        public InClauseParameter extractValues(final Row transactionOutputRows) {
+                            final Long transactionId = transactionOutputRows.getLong("transaction_id");
+                            final Integer outputIndex = transactionOutputRows.getInteger("output_index");
+                            final TypedParameter transactionIdTypedParameter = (transactionId != null ? new TypedParameter(transactionId) : TypedParameter.NULL);
+                            final TypedParameter outputIndexTypedParameter = (outputIndex != null ? new TypedParameter(outputIndex) : TypedParameter.NULL);
+                            return new InClauseParameter(transactionIdTypedParameter, outputIndexTypedParameter);
+                        }
+                    })
             );
 
             // Build the inputIndexes map...
@@ -312,6 +197,19 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = _extractTransactionBlockchainSegmentIds(rows);
         final List<TransactionId> transactionIds = _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, true);
 
+        return new AddressTransactions(blockchainSegmentId, transactionIds, inputIndexes, outputIndexes);
+    }
+
+    @Override
+    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address);
+        return addressTransactions.transactionIds;
+    }
+
+    @Override
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
+        final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address);
+
         final List<Integer> emptyList = new MutableList<Integer>(0);
 
         final HashSet<Sha256Hash> previousTransactionHashSet = new HashSet<Sha256Hash>(); // Unique set of the required previousTransactions used to calculate the account's debits...
@@ -319,12 +217,12 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         long balance = 0L;
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        for (final TransactionId transactionId : transactionIds) {
+        for (final TransactionId transactionId : addressTransactions.transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
 
             // Collect the previous Transaction hashes and which previous TransactionOutput indexes that apply debits to this account...
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-            for (final Integer inputIndex : Util.coalesce(inputIndexes.get(transactionId), emptyList)) {
+            for (final Integer inputIndex : Util.coalesce(addressTransactions.inputIndexes.get(transactionId), emptyList)) {
                 final TransactionInput transactionInput = transactionInputs.get(inputIndex);
 
                 final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
@@ -342,7 +240,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
             // Deduct all credits from the account for this transaction's outputs...
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            for (final Integer outputIndex : Util.coalesce(outputIndexes.get(transactionId), emptyList)) {
+            for (final Integer outputIndex : Util.coalesce(addressTransactions.outputIndexes.get(transactionId), emptyList)) {
                 final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
                 balance -= transactionOutput.getAmount();
             }
@@ -434,13 +332,13 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<AddressId> addressIds, final List<TransactionId> slpTransactionIds) throws DatabaseException {
+    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<TransactionId> slpTransactionIds) throws DatabaseException {
         final int itemCount = transactionIds.getCount();
         if (transactionIds.getCount()       != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "     + itemCount + " got " + transactionIds.getCount()); }
         if (outputIndexes.getCount()        != itemCount) { throw new DatabaseException("Mismatch parameter count outputIndexes expected "      + itemCount + " got " + outputIndexes.getCount()); }
         if (amounts.getCount()              != itemCount) { throw new DatabaseException("Mismatch parameter count amounts expected "            + itemCount + " got " + amounts.getCount()); }
         if (scriptTypes.getCount()          != itemCount) { throw new DatabaseException("Mismatch parameter count scriptTypes expected "        + itemCount + " got " + scriptTypes.getCount()); }
-        if (addressIds.getCount()           != itemCount) { throw new DatabaseException("Mismatch parameter count addressIds expected "         + itemCount + " got " + addressIds.getCount()); }
+        if (addresses.getCount()            != itemCount) { throw new DatabaseException("Mismatch parameter count addresses expected "          + itemCount + " got " + addresses.getCount()); }
         if (slpTransactionIds.getCount()    != itemCount) { throw new DatabaseException("Mismatch parameter count slpTransactionIds expected "  + itemCount + " got " + slpTransactionIds.getCount()); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -455,21 +353,23 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address_id, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address_id = VALUES(address_id), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)");
                 for (final Integer itemIndex : batchItems) {
                     final TransactionId transactionId = transactionIds.get(itemIndex);
                     final Integer outputIndex = outputIndexes.get(itemIndex);
                     final Long amount = amounts.get(itemIndex);
+                    final Address address = addresses.get(itemIndex);
                     final ScriptType scriptType = scriptTypes.get(itemIndex);
-                    final AddressId addressId = addressIds.get(itemIndex);
                     final TransactionId slpTransactionId = slpTransactionIds.get(itemIndex);
+
+                    final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
 
                     batchedInsertQuery
                         .setParameter(transactionId)
                         .setParameter(outputIndex)
                         .setParameter(amount)
-                        .setParameter(addressId)
-                        .setParameter(scriptType.getScriptTypeId())
+                        .setParameter(address)
+                        .setParameter(scriptTypeId)
                         .setParameter(slpTransactionId);
                 }
 
@@ -479,11 +379,11 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void indexTransactionInputs(final List<TransactionId> transactionIds, final List<Integer> inputIndexes, final List<AddressId> addressIds) throws DatabaseException {
+    public void indexTransactionInputs(final List<TransactionId> transactionIds, final List<Integer> inputIndexes, final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
         final int itemCount = transactionIds.getCount();
-        if (transactionIds.getCount()       != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "     + itemCount + " got " + transactionIds.getCount()); }
-        if (inputIndexes.getCount()         != itemCount) { throw new DatabaseException("Mismatch parameter count inputIndexes expected "       + itemCount + " got " + inputIndexes.getCount()); }
-        if (addressIds.getCount()           != itemCount) { throw new DatabaseException("Mismatch parameter count addressIds expected "         + itemCount + " got " + addressIds.getCount()); }
+        if (transactionIds.getCount()               != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "         + itemCount + " got " + transactionIds.getCount()); }
+        if (inputIndexes.getCount()                 != itemCount) { throw new DatabaseException("Mismatch parameter count inputIndexes expected "           + itemCount + " got " + inputIndexes.getCount()); }
+        if (transactionOutputIds.getCount()         != itemCount) { throw new DatabaseException("Mismatch parameter count transactionOutputIds expected "   + itemCount + " got " + transactionOutputIds.getCount()); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -497,16 +397,17 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_inputs (transaction_id, input_index, address_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address_id = VALUES(address_id)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_inputs (transaction_id, input_index, spends_transaction_id, spends_output_index) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE spends_transaction_id = VALUES(spends_transaction_id), spends_output_index = VALUES(spends_output_index)");
                 for (final Integer itemIndex : batchItems) {
                     final TransactionId transactionId = transactionIds.get(itemIndex);
                     final Integer inputIndex = inputIndexes.get(itemIndex);
-                    final AddressId addressId = addressIds.get(itemIndex);
+                    final TransactionOutputId transactionOutputId = transactionOutputIds.get(itemIndex);
 
                     batchedInsertQuery
                         .setParameter(transactionId)
                         .setParameter(inputIndex)
-                        .setParameter(addressId);
+                        .setParameter(transactionOutputId.getTransactionId())
+                        .setParameter(transactionOutputId.getOutputIndex());
                 }
 
                 databaseConnection.executeSql(batchedInsertQuery);
