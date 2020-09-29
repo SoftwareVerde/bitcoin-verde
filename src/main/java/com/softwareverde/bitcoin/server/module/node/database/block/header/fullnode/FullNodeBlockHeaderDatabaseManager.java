@@ -303,12 +303,14 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                     previousBlockHeight.value = blockHeight;
                     previousChainWork.value = chainWork;
 
-                    blockIds.add(BlockId.wrap(lastInsertedBlockId.value.longValue() + i));
+                    final BlockId blockId = BlockId.wrap(previousBlockId);
+                    blockIds.add(blockId);
+                    lastInsertedBlockId.value = blockId;
 
                     i += 1;
                 }
 
-                lastInsertedBlockId.value = BlockId.wrap(databaseConnection.executeSql(batchedInsertQuery));
+                databaseConnection.executeSql(batchedInsertQuery);
             }
         });
 
