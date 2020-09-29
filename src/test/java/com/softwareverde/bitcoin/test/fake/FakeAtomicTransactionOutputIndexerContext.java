@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.TransactionOutputId;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -14,7 +14,6 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import java.util.HashMap;
 
 public class FakeAtomicTransactionOutputIndexerContext implements com.softwareverde.bitcoin.context.AtomicTransactionOutputIndexerContext {
-    protected final HashMap<Address, AddressId> _addresses = new HashMap<Address, AddressId>(0);
     protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<Sha256Hash, TransactionId>(0);
     protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<TransactionId, Transaction>(0);
 
@@ -26,11 +25,6 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     protected Boolean _wasCommitted = null;
     protected Boolean _wasRolledBack = false;
     protected Boolean _wasClosed = false;
-
-    public void addAddress(final Address address) {
-        final AddressId addressId = AddressId.wrap(_addresses.size() + 1L);
-        _addresses.put(address, addressId);
-    }
 
     public void addTransaction(final Transaction transaction) {
         final Sha256Hash transactionHash = transaction.getHash();
@@ -99,19 +93,6 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public AddressId storeAddress(final Address address) {
-        _storedAddresses.add(address);
-
-        if (_addresses.containsKey(address)) {
-            return _addresses.get(address);
-        }
-
-        final AddressId addressId = AddressId.wrap(_addresses.size() + 1L);
-        _addresses.put(address, addressId);
-        return addressId;
-    }
-
-    @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) {
         final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>();
         for (int i = 0; i < batchSize; ++i) {
@@ -149,14 +130,14 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final AddressId addressId, final TransactionId slpTransactionId) {
-        final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, addressId, slpTransactionId);
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId) {
+        final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, address, slpTransactionId);
         _indexedOutputs.add(indexedOutput);
     }
 
     @Override
-    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final AddressId addressId) {
-        final IndexedInput indexedInput = new IndexedInput(transactionId, inputIndex, addressId);
+    public void indexTransactionInput(final TransactionId transactionId, final Integer inputIndex, final TransactionOutputId transactionOutputId) {
+        final IndexedInput indexedInput = new IndexedInput(transactionId, inputIndex, transactionOutputId);
         _indexedInputs.add(indexedInput);
     }
 

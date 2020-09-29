@@ -41,7 +41,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
         final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
 
         BitcoinVerdeTestToken.loadBitcoinVerdeTestTokens(atomicTransactionOutputIndexerContext);
-        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
         final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
         slpValidityMap.put(Sha256Hash.fromHexString("34DD2FE8F0C5BBA8FC4F280C3815C1E46C2F52404F00DA3067D7CE12962F2ED0"), true);
@@ -240,7 +240,7 @@ public class SlpTransactionValidatorTests extends UnitTest {
             atomicTransactionOutputIndexerContext.addTransaction(transaction);
         }
 
-        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
         // Action
         blockchainIndexer.start();

@@ -322,7 +322,8 @@ public class BlockchainIndexer extends SleepyService {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
-        final int batchCount = (BATCH_SIZE * _threadCount);
+        final boolean shouldExecuteAsynchronously = (_threadCount > 0);
+        final int batchCount = (shouldExecuteAsynchronously ? (BATCH_SIZE * _threadCount) : BATCH_SIZE);
         final MutableList<TransactionId> transactionIdQueue = new MutableList<TransactionId>(batchCount);
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
             final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(batchCount);
@@ -338,7 +339,7 @@ public class BlockchainIndexer extends SleepyService {
             return false;
         }
 
-        final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(BATCH_SIZE, true);
+        final BatchRunner<TransactionId> batchRunner = new BatchRunner<TransactionId>(BATCH_SIZE, shouldExecuteAsynchronously);
         try {
             batchRunner.run(transactionIdQueue, new BatchRunner.Batch<TransactionId>() {
                 @Override

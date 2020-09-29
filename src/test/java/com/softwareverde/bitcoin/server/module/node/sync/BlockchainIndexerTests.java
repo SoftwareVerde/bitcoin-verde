@@ -139,7 +139,7 @@ public class BlockchainIndexerTests extends UnitTest {
         final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
         final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
 
-        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
         final BlockchainIndexer.StatusMonitor statusMonitor = blockchainIndexer.getStatusMonitor();
 
         final List<Transaction> bvtTransactions = BlockchainIndexerTests.inflateBitcoinVerdeTestTokens();

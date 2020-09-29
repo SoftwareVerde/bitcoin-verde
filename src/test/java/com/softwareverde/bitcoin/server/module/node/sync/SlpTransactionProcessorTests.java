@@ -35,7 +35,7 @@ public class SlpTransactionProcessorTests extends IntegrationTest {
     public void should_index_slp_transaction_validation_results() throws Exception {
         // Setup
         final TransactionOutputIndexerContext transactionOutputIndexerContext = new LazyTransactionOutputIndexerContext(_fullNodeDatabaseManagerFactory);
-        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext);
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
 
         final List<Transaction> bvtTransactions = BlockchainIndexerTests.inflateBitcoinVerdeTestTokens();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
