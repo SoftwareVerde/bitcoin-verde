@@ -848,4 +848,13 @@ public class SpvModule {
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(shouldOnlyConnectToSeedNodes);
         }
     }
+
+    /**
+     * Should be called whenever an external addition/removal to the internal wallet's keys occurs.
+     *  This function updates the node connections' bloom dilter.
+     */
+    public void onWalletKeysUpdated() {
+        final MutableBloomFilter bloomFilter = _wallet.generateBloomFilter();
+        _bitcoinNodeManager.setBloomFilter(bloomFilter);
+    }
 }
