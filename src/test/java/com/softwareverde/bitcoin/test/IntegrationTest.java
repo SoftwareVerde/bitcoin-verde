@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.State;
@@ -141,6 +142,8 @@ public class IntegrationTest extends UnitTest {
     @Override
     public void after() throws Exception { }
 
+    protected static final String INSERT_BLOCK_QUERY = "INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
     protected BlockId insertBlockHeader(final BlockchainSegmentId blockchainSegmentId, final BlockHeader blockHeader, final Long blockHeight, final Sha256Hash previousBlockHash, final ChainWork chainWork) throws DatabaseException {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockId previousBlockId;
@@ -174,7 +177,7 @@ public class IntegrationTest extends UnitTest {
                     }
 
                     previousBlockId = BlockId.wrap(databaseConnection.executeSql(
-                        new Query("INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                        new Query(INSERT_BLOCK_QUERY)
                             .setParameter(previousBlockHash)
                             .setParameter(dummyPreviousBlockId)
                             .setParameter(blockHeight - 1L)
@@ -182,6 +185,7 @@ public class IntegrationTest extends UnitTest {
                             .setParameter(dummyBlockHeader.getMerkleRoot())
                             .setParameter(dummyBlockHeader.getVersion())
                             .setParameter(dummyBlockHeader.getTimestamp())
+                            .setParameter(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP)
                             .setParameter(dummyBlockHeader.getDifficulty())
                             .setParameter(dummyBlockHeader.getNonce())
                             .setParameter(dummyChainWork)
@@ -192,7 +196,7 @@ public class IntegrationTest extends UnitTest {
             final Difficulty difficulty = blockHeader.getDifficulty();
 
             return BlockId.wrap(databaseConnection.executeSql(
-                new Query("INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                new Query(INSERT_BLOCK_QUERY)
                     .setParameter(blockHeader.getHash())
                     .setParameter(previousBlockId)
                     .setParameter(blockHeight)
@@ -200,6 +204,7 @@ public class IntegrationTest extends UnitTest {
                     .setParameter(blockHeader.getMerkleRoot())
                     .setParameter(blockHeader.getVersion())
                     .setParameter(blockHeader.getTimestamp())
+                    .setParameter(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP)
                     .setParameter(difficulty)
                     .setParameter(blockHeader.getNonce())
                     .setParameter(chainWork)

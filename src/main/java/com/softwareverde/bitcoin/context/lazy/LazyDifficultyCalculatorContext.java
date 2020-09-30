@@ -64,7 +64,7 @@ public class LazyDifficultyCalculatorContext implements DifficultyCalculatorCont
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(_blockchainSegmentId, blockHeight);
             if (blockId == null) { return null; }
 
-            return blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+            return blockHeaderDatabaseManager.getMedianBlockTime(blockId);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

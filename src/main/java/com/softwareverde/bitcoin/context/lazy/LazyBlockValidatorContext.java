@@ -137,7 +137,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
             final BlockId blockId = _getBlockId(blockHeight);
             if (blockId == null) { return null; }
 
-            final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+            final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
             _medianBlockTimes.put(blockHeight, medianBlockTime);
             return medianBlockTime;
         }
@@ -155,7 +155,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     public void loadBlock(final Long blockHeight, final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
-        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
         final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
 
         _blockIds.put(blockHeight, blockId);

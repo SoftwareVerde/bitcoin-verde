@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.constable.list.List;
@@ -40,9 +41,10 @@ public interface BlockHeaderDatabaseManager {
     Sha256Hash getBlockHash(BlockId blockId) throws DatabaseException;
     List<Sha256Hash> getBlockHashes(List<BlockId> blockIds) throws DatabaseException;
     BlockId getAncestorBlockId(BlockId blockId, Integer parentCount) throws DatabaseException;
-    MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException;
-    MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException;
+    MutableMedianBlockTime calculateMedianBlockHeaderTime() throws DatabaseException;
     MutableMedianBlockTime calculateMedianBlockTime(BlockId blockId) throws DatabaseException;
+    MedianBlockTime getMedianBlockTime(BlockId blockId) throws DatabaseException;
+    MedianBlockTime getMedianTimePast(BlockId blockId) throws DatabaseException;
     ChainWork getChainWork(BlockId blockId) throws DatabaseException;
     BlockId getBlockIdAtHeight(BlockchainSegmentId blockchainSegmentId, Long blockHeight) throws DatabaseException;
 

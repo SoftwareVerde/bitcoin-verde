@@ -35,7 +35,7 @@ public class LazyMedianBlockTimeContext implements MedianBlockTimeContext {
             final BlockId blockId = _getBlockId(blockHeight);
             if (blockId == null) { return null; }
 
-            return blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+            return blockHeaderDatabaseManager.getMedianBlockTime(blockId);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

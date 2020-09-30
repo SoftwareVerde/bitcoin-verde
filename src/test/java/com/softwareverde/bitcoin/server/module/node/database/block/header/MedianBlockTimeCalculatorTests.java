@@ -1,11 +1,10 @@
-package com.softwareverde.bitcoin.context.lazy;
+package com.softwareverde.bitcoin.server.module.node.database.block.header;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -15,7 +14,7 @@ import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class BlockValidatorContextTests extends IntegrationTest {
+public class MedianBlockTimeCalculatorTests extends IntegrationTest {
     protected void insertPreviousBlockHeader(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final String blockHeaderData, final String previousBlockHashString, final String chainWorkString) throws Exception {
         final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
         final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(previousBlockHashString);
@@ -55,8 +54,9 @@ public class BlockValidatorContextTests extends IntegrationTest {
 
         final MedianBlockTime medianBlockTime;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, null, null, databaseManager, null);
-            medianBlockTime = blockValidatorContext.getMedianBlockTime(478581L);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final Sha256Hash blockHash = Sha256Hash.fromHexString("000000000000000003A57EEB8B4C59486F419CD9BA59E77195A45BE3FF419C1C"); // 478581
+            medianBlockTime = MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(blockHeaderDatabaseManager, blockHash);
         }
 
         Assert.assertEquals(expectedMedianBlockTime, medianBlockTime);

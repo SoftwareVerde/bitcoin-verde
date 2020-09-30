@@ -54,7 +54,7 @@ public class CachingMedianBlockTimeContext implements MedianBlockTimeContext {
             final BlockId blockId = _getBlockId(blockHeight);
             if (blockId == null) { return null; }
 
-            final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+            final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
             _medianBlockTimes.put(blockHeight, medianBlockTime);
             return medianBlockTime;
         }

@@ -46,7 +46,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
-        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+        final MedianBlockTime medianTimePast = blockHeaderDatabaseManager.getMedianTimePast(blockId);
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
 
         { // Include Extra Block Metadata...
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
@@ -58,6 +59,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             blockJson.put("byteCount", blockHeaderDatabaseManager.getBlockByteCount(blockId));
             blockJson.put("transactionCount", transactionCount);
             blockJson.put("medianBlockTime", medianBlockTime.getCurrentTimeInSeconds());
+            blockJson.put("medianTimePast", medianTimePast.getCurrentTimeInSeconds());
             blockJson.put("chainWork", chainWork);
         }
     }

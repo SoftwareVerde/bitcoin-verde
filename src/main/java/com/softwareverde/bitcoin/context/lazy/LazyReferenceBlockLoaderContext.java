@@ -34,7 +34,7 @@ public class LazyReferenceBlockLoaderContext implements AsertReferenceBlockLoade
     @Override
     public MedianBlockTime getMedianBlockTime(final BlockId blockId) throws ContextException {
         try {
-            return _blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+            return _blockHeaderDatabaseManager.getMedianBlockTime(blockId);
         }
         catch (final DatabaseException exception) {
             throw new ContextException(exception);

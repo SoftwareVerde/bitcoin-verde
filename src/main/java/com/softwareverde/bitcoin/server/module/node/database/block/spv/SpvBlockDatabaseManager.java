@@ -1,16 +1,20 @@
 package com.softwareverde.bitcoin.server.module.node.database.block.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeDeflater;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -23,6 +27,18 @@ import com.softwareverde.util.Util;
 
 public class SpvBlockDatabaseManager implements BlockDatabaseManager {
     protected final DatabaseManager _databaseManager;
+
+    protected BlockId _getHeadBlockId() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_merkle_trees ON blocks.id = block_merkle_trees.block_id ORDER BY blocks.chain_work DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("id"));
+    }
 
     protected Long _getPartialMerkleTreeId(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -66,16 +82,7 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
 
     @Override
     public BlockId getHeadBlockId() throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        // TODO: not updated with v2...
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_merkle_trees ON blocks.id = block_merkle_trees.block_id ORDER BY blocks.chain_work DESC LIMIT 1")
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return BlockId.wrap(row.getLong("id"));
+        return _getHeadBlockId();
     }
 
     public BlockId selectNextIncompleteBlock(final Long minBlockHeight) throws DatabaseException {
@@ -133,7 +140,6 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        // TODO: not updated with v2...
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_merkle_trees ON blocks.id = block_merkle_trees.block_id ORDER BY blocks.chain_work DESC LIMIT 1")
         );
@@ -192,6 +198,22 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
             transactionIds.add(transactionId);
         }
         return transactionIds;
+    }
+
+    @Override
+    public MutableMedianBlockTime calculateMedianBlockTime() throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final Sha256Hash blockHash;
+        {
+            final BlockId headBlockId = _getHeadBlockId();
+            if (headBlockId == null) {
+                blockHash = null;
+            }
+            else {
+                blockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
+            }
+        }
+        return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(blockHeaderDatabaseManager, Util.coalesce(blockHash, BlockHeader.GENESIS_BLOCK_HASH));
     }
 
     public List<BlockId> getBlockIdsWithTransactions() throws DatabaseException {

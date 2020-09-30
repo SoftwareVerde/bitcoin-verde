@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -130,12 +131,7 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 
     @Override
-    default MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException {
+    default MutableMedianBlockTime calculateMedianBlockHeaderTime() throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
@@ -162,7 +158,7 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
 
 class FakeFullNodeBlockHeaderDatabaseManager extends FullNodeBlockHeaderDatabaseManager {
     public static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
-        return FullNodeBlockHeaderDatabaseManager._newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
+        return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(blockDatabaseManager, headBlockHash);
     }
 
     public FakeFullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {

@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.context.ChainWorkContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.util.Util;
 import com.softwareverde.network.time.NetworkTime;
 
 public class BlockHeaderValidator {
@@ -77,7 +78,7 @@ public class BlockHeaderValidator {
                 return BlockHeaderValidationResult.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());
             }
 
-            final boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
+            final boolean difficultyIsCorrect = Util.areEqual(calculatedRequiredDifficulty, blockHeader.getDifficulty());
             if (! difficultyIsCorrect) {
                 return BlockHeaderValidationResult.invalid("Invalid difficulty for block " + blockHeader.getHash() + " at height: " + blockHeight + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
             }

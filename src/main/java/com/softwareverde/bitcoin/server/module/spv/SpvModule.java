@@ -365,7 +365,7 @@ public class SpvModule {
                     final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.initializeMedianBlockHeaderTime();
+                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.calculateMedianBlockHeaderTime();
                 }
                 catch (final DatabaseException exception) {
                     Logger.error(exception);

@@ -18,6 +18,7 @@ CREATE TABLE blocks (
     merkle_root BINARY(32) NOT NULL,
     version INT UNSIGNED NOT NULL DEFAULT '1',
     timestamp BIGINT UNSIGNED NOT NULL,
+    median_block_time BIGINT UNSIGNED NOT NULL COMMENT "The MedianBlockTime for this Block, which includes this Block's timestamp; the MedianTimePast (MTP) is the previous Block's MedianBlockTime.",
     difficulty BINARY(4) NOT NULL,
     nonce INT UNSIGNED NOT NULL,
     chain_work BINARY(32) NOT NULL,

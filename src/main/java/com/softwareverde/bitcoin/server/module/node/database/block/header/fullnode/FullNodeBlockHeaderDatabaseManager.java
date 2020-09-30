@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -36,38 +37,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
-
-    /**
-     * Initializes a MedianBlockTime from the database.
-     *  NOTE: The headBlockHash is included within the MedianBlockTime.
-     */
-    protected static MutableMedianBlockTime _newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
-        // Initializes medianBlockTime with the N most recent blocks...
-
-        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
-
-        final MutableList<BlockHeader> blockHeadersInDescendingOrder = new MutableList<BlockHeader>(MedianBlockTimeWithBlocks.BLOCK_COUNT);
-
-        Sha256Hash blockHash = headBlockHash;
-        for (int i = 0; i < MedianBlockTimeWithBlocks.BLOCK_COUNT; ++i) {
-            final BlockId blockId = blockDatabaseManager.getBlockHeaderId(blockHash);
-            if (blockId == null) { break; }
-
-            final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
-            blockHeadersInDescendingOrder.add(blockHeader);
-            blockHash = blockHeader.getPreviousBlockHash();
-        }
-
-        // Add the blocks to the MedianBlockTime in ascending order (lowest block-height is added first)...
-        final int blockHeaderCount = blockHeadersInDescendingOrder.getCount();
-        for (int i = 0; i < blockHeaderCount; ++i) {
-            final BlockHeader blockHeader = blockHeadersInDescendingOrder.get(blockHeaderCount - i - 1);
-            medianBlockTime.addBlock(blockHeader);
-        }
-
-        return medianBlockTime;
-    }
-
     protected final DatabaseManager _databaseManager;
 
     public FullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {
@@ -198,6 +167,20 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         );
     }
 
+    protected List<BlockId> _insertBlockHeadersAndUpdateBlockchainSegments(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+
+        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, maxBatchSize);
+        if (blockIds.isEmpty()) { return blockIds; }
+
+        final BlockId firstBlockId = blockIds.get(0);
+        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(firstBlockId);
+
+        _setBlockchainSegmentIds(blockIds, blockchainSegmentId, maxBatchSize);
+
+        return blockIds;
+    }
+
     protected ChainWork _getChainWork(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -215,7 +198,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     protected BlockId _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final BlockId previousBlockId = _getBlockHeaderId(blockHeader.getPreviousBlockHash());
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final BlockId previousBlockId = _getBlockHeaderId(previousBlockHash);
         final Long previousBlockHeight = _getBlockHeight(previousBlockId);
         final Long blockHeight = (previousBlockId == null ? 0 : (previousBlockHeight + 1));
         final Difficulty difficulty = blockHeader.getDifficulty();
@@ -224,18 +208,33 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
         final ChainWork chainWork = ChainWork.add(previousChainWork, blockWork);
 
-        return BlockId.wrap(databaseConnection.executeSql(
-            new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        final MedianBlockTime medianBlockTime;
+        {
+            if (previousBlockId == null) {
+                medianBlockTime = MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+            }
+            else {
+                final MutableMedianBlockTime medianTimePast = MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(this, previousBlockId, previousBlockHash);
+                medianTimePast.addBlock(blockHeader); // Convert the MedianTimePast to MedianBlockTime.
+                medianBlockTime = medianTimePast;
+            }
+        }
+
+        final Long insertId = databaseConnection.executeSql(
+            new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                 .setParameter(blockHeader.getHash())
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
                 .setParameter(blockHeader.getMerkleRoot())
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
+                .setParameter(medianBlockTime.getCurrentTimeInSeconds())
                 .setParameter(difficulty)
                 .setParameter(blockHeader.getNonce())
                 .setParameter(chainWork)
-        ));
+        );
+
+        return BlockId.wrap(insertId);
     }
 
     protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
@@ -257,6 +256,14 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final Container<ChainWork> previousChainWork = new Container<ChainWork>();
         final Container<BlockId> lastInsertedBlockId = new Container<BlockId>();
 
+        final MutableMedianBlockTime medianTimePast;
+        {
+            final BlockHeader firstBlockHeader = blockHeaders.get(0);
+            final Sha256Hash headBlockHashBeforeBatch = firstBlockHeader.getPreviousBlockHash();
+
+            medianTimePast = MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(this, headBlockHashBeforeBatch);
+        }
+
         final BatchRunner<BlockHeader> batchRunner = new BatchRunner<BlockHeader>(maxBatchSize, false);
         batchRunner.run(blockHeaders, new BatchRunner.Batch<BlockHeader>() {
             @Override
@@ -277,7 +284,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                     i += 1;
                 }
 
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
                 long previousBlockId = lastInsertedBlockId.value.longValue();
                 while (i < batchCount) {
@@ -289,12 +296,19 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                     final BlockWork blockWork = difficulty.calculateWork();
                     final ChainWork chainWork = ChainWork.add(previousChainWork.value, blockWork);
 
+                    final MedianBlockTime medianBlockTime;
+                    {
+                        medianTimePast.addBlock(blockHeader);
+                        medianBlockTime = medianTimePast;
+                    }
+
                     batchedInsertQuery.setParameter(blockHeader.getHash());
                     batchedInsertQuery.setParameter(previousBlockId);
                     batchedInsertQuery.setParameter(blockHeight);
                     batchedInsertQuery.setParameter(blockHeader.getMerkleRoot());
                     batchedInsertQuery.setParameter(blockHeader.getVersion());
                     batchedInsertQuery.setParameter(blockHeader.getTimestamp());
+                    batchedInsertQuery.setParameter(medianBlockTime.getCurrentTimeInSeconds());
                     batchedInsertQuery.setParameter(difficulty);
                     batchedInsertQuery.setParameter(blockHeader.getNonce());
                     batchedInsertQuery.setParameter(chainWork);
@@ -469,6 +483,20 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         return BlockId.wrap(row.getLong("previous_block_id"));
     }
 
+    protected MedianBlockTime _getMedianBlockTime(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, median_block_time FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long medianBlockTimeLong = row.getLong("median_block_time");
+        return MedianBlockTime.fromSeconds(medianBlockTimeLong);
+    }
+
     @Override
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to insertBlockHeader without obtaining lock."); }
@@ -525,15 +553,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
         if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
 
-        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
-
-        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, Integer.MAX_VALUE);
-
-        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(blockIds.get(0));
-
-        _setBlockchainSegmentIds(blockIds, blockchainSegmentId, Integer.MAX_VALUE);
-
-        return blockIds;
+        return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders, Integer.MAX_VALUE);
     }
 
     @Override
@@ -541,15 +561,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
         if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
 
-        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
-
-        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, maxBatchSize);
-
-        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(blockIds.get(0));
-
-        _setBlockchainSegmentIds(blockIds, blockchainSegmentId, maxBatchSize);
-
-        return blockIds;
+        return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders, maxBatchSize);
     }
 
     @Override
@@ -755,36 +767,39 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     }
 
     /**
-     * Initializes a Mutable MedianBlockTime using only blocks that have been fully validated.
-     */
-    @Override
-    public MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException {
-        Sha256Hash blockHash = Util.coalesce(_getHeadBlockHeaderHash(), BlockHeader.GENESIS_BLOCK_HASH);
-        return _newInitializedMedianBlockTime(this, blockHash);
-    }
-
-    /**
      * Initializes a Mutable MedianBlockTime using most recent block headers.
-     *  The significant difference between MutableMedianBlockTime.newInitializedMedianBlockHeaderTime and MutableMedianBlockTime.newInitializedMedianBlockTime
-     *  is that BlockHeaders are downloaded and validated more quickly than blocks; therefore when validating blocks
-     *  MutableMedianBlockTime.newInitializedMedianBlockTime should be used, not this function.
+     *  The MedianBlockTime returned includes the head Block's timestamp, and is therefore the MedianTimePast value for the next mined Block.
      */
     @Override
-    public MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException {
+    public MutableMedianBlockTime calculateMedianBlockHeaderTime() throws DatabaseException {
         final Sha256Hash headBlockHash = _getHeadBlockHeaderHash();
-        Sha256Hash blockHash = Util.coalesce(headBlockHash, BlockHeader.GENESIS_BLOCK_HASH);
-        return _newInitializedMedianBlockTime(this, blockHash);
+        final Sha256Hash blockHash = Util.coalesce(headBlockHash, BlockHeader.GENESIS_BLOCK_HASH);
+        return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(this, blockHash);
     }
 
     /**
      * Calculates the MedianBlockTime of the provided blockId.
-     * NOTE: This method is identical to BlockHeaderDatabaseManager::calculateMedianBlockTimeBefore except that blockId
-     *  is inclusive.
+     *  To calculate the MedianTimePast for a "Block A", provide the BlockId for Block A's parent.
      */
     @Override
     public MutableMedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
-        final Sha256Hash blockHash = _getBlockHash(blockId);
-        return _newInitializedMedianBlockTime(this, blockHash);
+        return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(this, blockId);
+    }
+
+    /**
+     * Returns the MedianBlockTime of the provided blockId.
+     *  This value is cached within the database and is more performant than BlockHeaderDatabaseManager::calculateMedianBlockTime.
+     *  To calculate the MedianTimePast for a "Block A", provide the BlockId for Block A's parent.
+     */
+    @Override
+    public MedianBlockTime getMedianBlockTime(final BlockId blockId) throws DatabaseException {
+        return _getMedianBlockTime(blockId);
+    }
+
+    @Override
+    public MedianBlockTime getMedianTimePast(final BlockId blockId) throws DatabaseException {
+        final BlockId previousBlockId = _getPreviousBlockId(blockId);
+        return _getMedianBlockTime(previousBlockId);
     }
 
     @Override

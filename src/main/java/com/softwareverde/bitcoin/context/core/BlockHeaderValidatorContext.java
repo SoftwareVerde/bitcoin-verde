@@ -95,7 +95,7 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     public void loadBlock(final Long blockHeight, final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
-        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.calculateMedianBlockTime(blockId);
+        final MedianBlockTime medianBlockTime = blockHeaderDatabaseManager.getMedianBlockTime(blockId);
         final ChainWork chainWork = blockHeaderDatabaseManager.getChainWork(blockId);
 
         _blockIds.put(blockHeight, blockId);

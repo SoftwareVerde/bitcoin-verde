@@ -4,8 +4,6 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
@@ -94,7 +92,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
@@ -150,7 +147,6 @@ public class NodeModule {
     protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
-    protected final MutableMedianBlockTime _medianBlockTime;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -410,21 +406,6 @@ public class NodeModule {
             }
         }
 
-        { // Initialize MedianBlockTime...
-            {
-                MutableMedianBlockTime newMedianBlockTime = null;
-                try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
-                }
-                catch (final DatabaseException exception) {
-                    Logger.error(exception);
-                    BitcoinUtil.exitFailure();
-                }
-                _medianBlockTime = newMedianBlockTime;
-            }
-        }
-
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseManagerFactory);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseManagerFactory);
 
@@ -615,21 +596,6 @@ public class NodeModule {
                     if (! processBlockResult.isValid) { return; }
 
                     _blockStore.storeBlock(processBlockResult.block, processBlockResult.blockHeight);
-
-                    if (! processBlockResult.bestBlockchainHasChanged) {
-                        _medianBlockTime.addBlock(processBlockResult.block);
-                    }
-                    else {
-                        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                            final MedianBlockTimeWithBlocks newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
-                            _medianBlockTime.setTo(newMedianBlockTime);
-                        }
-                        catch (final DatabaseException exception) {
-                            Logger.error(exception);
-                            _medianBlockTime.clear();
-                        }
-                    }
                 }
             });
 

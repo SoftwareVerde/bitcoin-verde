@@ -5,6 +5,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.Time;
 
 public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTime> {
+    Integer BLOCK_COUNT = 11;
     Long GENESIS_BLOCK_TIMESTAMP = 1231006505L; // In seconds.
     ImmutableMedianBlockTime MAX_VALUE = new ImmutableMedianBlockTime(Long.MAX_VALUE);
 
