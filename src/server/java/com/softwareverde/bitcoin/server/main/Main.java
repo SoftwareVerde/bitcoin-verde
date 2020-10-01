@@ -104,17 +104,6 @@ public class Main {
         _printError("\t----------------");
         _printError("");
 
-        _printError("\tModule: REPAIR");
-        _printError("\tArguments: <Configuration File> <Block Hash> [<Block Hash> [...]]");
-        _printError("\tDescription: Downloads the requested blocks and repairs the database with the blocks received from the configured trusted peer.");
-        _printError("\tArgument Description: <Configuration File>");
-        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
-        _printError("\tArgument Description: <Block Hash>");
-        _printError("\t\tThe block that should be repaired. Multiple blocks may be specified, each separated by a space.");
-        _printError("\t\tEx: 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F");
-        _printError("\t----------------");
-        _printError("");
-
         _printError("\tModule: STRATUM");
         _printError("\tArguments: <Configuration File>");
         _printError("\tDescription: Starts a Stratum server for pooled mining.");
