@@ -307,6 +307,8 @@ CREATE TABLE IF NOT EXISTS "metadata" (
 	PRIMARY KEY ("id")
 );
 
+INSERT INTO metadata (version, timestamp) VALUES (3, UNIX_TIMESTAMP());
+
 CREATE UNIQUE INDEX "block_merkle_trees_block_merkle_trees_uq" ON "block_merkle_trees" ("block_id");
 CREATE INDEX "block_transactions_block_transactions_fk2" ON "block_transactions" ("transaction_id");
 CREATE UNIQUE INDEX "block_transactions_block_transactions_uq" ON "block_transactions" ("block_id", "transaction_id");

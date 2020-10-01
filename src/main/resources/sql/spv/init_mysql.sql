@@ -342,7 +342,7 @@ CREATE TABLE properties (
     UNIQUE KEY properties_uq (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (3, UNIX_TIMESTAMP());
 
 -- Dev Tokens
 

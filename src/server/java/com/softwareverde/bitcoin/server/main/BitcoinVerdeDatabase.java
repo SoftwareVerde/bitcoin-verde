@@ -55,22 +55,8 @@ public class BitcoinVerdeDatabase implements Database {
     public static final DatabaseInitializer.DatabaseUpgradeHandler<Connection> DATABASE_UPGRADE_HANDLER = new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
         @Override
         public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
-            if ( (currentVersion == 1) && (requiredVersion >= 2) ) {
-                try {
-                    final String upgradeScript = IoUtil.getResource("/sql/full_node/migration/v1_to_v2_mysql.sql");
-                    if (Util.coalesce(upgradeScript).isEmpty()) { return false; }
-
-                    TransactionUtil.startTransaction(maintenanceDatabaseConnection);
-                    final SqlScriptRunner scriptRunner = new SqlScriptRunner(maintenanceDatabaseConnection.getRawConnection(), false, true);
-                    scriptRunner.runScript(new StringReader(upgradeScript));
-                    TransactionUtil.commitTransaction(maintenanceDatabaseConnection);
-
-                    return true;
-                }
-                catch (final Exception exception) {
-                    Logger.error("Unable to upgrade database.", exception);
-                    return false;
-                }
+            if ( (currentVersion < 3) && (requiredVersion <= 3) ) {
+                return false; // TODO
             }
 
             return false;
