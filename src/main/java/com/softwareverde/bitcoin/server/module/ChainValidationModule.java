@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.Environment;
@@ -56,7 +58,17 @@ public class ChainValidationModule {
         { // Initialize the BlockCache...
             final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
             final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
-            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, masterInflater);
+
+            final BlockHeaderInflaters blockHeaderInflaters = masterInflater;
+            final BlockInflaters blockInflaters = masterInflater;
+            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, blockHeaderInflaters, blockInflaters) {
+                @Override
+                protected void _deletePendingBlockData(final String blockPath) {
+                    if (bitcoinProperties.isDeletePendingBlocksEnabled()) {
+                        super._deletePendingBlockData(blockPath);
+                    }
+                }
+            };
         }
     }
 

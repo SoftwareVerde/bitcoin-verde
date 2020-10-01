@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -53,6 +54,12 @@ public class FakeBlockStore implements PendingBlockStore {
     @Override
     public void removeBlock(final Sha256Hash blockHash, final Long blockHeight) {
         _blocks.remove(blockHash);
+    }
+
+    @Override
+    public MutableBlockHeader getBlockHeader(final Sha256Hash blockHash, final Long blockHeight) {
+        final Block block = _blocks.get(blockHash);
+        return new MutableBlockHeader(block);
     }
 
     @Override

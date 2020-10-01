@@ -17,10 +17,14 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     protected Long _getMedianBlockTimeInMilliseconds() {
         final int blockCount = _previousBlocks.size();
 
-        if (blockCount < _requiredBlockCount) {
-            // Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
-            return MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
+        // NOTE: Bitcoin Core allows the MTP calculation to proceed with less than the required number of blocks.
+        if (blockCount == 0) {
+            return (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP * 1000L);
         }
+
+        // if (blockCount < _requiredBlockCount) {
+        //     Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
+        // }
 
         final List<Long> blockTimestamps = new ArrayList<Long>(blockCount);
         for (final BlockHeader block : _previousBlocks) {

@@ -4,6 +4,9 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.util.ByteBuffer;
 import com.softwareverde.bitcoin.util.IoUtil;
@@ -16,6 +19,7 @@ import java.io.File;
 import java.io.RandomAccessFile;
 
 public class BlockStoreCore implements BlockStore {
+    protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final BlockInflaters _blockInflaters;
     protected final String _blockDataDirectory;
     protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
@@ -37,9 +41,53 @@ public class BlockStoreCore implements BlockStore {
         return (blockHeightDirectory + "/" + blockHash);
     }
 
-    public BlockStoreCore(final String blockDataDirectory, final BlockInflaters blockInflaters) {
+    protected ByteArray _readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
+        if (_blockDataDirectory == null) { return null; }
+
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
+        if (blockPath == null) { return null; }
+
+        if (! IoUtil.fileExists(blockPath)) { return null; }
+
+        try {
+            final MutableByteArray byteArray = new MutableByteArray(byteCount);
+
+            try (final RandomAccessFile file = new RandomAccessFile(new File(blockPath), "r")) {
+                file.seek(diskOffset);
+
+                final byte[] buffer;
+                synchronized (_byteBuffer) {
+                    buffer = _byteBuffer.getRecycledBuffer();
+                }
+
+                int totalBytesRead = 0;
+                while (totalBytesRead < byteCount) {
+                    final int byteCountRead = file.read(buffer);
+                    if (byteCountRead < 0) { break; }
+
+                    byteArray.setBytes(totalBytesRead, buffer);
+                    totalBytesRead += byteCountRead;
+                }
+
+                synchronized (_byteBuffer) {
+                    _byteBuffer.recycleBuffer(buffer);
+                }
+
+                if (totalBytesRead < byteCount) { return null; }
+            }
+
+            return byteArray;
+        }
+        catch (final Exception exception) {
+            Logger.warn(exception);
+            return null;
+        }
+    }
+
+    public BlockStoreCore(final String blockDataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
         _blockDataDirectory = blockDataDirectory;
         _blockInflaters = blockInflaters;
+        _blockHeaderInflaters = blockHeaderInflaters;
     }
 
     @Override
@@ -85,6 +133,21 @@ public class BlockStoreCore implements BlockStore {
     }
 
     @Override
+    public MutableBlockHeader getBlockHeader(final Sha256Hash blockHash, final Long blockHeight) {
+        if (_blockDataDirectory == null) { return null; }
+
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
+        if (blockPath == null) { return null; }
+
+        if (! IoUtil.fileExists(blockPath)) { return null; }
+        final ByteArray blockBytes = _readFromBlock(blockHash, blockHeight, 0L, BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+        if (blockBytes == null) { return null; }
+
+        final BlockHeaderInflater blockHeaderInflater = _blockHeaderInflaters.getBlockHeaderInflater();
+        return blockHeaderInflater.fromBytes(blockBytes);
+    }
+
+    @Override
     public MutableBlock getBlock(final Sha256Hash blockHash, final Long blockHeight) {
         if (_blockDataDirectory == null) { return null; }
 
@@ -101,46 +164,7 @@ public class BlockStoreCore implements BlockStore {
 
     @Override
     public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
-        if (_blockDataDirectory == null) { return null; }
-
-        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
-        if (blockPath == null) { return null; }
-
-        if (! IoUtil.fileExists(blockPath)) { return null; }
-
-        try {
-            final MutableByteArray byteArray = new MutableByteArray(byteCount);
-
-            try (final RandomAccessFile file = new RandomAccessFile(new File(blockPath), "r")) {
-                file.seek(diskOffset);
-
-                final byte[] buffer;
-                synchronized (_byteBuffer) {
-                    buffer = _byteBuffer.getRecycledBuffer();
-                }
-
-                int totalBytesRead = 0;
-                while (totalBytesRead < byteCount) {
-                    final int byteCountRead = file.read(buffer);
-                    if (byteCountRead < 0) { break; }
-
-                    byteArray.setBytes(totalBytesRead, buffer);
-                    totalBytesRead += byteCountRead;
-                }
-
-                synchronized (_byteBuffer) {
-                    _byteBuffer.recycleBuffer(buffer);
-                }
-
-                if (totalBytesRead < byteCount) { return null; }
-            }
-
-            return byteArray;
-        }
-        catch (final Exception exception) {
-            Logger.warn(exception);
-            return null;
-        }
+        return _readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
     }
 
     public String getBlockDataDirectory() {

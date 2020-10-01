@@ -12,6 +12,8 @@ import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.Environment;
@@ -346,7 +348,10 @@ public class NodeModule {
         { // Initialize the BlockCache...
             final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
             final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
-            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, _masterInflater) {
+
+            final BlockHeaderInflaters blockHeaderInflaters = _masterInflater;
+            final BlockInflaters blockInflaters = _masterInflater;
+            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, blockHeaderInflaters, blockInflaters) {
                 @Override
                 protected void _deletePendingBlockData(final String blockPath) {
                     if (bitcoinProperties.isDeletePendingBlocksEnabled()) {
