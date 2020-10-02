@@ -16,7 +16,7 @@ CREATE TABLE blocks (
     block_height INT UNSIGNED NOT NULL,
     blockchain_segment_id INT UNSIGNED,
     merkle_root BINARY(32) NOT NULL,
-    version INT UNSIGNED NOT NULL DEFAULT '1',
+    version INT UNSIGNED NOT NULL DEFAULT 1,
     timestamp BIGINT UNSIGNED NOT NULL,
     median_block_time BIGINT UNSIGNED NOT NULL COMMENT "The MedianBlockTime for this Block, which includes this Block's timestamp; the MedianTimePast (MTP) is the previous Block's MedianBlockTime.",
     difficulty BINARY(4) NOT NULL,

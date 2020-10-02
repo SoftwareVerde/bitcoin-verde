@@ -7,15 +7,17 @@ import com.softwareverde.database.DatabaseException;
 
 public class SpvDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final Integer _maxQueryBatchSize;
 
-    public SpvDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
+    public SpvDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _maxQueryBatchSize = maxQueryBatchSize;
     }
 
     @Override
     public SpvDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new SpvDatabaseManager(databaseConnection);
+        return new SpvDatabaseManager(databaseConnection, _maxQueryBatchSize);
     }
 
     @Override
@@ -25,6 +27,11 @@ public class SpvDatabaseManagerFactory implements DatabaseManagerFactory {
 
     @Override
     public DatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
-        return new SpvDatabaseManagerFactory(databaseConnectionFactory);
+        return new SpvDatabaseManagerFactory(databaseConnectionFactory, _maxQueryBatchSize);
+    }
+
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return _maxQueryBatchSize;
     }
 }

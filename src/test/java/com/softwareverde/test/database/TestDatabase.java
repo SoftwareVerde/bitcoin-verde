@@ -36,6 +36,11 @@ public class TestDatabase implements Database {
         return new MysqlDatabaseConnectionFactoryWrapper(Util.coalesce(_databaseConnectionFactory, _core.newConnectionFactory()));
     }
 
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return 1024;
+    }
+
     public void reset() throws DatabaseException {
         _core.reset();
     }

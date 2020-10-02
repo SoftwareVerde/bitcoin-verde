@@ -349,7 +349,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             indexes.add(i);
         }
 
-        final BatchRunner<Integer> batchRunner = new BatchRunner<Integer>(1024);
+        final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+        final BatchRunner<Integer> batchRunner = new BatchRunner<Integer>(batchSize, false);
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {
@@ -393,7 +394,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             indexes.add(i);
         }
 
-        final BatchRunner<Integer> batchRunner = new BatchRunner<Integer>(1024);
+        final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+        final BatchRunner<Integer> batchRunner = new BatchRunner<Integer>(batchSize);
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {

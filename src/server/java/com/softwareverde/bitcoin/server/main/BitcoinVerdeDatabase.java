@@ -7,22 +7,17 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.DatabaseInitializer;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
-import com.softwareverde.database.mysql.SqlScriptRunner;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.properties.DatabaseCredentials;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Util;
 
-import java.io.StringReader;
 import java.sql.Connection;
 
 public class BitcoinVerdeDatabase implements Database {
@@ -157,5 +152,10 @@ public class BitcoinVerdeDatabase implements Database {
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
         return new MysqlDatabaseConnectionFactoryWrapper(_core.newConnectionFactory());
+    }
+
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return 1024;
     }
 }

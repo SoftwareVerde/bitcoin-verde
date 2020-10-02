@@ -50,8 +50,6 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final Object _genesisBlockPin = new Object();
     protected Boolean _hasGenesisBlock = false;
 
-    protected Integer _maxHeaderBatchSize = 2000;
-
     protected Long _headBlockHeight = 0L;
     protected Sha256Hash _lastBlockHash = BlockHeader.GENESIS_BLOCK_HASH;
     protected BlockHeader _lastBlockHeader = null;
@@ -129,7 +127,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders, final BlockHeaderDatabaseManager blockHeaderDatabaseManager) {
         try {
-            return blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders, _maxHeaderBatchSize);
+            return blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -485,19 +483,5 @@ public class BlockHeaderDownloader extends SleepyService {
 
     public Long getBlockHeight() {
         return _headBlockHeight;
-    }
-
-    /**
-     * When headers are received, they are processed as a batch.
-     *  After each batch completes, the NewBlockHeaderAvailableCallback is invoked.
-     *  This setting controls the size of the batch.
-     *  The default value is 2000.
-     */
-    public void setMaxHeaderBatchSize(final Integer batchSize) {
-        _maxHeaderBatchSize = batchSize;
-    }
-
-    public Integer getMaxHeaderBatchSize() {
-        return _maxHeaderBatchSize;
     }
 }

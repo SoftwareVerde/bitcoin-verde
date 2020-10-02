@@ -147,7 +147,7 @@ public class UnspentTransactionOutputDatabaseManager {
         final DatabaseConnection transactionalDatabaseConnection = transactionalDatabaseManager.getDatabaseConnection();
 
         final long maxKeepCount = (long) (maxUtxoCount * (1.0D - purgePercent));
-        final int maxUtxoPerBatch = 1024;
+        final int maxUtxoPerBatch = Math.min(1024, transactionalDatabaseManager.getMaxQueryBatchSize());
         final int maxItemCount = (maxUtxoPerBatch * 32); // The maximum number of items in queue at any point in time...
 
         final Long minUtxoBlockHeight;
@@ -507,7 +507,8 @@ public class UnspentTransactionOutputDatabaseManager {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
+            final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
             batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -560,7 +561,8 @@ public class UnspentTransactionOutputDatabaseManager {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
+            final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
             batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -597,7 +599,8 @@ public class UnspentTransactionOutputDatabaseManager {
         try {
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
+            final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
             batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -640,7 +643,8 @@ public class UnspentTransactionOutputDatabaseManager {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(1024, false);
+            final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
             batchRunner.run(unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
@@ -737,7 +741,8 @@ public class UnspentTransactionOutputDatabaseManager {
         final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiersNotInCache;
         final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers;
 
-        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(512, false);
+        final Integer batchSize = Math.min(512, _databaseManager.getMaxQueryBatchSize());
+        final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
 
         UTXO_READ_MUTEX.lock();
         try {

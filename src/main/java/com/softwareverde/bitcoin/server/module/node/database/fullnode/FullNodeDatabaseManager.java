@@ -25,6 +25,7 @@ import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
+    protected final Integer _maxQueryBatchSize;
     protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
     protected final Long _maxUtxoCount;
@@ -43,12 +44,13 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
     protected UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
-        this(databaseConnection, blockStore, masterInflater, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
+        this(databaseConnection, maxQueryBatchSize, blockStore, masterInflater, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final PendingBlockStore blockStore, final MasterInflater masterInflater, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnection = databaseConnection;
+        _maxQueryBatchSize = maxQueryBatchSize;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
         _maxUtxoCount = maxUtxoCount;
@@ -112,6 +114,11 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         }
 
         return _transactionDatabaseManager;
+    }
+
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return _maxQueryBatchSize;
     }
 
     public BlockchainIndexerDatabaseManager getBlockchainIndexerDatabaseManager() {

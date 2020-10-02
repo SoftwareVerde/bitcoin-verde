@@ -19,6 +19,8 @@ public interface DatabaseManager extends AutoCloseable {
     PendingBlockDatabaseManager getPendingBlockDatabaseManager();
     TransactionDatabaseManager getTransactionDatabaseManager();
 
+    Integer getMaxQueryBatchSize();
+
     @Override
     void close() throws DatabaseException;
 }

@@ -177,7 +177,7 @@ public class NodeModule {
         requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
         try (final DatabaseConnection databaseConnection = database.newConnection()) {
-            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, _blockStore, _masterInflater);
+            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _blockStore, _masterInflater);
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
@@ -295,8 +295,9 @@ public class NodeModule {
 
         Logger.info("[Committing UTXO Set]");
         {
+            final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, _masterInflater);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _masterInflater);
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MilliTimer utxoCommitTimer = new MilliTimer();
@@ -389,9 +390,11 @@ public class NodeModule {
             }
         });
 
+        final Database database = _environment.getDatabase();
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionPool,
+            database.getMaxQueryBatchSize(),
             _blockStore,
             _masterInflater,
             _bitcoinProperties.getMaxCachedUtxoCount(),
@@ -896,9 +899,11 @@ public class NodeModule {
         final MilliTimer timer = new MilliTimer();
         timer.start();
 
+        final Database database = _environment.getDatabase();
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
             databaseConnectionPool,
+            database.getMaxQueryBatchSize(),
             _blockStore,
             _masterInflater,
             _bitcoinProperties.getMaxCachedUtxoCount(),

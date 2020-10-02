@@ -40,11 +40,6 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 
     @Override
-    default List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     default void setBlockByteCount(final BlockId blockId, final Integer byteCount) throws DatabaseException { }
 
     @Override

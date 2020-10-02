@@ -16,13 +16,13 @@ CREATE TABLE IF NOT EXISTS "blocks" (
 	"block_height" INTEGER NOT NULL,
 	"blockchain_segment_id" INTEGER NULL,
 	"merkle_root" BLOB NOT NULL,
-	"version" INTEGER NOT NULL,
+	"version" INTEGER NOT NULL DEFAULT 1,
 	"timestamp" BIGINT NOT NULL,
 	"median_block_time" BIGINT NOT NULL,
 	"difficulty" BLOB NOT NULL,
 	"nonce" INTEGER NOT NULL,
 	"chain_work" BLOB NOT NULL,
-	"has_transactions" TINYINT NULL,
+	"has_transactions" TINYINT NULL DEFAULT 0,
 	"byte_count" INTEGER NULL,
 	PRIMARY KEY ("id"),
 	FOREIGN KEY("blockchain_segment_id") REFERENCES "blockchain_segments" ("id") ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS "blocks" (
 CREATE TABLE IF NOT EXISTS "transactions" (
 	"id" INTEGER NOT NULL,
 	"hash" CHARACTER(64) NOT NULL,
-	"slp_validity" VARCHAR(255) NULL,
+	"slp_validity" VARCHAR(255) NULL DEFAULT NULL,
 	PRIMARY KEY ("id")
 );
 
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS "transaction_data" (
 CREATE TABLE IF NOT EXISTS "invalid_blocks" (
 	"id" INTEGER NOT NULL,
 	"hash" BLOB NOT NULL,
-	"process_count" INTEGER NOT NULL,
+	"process_count" INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY ("id")
 );
 
@@ -103,14 +103,14 @@ CREATE VIEW IF NOT EXISTS "head_block" AS
 CREATE TABLE IF NOT EXISTS "unspent_transaction_outputs" (
 	"transaction_hash" BLOB NOT NULL,
 	"index" INTEGER NOT NULL,
-	"is_spent" TINYINT NULL,
+	"is_spent" TINYINT NULL DEFAULT 0,
 	"block_height" INTEGER NULL,
 	PRIMARY KEY ("transaction_hash", "index")
 );
 CREATE TABLE IF NOT EXISTS "unspent_transaction_outputs_buffer" (
 	"transaction_hash" BLOB NOT NULL,
 	"index" INTEGER NOT NULL,
-	"is_spent" TINYINT NULL,
+	"is_spent" TINYINT NULL DEFAULT 0,
 	"block_height" INTEGER NULL,
 	PRIMARY KEY ("transaction_hash", "index")
 );
@@ -170,9 +170,9 @@ CREATE TABLE IF NOT EXISTS "pending_blocks" (
 	"previous_block_hash" BLOB NULL,
 	"timestamp" BIGINT NOT NULL,
 	"last_download_attempt_timestamp" BIGINT NULL,
-	"failed_download_count" INTEGER NOT NULL,
+	"failed_download_count" INTEGER NOT NULL DEFAULT 0,
 	"priority" BIGINT NOT NULL,
-	"was_downloaded" TINYINT NOT NULL,
+	"was_downloaded" TINYINT NOT NULL DEFAULT 0,
 	PRIMARY KEY ("id")
 );
 
@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS "pending_transactions" (
 	"hash" BLOB NOT NULL,
 	"timestamp" BIGINT NOT NULL,
 	"last_download_attempt_timestamp" BIGINT NULL,
-	"failed_download_count" INTEGER NOT NULL,
+	"failed_download_count" INTEGER NOT NULL DEFAULT 0,
 	"priority" BIGINT NOT NULL,
 	PRIMARY KEY ("id")
 );
@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS "pending_transactions_dependent_transactions" (
 CREATE TABLE IF NOT EXISTS "hosts" (
 	"id" INTEGER NOT NULL,
 	"host" VARCHAR(255) NOT NULL,
-	"is_banned" TINYINT NOT NULL,
+	"is_banned" TINYINT NOT NULL DEFAULT 0,
 	"banned_timestamp" BIGINT NULL,
 	PRIMARY KEY ("id")
 );
@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS "nodes" (
 	"port" INTEGER NOT NULL,
 	"first_seen_timestamp" BIGINT NOT NULL,
 	"last_seen_timestamp" BIGINT NOT NULL,
-	"connection_count" INTEGER NOT NULL,
+	"connection_count" INTEGER NOT NULL DEFAULT 1,
 	"last_handshake_timestamp" BIGINT NULL,
 	"user_agent" VARCHAR(255) NULL,
 	PRIMARY KEY ("id"),
@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS "indexed_transaction_outputs" (
 	"output_index" INTEGER NOT NULL,
 	"amount" BIGINT NOT NULL,
 	"address" BLOB NULL,
-	"script_type_id" INTEGER NOT NULL,
+	"script_type_id" INTEGER NOT NULL DEFAULT 1,
 	"slp_transaction_id" INTEGER NULL,
 	PRIMARY KEY ("transaction_id", "output_index")
 );
@@ -286,7 +286,7 @@ CREATE TABLE IF NOT EXISTS "transaction_output_processor_queue" (
 CREATE TABLE IF NOT EXISTS "validated_slp_transactions" (
 	"id" INTEGER NOT NULL,
 	"transaction_id" INTEGER NOT NULL,
-	"is_valid" TINYINT NOT NULL,
+	"is_valid" TINYINT NOT NULL DEFAULT 0,
 	PRIMARY KEY ("id"),
 	FOREIGN KEY("transaction_id") REFERENCES "transactions" ("id") ON UPDATE RESTRICT ON DELETE CASCADE
 );
@@ -307,7 +307,7 @@ CREATE TABLE IF NOT EXISTS "metadata" (
 	PRIMARY KEY ("id")
 );
 
-INSERT INTO metadata (version, timestamp) VALUES (3, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (3, strftime('%s', 'now'));
 
 CREATE UNIQUE INDEX "block_merkle_trees_block_merkle_trees_uq" ON "block_merkle_trees" ("block_id");
 CREATE INDEX "block_transactions_block_transactions_fk2" ON "block_transactions" ("transaction_id");

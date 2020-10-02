@@ -10,17 +10,19 @@ import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final Integer _maxQueryBatchSize;
     protected final PendingBlockStore _blockStore;
     protected final MasterInflater _masterInflater;
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
 
-    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
-        this(databaseConnectionFactory, blockStore, masterInflater, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
+        this(databaseConnectionFactory, maxQueryBatchSize, blockStore, masterInflater, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
     }
 
-    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final PendingBlockStore blockStore, final MasterInflater masterInflater, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _maxQueryBatchSize = maxQueryBatchSize;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
         _maxUtxoCount = maxUtxoCount;
@@ -30,7 +32,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     @Override
     public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new FullNodeDatabaseManager(databaseConnection, _blockStore, _masterInflater, _maxUtxoCount, _utxoPurgePercent);
+        return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _masterInflater, _maxUtxoCount, _utxoPurgePercent);
     }
 
     @Override
@@ -40,6 +42,11 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
 
     @Override
     public FullNodeDatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
-        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _blockStore, _masterInflater, _maxUtxoCount, _utxoPurgePercent);
+        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _maxQueryBatchSize, _blockStore, _masterInflater, _maxUtxoCount, _utxoPurgePercent);
+    }
+
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return _maxQueryBatchSize;
     }
 }

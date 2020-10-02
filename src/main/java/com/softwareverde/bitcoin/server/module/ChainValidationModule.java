@@ -83,7 +83,7 @@ public class ChainValidationModule {
 
         final BlockchainSegmentId blockchainSegmentId;
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, _blockStore, masterInflater);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater);
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -100,6 +100,7 @@ public class ChainValidationModule {
         try (final DatabaseConnection databaseConnection = database.newConnection();) {
             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(
                 databaseConnection,
+                database.getMaxQueryBatchSize(),
                 _blockStore,
                 masterInflater,
                 _bitcoinProperties.getMaxCachedUtxoCount(),

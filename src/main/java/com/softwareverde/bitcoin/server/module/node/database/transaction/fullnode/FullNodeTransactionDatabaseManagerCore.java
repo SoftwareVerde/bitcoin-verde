@@ -273,10 +273,12 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final BatchRunner<Transaction> batchRunner;
         {
             if (databaseConnectionFactory != null) {
-                batchRunner = new BatchRunner<Transaction>(512, true);
+                final Integer batchSize = Math.min(512, _databaseManager.getMaxQueryBatchSize());
+                batchRunner = new BatchRunner<Transaction>(batchSize, true);
             }
             else {
-                batchRunner = new BatchRunner<Transaction>(1024, false);
+                final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+                batchRunner = new BatchRunner<Transaction>(batchSize, false);
             }
         }
 
@@ -739,7 +741,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final java.util.List<Row> rows = new ArrayList<Row>();
         final HashSet<BlockchainSegmentId> blockchainSegmentIds = new HashSet<BlockchainSegmentId>();
 
-        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(1024, false);
+        final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(batchSize, false);
         batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
             @Override
             public void run(final List<Sha256Hash> transactionHashes) throws Exception {

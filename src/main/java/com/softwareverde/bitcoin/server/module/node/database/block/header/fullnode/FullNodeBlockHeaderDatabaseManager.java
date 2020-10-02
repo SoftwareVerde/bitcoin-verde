@@ -167,16 +167,16 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         );
     }
 
-    protected List<BlockId> _insertBlockHeadersAndUpdateBlockchainSegments(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
+    protected List<BlockId> _insertBlockHeadersAndUpdateBlockchainSegments(final List<BlockHeader> blockHeaders) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
 
-        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders, maxBatchSize);
+        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders);
         if (blockIds.isEmpty()) { return blockIds; }
 
         final BlockId firstBlockId = blockIds.get(0);
         final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(firstBlockId);
 
-        _setBlockchainSegmentIds(blockIds, blockchainSegmentId, maxBatchSize);
+        _setBlockchainSegmentIds(blockIds, blockchainSegmentId);
 
         return blockIds;
     }
@@ -237,7 +237,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         return BlockId.wrap(insertId);
     }
 
-    protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
+    protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         if (blockHeaders.isEmpty()) {
@@ -264,6 +264,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
             medianTimePast = MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(this, headBlockHashBeforeBatch);
         }
 
+        final Integer maxBatchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
         final BatchRunner<BlockHeader> batchRunner = new BatchRunner<BlockHeader>(maxBatchSize, false);
         batchRunner.run(blockHeaders, new BatchRunner.Batch<BlockHeader>() {
             @Override
@@ -341,8 +342,9 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         );
     }
 
-    protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId, final Integer maxBatchSize) throws DatabaseException {
+    protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final int maxBatchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
 
         int batchStartIndex = 0;
         while (batchStartIndex < blockIds.getCount()) {
@@ -553,15 +555,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
         if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
 
-        return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders, Integer.MAX_VALUE);
-    }
-
-    @Override
-    public List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
-        if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
-        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
-
-        return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders, maxBatchSize);
+        return _insertBlockHeadersAndUpdateBlockchainSegments(blockHeaders);
     }
 
     @Override
@@ -649,7 +643,8 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final HashMap<BlockId, Long> blockHeights = new HashMap<BlockId, Long>(blockIds.getCount());
-        final BatchRunner<BlockId> batchRunner = new BatchRunner<BlockId>(1024, false);
+        final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+        final BatchRunner<BlockId> batchRunner = new BatchRunner<BlockId>(batchSize, false);
         batchRunner.run(blockIds, new BatchRunner.Batch<BlockId>() {
             @Override
             public void run(final List<BlockId> blockIds) throws Exception {

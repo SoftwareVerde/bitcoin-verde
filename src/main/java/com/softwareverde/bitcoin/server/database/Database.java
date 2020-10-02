@@ -12,6 +12,8 @@ public interface Database extends DatabaseConnectionFactory, com.softwareverde.d
 
     DatabaseConnectionFactory newConnectionFactory();
 
+    Integer getMaxQueryBatchSize();
+
     @Override
     void close() throws DatabaseException;
 }

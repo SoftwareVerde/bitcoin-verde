@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
@@ -40,7 +39,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.wallet.Wallet;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
@@ -180,7 +178,7 @@ public class SpvModule {
             public void run() {
                 final Database database = _environment.getDatabase();
                 try (final DatabaseConnection databaseConnection = database.newConnection()) {
-                    final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
+                    final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, database.getMaxQueryBatchSize());
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                     final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
@@ -249,8 +247,9 @@ public class SpvModule {
     }
 
     protected void _loadDownloadedTransactionsIntoWallet() {
+        final Database database = _environment.getDatabase();
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
+            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, database.getMaxQueryBatchSize());
             final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
@@ -332,7 +331,7 @@ public class SpvModule {
 
         final Database database = _environment.getDatabase();
         _databaseConnectionFactory = database.newConnectionFactory();
-        _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory);
+        _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, database.getMaxQueryBatchSize());
         _banFilter = new BanFilterCore(_databaseManagerFactory);
     }
 
@@ -343,6 +342,12 @@ public class SpvModule {
     public void initialize() {
         final Thread mainThread = Thread.currentThread();
         _setStatus(Status.INITIALIZING);
+
+        final Integer maxQueryBatchSize;
+        {
+            final Database database = _environment.getDatabase();
+            maxQueryBatchSize = database.getMaxQueryBatchSize();
+        }
 
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -357,24 +362,6 @@ public class SpvModule {
 
         _setStatus(Status.LOADING);
 
-        final MutableMedianBlockTime medianBlockHeaderTime;
-        { // Initialize MedianBlockTime...
-            {
-                MutableMedianBlockTime newMedianBlockHeaderTime = null;
-                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
-                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.calculateMedianBlockHeaderTime();
-                }
-                catch (final DatabaseException exception) {
-                    Logger.error(exception);
-                    BitcoinUtil.exitFailure();
-                }
-                medianBlockHeaderTime = newMedianBlockHeaderTime;
-            }
-        }
-
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(_databaseManagerFactory);
 
         final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
@@ -386,7 +373,7 @@ public class SpvModule {
             }
         };
 
-        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory);
+        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, maxQueryBatchSize);
 
         _merkleBlockDownloader = new MerkleBlockDownloader(databaseManagerFactory, new MerkleBlockDownloader.Downloader() {
             @Override
@@ -495,7 +482,7 @@ public class SpvModule {
                         }
 
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
+                            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize);
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
                             TransactionUtil.startTransaction(databaseConnection);
@@ -683,7 +670,6 @@ public class SpvModule {
         { // Initialize BlockHeaderDownloader...
             final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
-            _blockHeaderDownloader.setMaxHeaderBatchSize(100);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
 
@@ -692,7 +678,7 @@ public class SpvModule {
         }
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
+            final DatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, maxQueryBatchSize);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();

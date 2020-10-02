@@ -11,4 +11,6 @@ public interface DatabaseManagerFactory {
      * Allows for construction of a similarly typed DatabaseManagerFactory from an existing instance.
      */
     DatabaseManagerFactory newDatabaseManagerFactory(DatabaseConnectionFactory databaseConnectionFactory);
+
+    Integer getMaxQueryBatchSize();
 }

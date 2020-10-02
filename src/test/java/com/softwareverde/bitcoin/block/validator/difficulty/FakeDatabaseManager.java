@@ -138,6 +138,11 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
         };
     }
 
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return 1024;
+    }
+
     public void registerBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork) {
         final Sha256Hash blockHash = blockHeader.getHash();
         System.out.println("Registering " + blockHeader.getHash() + " -> " + blockHeight);

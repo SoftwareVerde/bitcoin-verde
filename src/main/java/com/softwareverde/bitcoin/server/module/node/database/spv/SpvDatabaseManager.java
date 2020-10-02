@@ -12,6 +12,7 @@ import com.softwareverde.database.DatabaseException;
 
 public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
+    protected final Integer _maxQueryBatchSize;
 
     protected SpvBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
@@ -20,8 +21,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected SpvPendingBlockDatabaseManager _pendingBlockDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
-    public SpvDatabaseManager(final DatabaseConnection databaseConnection) {
+    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize) {
         _databaseConnection = databaseConnection;
+        _maxQueryBatchSize = maxQueryBatchSize;
     }
 
     @Override
@@ -81,6 +83,11 @@ public class SpvDatabaseManager implements DatabaseManager {
         }
 
         return _transactionDatabaseManager;
+    }
+
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return _maxQueryBatchSize;
     }
 
     @Override

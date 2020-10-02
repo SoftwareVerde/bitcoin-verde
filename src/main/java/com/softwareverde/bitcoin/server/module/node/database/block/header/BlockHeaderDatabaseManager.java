@@ -21,7 +21,6 @@ public interface BlockHeaderDatabaseManager {
     void updateBlockHeader(BlockId blockId, BlockHeader blockHeader) throws DatabaseException;
     BlockId storeBlockHeader(BlockHeader blockHeader) throws DatabaseException;
     List<BlockId> insertBlockHeaders(List<BlockHeader> blockHeaders) throws DatabaseException;
-    List<BlockId> insertBlockHeaders(List<BlockHeader> blockHeaders, Integer maxBatchSize) throws DatabaseException;
     void setBlockByteCount(BlockId blockId, Integer byteCount) throws DatabaseException;
     Integer getBlockByteCount(BlockId blockId) throws DatabaseException;
     Sha256Hash getHeadBlockHeaderHash() throws DatabaseException;
