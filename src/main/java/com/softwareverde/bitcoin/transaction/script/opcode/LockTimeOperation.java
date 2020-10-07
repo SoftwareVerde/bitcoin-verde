@@ -92,13 +92,13 @@ public class LockTimeOperation extends SubTypedOperation {
 
                 final SequenceNumber stackSequenceNumber = stackSequenceNumberValue.asSequenceNumber();
 
-                if (! stackSequenceNumber.isDisabled()) {
+                if (! stackSequenceNumber.isRelativeLockTimeDisabled()) {
                     if (transaction.getVersion() < 2) {
                         return false;
                     }
 
                     final SequenceNumber transactionInputSequenceNumber = transactionInput.getSequenceNumber();
-                    if (transactionInputSequenceNumber.isDisabled()) {
+                    if (transactionInputSequenceNumber.isRelativeLockTimeDisabled()) {
                         return false;
                     }
 

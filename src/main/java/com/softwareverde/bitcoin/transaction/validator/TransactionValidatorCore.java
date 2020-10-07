@@ -78,7 +78,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
-            if (! sequenceNumber.isDisabled()) {
+            if (! Util.areEqual(sequenceNumber, FINAL_SEQUENCE_NUMBER)) {
                 return true;
             }
         }
@@ -185,7 +185,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     protected ValidationResult _validateSequenceNumbers(final Transaction transaction, final Long blockHeight) {
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
-            if (sequenceNumber.isDisabled()) { continue; }
+            if (sequenceNumber.isRelativeLockTimeDisabled()) { continue; }
 
             final TransactionOutputIdentifier previousTransactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
 
