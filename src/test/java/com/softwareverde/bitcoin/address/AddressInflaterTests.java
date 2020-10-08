@@ -126,4 +126,18 @@ public class AddressInflaterTests {
         Assert.assertEquals(expectedAddressString, decompressedBitcoinAddress.toBase58CheckEncoded());
         Assert.assertEquals(expectedCompressedAddressString, compressedAddress.toBase58CheckEncoded());
     }
+
+    @Test
+    public void should_return_null_for_invalid_slp_address() {
+        // Setup
+        final AddressInflater addressInflater = new AddressInflater();
+        final String slpAddressString = "simpleledger:qpkpqwnht42ne6gzx3qtuuwjge2gpyqnkszwkc9rgz";
+        final String invalidSlpAddressString = "simpleledger:qpkpqwnht42ne6gzx3qtuuwjge2gpyqnkszwkc9rg"; // Missing the final letter of the checksum...
+
+        // Action
+        final Address address = addressInflater.fromBase32Check(invalidSlpAddressString);
+
+        // Assert
+        Assert.assertNull(address);
+    }
 }

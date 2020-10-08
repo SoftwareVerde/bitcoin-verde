@@ -133,6 +133,7 @@ public class AddressInflater {
         final byte addressType = (byte) ((version >> 3) & 0x0F);
         final int hashByteCount = (20 + ((version & 0x07) * 4));
 
+        if (payloadBytes.getByteCount() < (hashByteCount + 1)) { return null; }
         final ByteArray hash = MutableByteArray.wrap(payloadBytes.getBytes(1, hashByteCount));
 
         final ByteArray checksumPayload = AddressInflater.buildBase32ChecksumPreImage(prefix, version, hash);
