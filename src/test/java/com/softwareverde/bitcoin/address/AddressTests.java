@@ -250,4 +250,21 @@ public class AddressTests {
         Assert.assertEquals(expectedAddress, address);
         Assert.assertEquals(base32String, address.toBase32CheckEncoded());
     }
+
+    @Test
+    public void should_deflate_simpleledger_label() {
+        // Setup
+        final AddressInflater addressInflater = new AddressInflater();
+        final String bitcoinCashBase32String = "bitcoincash:qpdrmmy8rqxv3x2fqlfmzmcjxt5tf6u7ry7yw6r27e";
+        final String simpleLedgerBase32String = "simpleledger:qpdrmmy8rqxv3x2fqlfmzmcjxt5tf6u7ryjl9pk2q8";
+        final Address address = addressInflater.fromBase58Check("19E9zpHZ69Ru1D8R8pVEEXMRt8iqW3fcgG");
+
+        // Action
+        final String addressString = address.toBase32CheckEncoded(true);
+        final String slpAddressString = address.toBase32CheckEncoded(Address.BASE_32_SLP_LABEL, true);
+
+        // Assert
+        Assert.assertEquals(bitcoinCashBase32String, addressString);
+        Assert.assertEquals(simpleLedgerBase32String, slpAddressString);
+    }
 }

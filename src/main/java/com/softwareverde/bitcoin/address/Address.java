@@ -12,7 +12,8 @@ public class Address extends ImmutableByteArray {
     public static final Integer BYTE_COUNT = 20;
     public static final byte PREFIX = 0x00;
     public static final byte BASE_32_PREFIX = 0x00;
-    public static final String BASE_32_LABEL = "bitcoincash";
+    public static final String BASE_32_BCH_LABEL = "bitcoincash";
+    public static final String BASE_32_SLP_LABEL = "simpleledger";
 
     protected static final Integer PREFIX_BYTE_COUNT = 1;
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
@@ -27,7 +28,7 @@ public class Address extends ImmutableByteArray {
         return ByteUtil.copyBytes(fullChecksum, 0, CHECKSUM_BYTE_COUNT);
     }
 
-    protected String _toBase32CheckEncoded(final Boolean includeLabel) {
+    protected String _toBase32CheckEncoded(final String label, final Boolean includeLabel) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         final byte prefixByte = (byte) (_getBase32Prefix() & 0x78);
         final byte hashByteCountEncoding = (byte) (((_bytes.length - 20) / 4) & 0x07);
@@ -37,11 +38,11 @@ public class Address extends ImmutableByteArray {
 
         final String encodedStringWithoutChecksum = Base32Util.toBase32String(byteArrayBuilder.build());
 
-        final ByteArray checksumPreImage = AddressInflater.buildBase32ChecksumPreImage(BASE_32_LABEL, versionByte, this);
+        final ByteArray checksumPreImage = AddressInflater.buildBase32ChecksumPreImage(label, versionByte, this);
         final ByteArray checksum = AddressInflater.calculateBase32Checksum(checksumPreImage);
         final String checksumString = Base32Util.toBase32String(checksum.getBytes());
 
-        return ( (includeLabel ? (BASE_32_LABEL + ":") : "") + encodedStringWithoutChecksum + checksumString);
+        return ( (includeLabel ? (label + ":") : "") + encodedStringWithoutChecksum + checksumString);
     }
 
     protected byte _getPrefix() {
@@ -77,11 +78,15 @@ public class Address extends ImmutableByteArray {
     }
 
     public String toBase32CheckEncoded() {
-        return _toBase32CheckEncoded(true);
+        return _toBase32CheckEncoded(BASE_32_BCH_LABEL, true);
     }
 
     public String toBase32CheckEncoded(final Boolean includeLabel) {
-        return _toBase32CheckEncoded(includeLabel);
+        return _toBase32CheckEncoded(BASE_32_BCH_LABEL, includeLabel);
+    }
+
+    public String toBase32CheckEncoded(final String label, final Boolean includeLabel) {
+        return _toBase32CheckEncoded(label, includeLabel);
     }
 
     @Override
