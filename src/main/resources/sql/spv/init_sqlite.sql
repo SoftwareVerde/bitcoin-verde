@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS "blocks" (
 -- SPV, replaces full node `transactions` table.
 CREATE TABLE IF NOT EXISTS "transactions" (
 	"id" INTEGER NOT NULL,
-	"hash" CHARACTER(64) NOT NULL,
+	"hash" BLOB NOT NULL,
 	"slp_validity" VARCHAR(255) NULL DEFAULT NULL,
 	PRIMARY KEY ("id")
 );

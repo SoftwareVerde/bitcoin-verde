@@ -38,7 +38,7 @@ CREATE TABLE blocks (
 -- SPV, replaces full node `transactions` table.
 CREATE TABLE transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    hash char(64) NOT NULL,
+    hash BINARY(32) NOT NULL,
     slp_validity VARCHAR(255) DEFAULT NULL, -- contains only the resolved state, tracking whether this is contested should happen elsewhere
     PRIMARY KEY (id),
     UNIQUE KEY transactions_uq (hash)
