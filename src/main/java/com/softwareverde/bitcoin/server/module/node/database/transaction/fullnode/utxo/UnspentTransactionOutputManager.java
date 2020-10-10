@@ -251,7 +251,7 @@ public class UnspentTransactionOutputManager {
             unspentTransactionOutputDatabaseManager.undoCreatedTransactionOutputs(newOutputIdentifiers);
             unspentTransactionOutputDatabaseManager.undoPreviousTransactionOutputs(previousOutputIdentifiers);
 
-            unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
+            unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight - 1L);
         }
         catch (final Exception exception) {
             UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();

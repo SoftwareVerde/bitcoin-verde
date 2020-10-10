@@ -499,4 +499,6 @@ public class BlockProcessorTests extends IntegrationTest {
             Assert.assertTrue(genesisAndHeadChainIsConnected);
         }
     }
+
+    // TODO: Create a test that attempts to spend an output that does not exist, and ensure that output is not added to the mempool (i.e. that block was "unApplied" to the mempool).
 }

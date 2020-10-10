@@ -103,7 +103,7 @@ public class UnspentTransactionOutputDatabaseManager {
         UTXO_WRITE_MUTEX = readWriteLock.writeLock();
     }
 
-    protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(0L);
+    protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(null); // null indicates uninitialized; -1 represents an invalidated set, and must first be cleared (via _clearUncommittedUtxoSet) before any other operations are performed.
     protected static final String COMMITTED_UTXO_BLOCK_HEIGHT_KEY = "committed_utxo_block_height";
     protected static final Boolean DOUBLE_BUFFER_IS_MEMORY_TABLE = false; // Must be set to true if the unspent_transaction_outputs_buffer table is ENGINE=MEMORY...
 
@@ -143,7 +143,7 @@ public class UnspentTransactionOutputDatabaseManager {
         return Util.coalesce(row.getLong("value"), 0L);
     }
 
-    protected static void _commitUnspentTransactionOutputs(final Long maxUtxoCount, final Float purgePercent, final FullNodeDatabaseManager transactionalDatabaseManager, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
+    protected static void _commitUnspentTransactionOutputs(final Long newCommittedBlockHeight, final Long maxUtxoCount, final Float purgePercent, final FullNodeDatabaseManager transactionalDatabaseManager, final DatabaseConnection nonTransactionalDatabaseConnection, final DatabaseConnectionFactory nonTransactionalDatabaseConnectionFactory) throws DatabaseException {
         final DatabaseConnection transactionalDatabaseConnection = transactionalDatabaseManager.getDatabaseConnection();
 
         final long maxKeepCount = (long) (maxUtxoCount * (1.0D - purgePercent));
@@ -207,7 +207,6 @@ public class UnspentTransactionOutputDatabaseManager {
             }
         });
 
-
         // NOTE: Outputs are marked as spent within the committed_unspent_transaction_outputs table,
         //  then queued up for deletion as a separate process by inserting the deleted UTXO
         //  into stale_committed_unspent_transaction_outputs.
@@ -250,7 +249,8 @@ public class UnspentTransactionOutputDatabaseManager {
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newSortedInstance(maxUtxoPerBatch, maxItemCount, utxoComparator, false, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
-                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?)");
+                // NOTE: updating is_spent to zero on a duplicate key is required in order to undo a block that has been committed to disk.
+                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 0");
                 for (final UnspentTransactionOutput transactionOutputIdentifier : batchItems) {
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getTransactionHash());
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getOutputIndex());
@@ -427,8 +427,6 @@ public class UnspentTransactionOutputDatabaseManager {
         rotateTablesExecutionTime += rotateTablesTimer.getMillisecondsElapsed();
 
         // Save the committed set's block height...
-        final Long oldCommittedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(transactionalDatabaseConnection);
-        final Long newCommittedBlockHeight = Math.max(maxUtxoBlockHeight, oldCommittedBlockHeight);
         transactionalDatabaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
                 .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
@@ -500,7 +498,7 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public void markTransactionOutputsAsSpent(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (spentTransactionOutputIdentifiers.isEmpty()) { return; }
 
         UTXO_WRITE_MUTEX.lock();
@@ -554,7 +552,7 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public void insertUnspentTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, final Long blockHeight) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (unspentTransactionOutputIdentifiers.isEmpty()) { return; }
 
         UTXO_WRITE_MUTEX.lock();
@@ -592,7 +590,7 @@ public class UnspentTransactionOutputDatabaseManager {
      * Marks the provided UTXOs as spent, logically removing them from the UTXO set, and forces the outputs to be synchronized to disk on the next UTXO commit.
      */
     public void undoCreatedTransactionOutputs(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (spentTransactionOutputIdentifiers.isEmpty()) { return; }
 
         UTXO_WRITE_MUTEX.lock();
@@ -604,7 +602,7 @@ public class UnspentTransactionOutputDatabaseManager {
             batchRunner.run(spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
-                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 2) ON DUPLICATE KEY UPDATE is_spent = 2");
+                    final Query query = new BatchedInsertQuery("INSERT INTO unspent_transaction_outputs (transaction_hash, `index`, block_height, is_spent) VALUES (?, ?, NULL, 2) ON DUPLICATE KEY UPDATE is_spent = 2, block_height = NULL");
                     for (final TransactionOutputIdentifier transactionOutputIdentifier : batchItems) {
                         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -631,7 +629,7 @@ public class UnspentTransactionOutputDatabaseManager {
      * Re-inserts the provided UTXOs into the UTXO set and looks up their original associated blockHeight.  These UTXOs will be synchronized to disk during the next UTXO commit.
      */
     public void undoPreviousTransactionOutputs(final List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (unspentTransactionOutputIdentifiers.isEmpty()) { return; }
 
         UTXO_WRITE_MUTEX.lock();
@@ -681,7 +679,7 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -732,7 +730,7 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public List<TransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
         if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<TransactionOutput>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -768,7 +766,7 @@ public class UnspentTransactionOutputDatabaseManager {
 
                 unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
                 for (final Row row : rows) {
-                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                    final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
                     final Integer outputIndex = row.getInteger("index");
                     final Integer isSpent = row.getInteger("is_spent");
 
@@ -870,14 +868,15 @@ public class UnspentTransactionOutputDatabaseManager {
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked for the duration of this call.
      */
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value <= 0L) {
-            // Prevent committing a UTXO set that has been invalidated...
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, -1L) <= 0L) {
+            // Prevent committing a UTXO set that has been invalidated or not initialized...
             return;
         }
 
         UTXO_WRITE_MUTEX.lock();
         try (final DatabaseConnection nonTransactionalDatabaseConnection = databaseConnectionFactory.newConnection()) {
-            _commitUnspentTransactionOutputs(_maxUtxoCount, _purgePercent, _databaseManager, nonTransactionalDatabaseConnection, databaseConnectionFactory);
+            final Long newCommittedBlockHeight = UNCOMMITTED_UTXO_BLOCK_HEIGHT.value;
+            _commitUnspentTransactionOutputs(newCommittedBlockHeight, _maxUtxoCount, _purgePercent, _databaseManager, nonTransactionalDatabaseConnection, databaseConnectionFactory);
         }
         catch (final Exception exception) {
             _clearUncommittedUtxoSetAndRethrow(exception);
@@ -891,7 +890,7 @@ public class UnspentTransactionOutputDatabaseManager {
         return this.getCachedUnspentTransactionOutputCount(false);
     }
     public Long getCachedUnspentTransactionOutputCount(final Boolean noLock) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
@@ -906,7 +905,7 @@ public class UnspentTransactionOutputDatabaseManager {
         return this.getUncommittedUnspentTransactionOutputCount(false);
     }
     public Long getUncommittedUnspentTransactionOutputCount(final Boolean noLock) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
@@ -921,7 +920,7 @@ public class UnspentTransactionOutputDatabaseManager {
         return this.getCommittedUnspentTransactionOutputBlockHeight(false);
     }
     public Long getCommittedUnspentTransactionOutputBlockHeight(final Boolean noLock) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
@@ -934,7 +933,7 @@ public class UnspentTransactionOutputDatabaseManager {
     }
 
     public void setUncommittedUnspentTransactionOutputBlockHeight(final Long blockHeight) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         UTXO_WRITE_MUTEX.lock();
         try {
@@ -949,14 +948,14 @@ public class UnspentTransactionOutputDatabaseManager {
         return this.getUncommittedUnspentTransactionOutputBlockHeight(false);
     }
     public Long getUncommittedUnspentTransactionOutputBlockHeight(final Boolean noLock) throws DatabaseException {
-        if (UNCOMMITTED_UTXO_BLOCK_HEIGHT.value < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value) < 0L) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
 
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
             final Long committedUtxoBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
-            return Math.max(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, committedUtxoBlockHeight);
+            return Math.max(Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value), committedUtxoBlockHeight);
         }
         finally {
             if (! noLock) { UTXO_READ_MUTEX.unlock(); }
