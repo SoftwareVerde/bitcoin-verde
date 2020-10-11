@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
@@ -213,20 +214,29 @@ public class BlockValidator {
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Invalid transactions expenditures.", invalidTransactions); }
 
+        final StringBuilder errorMessage = new StringBuilder("Transactions failed to unlock inputs.");
         final int totalSignatureOperationCount;
         {
             int signatureOperationCount = 0;
             for (final TransactionValidationTaskHandler.TransactionValidationTaskResult transactionValidationTaskResult : transactionValidationTaskResults) {
-                if (transactionValidationTaskResult.isValid) {
-                    signatureOperationCount += transactionValidationTaskResult.signatureOperationCount;
+                if (transactionValidationTaskResult.isValid()) {
+                    signatureOperationCount += transactionValidationTaskResult.getSignatureOperationCount();
                 }
                 else {
-                    invalidTransactions.addAll(transactionValidationTaskResult.invalidTransactions);
+                    for (final Sha256Hash invalidTransactionHash : transactionValidationTaskResult.getInvalidTransactions()) {
+                        invalidTransactions.add(invalidTransactionHash);
+
+                        final TransactionValidationResult transactionValidationResult = transactionValidationTaskResult.getTransactionValidationResult(invalidTransactionHash);
+                        errorMessage.append("\n");
+                        errorMessage.append(invalidTransactionHash);
+                        errorMessage.append(": ");
+                        errorMessage.append(transactionValidationResult.errorMessage);
+                    }
                 }
             }
             totalSignatureOperationCount = signatureOperationCount;
         }
-        if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Transactions failed to unlock inputs.", invalidTransactions); }
+        if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid(errorMessage.toString(), invalidTransactions); }
 
         final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
         if (HF20200515.isEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...

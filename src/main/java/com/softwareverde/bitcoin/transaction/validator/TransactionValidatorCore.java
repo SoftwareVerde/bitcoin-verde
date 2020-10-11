@@ -64,6 +64,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         json.put("inputIndex", transactionInputIndex);
         json.put("transactionBytes", transactionDeflater.toBytes(transaction));
         json.put("inputBytes", (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
+        // json.put("transactionOutputIndex", );
         json.put("previousOutputBytes", ((outputToSpend != null) ? transactionOutputDeflater.toBytes(outputToSpend) : null));
         json.put("blockHeight", transactionContext.getBlockHeight());
         json.put("lockingScriptBytes", (lockingScript != null ? lockingScript.getBytes() : null));
