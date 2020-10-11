@@ -215,12 +215,15 @@ public class BlockDownloader extends SleepyService {
             if (! _hasGenesisBlock) { // Since nodes do not advertise inventory of the genesis block, specifically add it if it is required...
                 final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
                 if ( (genesisBlockId == null) || (! blockDatabaseManager.hasTransactions(genesisBlockId)) ) {
-                    final Long now =systemTime.getCurrentTimeInSeconds();
-                    final long secondsSinceLastDownloadAttempt = (now - Util.coalesce(_lastGenesisDownloadTimestamp));
+                    final PendingBlockId genesisPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(BlockHeader.GENESIS_BLOCK_HASH);
+                    if ( (genesisPendingBlockId == null) || (! pendingBlockDatabaseManager.hasBlockData(genesisPendingBlockId)) ) {
+                        final Long now = systemTime.getCurrentTimeInSeconds();
+                        final long secondsSinceLastDownloadAttempt = (now - Util.coalesce(_lastGenesisDownloadTimestamp));
 
-                    if (secondsSinceLastDownloadAttempt > 30) {
-                        _lastGenesisDownloadTimestamp = systemTime.getCurrentTimeInSeconds();
-                        _downloadBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
+                        if (secondsSinceLastDownloadAttempt > 30) {
+                            _lastGenesisDownloadTimestamp = systemTime.getCurrentTimeInSeconds();
+                            _downloadBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
+                        }
                     }
                 }
                 else {
