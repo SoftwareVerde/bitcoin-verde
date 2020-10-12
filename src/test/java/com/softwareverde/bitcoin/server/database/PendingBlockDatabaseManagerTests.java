@@ -15,7 +15,6 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.fake.FakeBitcoinNode;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
@@ -73,10 +72,10 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
         return nodes;
     }
 
-    protected void _insertFakePeerInventory(final Sha256Hash blockHash, final BitcoinNode node) throws DatabaseException {
+    protected void _insertFakePeerInventory(final BitcoinNode node, final Long blockHeight, final Sha256Hash blockHash) throws DatabaseException {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-            nodeDatabaseManager.updateBlockInventory(node, new ImmutableList<Sha256Hash>(blockHash));
+            nodeDatabaseManager.updateBlockInventory(node, blockHeight, blockHash);
         }
     }
 
@@ -107,7 +106,7 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                     // Ensure all peers have the block as available inventory...
                     for (final NodeId nodeId : nodes.keySet()) {
                         final BitcoinNode node = nodes.get(nodeId);
-                        _insertFakePeerInventory(blockHash, node);
+                        _insertFakePeerInventory(node, blockHeight, blockHash);
                     }
                 }
             }
@@ -193,12 +192,12 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                         final boolean blockHeightIsEven = ((blockHeight % 2) == 0);
                         if (blockHeightIsEven) {
                             if (Util.areEqual(nodeId, evenBlockHeightNodeId)) {
-                                _insertFakePeerInventory(blockHash, node);
+                                _insertFakePeerInventory(node, blockHeight, blockHash);
                             }
                         }
                         else {
                             if (Util.areEqual(nodeId, oddBlockHeightNodeId)) {
-                                _insertFakePeerInventory(blockHash, node);
+                                _insertFakePeerInventory(node, blockHeight, blockHash);
                             }
                         }
 

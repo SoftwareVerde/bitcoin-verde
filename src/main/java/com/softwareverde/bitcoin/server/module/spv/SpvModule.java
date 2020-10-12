@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
@@ -697,9 +698,9 @@ public class SpvModule {
             Logger.warn(exception);
         }
 
-        _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new Runnable() {
+        _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
             @Override
-            public void run() {
+            public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
                 final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
                 if (newBlockHeaderAvailableCallback != null) {
                     newBlockHeaderAvailableCallback.run();

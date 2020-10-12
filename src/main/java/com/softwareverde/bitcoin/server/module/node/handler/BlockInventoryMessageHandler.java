@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -9,10 +8,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.pending.fulln
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
@@ -38,49 +35,46 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-            final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getCount());
-            Sha256Hash previousBlockHash = null;
-            for (final Sha256Hash blockHash : blockHashes) {
-                if (previousBlockHash == null) {
-                    final Boolean headerExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
-                    if (headerExists) {
-                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                        final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
-                        previousBlockHash = blockHeader.getPreviousBlockHash();
+            final int blockHashCount = blockHashes.getCount();
+            final Sha256Hash firstBlockHash = blockHashes.get(0);
+            final Sha256Hash lastBlockHash = blockHashes.get(blockHashCount - 1);
+
+            final BlockId lastBlockId = blockHeaderDatabaseManager.getBlockHeaderId(lastBlockHash);
+            if (lastBlockId != null) {
+                final Long lastBlockHeight = blockHeaderDatabaseManager.getBlockHeight(lastBlockId);
+                final Boolean isNewHeightForNode = nodeDatabaseManager.updateBlockInventory(bitcoinNode, lastBlockHeight, lastBlockHash);
+                storeBlockHashesResult.nodeInventoryWasUpdated = isNewHeightForNode;
+                storeBlockHashesResult.newBlockHashWasReceived = false;
+            }
+            else {
+                final BlockId firstBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHash);
+                if (firstBlockId != null) {
+                    final Long firstBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockId);
+
+                    Sha256Hash blockHash = firstBlockHash;
+                    long blockHeight = firstBlockHeight;
+                    // Determine which blockHash is the first unseen hash...
+                    // TODO: This could be accomplished in about half as many lookups via binary search...
+                    for (int i = 1; i < blockHashCount; ++i) { // NOTE: i = 1; the first blockHash was already evaluated and is therefore skipped...
+                        final Sha256Hash nextBlockHash = blockHashes.get(i);
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(nextBlockHash);
+                        if (blockId == null) { break; }
+
+                        blockHeight += 1L;
                     }
-                }
 
-                final Boolean blockExists = blockDatabaseManager.hasTransactions(blockHash);
-                if (blockExists) {
-                    previousBlockHash = blockHash;
-                    continue;
-                }
-
-                final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
-                if (! pendingBlockExists) {
+                    final Boolean isNewHeightForNode = nodeDatabaseManager.updateBlockInventory(bitcoinNode, blockHeight, blockHash);
+                    storeBlockHashesResult.nodeInventoryWasUpdated = isNewHeightForNode;
                     storeBlockHashesResult.newBlockHashWasReceived = true;
                 }
-
-                final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, previousBlockHash);
-
-                if (pendingBlockId != null) {
-                    pendingBlockIds.add(pendingBlockId);
+                else {
+                    // The block hash does not match a known header, therefore its block height cannot be determined and it is ignored.
+                    storeBlockHashesResult.nodeInventoryWasUpdated = false;
+                    storeBlockHashesResult.newBlockHashWasReceived = false;
                 }
-
-                previousBlockHash = blockHash;
             }
-
-            try {
-                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, blockHashes);
-            }
-            catch (final DatabaseException databaseException) {
-                Logger.debug("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
-            }
-
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -105,36 +99,6 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
     @Override
     public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = _storeBlockHashes(bitcoinNode, blockHashes);
-
-//        // NOTE: Exploring alternate forks should only be done after the initial sync is complete...
-//        final State state = _synchronizationStatus.getState();
-//        if (state == State.ONLINE) { // If the inventory message has new blocks or the last block is not on the main blockchain, then request block hashes after the most recent hash to continue synchronizing blocks (even a minority fork)...
-//            final Sha256Hash mostRecentBlockHash = blockHashes.get(blockHashes.getSize() - 1);
-//
-//            Boolean mostRecentBlockIsMemberOfHeadBlockchain = true;
-//
-//            if (blockHashes.getSize() > 1) {
-//                mostRecentBlockIsMemberOfHeadBlockchain = false;
-//
-//                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-//                    final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseCache);
-//                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
-//
-//                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(mostRecentBlockHash);
-//                    if (blockId != null) {
-//                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-//                        mostRecentBlockIsMemberOfHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANY);
-//                    }
-//                }
-//                catch (final DatabaseException databaseException) {
-//                    Logger.warn(databaseException);
-//                }
-//            }
-//
-//            if ( (storeBlockHashesResult.newBlockHashWasReceived) || (! mostRecentBlockIsMemberOfHeadBlockchain) ) {
-//                bitcoinNode.requestBlockHashesAfter(mostRecentBlockHash);
-//            }
-//        }
 
         if (storeBlockHashesResult.newBlockHashWasReceived) {
             final Runnable newBlockHashesCallback = _newBlockHashReceivedCallback;

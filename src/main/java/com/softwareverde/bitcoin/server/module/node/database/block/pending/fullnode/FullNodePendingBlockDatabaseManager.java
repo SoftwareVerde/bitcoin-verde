@@ -2,16 +2,13 @@ package com.softwareverde.bitcoin.server.module.node.database.block.pending.full
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
-import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.inventory.MutableUnknownBlockInventory;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.inventory.UnknownBlockInventory;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -31,9 +28,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabaseManager {
+public class FullNodePendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
-    protected final DatabaseManager _databaseManager;
+    protected final FullNodeDatabaseManager _databaseManager;
     protected final PendingBlockStore _blockStore;
 
     protected Sha256Hash _getPendingBlockHash(final PendingBlockId pendingBlockId) throws DatabaseException {
@@ -155,11 +152,6 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                 .setParameter(pendingBlockId)
         );
 
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_blocks_inventory WHERE hash = ?")
-                .setParameter(blockHash)
-        );
-
         // Remove the block data only after the query succeeds...
         if (blockHash != null) {
             _blockStore.removePendingBlock(blockHash);
@@ -183,11 +175,6 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         databaseConnection.executeSql(
             new Query("DELETE FROM pending_blocks WHERE id IN (?)")
                 .setInClauseParameters(pendingBlockIds, ValueExtractor.IDENTIFIER)
-        );
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_blocks_inventory WHERE hash IN (?)")
-                .setInClauseParameters(pendingBlockHashes, ValueExtractor.SHA256_HASH)
         );
 
         // Remove the block data only after the query succeeds...
@@ -247,7 +234,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         return new PendingBlock(blockHash, previousBlockHash, blockData);
     }
 
-    public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager, final PendingBlockStore blockStore) {
+    public FullNodePendingBlockDatabaseManager(final FullNodeDatabaseManager databaseManager, final PendingBlockStore blockStore) {
         _databaseManager = databaseManager;
         _blockStore = blockStore;
     }
@@ -327,141 +314,6 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         return pendingBlockId;
     }
 
-    /**
-     * Returns a List of UnknownInventory objects to be used within a set of BlockFinder/BlockHeader requests.
-     *  The previousBlockHash may be null if it is unknown.
-     */
-    @Override
-    public List<UnknownBlockInventory> findUnknownNodeInventoryByPriority(final List<NodeId> connectedNodeIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT blocks.block_height, pending_blocks.hash, pending_blocks.previous_block_hash FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?) LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_blocks.was_downloaded = 0) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
-        );
-
-        final MutableList<UnknownBlockInventory> downloadPlan = new MutableList<UnknownBlockInventory>(rows.size());
-
-        MutableUnknownBlockInventory mutableUnknownBlockInventory = null;
-        Long tupleStartingBlockHeight = null; // The blockHeight of mutableUnknownBlockInventory.first...
-        for (final Row row : rows) {
-            final Long blockHeight = row.getLong("block_height");
-            final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
-            final Sha256Hash previousBlockHash = Sha256Hash.wrap(row.getBytes("previous_block_hash"));
-
-            boolean addTupleToDownloadPlan = false;
-            boolean createNewTuple = false;
-            if (mutableUnknownBlockInventory == null) {
-                createNewTuple = true;
-
-                if (blockHeight == null) {
-                    addTupleToDownloadPlan = true;
-                }
-            }
-            else {
-                if (blockHeight == null) {
-                    addTupleToDownloadPlan = true;
-                    createNewTuple = true;
-                }
-                else {
-                    if (tupleStartingBlockHeight == null) {
-                        createNewTuple = true;
-                        addTupleToDownloadPlan = true;
-                    }
-                    else {
-                        final long blockHeightDifference = (blockHeight - tupleStartingBlockHeight);
-                        if ((blockHeightDifference < 0) || (blockHeightDifference >= QueryBlocksMessage.MAX_BLOCK_HASH_COUNT)) {
-                            addTupleToDownloadPlan = true;
-                        }
-                        else {
-                            mutableUnknownBlockInventory.setLastUnknownBlockHash(blockHash);
-                        }
-                    }
-                }
-            }
-
-            if (addTupleToDownloadPlan) {
-                if (mutableUnknownBlockInventory != null) {
-                    downloadPlan.add(mutableUnknownBlockInventory);
-                    mutableUnknownBlockInventory = null;
-                    tupleStartingBlockHeight = null;
-                }
-            }
-
-            if (createNewTuple) {
-                mutableUnknownBlockInventory = new MutableUnknownBlockInventory();
-                mutableUnknownBlockInventory.setFirstUnknownBlockHash(blockHash);
-
-                if (previousBlockHash == null) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                    if (blockId != null) {
-                        final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
-                        mutableUnknownBlockInventory.setPreviousBlockHash(blockHeader.getPreviousBlockHash());
-                    }
-                }
-                else {
-                    mutableUnknownBlockInventory.setPreviousBlockHash(previousBlockHash);
-                }
-
-                tupleStartingBlockHeight = blockHeight;
-            }
-        }
-        if (mutableUnknownBlockInventory != null) {
-            downloadPlan.add(mutableUnknownBlockInventory);
-        }
-
-        return downloadPlan;
-    }
-
-    public Boolean nodesHaveBlockInventory(final List<NodeId> connectedNodeIds, final Sha256Hash blockHash) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT * FROM node_blocks_inventory WHERE node_blocks_inventory.hash = ? AND node_blocks_inventory.node_id IN (?) LIMIT 1")
-                .setParameter(blockHash)
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
-        );
-
-        return (! rows.isEmpty());
-    }
-
-    public Sha256Hash getUnlocatableEssentialBlock(final List<NodeId> connectedNodeIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT hash FROM pending_blocks WHERE pending_blocks.priority = 0 AND NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) LIMIT 1")
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return Sha256Hash.wrap(row.getBytes("hash"));
-    }
-
-    public Boolean hasUnknownHighPriorityInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM pending_blocks WHERE pending_blocks.priority < 1000 AND NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) LIMIT 1")
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
-        );
-
-        return (! rows.isEmpty());
-    }
-
-    public Boolean hasUnknownInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT 1 FROM pending_blocks WHERE NOT EXISTS (SELECT 1 FROM node_blocks_inventory WHERE node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) LIMIT 1")
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
-        );
-
-        return (! rows.isEmpty());
-    }
-
     public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -469,16 +321,24 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks INNER JOIN node_blocks_inventory ON node_blocks_inventory.hash = pending_blocks.hash WHERE pending_blocks.was_downloaded = 0 AND (? - COALESCE(last_download_attempt_timestamp, 0)) > ? AND node_blocks_inventory.node_id IN (?) GROUP BY pending_blocks.id ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
+            new Query("SELECT id, hash FROM pending_blocks WHERE was_downloaded = 0 AND (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ORDER BY priority ASC, id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
                 .setParameter(currentTimestamp)
                 .setParameter(minSecondsBetweenDownloadAttempts)
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
         );
 
         final HashMap<PendingBlockId, NodeId> downloadPlan = new HashMap<PendingBlockId, NodeId>(rows.size());
         for (final Row row : rows) {
-            final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
-            final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("pending_block_id"));
+            // final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
+            final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
+            final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
+
+            final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = _databaseManager.getNodeDatabaseManager();
+            final List<NodeId> nodeIds = nodeDatabaseManager.filterNodesViaBlockInventory(connectedNodeIds, blockHash, FilterType.KEEP_NODES_WITH_INVENTORY);
+
+            if (nodeIds.isEmpty()) { continue; }
+            final int randomIndex = (int) (Math.random() * nodeIds.getCount());
+            final NodeId nodeId = nodeIds.get(randomIndex); // TODO: Select by something more meaningful, i.e. health/ping/load...
+
             downloadPlan.put(pendingBlockId, nodeId);
         }
         return downloadPlan;
@@ -556,29 +416,6 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
         for (final Row row : rows) {
             final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
             Logger.debug("Deleting Failed Pending Block: " + pendingBlockId);
-            pendingBlockIds.add(pendingBlockId);
-        }
-
-        _deletePendingBlocks(pendingBlockIds);
-    }
-
-    /**
-     * Deletes any pending blocks that haven't been downloaded and do not have a peer to download them from.
-     *  This can happen when a peer broadcasting block inventory disconnects and there are no other peers aware of their chain.
-     */
-    public void purgeUnlocatablePendingBlocks(final List<NodeId> connectedNodeIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            // "Delete any pending_blocks that have not already been downloaded and do not have a connected node to download from..."
-            new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON (node_blocks_inventory.hash = pending_blocks.hash AND node_blocks_inventory.node_id IN (?)) WHERE node_blocks_inventory.id IS NULL AND pending_blocks.was_downloaded = 0")
-                .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
-        );
-
-        final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
-        for (final Row row : rows) {
-            final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-            Logger.debug("Deleting Unlocatable Pending Block: " + pendingBlockId);
             pendingBlockIds.add(pendingBlockId);
         }
 

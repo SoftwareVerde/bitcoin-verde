@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
@@ -417,10 +418,7 @@ public class NodeModule {
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseManagerFactory);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseManagerFactory);
 
-        final BlockInventoryMessageHandler blockInventoryMessageHandler;
-        {
-            blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
-        }
+        final BlockInventoryMessageHandler blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
 
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
@@ -681,9 +679,18 @@ public class NodeModule {
                 }
             });
 
-            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new Runnable() {
+            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
                 @Override
-                public void run() {
+                public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                    {
+                        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
+                        for (final BlockHeader blockHeader : blockHeaders) {
+                            final Sha256Hash blockHash = blockHeader.getHash();
+                            blockHashes.add(blockHash);
+                        }
+                        blockInventoryMessageHandler.onResult(bitcoinNode, blockHashes);
+                    }
+
                     _blockDownloader.wakeUp();
 
                     try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {

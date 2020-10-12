@@ -9,7 +9,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.network.p2p.node.NodeId;
 
 public interface FullNodeBitcoinNodeDatabaseManager extends BitcoinNodeDatabaseManager {
-    Boolean updateBlockInventory(BitcoinNode node, List<Sha256Hash> blockHashes) throws DatabaseException;
+    Boolean updateBlockInventory(BitcoinNode node, Long blockHeight, Sha256Hash blockHash) throws DatabaseException;
     void updateTransactionInventory(BitcoinNode node, List<Sha256Hash> transactionHashes) throws DatabaseException;
     List<NodeId> filterNodesViaTransactionInventory(List<NodeId> nodeIds, Sha256Hash transactionHash, FilterType filterType) throws DatabaseException;
     List<NodeId> filterNodesViaBlockInventory(List<NodeId> nodeIds, Sha256Hash blockHash, FilterType filterType) throws DatabaseException;

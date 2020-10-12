@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -34,6 +35,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BlockHeaderDownloader extends SleepyService {
     public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext { }
+
+    public interface NewBlockHeadersAvailableCallback {
+        void onNewHeadersReceived(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders);
+    }
 
     public static final Long MAX_TIMEOUT_MS = (15L * 1000L); // 15 Seconds...
 
@@ -56,7 +61,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected Long _minBlockTimestamp;
     protected Long _blockHeaderCount = 0L;
 
-    protected Runnable _newBlockHeaderAvailableCallback = null;
+    protected NewBlockHeadersAvailableCallback _newBlockHeaderAvailableCallback = null;
 
     protected Boolean _checkForGenesisBlockHeader() {
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -354,16 +359,21 @@ public class BlockHeaderDownloader extends SleepyService {
 
         _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
-            public void onResult(final List<BlockHeader> blockHeaders) {
+            public void onResult(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
                 if (! _isProcessingHeaders.compareAndSet(false, true)) { return; }
 
                 try {
                     _processBlockHeaders(blockHeaders);
 
-                    final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
+                    final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
                     if (newBlockHeaderAvailableCallback != null) {
                         final ThreadPool threadPool = _context.getThreadPool();
-                        threadPool.execute(newBlockHeaderAvailableCallback);
+                        threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                newBlockHeaderAvailableCallback.onNewHeadersReceived(bitcoinNode, blockHeaders);
+                            }
+                        });
                     }
                 }
                 finally {
@@ -464,7 +474,7 @@ public class BlockHeaderDownloader extends SleepyService {
     @Override
     protected void _onSleep() { }
 
-    public void setNewBlockHeaderAvailableCallback(final Runnable newBlockHeaderAvailableCallback) {
+    public void setNewBlockHeaderAvailableCallback(final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback) {
         _newBlockHeaderAvailableCallback = newBlockHeaderAvailableCallback;
     }
 

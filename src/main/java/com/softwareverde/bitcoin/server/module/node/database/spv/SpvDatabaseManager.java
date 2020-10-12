@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.database.spv;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.spv.SpvPendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.node.spv.SpvBitcoinNodeDatabaseManager;
@@ -18,7 +17,6 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected SpvBlockDatabaseManager _blockDatabaseManager;
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
-    protected SpvPendingBlockDatabaseManager _pendingBlockDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
     public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize) {
@@ -65,15 +63,6 @@ public class SpvDatabaseManager implements DatabaseManager {
         }
 
         return _blockHeaderDatabaseManager;
-    }
-
-    @Override
-    public SpvPendingBlockDatabaseManager getPendingBlockDatabaseManager() {
-        if (_pendingBlockDatabaseManager == null) {
-            _pendingBlockDatabaseManager = new SpvPendingBlockDatabaseManager();
-        }
-
-        return _pendingBlockDatabaseManager;
     }
 
     @Override

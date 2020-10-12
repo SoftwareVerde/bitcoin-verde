@@ -364,7 +364,8 @@ public class BlockchainIndexer extends SleepyService {
 
         nanoTimer.stop();
         final double msElapsed = nanoTimer.getMillisecondsElapsed();
-        Logger.info("Indexed " + batchCount + " transactions in " + msElapsed + "ms. (" + ((batchCount * 1000L) / ((long) msElapsed)) + "tps)");
+        final long tps = (long) ((batchCount * 1000L) / (msElapsed > 0D ? msElapsed : 0.01));
+        Logger.info("Indexed " + batchCount + " transactions in " + msElapsed + "ms. (" + tps + "tps)");
 
         return true;
     }

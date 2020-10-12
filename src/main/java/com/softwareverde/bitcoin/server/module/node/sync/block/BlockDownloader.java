@@ -248,55 +248,8 @@ public class BlockDownloader extends SleepyService {
                 nodeIds = listBuilder.build();
             }
 
-            final Boolean highPriorityUnknownInventoryExists = pendingBlockDatabaseManager.hasUnknownHighPriorityInventory(nodeIds);
-            if (highPriorityUnknownInventoryExists) {
-                _queueBlockfinderBroadcast();
-            }
-
-            { // If there is a block that is essential and no node has currently advertised it, blindly request it for download while the blockfinder executes.
-                final Sha256Hash essentialMissingBlockHash = pendingBlockDatabaseManager.getUnlocatableEssentialBlock(nodeIds);
-                final boolean isEssentialBlockMissing = (essentialMissingBlockHash != null);
-                if (isEssentialBlockMissing) {
-                    NodeId selectedNodeId = null;
-                    {
-                        for (final NodeId nodeId : nodeIds) {
-                            boolean nodeIsAlreadyDownloadingBlock = false;
-                            for (final CurrentDownload currentDownload : _currentBlockDownloadSet.values()) {
-                                if (Util.areEqual(nodeId, currentDownload.nodeId)) {
-                                    nodeIsAlreadyDownloadingBlock = true;
-                                    break;
-                                }
-                            }
-                            if (!nodeIsAlreadyDownloadingBlock) {
-                                selectedNodeId = nodeId;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (selectedNodeId != null) {
-                        final MilliTimer timer = new MilliTimer();
-                        final CurrentDownload currentDownload = new CurrentDownload(selectedNodeId, timer);
-                        final BitcoinNode bitcoinNode = nodeMap.get(selectedNodeId);
-
-                        // TODO: If the peer does not have the Block then the download will stall for this Block until it times out since the peer will not tell the Node it doesn't have the inventory.
-                        _currentBlockDownloadSet.put(essentialMissingBlockHash, currentDownload);
-                        Logger.debug("Blindly downloading " + essentialMissingBlockHash + " from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null) + ".");
-
-                        timer.start();
-
-                        _downloadBlock(essentialMissingBlockHash, bitcoinNode);
-                    }
-                }
-            }
-
             final Map<PendingBlockId, NodeId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(nodeIds, maximumConcurrentDownloadCount * 2);
             if (downloadPlan.isEmpty()) {
-                final Boolean unknownInventoryExists = pendingBlockDatabaseManager.hasUnknownInventory(nodeIds);
-                if (unknownInventoryExists) {
-                    _queueBlockfinderBroadcast();
-                }
-
                 Logger.trace("Downloader has nothing to do.");
                 return false;
             }

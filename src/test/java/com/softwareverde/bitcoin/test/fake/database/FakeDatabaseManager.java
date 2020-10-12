@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -33,11 +32,6 @@ public interface FakeDatabaseManager extends DatabaseManager {
 
     @Override
     default BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default PendingBlockDatabaseManager getPendingBlockDatabaseManager() {
         throw new UnsupportedOperationException();
     }
 

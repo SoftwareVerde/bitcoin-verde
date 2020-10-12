@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -7,6 +10,9 @@ import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
@@ -18,6 +24,7 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashSet;
@@ -118,12 +125,14 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
             if (rows.isEmpty()) {
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent) VALUES (?, ?, ?, ?, ?)")
+                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
                         .setParameter(hostId)
                         .setParameter(port)
                         .setParameter(now)
                         .setParameter(now)
                         .setParameter(userAgent)
+                        .setParameter(0L)
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
             else {
@@ -213,9 +222,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
     }
 
     @Override
-    public Boolean updateBlockInventory(final BitcoinNode node, final List<Sha256Hash> blockHashes) throws DatabaseException {
-        if (blockHashes.isEmpty()) { return false; }
-
+    public Boolean updateBlockInventory(final BitcoinNode node, final Long blockHeight, final Sha256Hash blockHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Ip ip = node.getIp();
@@ -224,14 +231,29 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final NodeId nodeId = _getNodeId(ip, port);
         if (nodeId == null) { return false; }
 
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_blocks_inventory (node_id, hash) VALUES (?, ?)");
-        for (final Sha256Hash blockHash : blockHashes) {
-            batchedInsertQuery.setParameter(nodeId);
-            batchedInsertQuery.setParameter(blockHash);
+        java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, head_block_height, head_block_hash FROM nodes WHERE id = ?")
+                .setParameter(nodeId)
+        );
+        if (rows.isEmpty()) { return false; }
+        final Row row = rows.get(0);
+        final Long headBlockHeight = row.getLong("head_block_height");
+        final Sha256Hash headBlockHash = Sha256Hash.wrap(row.getBytes("head_block_hash"));
+
+        if (headBlockHeight > blockHeight) { return false; }
+        if (Util.areEqual(headBlockHeight, blockHeight)) {
+            if (Util.areEqual(headBlockHash, blockHash)) {
+                return false;
+            }
         }
 
-        databaseConnection.executeSql(batchedInsertQuery);
-        return (databaseConnection.getRowsAffectedCount() > 0);
+        databaseConnection.executeSql(
+            new Query("UPDATE nodes SET head_block_height = ?, head_block_hash = ? WHERE id = ?")
+                .setParameter(blockHeight)
+                .setParameter(blockHash)
+                .setParameter(nodeId)
+        );
+        return true;
     }
 
     @Override
@@ -291,26 +313,40 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_id FROM node_blocks_inventory WHERE hash = ? AND node_id IN (?)")
-                .setParameter(blockHash)
+            new Query("SELECT id, head_block_height, head_block_hash FROM nodes WHERE id IN (?)")
                 .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
         );
 
+        // TODO: Check for blockchain node feature...
+
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
-        if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
-            for (final NodeId nodeId : nodeIds) {
-                filteredNodes.add(nodeId);
-            }
-        }
+
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
         for (final Row row : rows) {
-            final NodeId nodeWithTransaction = NodeId.wrap(row.getLong("node_id"));
+            final NodeId nodeId = NodeId.wrap(row.getLong("id"));
+            final Long nodeBlockHeight = row.getLong("head_block_height");
+            final Sha256Hash nodeBlockHash = Sha256Hash.wrap(row.getBytes("head_block_hash"));
 
-            if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
-                filteredNodes.remove(nodeWithTransaction);
+            final BlockId nodeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(nodeBlockHash);
+            final BlockchainSegmentId nodeBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(nodeBlockId);
+            final Boolean nodeIsOnSameBlockchain = (blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, nodeBlockchainSegmentId, BlockRelationship.ANY));
+            final boolean nodeHasBlock = ((nodeBlockHeight >= blockHeight) && nodeIsOnSameBlockchain);
+            // TODO: Nodes that diverged after the desired blockHeight could still serve the block...
+
+            if (filterType == FilterType.KEEP_NODES_WITH_INVENTORY) {
+                if (nodeHasBlock) {
+                    filteredNodes.add(nodeId);
+                }
             }
-            else {
-                filteredNodes.add(nodeWithTransaction);
+            else if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
+                if (! nodeHasBlock) {
+                    filteredNodes.add(nodeId);
+                }
             }
         }
 
