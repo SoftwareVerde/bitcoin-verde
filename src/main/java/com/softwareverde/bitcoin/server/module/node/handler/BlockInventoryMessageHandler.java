@@ -2,16 +2,13 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
 public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
@@ -45,6 +42,9 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             if (lastBlockId != null) {
                 final Long lastBlockHeight = blockHeaderDatabaseManager.getBlockHeight(lastBlockId);
                 final Boolean isNewHeightForNode = nodeDatabaseManager.updateBlockInventory(bitcoinNode, lastBlockHeight, lastBlockHash);
+
+                Logger.debug("HeadBlock for " + bitcoinNode + " height=" + lastBlockHeight + " hash=" + lastBlockHash);
+
                 storeBlockHashesResult.nodeInventoryWasUpdated = isNewHeightForNode;
                 storeBlockHashesResult.newBlockHashWasReceived = false;
             }
@@ -53,30 +53,29 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 if (firstBlockId != null) {
                     final Long firstBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockId);
 
-                    Sha256Hash blockHash = firstBlockHash;
-                    long blockHeight = firstBlockHeight;
-                    // Determine which blockHash is the first unseen hash...
-                    // TODO: This could be accomplished in about half as many lookups via binary search...
-                    for (int i = 1; i < blockHashCount; ++i) { // NOTE: i = 1; the first blockHash was already evaluated and is therefore skipped...
-                        final Sha256Hash nextBlockHash = blockHashes.get(i);
-                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(nextBlockHash);
-                        if (blockId == null) { break; }
+                    final BlockInventoryMessageHandlerUtil.NodeInventory nodeInventory = BlockInventoryMessageHandlerUtil.getHeadBlockInventory(firstBlockHeight, blockHashes, new BlockInventoryMessageHandlerUtil.BlockIdStore() {
+                        @Override
+                        public BlockId getBlockId(final Sha256Hash blockHash) throws Exception {
+                            return blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        }
+                    });
 
-                        blockHeight += 1L;
-                    }
+                    Logger.debug("HeadBlock for " + bitcoinNode + " height=" + nodeInventory.blockHeight + " hash=" + nodeInventory.blockHash);
 
-                    final Boolean isNewHeightForNode = nodeDatabaseManager.updateBlockInventory(bitcoinNode, blockHeight, blockHash);
+                    final Boolean isNewHeightForNode = nodeDatabaseManager.updateBlockInventory(bitcoinNode, nodeInventory.blockHeight, nodeInventory.blockHash);
                     storeBlockHashesResult.nodeInventoryWasUpdated = isNewHeightForNode;
                     storeBlockHashesResult.newBlockHashWasReceived = true;
                 }
                 else {
+                    Logger.debug("Unknown HeadBlock for " + bitcoinNode + " hash=" + firstBlockHash);
+
                     // The block hash does not match a known header, therefore its block height cannot be determined and it is ignored.
                     storeBlockHashesResult.nodeInventoryWasUpdated = false;
                     storeBlockHashesResult.newBlockHashWasReceived = false;
                 }
             }
         }
-        catch (final DatabaseException exception) {
+        catch (final Exception exception) {
             Logger.warn(exception);
         }
 
