@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.request.RequestPeersMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
@@ -1392,7 +1393,7 @@ public class BitcoinNode extends Node {
         _spvBlockInventoryMessageCallback = spvBlockInventoryMessageCallback;
     }
 
-    public Boolean newBlocksViaHeadersIsEnabled() {
+    public Boolean isNewBlocksViaHeadersEnabled() {
         return _announceNewBlocksViaHeadersIsEnabled;
     }
 
@@ -1485,6 +1486,11 @@ public class BitcoinNode extends Node {
         final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.BLOCK, headBlockHash);
         inventoryMessage.addInventoryItem(inventoryItem);
         _queueMessage(inventoryMessage);
+    }
+
+    public void enableNewBlockViaHeaders() {
+        final NewBlocksViaHeadersMessage newBlocksViaHeadersMessage = new NewBlocksViaHeadersMessage();
+        _queueMessage(newBlocksViaHeadersMessage);
     }
 
     public void getAddressBlocks(final List<Address> addresses) {
