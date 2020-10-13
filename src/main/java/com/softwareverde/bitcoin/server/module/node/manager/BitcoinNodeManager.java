@@ -79,6 +79,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     protected Boolean _transactionRelayIsEnabled = true;
     protected Boolean _slpValidityCheckingIsEnabled = false;
+    protected Boolean _newBlocksViaHeadersIsEnabled = true;
     protected MutableBloomFilter _bloomFilter = null;
 
     protected final Object _pollForReconnectionThreadMutex = new Object();
@@ -267,6 +268,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             if (Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED), false)) {
                 bitcoinNode.enableSlpValidityChecking(true);
             }
+        }
+
+        if (_newBlocksViaHeadersIsEnabled) {
+            bitcoinNode.enableNewBlockViaHeaders();
         }
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -625,7 +630,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void transmitBlockHash(final BitcoinNode bitcoinNode, final Block block) {
-        if (bitcoinNode.newBlocksViaHeadersIsEnabled()) {
+        if (bitcoinNode.isNewBlocksViaHeadersEnabled()) {
             bitcoinNode.transmitBlockHeader(block, block.getTransactionCount());
         }
         else {
@@ -636,7 +641,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-        if (bitcoinNode.newBlocksViaHeadersIsEnabled()) {
+        if (bitcoinNode.isNewBlocksViaHeadersEnabled()) {
             final BlockHeaderWithTransactionCount cachedBlockHeader = _cachedTransmittedBlockHeader;
             if ( (cachedBlockHeader != null) && (Util.areEqual(blockHash, cachedBlockHeader.getHash())) ) {
                 bitcoinNode.transmitBlockHeader(cachedBlockHeader);
@@ -769,6 +774,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public Boolean isSlpValidityCheckingEnabled() {
         return _slpValidityCheckingIsEnabled;
+    }
+
+    public void enableNewBlockViaHeaders(final Boolean newBlocksViaHeadersIsEnabled) {
+        _newBlocksViaHeadersIsEnabled = newBlocksViaHeadersIsEnabled;
+        if (newBlocksViaHeadersIsEnabled) {
+            for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                bitcoinNode.enableNewBlockViaHeaders();
+            }
+        }
     }
 
     @Override

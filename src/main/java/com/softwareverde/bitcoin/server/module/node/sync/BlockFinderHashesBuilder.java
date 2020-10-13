@@ -14,17 +14,13 @@ import com.softwareverde.database.DatabaseException;
 public class BlockFinderHashesBuilder {
     protected final DatabaseManager _databaseManager;
 
-    public BlockFinderHashesBuilder(final DatabaseManager databaseManager) {
-        _databaseManager = databaseManager;
-    }
-
-    public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
+    protected List<Sha256Hash> _createBlockFinderBlockHashes(final Boolean processedBlocksOnly) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
 
         final Long maxBlockHeight;
         final BlockchainSegmentId headBlockchainSegmentId;
-        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+        final BlockId headBlockId = (processedBlocksOnly ? blockDatabaseManager.getHeadBlockId() : blockHeaderDatabaseManager.getHeadBlockHeaderId());
         if (headBlockId != null) {
             headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
             maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
@@ -48,5 +44,17 @@ public class BlockFinderHashesBuilder {
         }
 
         return blockHashes;
+    }
+
+    public BlockFinderHashesBuilder(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
+    }
+
+    public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
+        return _createBlockFinderBlockHashes(true);
+    }
+
+    public List<Sha256Hash> createBlockHeaderFinderBlockHashes() throws DatabaseException {
+        return _createBlockFinderBlockHashes(false);
     }
 }
