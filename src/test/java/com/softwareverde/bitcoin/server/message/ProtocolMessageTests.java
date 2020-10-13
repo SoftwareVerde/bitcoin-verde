@@ -170,7 +170,7 @@ public class ProtocolMessageTests {
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), requestBlockHeadersMessage.getMagicNumber().getBytes());
         Assert.assertEquals(MessageType.REQUEST_BLOCK_HEADERS, requestBlockHeadersMessage.getCommand());
 
-        final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
+        final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHashes();
         Assert.assertEquals(30, blockHeaderHashes.getCount());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());

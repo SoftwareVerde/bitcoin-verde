@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -57,6 +58,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
+    public interface NewNodeCallback {
+        void onNodeHandshakeComplete(BitcoinNode bitcoinNode);
+    }
 
     public static class Context {
         public Integer maxNodeCount;
@@ -75,6 +79,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
+    protected final BitcoinNodeHeadBlockFinder _bitcoinNodeHeadBlockFinder;
     protected final AtomicBoolean _hasHadActiveConnectionSinceLastDisconnect = new AtomicBoolean(false);
 
     protected Boolean _transactionRelayIsEnabled = true;
@@ -137,6 +142,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected Thread _pollForReconnectionThread;
 
     protected Runnable _onNodeListChanged;
+    protected NewNodeCallback _onNewNode;
 
     // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
     protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
@@ -282,7 +288,17 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             nodeDatabaseManager.updateUserAgent(bitcoinNode);
         }
         catch (final DatabaseException databaseException) {
-            Logger.warn(databaseException);
+            Logger.debug(databaseException);
+        }
+
+        final NewNodeCallback newNodeCallback = _onNewNode;
+        if (newNodeCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    newNodeCallback.onNodeHandshakeComplete(bitcoinNode);
+                }
+            });
         }
 
         _banFilter.onNodeHandshakeComplete(bitcoinNode);
@@ -300,6 +316,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _banFilter = context.banFilter;
         _memoryPoolEnquirer = context.memoryPoolEnquirer;
         _synchronizationStatusHandler = context.synchronizationStatusHandler;
+
+        _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool);
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -752,8 +770,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _banFilter.removeIpFromWhitelist(ip);
     }
 
-    public void setOnNodeListChanged(final Runnable callback) {
+    public void setNodeListChangedCallback(final Runnable callback) {
         _onNodeListChanged = callback;
+    }
+
+    public void setNewNodeHandshakedCallback(final NewNodeCallback newNodeCallback) {
+        _onNewNode = newNodeCallback;
     }
 
     public void enableTransactionRelay(final Boolean transactionRelayIsEnabled) {

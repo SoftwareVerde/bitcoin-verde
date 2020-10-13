@@ -7,8 +7,6 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -20,13 +18,10 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 
 public class FullNodePendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
@@ -314,7 +309,7 @@ public class FullNodePendingBlockDatabaseManager {
         return pendingBlockId;
     }
 
-    public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
+    public List<PendingBlockId> selectIncompletePendingBlocks(final Integer maxBlockCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Long minSecondsBetweenDownloadAttempts = 5L;
@@ -326,22 +321,12 @@ public class FullNodePendingBlockDatabaseManager {
                 .setParameter(minSecondsBetweenDownloadAttempts)
         );
 
-        final HashMap<PendingBlockId, NodeId> downloadPlan = new HashMap<PendingBlockId, NodeId>(rows.size());
+        final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
         for (final Row row : rows) {
-            // final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
             final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-            final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("hash"));
-
-            final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = _databaseManager.getNodeDatabaseManager();
-            final List<NodeId> nodeIds = nodeDatabaseManager.filterNodesViaBlockInventory(connectedNodeIds, blockHash, FilterType.KEEP_NODES_WITH_INVENTORY);
-
-            if (nodeIds.isEmpty()) { continue; }
-            final int randomIndex = (int) (Math.random() * nodeIds.getCount());
-            final NodeId nodeId = nodeIds.get(randomIndex); // TODO: Select by something more meaningful, i.e. health/ping/load...
-
-            downloadPlan.put(pendingBlockId, nodeId);
+            pendingBlockIds.add(pendingBlockId);
         }
-        return downloadPlan;
+        return pendingBlockIds;
     }
 
     public PendingBlockId selectCandidatePendingBlockId() throws DatabaseException {

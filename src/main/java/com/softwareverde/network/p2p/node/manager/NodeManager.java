@@ -564,7 +564,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected NODE _selectBestNode() {
-        final List<NODE> nodes = _selectBestNodes(1);
+        final List<NODE> nodes = _selectBestNodes(1, null);
         if ( (nodes == null) || (nodes.isEmpty()) ) { return null; }
 
         final NODE selectedNode = nodes.get(0);
@@ -576,26 +576,16 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected NODE _selectBestNode(final NodeFilter<NODE> nodeFilter) {
-        final List<NODE> nodes = _selectBestNodes(_maxNodeCount);
+        final List<NODE> nodes = _selectBestNodes(1, nodeFilter);
         if ( (nodes == null) || (nodes.isEmpty()) ) { return null; }
 
-        for (final NODE node : nodes) {
-            if (node == null) { continue; }
-            if (! nodeFilter.meetsCriteria(node)) { continue; }
-
-            final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
-            Logger.debug("Selected Node: " + (node.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
-
-            return node;
-        }
-
-        return null;
+        return nodes.get(0);
     }
 
-    protected List<NODE> _selectBestNodes(final Integer requestedNodeCount) {
+    protected List<NODE> _selectBestNodes(final Integer requestedNodeCount, final NodeFilter<NODE> nodeFilter) {
         final List<NODE> activeNodes = _getActiveNodes();
 
-        final Integer activeNodeCount = activeNodes.getCount();
+        final int activeNodeCount = activeNodes.getCount();
         if (activeNodeCount == 0) { return null; }
 
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
@@ -607,25 +597,20 @@ public class NodeManager<NODE extends Node> {
         }
         nodeHealthList.sort(NodeHealth.HEALTH_ASCENDING_COMPARATOR);
 
-        final Integer nodeCount;
-        {
-            if ( (requestedNodeCount >= _nodes.size()) || (requestedNodeCount < 0) ) {
-                nodeCount = _nodes.size();
-            }
-            else {
-                nodeCount = requestedNodeCount;
-            }
-        }
-
-        final MutableList<NODE> selectedNodes = new MutableList<NODE>(nodeCount);
-        for (int i = 0; i < nodeCount; ++i) {
+        final MutableList<NODE> selectedNodes = new MutableList<NODE>(requestedNodeCount);
+        int i = 0;
+        while (selectedNodes.getCount() < requestedNodeCount) {
             final int index = (nodeHealthList.getCount() - i - 1);
-            if ( (index < 0) || (index >= nodeHealthList.getCount()) ) { continue; }
+            i += 1;
+
+            if ( (index < 0) || (index >= nodeHealthList.getCount()) ) { break; }
 
             final NodeHealth bestNodeHealth = nodeHealthList.get(index);
             final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
             if (selectedNode != null) { // _nodes may have been updated during the selection process...
-                selectedNodes.add(selectedNode);
+                if ( (nodeFilter == null) || nodeFilter.meetsCriteria(selectedNode) ) {
+                    selectedNodes.add(selectedNode);
+                }
             }
         }
 
@@ -891,7 +876,11 @@ public class NodeManager<NODE extends Node> {
     }
 
     public List<NODE> getBestNodes(final Integer nodeCount) {
-        return _selectBestNodes(nodeCount);
+        return _selectBestNodes(nodeCount, null);
+    }
+
+    public List<NODE> getBestNodes(final Integer nodeCount, final NodeFilter<NODE> nodeFilter) {
+        return _selectBestNodes(nodeCount, nodeFilter);
     }
 
     public NODE getWorstNode() {

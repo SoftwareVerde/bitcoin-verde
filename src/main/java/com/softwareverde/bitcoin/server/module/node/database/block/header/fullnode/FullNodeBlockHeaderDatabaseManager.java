@@ -745,12 +745,14 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     @Override
     public BlockId getAncestorBlockId(final BlockId blockId, final Integer parentCount) throws DatabaseException {
         if (blockId == null) { return null; }
+        if (parentCount == 0) { return blockId; }
 
         if (parentCount == 1) {
             // Optimization/Specialization for parentBlockId...
             return _getPreviousBlockId(blockId);
         }
 
+        // TODO: Use blockHeight and blockChainSegmentId for constant-time lookups...
         BlockId nextBlockId = blockId;
         for (int i = 0; i < parentCount; ++i) {
             final BlockHeader blockHeader = _inflateBlockHeader(nextBlockId);

@@ -86,6 +86,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -527,6 +528,25 @@ public class NodeModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
+
+            final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _mainThreadPool);
+            _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
+                @Override
+                public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
+                    bitcoinNodeHeadBlockFinder.determineHeadBlock(bitcoinNode, new BitcoinNodeHeadBlockFinder.Callback() {
+                        @Override
+                        public void onHeadBlockDetermined(final Long blockHeight, final Sha256Hash blockHash) {
+                            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                                final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+                                nodeDatabaseManager.updateBlockInventory(bitcoinNode, blockHeight, blockHash);
+                            }
+                            catch (final DatabaseException databaseException) {
+                                Logger.debug(databaseException);
+                            }
+                        }
+                    });
+                }
+            });
         }
 
         // final NodeModuleContext context = new NodeModuleContext(_masterInflater, _blockStore, databaseManagerFactory, _bitcoinNodeManager, synchronizationStatusHandler, _medianBlockTime, _systemTime, _mainThreadPool, _mutableNetworkTime);

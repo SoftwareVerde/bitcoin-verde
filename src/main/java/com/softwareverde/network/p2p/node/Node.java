@@ -72,6 +72,9 @@ public abstract class Node {
 
     protected final ThreadPool _threadPool;
 
+    /**
+     * Latencies in milliseconds...
+     */
     protected final CircleBuffer<Long> _latencies = new CircleBuffer<Long>(32);
 
     protected abstract PingMessage _createPingMessage();
@@ -569,6 +572,9 @@ public abstract class Node {
         return Util.areEqual(_id, ((Node) object)._id);
     }
 
+    /**
+     * Returns the average ping (in milliseconds) for the node over the course of the last 32 pings.
+     */
     public Long getAveragePing() {
         final int itemCount = _latencies.getCount();
         long sum = 0L;

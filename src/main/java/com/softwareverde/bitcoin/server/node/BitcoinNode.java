@@ -767,10 +767,11 @@ public class BitcoinNode extends Node {
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
         final List<BlockHeader> blockHeaders = blockHeadersMessage.getBlockHeaders();
+        Logger.trace(this.getConnectionString() + " _onBlockHeadersMessageReceived: " + blockHeaders.getCount());
 
-        final Boolean allBlockHeadersAreValid;
+        final boolean allBlockHeadersAreValid;
         {
-            Boolean isValid = true;
+            boolean isValid = true;
             for (final BlockHeader blockHeader : blockHeaders) {
                 if (! blockHeader.isValid()) {
                     isValid = false;
@@ -823,7 +824,7 @@ public class BitcoinNode extends Node {
         final QueryBlockHeadersCallback queryBlockHeadersCallback = _queryBlockHeadersCallback;
 
         if (queryBlockHeadersCallback != null) {
-            final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
+            final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHashes();
             final Sha256Hash desiredBlockHeaderHash = requestBlockHeadersMessage.getStopBeforeBlockHash();
             _threadPool.execute(new Runnable() {
                 @Override
@@ -1094,7 +1095,7 @@ public class BitcoinNode extends Node {
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes) {
         final RequestBlockHeadersMessage requestBlockHeadersMessage = _protocolMessageFactory.newRequestBlockHeadersMessage();
         for (final Sha256Hash blockHash : blockHashes) {
-            requestBlockHeadersMessage.addBlockHeaderHash(blockHash);
+            requestBlockHeadersMessage.addBlockHash(blockHash);
         }
         _queueMessage(requestBlockHeadersMessage);
     }
