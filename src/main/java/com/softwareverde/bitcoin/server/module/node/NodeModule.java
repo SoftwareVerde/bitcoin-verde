@@ -85,6 +85,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
@@ -163,6 +164,7 @@ public class NodeModule {
 
     protected final MilliTimer _uptimeTimer = new MilliTimer();
     protected final Thread _databaseMaintenanceThread;
+    protected final Thread _loggerFlushThread;
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
@@ -920,9 +922,34 @@ public class NodeModule {
                 }
             });
         }
+
+        _loggerFlushThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    Logger.flush();
+
+                    try {
+                        Thread.sleep(10000L);
+                    }
+                    catch (final Exception exception) {
+                        break;
+                    }
+                }
+            }
+        });
+        _loggerFlushThread.setName("Logger Flush Thread");
+        _loggerFlushThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread t, final Throwable exception) {
+                Logger.warn(exception);
+            }
+        });
     }
 
     public void loop() {
+        _loggerFlushThread.start();
+
         final MilliTimer timer = new MilliTimer();
         timer.start();
 
@@ -939,7 +966,7 @@ public class NodeModule {
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
-            final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
+            final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory, true);
             headersBootstrapper.run();
         }
 
@@ -982,7 +1009,7 @@ public class NodeModule {
 
                                     final BlockId parentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
                                     final Sha256Hash parentBlockHash = blockHeaderDatabaseManager.getBlockHash(parentBlockId);
-                                    pendingBlockDatabaseManager.insertBlockHash(blockHash, parentBlockHash, true);
+                                    pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash, true);
                                     Logger.debug("Indexed Existing pending Block: " + blockHash);
                                 }
                             }
@@ -1138,6 +1165,12 @@ public class NodeModule {
         }
 
         _shutdown();
+
+        _loggerFlushThread.interrupt();
+        try {
+            _loggerFlushThread.join(5000L);
+        }
+        catch (final Exception exception) { }
 
         System.exit(0);
     }

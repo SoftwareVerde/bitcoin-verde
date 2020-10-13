@@ -251,7 +251,7 @@ public class FullNodePendingBlockDatabaseManager {
         return _getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
     }
 
-    public PendingBlockId insertBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Boolean wasDownloaded) throws DatabaseException {
+    public PendingBlockId storeBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Boolean wasDownloaded) throws DatabaseException {
         return _storePendingBlock(blockHash, previousBlockHash, wasDownloaded);
     }
 

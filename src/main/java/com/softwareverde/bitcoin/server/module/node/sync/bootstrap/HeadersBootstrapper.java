@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.type.time.SystemTime;
@@ -25,13 +26,23 @@ public class HeadersBootstrapper {
     protected Long _currentBlockHeight = 0L;
     protected Boolean _abortInit = false;
 
+    protected List<BlockId> _insertBlockHeaders(final DatabaseManager databaseManager, final List<BlockHeader> batchedHeaders) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+        TransactionUtil.startTransaction(databaseConnection);
+        final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(batchedHeaders);
+        TransactionUtil.commitTransaction(databaseConnection);
+
+        return blockIds;
+    }
+
     public HeadersBootstrapper(final DatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
     public void run() {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -74,9 +85,7 @@ public class HeadersBootstrapper {
 
                             batchedHeaders.add(blockHeader);
                             if (batchedHeaders.getCount() == batchSize) {
-                                TransactionUtil.startTransaction(databaseConnection);
-                                final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(batchedHeaders);
-                                TransactionUtil.commitTransaction(databaseConnection);
+                                final List<BlockId> blockIds = _insertBlockHeaders(databaseManager, batchedHeaders);
 
                                 batchedHeaders.clear();
 
@@ -88,9 +97,7 @@ public class HeadersBootstrapper {
                         }
 
                         if (! batchedHeaders.isEmpty()) {
-                            TransactionUtil.startTransaction(databaseConnection);
-                            final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(batchedHeaders);
-                            TransactionUtil.commitTransaction(databaseConnection);
+                            final List<BlockId> blockIds = _insertBlockHeaders(databaseManager, batchedHeaders);
 
                             batchedHeaders.clear();
 

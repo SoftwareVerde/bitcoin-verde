@@ -12,8 +12,6 @@ import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
@@ -26,7 +24,6 @@ import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -37,6 +34,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -251,6 +249,7 @@ public class BlockDownloader extends SleepyService {
                 Logger.trace("Downloader has nothing to do.");
                 return false;
             }
+            Logger.trace("Download plan contains " + downloadPlan.getCount() + " items.");
 
             final int maxNewDownloadCount = Math.max(1, maximumConcurrentDownloadCount - _currentBlockDownloadSet.size());
             final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(maxNewDownloadCount, new NodeManager.NodeFilter<BitcoinNode>() {
@@ -294,6 +293,22 @@ public class BlockDownloader extends SleepyService {
         catch (final DatabaseException exception) {
             Logger.warn(exception);
             return false;
+        }
+
+        if (Logger.isTraceEnabled()) {
+            final StringBuilder stringBuilder = new StringBuilder("In Flight: ");
+            stringBuilder.append(_currentBlockDownloadSet.size());
+            stringBuilder.append(" of ");
+            stringBuilder.append(maximumConcurrentDownloadCount);
+            for (final Map.Entry<Sha256Hash, CurrentDownload> entry : _currentBlockDownloadSet.entrySet()) {
+                final CurrentDownload currentDownload = entry.getValue();
+                final MilliTimer milliTimer = (currentDownload != null ? currentDownload.milliTimer : null);
+                if (milliTimer != null) { milliTimer.stop(); }
+                final Long msElapsed = (milliTimer != null ? milliTimer.getMillisecondsElapsed() : null);
+                stringBuilder.append("\n");
+                stringBuilder.append(entry.getKey() + ": " + msElapsed + "ms via " + (currentDownload != null ? currentDownload.nodeId : null));
+            }
+            Logger.trace(stringBuilder.toString());
         }
 
         return true;
