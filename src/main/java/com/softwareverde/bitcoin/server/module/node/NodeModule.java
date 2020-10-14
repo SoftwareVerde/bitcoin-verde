@@ -112,6 +112,7 @@ import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
@@ -1056,8 +1057,8 @@ public class NodeModule {
             _bitcoinNodeManager.startNodeMaintenanceThread();
 
             final List<SeedNodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
-            for (final SeedNodeProperties seedNodeProperties : whitelistedNodes) {
-                final String host = seedNodeProperties.getAddress();
+            for (final SeedNodeProperties whiteListedNode : whitelistedNodes) {
+                final String host = whiteListedNode.getAddress();
                 try {
                     final Ip ip = Ip.fromStringOrHost(host);
                     if (ip == null) {
@@ -1085,6 +1086,8 @@ public class NodeModule {
 
                     final String ipAddressString = ip.toString();
 
+                    _bitcoinNodeManager.defineSeedNode(new NodeIpAddress(ip, port));
+
                     final BitcoinNode node = _nodeInitializer.initializeNode(ipAddressString, port);
                     _bitcoinNodeManager.addNode(node);
                 }
@@ -1092,6 +1095,9 @@ public class NodeModule {
                     Logger.debug("Unable to determine host: " + host);
                 }
             }
+
+            final List<String> dnsSeeds = _bitcoinProperties.getDnsSeeds();
+            _bitcoinNodeManager.defineDnsSeeds(dnsSeeds);
         }
         else {
             Logger.info("[Skipped Networking]");

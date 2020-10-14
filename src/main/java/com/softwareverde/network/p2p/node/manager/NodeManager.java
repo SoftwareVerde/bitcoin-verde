@@ -689,39 +689,7 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final ThreadPool threadPool) {
-        _systemTime = new SystemTime();
-        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
-
-        _maxNodeCount = maxNodeCount;
-        _nodeFactory = nodeFactory;
-        _networkTime = networkTime;
-        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
-        _threadPool = threadPool;
-    }
-
-    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime, final ThreadPool threadPool) {
-        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
-
-        _maxNodeCount = maxNodeCount;
-        _nodeFactory = nodeFactory;
-        _networkTime = networkTime;
-        _systemTime = systemTime;
-        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
-        _threadPool = threadPool;
-    }
-
-    public void setDefaultExternalPort(final Integer externalPortNumber) {
-        _defaultExternalPort = externalPortNumber;
-    }
-
-    public void defineSeedNode(final NodeIpAddress nodeIpAddress) {
-        _seedNodes.add(nodeIpAddress);
-    }
-
-    public void addNode(final NODE node) {
+    protected void _addNode(final NODE node) {
         if (_isShuttingDown) {
             node.disconnect();
             return;
@@ -743,19 +711,6 @@ public class NodeManager<NODE extends Node> {
 
         _checkMaxNodeCount(_maxNodeCount - 1);
         _addNotHandshakedNode(node);
-    }
-
-    public NetworkTime getNetworkTime() {
-        return _networkTime;
-    }
-
-    public void startNodeMaintenanceThread() {
-        _nodeMaintenanceThread.start();
-    }
-
-    public void stopNodeMaintenanceThread() {
-        _nodeMaintenanceThread.interrupt();
-        try { _nodeMaintenanceThread.join(10000L); } catch (final Exception exception) { }
     }
 
     protected void _selectNodeForRequest(final NodeApiRequest<NODE> apiRequest) {
@@ -829,6 +784,55 @@ public class NodeManager<NODE extends Node> {
         }
 
         apiMessage.run(selectedNode);
+    }
+
+    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final ThreadPool threadPool) {
+        _systemTime = new SystemTime();
+        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
+        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
+
+        _maxNodeCount = maxNodeCount;
+        _nodeFactory = nodeFactory;
+        _networkTime = networkTime;
+        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
+        _threadPool = threadPool;
+    }
+
+    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime, final ThreadPool threadPool) {
+        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
+        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
+
+        _maxNodeCount = maxNodeCount;
+        _nodeFactory = nodeFactory;
+        _networkTime = networkTime;
+        _systemTime = systemTime;
+        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
+        _threadPool = threadPool;
+    }
+
+    public void setDefaultExternalPort(final Integer externalPortNumber) {
+        _defaultExternalPort = externalPortNumber;
+    }
+
+    public void defineSeedNode(final NodeIpAddress nodeIpAddress) {
+        _seedNodes.add(nodeIpAddress);
+    }
+
+    public void addNode(final NODE node) {
+        _addNode(node);
+    }
+
+    public NetworkTime getNetworkTime() {
+        return _networkTime;
+    }
+
+    public void startNodeMaintenanceThread() {
+        _nodeMaintenanceThread.start();
+    }
+
+    public void stopNodeMaintenanceThread() {
+        _nodeMaintenanceThread.interrupt();
+        try { _nodeMaintenanceThread.join(10000L); } catch (final Exception exception) { }
     }
 
     public void executeRequest(final NodeApiRequest<NODE> nodeNodeApiRequest) {

@@ -8,8 +8,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
-import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
@@ -38,6 +38,7 @@ import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 
+import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
@@ -81,6 +82,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final SynchronizationStatus _synchronizationStatusHandler;
     protected final BitcoinNodeHeadBlockFinder _bitcoinNodeHeadBlockFinder;
     protected final AtomicBoolean _hasHadActiveConnectionSinceLastDisconnect = new AtomicBoolean(false);
+    protected final MutableList<String> _dnsSeeds = new MutableList<String>(0);
 
     protected Boolean _transactionRelayIsEnabled = true;
     protected Boolean _slpValidityCheckingIsEnabled = false;
@@ -99,26 +101,58 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 try { Thread.sleep(nextWait); }
                 catch (final Exception exception) { break; }
 
-                final List<NodeIpAddress> nodeIpAddresses;
+                final MutableList<NodeIpAddress> nodeIpAddresses;
                 if (_shouldOnlyConnectToSeedNodes) {
                     nodeIpAddresses = new MutableList<NodeIpAddress>(_seedNodes);
                 }
                 else {
-                    List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(0);
-                    try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                        final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+                    final HashSet<String> seedNodeSet = new HashSet<String>();
+                    nodeIpAddresses = new MutableList<NodeIpAddress>(0);
 
-                        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
-                        requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                        requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                        bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
+                    { // Add seed nodes...
+                        for (final NodeIpAddress nodeIpAddress : _seedNodes) {
+                            final Ip ip = nodeIpAddress.getIp();
+                            final String ipString = ip.toString();
+                            final Integer port = nodeIpAddress.getPort();
+                            seedNodeSet.add(ipString + port);
 
-                        // TODO: Attempt to connect to DNS seeded Nodes.
+                            nodeIpAddresses.add(nodeIpAddress);
+                        }
                     }
-                    catch (final DatabaseException databaseException) {
-                        Logger.warn(databaseException);
+
+                    { // Add previously-connected nodes...
+                        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
+                            final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+                            requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                            requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                            for (final BitcoinNodeIpAddress nodeIpAddress : nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount)) {
+                                if (nodeIpAddresses.getCount() >= _maxNodeCount) { break; }
+                                nodeIpAddresses.add(nodeIpAddress);
+                            }
+                        }
+                        catch (final DatabaseException databaseException) {
+                            Logger.warn(databaseException);
+                        }
                     }
-                    nodeIpAddresses = ConstUtil.downcastList(bitcoinNodeIpAddresses);
+
+                    { // Connect to DNS seeded nodes...
+                        final Integer defaultPort = BitcoinProperties.PORT;
+                        for (final String seedHost : _dnsSeeds) {
+                            final List<Ip> seedIps = Ip.allFromHostName(seedHost);
+                            if (seedIps == null) { continue; }
+
+                            for (final Ip ip : seedIps) {
+                                if (nodeIpAddresses.getCount() >= _maxNodeCount) { break; }
+
+                                final String host = ip.toString();
+                                if (seedNodeSet.contains(host + defaultPort)) { continue; } // Exclude SeedNodes...
+
+                                nodeIpAddresses.add(new NodeIpAddress(ip, defaultPort));
+                            }
+                        }
+                    }
                 }
 
                 for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
@@ -129,7 +163,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     final Integer port = nodeIpAddress.getPort();
                     final BitcoinNode bitcoinNode = _nodeFactory.newNode(host, port);
 
-                    BitcoinNodeManager.this.addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
+                    _addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
                     Logger.info("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
                 }
@@ -813,6 +847,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 bitcoinNode.enableNewBlockViaHeaders();
             }
         }
+    }
+
+    public void defineDnsSeeds(final List<String> dnsSeeds) {
+        _dnsSeeds.addAll(dnsSeeds);
     }
 
     @Override
