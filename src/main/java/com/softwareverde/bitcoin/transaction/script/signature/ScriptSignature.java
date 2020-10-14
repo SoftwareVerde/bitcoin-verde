@@ -12,7 +12,7 @@ import com.softwareverde.cryptography.secp256k1.signature.Signature;
 
 public class ScriptSignature {
     /**
-     * Returns a ScriptSignature (Secp25k1 Signature and HashType) from the provided bytes.
+     * Returns a ScriptSignature (Secp256k1 Signature and HashType) from the provided bytes.
      *  The ScriptSignatureContext is used to determine the appropriate Schnorr signature byte count (64 bytes with 1 optional byte for HashType).
      *  i.e. CheckDataSignature does not provide a hashType.
      *  If the provided ByteArray is empty (but not null), then the signature is valid, but empty.
