@@ -120,16 +120,6 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                 // Assert
                 Assert.assertEquals(1024, downloadPlan.getCount());
             }
-
-            { // Should return no pendingBlocks when no nodes connected...
-                final List<NodeId> connectedNodeIds = new MutableList<NodeId>(0);
-
-                // Action
-                final List<PendingBlockId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(1024);
-
-                // Assert
-                Assert.assertEquals(0, downloadPlan.getCount());
-            }
         }
     }
 }

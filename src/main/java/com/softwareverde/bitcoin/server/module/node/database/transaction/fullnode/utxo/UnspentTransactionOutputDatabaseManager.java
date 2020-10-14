@@ -868,8 +868,8 @@ public class UnspentTransactionOutputDatabaseManager {
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked for the duration of this call.
      */
     public void commitUnspentTransactionOutputs(final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, -1L) <= 0L) {
-            // Prevent committing a UTXO set that has been invalidated or not initialized...
+        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, -1L) < 0L) {
+            // Prevent committing a UTXO set that has been invalidated...
             return;
         }
 
