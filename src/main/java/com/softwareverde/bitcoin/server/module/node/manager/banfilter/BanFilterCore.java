@@ -1,9 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.manager.banfilter;
 
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -15,6 +19,11 @@ public class BanFilterCore implements BanFilter {
     public static class BanCriteria {
         public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 10;
         public static final Long FAILED_CONNECTION_ATTEMPT_MILLISECOND_SPAN = 5000L;
+
+        public static List<Sha256Hash> INVALID_BLOCKS = new ImmutableList<Sha256Hash>(
+            Sha256Hash.fromHexString("0000000000000000005CCD563C9ED7212AD591467CD3DB71A17D44918B687F34"),   // BTC Block 504031
+            Sha256Hash.fromHexString("000000000000000001D956714215D96FFC00E0AFDA4CD0A96C96F8D802B1662B")    // BSV Block 556767
+        );
     }
 
     protected static final Long MAX_BAN_DURATION = (60L * 60L); // 1 Hour (in seconds)...
@@ -27,13 +36,13 @@ public class BanFilterCore implements BanFilter {
         final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
         nodeDatabaseManager.setIsBanned(ip, false);
 
-        Logger.debug("Unbanned " + ip);
+        Logger.info("Unbanned " + ip);
     }
 
     protected void _banIp(final Ip ip, final DatabaseManager databaseManager) throws DatabaseException {
         final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
         nodeDatabaseManager.setIsBanned(ip, true);
-        Logger.debug("Banned " + ip);
+        Logger.info("Banned " + ip);
     }
 
     protected Boolean _shouldBanIp(final Ip ip, final DatabaseManager databaseManager) throws DatabaseException {
@@ -120,6 +129,49 @@ public class BanFilterCore implements BanFilter {
         catch (final DatabaseException exception) {
             Logger.warn(exception);
         }
+    }
+
+    @Override
+    public Boolean onInventoryReceived(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockInventory) {
+        for (final Sha256Hash blockHash : BanCriteria.INVALID_BLOCKS) {
+            final boolean containsInvalidBlock = blockInventory.contains(blockHash);
+            if (containsInvalidBlock) {
+                final Ip ip = bitcoinNode.getIp();
+
+                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    _banIp(ip, databaseManager);
+                }
+                catch (final DatabaseException exception) {
+                    Logger.warn(exception);
+                }
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public Boolean onHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+        for (final BlockHeader blockHeader : blockHeaders) {
+            final Sha256Hash blockHash = blockHeader.getHash();
+            final boolean containsInvalidBlock = BanCriteria.INVALID_BLOCKS.contains(blockHash);
+            if (containsInvalidBlock) {
+                final Ip ip = bitcoinNode.getIp();
+
+                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    _banIp(ip, databaseManager);
+                }
+                catch (final DatabaseException exception) {
+                    Logger.warn(exception);
+                }
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

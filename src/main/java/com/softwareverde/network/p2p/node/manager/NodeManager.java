@@ -876,11 +876,11 @@ public class NodeManager<NODE extends Node> {
     }
 
     public List<NODE> getBestNodes(final Integer nodeCount) {
-        return _selectBestNodes(nodeCount, null);
+        return Util.coalesce(_selectBestNodes(nodeCount, null), new MutableList<NODE>(0));
     }
 
     public List<NODE> getBestNodes(final Integer nodeCount, final NodeFilter<NODE> nodeFilter) {
-        return _selectBestNodes(nodeCount, nodeFilter);
+        return Util.coalesce(_selectBestNodes(nodeCount, nodeFilter), new MutableList<NODE>(0));
     }
 
     public NODE getWorstNode() {

@@ -317,7 +317,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _memoryPoolEnquirer = context.memoryPoolEnquirer;
         _synchronizationStatusHandler = context.synchronizationStatusHandler;
 
-        _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool);
+        _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool, _banFilter);
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -328,12 +328,20 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                 bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
                     @Override
-                    public void onResult(final List<BlockHeader> result) {
+                    public void onResult(final List<BlockHeader> blockHeaders) {
                         _onResponseReceived(bitcoinNode, apiRequest);
                         if (apiRequest.didTimeout) { return; }
 
+                        final Boolean shouldAcceptHeaders = _banFilter.onHeadersReceived(bitcoinNode, blockHeaders);
+                        if (! shouldAcceptHeaders) {
+                            Logger.info("Received invalid headers from " + bitcoinNode + ".");
+                            callback.onFailure();
+                            bitcoinNode.disconnect();
+                            return;
+                        }
+
                         if (callback != null) {
-                            callback.onResult(result, bitcoinNode);
+                            callback.onResult(blockHeaders, bitcoinNode);
                         }
                     }
                 });

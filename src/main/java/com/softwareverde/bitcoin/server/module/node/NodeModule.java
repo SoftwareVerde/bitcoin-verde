@@ -426,7 +426,7 @@ public class NodeModule {
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseManagerFactory);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseManagerFactory);
 
-        final BlockInventoryMessageHandler blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
+        final BlockInventoryMessageHandler blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler, _banFilter);
 
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
@@ -536,7 +536,7 @@ public class NodeModule {
             _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
 
-            final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _mainThreadPool);
+            final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _mainThreadPool, _banFilter);
             _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
                 @Override
                 public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {

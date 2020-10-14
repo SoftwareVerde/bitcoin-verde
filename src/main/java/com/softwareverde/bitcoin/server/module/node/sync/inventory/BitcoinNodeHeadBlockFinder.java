@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.Pin;
@@ -23,10 +24,12 @@ public class BitcoinNodeHeadBlockFinder {
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final ThreadPool _threadPool;
+    protected final BanFilter _banFilter;
 
-    public BitcoinNodeHeadBlockFinder(final DatabaseManagerFactory databaseManagerFactory, final ThreadPool threadPool) {
+    public BitcoinNodeHeadBlockFinder(final DatabaseManagerFactory databaseManagerFactory, final ThreadPool threadPool, final BanFilter banFilter) {
         _databaseManagerFactory = databaseManagerFactory;
         _threadPool = threadPool;
+        _banFilter = banFilter;
     }
 
     public void determineHeadBlock(final BitcoinNode bitcoinNode, final Callback callback) {
@@ -66,6 +69,16 @@ public class BitcoinNodeHeadBlockFinder {
             public void onResult(final List<BlockHeader> blockHeaders) {
                 didRespond.set(true);
                 pin.release();
+
+                if (_banFilter != null) {
+                    final boolean receivedInvalidHeaders = _banFilter.onHeadersReceived(bitcoinNode, blockHeaders);
+                    if (receivedInvalidHeaders) {
+                        Logger.info("Received invalid headers from " + bitcoinNode + ".");
+                        bitcoinNode.disconnect();
+                        callback.onFailure();
+                        return;
+                    }
+                }
 
                 if (blockHeaders.isEmpty()) {
                     Logger.debug("onFailure: " + bitcoinNode + " " + blockHeaders.getCount());

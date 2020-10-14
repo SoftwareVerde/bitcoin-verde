@@ -260,6 +260,7 @@ public class BlockDownloader extends SleepyService {
                 }
             });
             final int nodeCount = bitcoinNodes.getCount();
+            if (nodeCount == 0) { return false; }
 
             int nextIndex = 0;
             for (final PendingBlockId pendingBlockId : downloadPlan) {

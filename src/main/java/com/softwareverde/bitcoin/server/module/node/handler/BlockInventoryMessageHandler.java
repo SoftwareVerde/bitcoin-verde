@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -19,6 +20,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final SynchronizationStatus _synchronizationStatus;
+    protected final BanFilter _banFilter;
 
     protected Runnable _newBlockHashReceivedCallback;
     protected Runnable _nodeInventoryUpdatedCallback;
@@ -82,9 +84,10 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         return storeBlockHashesResult;
     }
 
-    public BlockInventoryMessageHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus) {
+    public BlockInventoryMessageHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus, final BanFilter banFilter) {
         _databaseManagerFactory = databaseManagerFactory;
         _synchronizationStatus = synchronizationStatus;
+        _banFilter = banFilter;
     }
 
     public void setNewBlockHashReceivedCallback(final Runnable newBlockHashesCallback) {
@@ -97,6 +100,15 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
     @Override
     public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+        if (_banFilter != null) {
+            final Boolean shouldAcceptInventory = _banFilter.onInventoryReceived(bitcoinNode, blockHashes);
+            if (! shouldAcceptInventory) {
+                Logger.info("Received invalid inventory from " + bitcoinNode + ".");
+                bitcoinNode.disconnect();
+                return;
+            }
+        }
+
         final StoreBlockHashesResult storeBlockHashesResult = _storeBlockHashes(bitcoinNode, blockHashes);
 
         if (storeBlockHashesResult.newBlockHashWasReceived) {
