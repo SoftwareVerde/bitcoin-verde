@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.spv;
 
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
@@ -8,16 +9,18 @@ import com.softwareverde.database.DatabaseException;
 public class SpvDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final Integer _maxQueryBatchSize;
+    protected final CheckpointConfiguration _checkpointConfiguration;
 
-    public SpvDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize) {
+    public SpvDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final CheckpointConfiguration checkpointConfiguration) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _maxQueryBatchSize = maxQueryBatchSize;
+        _checkpointConfiguration = checkpointConfiguration;
     }
 
     @Override
     public SpvDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new SpvDatabaseManager(databaseConnection, _maxQueryBatchSize);
+        return new SpvDatabaseManager(databaseConnection, _maxQueryBatchSize, _checkpointConfiguration);
     }
 
     @Override
@@ -27,7 +30,7 @@ public class SpvDatabaseManagerFactory implements DatabaseManagerFactory {
 
     @Override
     public DatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
-        return new SpvDatabaseManagerFactory(databaseConnectionFactory, _maxQueryBatchSize);
+        return new SpvDatabaseManagerFactory(databaseConnectionFactory, _maxQueryBatchSize, _checkpointConfiguration);
     }
 
     @Override

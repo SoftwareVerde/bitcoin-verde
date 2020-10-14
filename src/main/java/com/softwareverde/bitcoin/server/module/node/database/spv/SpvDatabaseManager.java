@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.spv;
 
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
@@ -12,6 +13,7 @@ import com.softwareverde.database.DatabaseException;
 public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
     protected final Integer _maxQueryBatchSize;
+    protected final CheckpointConfiguration _checkpointConfiguration;
 
     protected SpvBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
@@ -19,9 +21,10 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
-    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize) {
+    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final CheckpointConfiguration checkpointConfiguration) {
         _databaseConnection = databaseConnection;
         _maxQueryBatchSize = maxQueryBatchSize;
+        _checkpointConfiguration = checkpointConfiguration;
     }
 
     @Override
@@ -59,7 +62,7 @@ public class SpvDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this);
+            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this, _checkpointConfiguration);
         }
 
         return _blockHeaderDatabaseManager;

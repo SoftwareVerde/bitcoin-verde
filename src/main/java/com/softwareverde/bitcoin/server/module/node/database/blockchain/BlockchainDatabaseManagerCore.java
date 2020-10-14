@@ -39,7 +39,7 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         final BlockchainSegmentId parentBlockSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(parentBlockId);
         if (parentBlockSegmentId == null) { return null; }
 
-        final Boolean blockIsOnlyChild = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(parentBlockId) <= 1);
+        final boolean blockIsOnlyChild = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(parentBlockId) <= 1);
         if (blockIsOnlyChild) {
             // The blockchainSegment has no children, so it safe to create on the same segment...
             return parentBlockSegmentId;

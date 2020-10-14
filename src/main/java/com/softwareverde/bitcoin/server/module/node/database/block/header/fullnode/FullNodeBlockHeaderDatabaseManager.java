@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
@@ -38,9 +39,11 @@ import java.util.Map;
 
 public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
     protected final DatabaseManager _databaseManager;
+    protected final CheckpointConfiguration _checkpointConfiguration;
 
-    public FullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {
+    public FullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
         _databaseManager = databaseManager;
+        _checkpointConfiguration = checkpointConfiguration;
     }
 
     protected Long _getBlockHeight(final BlockId blockId) throws DatabaseException {
@@ -198,6 +201,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
     protected BlockId _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        final Sha256Hash blockHash = blockHeader.getHash();
         final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
         final BlockId previousBlockId = _getBlockHeaderId(previousBlockHash);
         final Long previousBlockHeight = _getBlockHeight(previousBlockId);
@@ -220,9 +224,13 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
             }
         }
 
+        if (_checkpointConfiguration.violatesCheckpoint(blockHeight, blockHash)) {
+            throw new DatabaseException("Block violates checkpoint. " + blockHeight + " / " + blockHash);
+        }
+
         final Long insertId = databaseConnection.executeSql(
             new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-                .setParameter(blockHeader.getHash())
+                .setParameter(blockHash)
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
                 .setParameter(blockHeader.getMerkleRoot())
@@ -290,6 +298,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                 long previousBlockId = lastInsertedBlockId.value.longValue();
                 while (i < batchCount) {
                     final BlockHeader blockHeader = batchedBlockHeaders.get(i);
+                    final Sha256Hash blockHash = blockHeader.getHash();
 
                     long blockHeight = (previousBlockHeight.value + 1L);
                     final Difficulty difficulty = blockHeader.getDifficulty();
@@ -303,7 +312,11 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                         medianBlockTime = medianTimePast;
                     }
 
-                    batchedInsertQuery.setParameter(blockHeader.getHash());
+                    if (_checkpointConfiguration.violatesCheckpoint(blockHeight, blockHash)) {
+                        throw new DatabaseException("Block violates checkpoint. " + blockHeight + " / " + blockHash);
+                    }
+
+                    batchedInsertQuery.setParameter(blockHash);
                     batchedInsertQuery.setParameter(previousBlockId);
                     batchedInsertQuery.setParameter(blockHeight);
                     batchedInsertQuery.setParameter(blockHeader.getMerkleRoot());

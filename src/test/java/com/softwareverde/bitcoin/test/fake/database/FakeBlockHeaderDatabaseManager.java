@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -156,7 +157,7 @@ class FakeFullNodeBlockHeaderDatabaseManager extends FullNodeBlockHeaderDatabase
         return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(blockDatabaseManager, headBlockHash);
     }
 
-    public FakeFullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {
-        super(databaseManager);
+    public FakeFullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
+        super(databaseManager, checkpointConfiguration);
     }
 }

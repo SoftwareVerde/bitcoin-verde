@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
@@ -47,6 +48,7 @@ public class ChainValidationModule {
     protected final Environment _environment;
     protected final Sha256Hash _startingBlockHash;
     protected final PendingBlockStore _blockStore;
+    protected final CheckpointConfiguration _checkpointConfiguration;
 
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
@@ -70,6 +72,8 @@ public class ChainValidationModule {
                 }
             };
         }
+
+        _checkpointConfiguration = new CheckpointConfiguration();
     }
 
     public void run() {
@@ -83,7 +87,7 @@ public class ChainValidationModule {
 
         final BlockchainSegmentId blockchainSegmentId;
         final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater, _checkpointConfiguration);
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -103,6 +107,7 @@ public class ChainValidationModule {
                 database.getMaxQueryBatchSize(),
                 _blockStore,
                 masterInflater,
+                _checkpointConfiguration,
                 _bitcoinProperties.getMaxCachedUtxoCount(),
                 _bitcoinProperties.getUtxoCachePurgePercent()
             );

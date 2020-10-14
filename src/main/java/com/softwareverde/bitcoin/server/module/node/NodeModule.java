@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -135,6 +136,7 @@ public class NodeModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final PendingBlockStoreCore _blockStore;
+    protected final CheckpointConfiguration _checkpointConfiguration;
     protected final MasterInflater _masterInflater;
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
@@ -181,7 +183,7 @@ public class NodeModule {
         requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
         try (final DatabaseConnection databaseConnection = database.newConnection()) {
-            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _blockStore, _masterInflater);
+            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
@@ -301,7 +303,7 @@ public class NodeModule {
         {
             final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _masterInflater);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MilliTimer utxoCommitTimer = new MilliTimer();
@@ -366,6 +368,8 @@ public class NodeModule {
             };
         }
 
+        _checkpointConfiguration = new CheckpointConfiguration();
+
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
@@ -401,6 +405,7 @@ public class NodeModule {
             database.getMaxQueryBatchSize(),
             _blockStore,
             _masterInflater,
+            _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
             _bitcoinProperties.getUtxoCachePurgePercent()
         );
@@ -960,6 +965,7 @@ public class NodeModule {
             database.getMaxQueryBatchSize(),
             _blockStore,
             _masterInflater,
+            _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
             _bitcoinProperties.getUtxoCachePurgePercent()
         );

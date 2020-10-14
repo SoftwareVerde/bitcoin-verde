@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -30,6 +31,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final MasterInflater _masterInflater;
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
+    protected final CheckpointConfiguration _checkpointConfiguration;
 
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
@@ -44,17 +46,18 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected SlpTransactionDatabaseManager _slpTransactionDatabaseManager;
     protected UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater) {
-        this(databaseConnection, maxQueryBatchSize, blockStore, masterInflater, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
+        this(databaseConnection, maxQueryBatchSize, blockStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnection = databaseConnection;
         _maxQueryBatchSize = maxQueryBatchSize;
         _blockStore = blockStore;
         _masterInflater = masterInflater;
         _maxUtxoCount = maxUtxoCount;
         _utxoPurgePercent = utxoPurgePercent;
+        _checkpointConfiguration = checkpointConfiguration;
     }
 
     @Override
@@ -92,7 +95,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this);
+            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this, _checkpointConfiguration);
         }
 
         return _blockHeaderDatabaseManager;

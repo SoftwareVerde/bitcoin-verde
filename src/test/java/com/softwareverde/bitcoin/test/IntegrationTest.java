@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.State;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
@@ -50,6 +51,7 @@ public class IntegrationTest extends UnitTest {
 
     protected final MasterInflater _masterInflater;
     protected final FakeBlockStore _blockStore;
+    protected final CheckpointConfiguration _checkpointConfiguration;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
     protected final FullNodeDatabaseManagerFactory _readUncommittedDatabaseManagerFactory;
@@ -63,13 +65,19 @@ public class IntegrationTest extends UnitTest {
         _masterInflater = new CoreInflater();
         _blockStore = new FakeBlockStore();
         _synchronizationStatus = new FakeSynchronizationStatus();
+        _checkpointConfiguration = new CheckpointConfiguration() {
+            @Override
+            public Boolean violatesCheckpoint(final Long blockHeight, final Sha256Hash blockHash) {
+                return false;
+            }
+        };
 
         _databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater);
-        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize());
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
+        _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _checkpointConfiguration);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
-        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater);
+        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
