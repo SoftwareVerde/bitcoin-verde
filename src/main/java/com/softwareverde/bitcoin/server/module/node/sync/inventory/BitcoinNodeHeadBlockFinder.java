@@ -71,8 +71,8 @@ public class BitcoinNodeHeadBlockFinder {
                 pin.release();
 
                 if (_banFilter != null) {
-                    final boolean receivedInvalidHeaders = _banFilter.onHeadersReceived(bitcoinNode, blockHeaders);
-                    if (receivedInvalidHeaders) {
+                    final boolean shouldAcceptHeaders = _banFilter.onHeadersReceived(bitcoinNode, blockHeaders);
+                    if (! shouldAcceptHeaders) {
                         Logger.info("Received invalid headers from " + bitcoinNode + ".");
                         bitcoinNode.disconnect();
                         callback.onFailure();
