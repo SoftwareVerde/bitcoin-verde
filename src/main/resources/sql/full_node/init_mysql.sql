@@ -226,9 +226,12 @@ CREATE TABLE nodes (
     connection_count INT UNSIGNED NOT NULL DEFAULT 1,
     last_handshake_timestamp BIGINT UNSIGNED,
     user_agent VARCHAR(255) NULL,
+    head_block_height INT UNSIGNED NOT NULL,
+    head_block_hash BINARY(32) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY nodes_uq (host_id, port),
-    FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id)
+    FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id),
+    INDEX node_head_block_ix (head_block_height, head_block_hash) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE node_features (
@@ -239,16 +242,6 @@ CREATE TABLE node_features (
     UNIQUE KEY node_features_uq (node_id, feature),
     FOREIGN KEY node_features_fk (node_id) REFERENCES nodes (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
-
-CREATE TABLE node_blocks_inventory (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    node_id INT UNSIGNED NOT NULL,
-    hash BINARY(32) NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY node_blocks_uq (node_id, hash),
-    FOREIGN KEY node_blocks_node_id_fk (node_id) REFERENCES nodes (id),
-    INDEX node_blocks_tx_ix (hash) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE node_transactions_inventory (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,

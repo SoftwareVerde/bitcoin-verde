@@ -38,7 +38,6 @@ public class DatabaseMaintainer {
         listBuilder.add("hosts");
         listBuilder.add("nodes");
         listBuilder.add("node_features");
-        listBuilder.add("node_blocks_inventory");
         listBuilder.add("node_transactions_inventory");
         TABLES = listBuilder.build();
     }

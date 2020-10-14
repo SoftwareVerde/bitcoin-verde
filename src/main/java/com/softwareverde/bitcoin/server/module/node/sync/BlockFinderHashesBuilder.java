@@ -14,13 +14,24 @@ import com.softwareverde.database.DatabaseException;
 public class BlockFinderHashesBuilder {
     protected final DatabaseManager _databaseManager;
 
-    protected List<Sha256Hash> _createBlockFinderBlockHashes(final Boolean processedBlocksOnly) throws DatabaseException {
+    protected List<Sha256Hash> _createBlockFinderBlockHashes(final Boolean processedBlocksOnly, final Integer offset) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
 
         final Long maxBlockHeight;
         final BlockchainSegmentId headBlockchainSegmentId;
-        final BlockId headBlockId = (processedBlocksOnly ? blockDatabaseManager.getHeadBlockId() : blockHeaderDatabaseManager.getHeadBlockHeaderId());
+        final BlockId headBlockId;
+        {
+            final BlockId blockId;
+            if (processedBlocksOnly) {
+                blockId = blockDatabaseManager.getHeadBlockId();
+            }
+            else {
+                blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            }
+
+            headBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, offset);
+        }
         if (headBlockId != null) {
             headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
             maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
@@ -51,10 +62,18 @@ public class BlockFinderHashesBuilder {
     }
 
     public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
-        return _createBlockFinderBlockHashes(true);
+        return _createBlockFinderBlockHashes(true, 0);
+    }
+
+    public List<Sha256Hash> createBlockFinderBlockHashes(final Integer offset) throws DatabaseException {
+        return _createBlockFinderBlockHashes(true, offset);
     }
 
     public List<Sha256Hash> createBlockHeaderFinderBlockHashes() throws DatabaseException {
-        return _createBlockFinderBlockHashes(false);
+        return _createBlockFinderBlockHashes(false, 0);
+    }
+
+    public List<Sha256Hash> createBlockHeaderFinderBlockHashes(final Integer offset) throws DatabaseException {
+        return _createBlockFinderBlockHashes(false, offset);
     }
 }

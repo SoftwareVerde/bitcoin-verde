@@ -10,23 +10,17 @@ import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.inventory.UnknownBlockInventory;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -39,7 +33,6 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -59,9 +52,14 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public interface DownloadMerkleBlockCallback extends BitcoinNode.DownloadMerkleBlockCallback {
         default void onFailure(Sha256Hash blockHash) { }
     }
-    public interface DownloadBlockHeadersCallback extends BitcoinNode.DownloadBlockHeadersCallback, FailableCallback { }
+    public interface DownloadBlockHeadersCallback extends FailableCallback {
+        void onResult(List<BlockHeader> blockHeaders, BitcoinNode bitcoinNode);
+    }
     public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
+    }
+    public interface NewNodeCallback {
+        void onNodeHandshakeComplete(BitcoinNode bitcoinNode);
     }
 
     public static class Context {
@@ -81,6 +79,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
+    protected final BitcoinNodeHeadBlockFinder _bitcoinNodeHeadBlockFinder;
     protected final AtomicBoolean _hasHadActiveConnectionSinceLastDisconnect = new AtomicBoolean(false);
 
     protected Boolean _transactionRelayIsEnabled = true;
@@ -143,6 +142,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected Thread _pollForReconnectionThread;
 
     protected Runnable _onNodeListChanged;
+    protected NewNodeCallback _onNewNode;
 
     // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
     protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
@@ -288,7 +288,17 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             nodeDatabaseManager.updateUserAgent(bitcoinNode);
         }
         catch (final DatabaseException databaseException) {
-            Logger.warn(databaseException);
+            Logger.debug(databaseException);
+        }
+
+        final NewNodeCallback newNodeCallback = _onNewNode;
+        if (newNodeCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    newNodeCallback.onNodeHandshakeComplete(bitcoinNode);
+                }
+            });
         }
 
         _banFilter.onNodeHandshakeComplete(bitcoinNode);
@@ -306,6 +316,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _banFilter = context.banFilter;
         _memoryPoolEnquirer = context.memoryPoolEnquirer;
         _synchronizationStatusHandler = context.synchronizationStatusHandler;
+
+        _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool);
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -321,7 +333,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         if (apiRequest.didTimeout) { return; }
 
                         if (callback != null) {
-                            callback.onResult(result);
+                            callback.onResult(result, bitcoinNode);
                         }
                     }
                 });
@@ -352,63 +364,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 bitcoinNode.requestBlockHashesAfter(blockHash);
             }
         });
-    }
-
-    /**
-     * Finds incomplete PendingBlocks that are not provided by any of the connected Nodes and attempts to locate them based on download-priority.
-     */
-    public void findNodeInventory() {
-        final List<NodeId> connectedNodes = new MutableList<NodeId>(_nodes.keySet());
-        if (connectedNodes.isEmpty()) { return; }
-
-        final BitcoinBinaryPacketFormat binaryPacketFormat = _nodeInitializer.getBinaryPacketFormat();
-        final BitcoinProtocolMessageFactory protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
-
-        final MutableList<BitcoinProtocolMessage> queryBlocksMessages = new MutableList<BitcoinProtocolMessage>();
-
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-            final List<UnknownBlockInventory> inventoryPlan = pendingBlockDatabaseManager.findUnknownNodeInventoryByPriority(connectedNodes);
-
-            boolean messageWithoutStopBeforeHashHasBeenQueued = false;
-            for (final UnknownBlockInventory unknownBlockInventory : inventoryPlan) {
-                final Sha256Hash previousBlockHash = unknownBlockInventory.getPreviousBlockHash();
-                final Sha256Hash firstUnknownBlockHash = unknownBlockInventory.getFirstUnknownBlockHash();
-                final Sha256Hash lastUnknownBlockHash = unknownBlockInventory.getLastUnknownBlockHash();
-
-                if (lastUnknownBlockHash == null) { // Only broadcast one QueryBlocks Message without a stopBeforeHash to support the case when BlockHeaders is not up to date...
-                    if (messageWithoutStopBeforeHashHasBeenQueued) { continue; }
-                    messageWithoutStopBeforeHashHasBeenQueued = true;
-                }
-
-                if (previousBlockHash != null) { // Default to requesting inventory via QueryBlocks message since GetHeaders is technically not guaranteed to be implemented by all implementations...
-                    final QueryBlocksMessage queryBlocksMessage = protocolMessageFactory.newQueryBlocksMessage();
-                    queryBlocksMessage.addBlockHash(previousBlockHash); // QueryBlocks's response does not include the first hash provided, therefore the previous hash is provided.
-                    queryBlocksMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
-
-                    queryBlocksMessages.add(queryBlocksMessage);
-                    Logger.debug("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
-                }
-                else if (firstUnknownBlockHash != null) { // If the previous block hash does not exist, then request it via requesting its header...
-                    final RequestBlockHeadersMessage requestBlockHeadersMessage = protocolMessageFactory.newRequestBlockHeadersMessage();
-                    requestBlockHeadersMessage.addBlockHeaderHash(firstUnknownBlockHash);
-                    requestBlockHeadersMessage.setStopBeforeBlockHash(lastUnknownBlockHash);
-
-                    queryBlocksMessages.add(requestBlockHeadersMessage);
-                    Logger.debug("Broadcasting GetHeadersMessage: " + requestBlockHeadersMessage.getBlockHeaderHashes().get(0) + " -> " + requestBlockHeadersMessage.getStopBeforeBlockHash());
-                }
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
-
-        for (final BitcoinProtocolMessage message : queryBlocksMessages) {
-            for (final BitcoinNode bitcoinNode : _nodes.values()) {
-                bitcoinNode.queueMessage(message);
-            }
-        }
     }
 
     protected NodeApiRequest<BitcoinNode> _createRequestBlockRequest(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
@@ -815,8 +770,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _banFilter.removeIpFromWhitelist(ip);
     }
 
-    public void setOnNodeListChanged(final Runnable callback) {
+    public void setNodeListChangedCallback(final Runnable callback) {
         _onNodeListChanged = callback;
+    }
+
+    public void setNewNodeHandshakedCallback(final NewNodeCallback newNodeCallback) {
+        _onNewNode = newNodeCallback;
     }
 
     public void enableTransactionRelay(final Boolean transactionRelayIsEnabled) {

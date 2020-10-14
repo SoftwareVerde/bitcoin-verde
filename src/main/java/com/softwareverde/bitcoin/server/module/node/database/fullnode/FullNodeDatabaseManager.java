@@ -98,7 +98,6 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         return _blockHeaderDatabaseManager;
     }
 
-    @Override
     public FullNodePendingBlockDatabaseManager getPendingBlockDatabaseManager() {
         if (_pendingBlockDatabaseManager == null) {
             _pendingBlockDatabaseManager = new FullNodePendingBlockDatabaseManager(this, _blockStore);

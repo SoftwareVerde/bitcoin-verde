@@ -59,19 +59,20 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
             if (priority < 256) { // Check if any peers have the requested block if it is of high priority...
                 // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.
 
-                boolean searchForBlockHash = false;
-                synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
-                    final Long now = _systemTime.getCurrentTimeInSeconds();
-                    final long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
-                    if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
-                        final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
-                        final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
-                        if (! nodesHaveInventory) {
-                            _lastUnavailableRequestedBlockTimestamp = now;
-                            searchForBlockHash = true;
-                        }
-                    }
-                }
+                final boolean searchForBlockHash = true;
+//                boolean searchForBlockHash = false;
+//                synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
+//                    final Long now = _systemTime.getCurrentTimeInSeconds();
+//                    final long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
+//                    if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
+//                        final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
+//                        final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
+//                        if (! nodesHaveInventory) {
+//                            _lastUnavailableRequestedBlockTimestamp = now;
+//                            searchForBlockHash = true;
+//                        }
+//                    }
+//                }
 
                 if (searchForBlockHash) {
                     // Use the previousBlockHash (if provided)...

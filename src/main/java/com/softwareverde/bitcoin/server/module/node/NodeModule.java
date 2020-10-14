@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
@@ -84,7 +85,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
+import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -161,6 +164,7 @@ public class NodeModule {
 
     protected final MilliTimer _uptimeTimer = new MilliTimer();
     protected final Thread _databaseMaintenanceThread;
+    protected final Thread _loggerFlushThread;
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
@@ -417,10 +421,7 @@ public class NodeModule {
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseManagerFactory);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseManagerFactory);
 
-        final BlockInventoryMessageHandler blockInventoryMessageHandler;
-        {
-            blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
-        }
+        final BlockInventoryMessageHandler blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseManagerFactory, synchronizationStatusHandler);
 
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
@@ -529,6 +530,25 @@ public class NodeModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
+
+            final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _mainThreadPool);
+            _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
+                @Override
+                public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
+                    bitcoinNodeHeadBlockFinder.determineHeadBlock(bitcoinNode, new BitcoinNodeHeadBlockFinder.Callback() {
+                        @Override
+                        public void onHeadBlockDetermined(final Long blockHeight, final Sha256Hash blockHash) {
+                            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                                final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+                                nodeDatabaseManager.updateBlockInventory(bitcoinNode, blockHeight, blockHash);
+                            }
+                            catch (final DatabaseException databaseException) {
+                                Logger.debug(databaseException);
+                            }
+                        }
+                    });
+                }
+            });
         }
 
         // final NodeModuleContext context = new NodeModuleContext(_masterInflater, _blockStore, databaseManagerFactory, _bitcoinNodeManager, synchronizationStatusHandler, _medianBlockTime, _systemTime, _mainThreadPool, _mutableNetworkTime);
@@ -681,9 +701,18 @@ public class NodeModule {
                 }
             });
 
-            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new Runnable() {
+            _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
                 @Override
-                public void run() {
+                public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                    {
+                        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
+                        for (final BlockHeader blockHeader : blockHeaders) {
+                            final Sha256Hash blockHash = blockHeader.getHash();
+                            blockHashes.add(blockHash);
+                        }
+                        blockInventoryMessageHandler.onResult(bitcoinNode, blockHashes);
+                    }
+
                     _blockDownloader.wakeUp();
 
                     try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -893,9 +922,34 @@ public class NodeModule {
                 }
             });
         }
+
+        _loggerFlushThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    Logger.flush();
+
+                    try {
+                        Thread.sleep(10000L);
+                    }
+                    catch (final Exception exception) {
+                        break;
+                    }
+                }
+            }
+        });
+        _loggerFlushThread.setName("Logger Flush Thread");
+        _loggerFlushThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread t, final Throwable exception) {
+                Logger.warn(exception);
+            }
+        });
     }
 
     public void loop() {
+        _loggerFlushThread.start();
+
         final MilliTimer timer = new MilliTimer();
         timer.start();
 
@@ -912,7 +966,7 @@ public class NodeModule {
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
             Logger.info("[Bootstrapping Headers]");
-            final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(databaseManagerFactory);
+            final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory, true);
             headersBootstrapper.run();
         }
 
@@ -955,7 +1009,7 @@ public class NodeModule {
 
                                     final BlockId parentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
                                     final Sha256Hash parentBlockHash = blockHeaderDatabaseManager.getBlockHash(parentBlockId);
-                                    pendingBlockDatabaseManager.insertBlockHash(blockHash, parentBlockHash, true);
+                                    pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash, true);
                                     Logger.debug("Indexed Existing pending Block: " + blockHash);
                                 }
                             }
@@ -1111,6 +1165,12 @@ public class NodeModule {
         }
 
         _shutdown();
+
+        _loggerFlushThread.interrupt();
+        try {
+            _loggerFlushThread.join(5000L);
+        }
+        catch (final Exception exception) { }
 
         System.exit(0);
     }
