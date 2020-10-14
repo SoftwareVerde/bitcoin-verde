@@ -353,8 +353,8 @@ public class NodeModule {
         _masterInflater = new CoreInflater();
 
         { // Initialize the BlockCache...
-            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/blocks");
-            final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/pending-blocks");
+            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks");
+            final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks");
 
             final BlockHeaderInflaters blockHeaderInflaters = _masterInflater;
             final BlockInflaters blockInflaters = _masterInflater;
@@ -413,7 +413,7 @@ public class NodeModule {
         _banFilter = (bitcoinProperties.isBanFilterEnabled() ? new BanFilterCore(databaseManagerFactory) : new DisabledBanFilter());
 
         { // Ensure the data/cache directory exists...
-            final String dataCacheDirectory = bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME;
+            final String dataCacheDirectory = bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME;
             final File file = new File(dataCacheDirectory);
             if (! file.exists()) {
                 final boolean wasSuccessful = file.mkdirs();
@@ -879,7 +879,7 @@ public class NodeModule {
             _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, _nodeRpcHandler, shouldRelayInvalidSlpTransactions, 100L);
         }
 
-        _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/transaction-bloom-filter");
+        _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/transaction-bloom-filter");
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

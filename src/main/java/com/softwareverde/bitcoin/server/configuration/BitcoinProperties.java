@@ -5,7 +5,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.LogLevel;
 
 public class BitcoinProperties {
-    public static final String DATA_CACHE_DIRECTORY_NAME = "cache";
+    public static final String DATA_DIRECTORY_NAME = "network";
     public static final Integer PORT = 8333;
     public static final Integer RPC_PORT = 8334;
 
