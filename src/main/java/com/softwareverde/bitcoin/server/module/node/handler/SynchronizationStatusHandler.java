@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabase
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class SynchronizationStatusHandler implements SynchronizationStatus {
@@ -22,7 +23,9 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
     }
 
     public void setState(final State state) {
-        Logger.info("Synchronization State: " + state);
+        if (! Util.areEqual(_state, state)) {
+            Logger.info("Synchronization State: " + state);
+        }
         _state = state;
     }
 
