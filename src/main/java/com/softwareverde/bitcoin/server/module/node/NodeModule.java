@@ -648,17 +648,17 @@ public class NodeModule {
                         _blockHeaderDownloader.wakeUp();
                     }
 
-                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                        final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+                    if (synchronizationStatusHandler.getState() == State.ONLINE) {
+                        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                            final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-                        final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                        final BlockchainSegmentId newBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newBlockId);
-                        final Boolean newBlockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(newBlockBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+                            final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                            final BlockchainSegmentId newBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newBlockId);
+                            final Boolean newBlockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(newBlockBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
 
-                        if (synchronizationStatusHandler.getState() != State.SHUTTING_DOWN) {
                             if (newBlockIsOnMainChain) {
                                 if (blockHeight < blockHeaderDownloaderBlockHeight) {
                                     synchronizationStatusHandler.setState(State.SYNCHRONIZING);
@@ -667,10 +667,8 @@ public class NodeModule {
                                     synchronizationStatusHandler.setState(State.ONLINE);
                                 }
                             }
-                        }
 
-                        { // Broadcast new Block...
-                            if (synchronizationStatusHandler.getState() == State.ONLINE) {
+                            { // Broadcast new Block...
                                 final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<NodeId, BitcoinNode>();
                                 final List<NodeId> connectedNodeIds;
                                 {
@@ -692,15 +690,15 @@ public class NodeModule {
                                     _bitcoinNodeManager.transmitBlockHash(bitcoinNode, block);
                                 }
                             }
-
-                            final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
-                            if (nodeRpcHandler != null) {
-                                nodeRpcHandler.onNewBlock(block);
-                            }
+                        }
+                        catch (final DatabaseException exception) {
+                            Logger.warn(exception);
                         }
                     }
-                    catch (final DatabaseException exception) {
-                        Logger.warn(exception);
+
+                    final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                    if (nodeRpcHandler != null) {
+                        nodeRpcHandler.onNewBlock(block);
                     }
                 }
             });
@@ -719,21 +717,21 @@ public class NodeModule {
 
                     _blockDownloader.wakeUp();
 
-                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                    if (synchronizationStatusHandler.getState() == State.ONLINE) {
+                        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                        final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+                            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
-                        if (synchronizationStatusHandler.getState() != State.SHUTTING_DOWN) {
                             if (Util.coalesce(_blockHeaderDownloader.getBlockHeight()) > Util.coalesce(headBlockHeight, -1L)) {
                                 synchronizationStatusHandler.setState(State.SYNCHRONIZING);
                             }
                         }
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.warn(exception);
+                        catch (final DatabaseException exception) {
+                            Logger.warn(exception);
+                        }
                     }
                 }
             });
