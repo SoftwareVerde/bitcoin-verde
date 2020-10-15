@@ -12,13 +12,9 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class PacketBuffer extends ByteBuffer {
-    protected final int _mainNetMagicNumberByteCount;
-    protected final byte[] _reversedMainNetMagicNumber;
-
+    protected final ByteArray _reverseEndianMagicNumber;
     protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
     protected final ProtocolMessageFactory<?> _protocolMessageFactory;
-
-    protected final byte[] _packetStartingBytesBuffer;
 
     protected ProtocolMessageHeader _peakProtocolHeader() {
         final int headerByteCount = _protocolMessageHeaderInflater.getHeaderByteCount();
@@ -31,11 +27,7 @@ public class PacketBuffer extends ByteBuffer {
 
     public PacketBuffer(final BinaryPacketFormat binaryPacketFormat) {
         final ByteArray magicNumber = binaryPacketFormat.getMagicNumber();
-        final int magicNumberByteCount = magicNumber.getByteCount();
-        _mainNetMagicNumberByteCount = magicNumberByteCount;
-        _packetStartingBytesBuffer = new byte[magicNumberByteCount];
-        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(magicNumber.getBytes());
-
+        _reverseEndianMagicNumber = magicNumber.toReverseEndian();
         _protocolMessageHeaderInflater = binaryPacketFormat.getProtocolMessageHeaderInflater();
         _protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
     }
@@ -45,6 +37,31 @@ public class PacketBuffer extends ByteBuffer {
         if (protocolMessageHeader == null) { return false; }
         final int expectedMessageLength = (protocolMessageHeader.getPayloadByteCount() + _protocolMessageHeaderInflater.getHeaderByteCount());
         return (_byteCount >= expectedMessageLength);
+    }
+
+    public void evictCorruptedPackets() {
+        final int magicNumberByteCount = _reverseEndianMagicNumber.getByteCount();
+        if (magicNumberByteCount <= 0) { return; }
+
+        final int headerByteCount = _protocolMessageHeaderInflater.getHeaderByteCount();
+        if (headerByteCount <= 0) { return; }
+
+        while (_byteCount > 0) {
+            final byte[] bytes = _peakContiguousBytes(Math.min(magicNumberByteCount, _byteCount));
+            boolean matched = true;
+            for (int i = 0; i < bytes.length; ++i) {
+                final byte requiredByte = _reverseEndianMagicNumber.getByte(i);
+                final byte foundByte = bytes[i];
+
+                if (foundByte != requiredByte) {
+                    final byte[] discardedBytes = _consumeContiguousBytes(i + 1);
+                    Logger.trace("Discarded: " + HexUtil.toHexString(discardedBytes));
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) { break; }
+        }
     }
 
     public ProtocolMessage popMessage() {

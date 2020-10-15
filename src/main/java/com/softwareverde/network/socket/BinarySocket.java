@@ -37,12 +37,15 @@ public class BinarySocket extends Socket {
                     }
 
                     _protocolMessageBuffer.appendBytes(buffer, bytesRead);
+                    _protocolMessageBuffer.evictCorruptedPackets();
+
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("[Received " + bytesRead + " bytes from socket.] (Bytes In Buffer: " + _protocolMessageBuffer.getByteCount() + ") (Buffer Count: " + _protocolMessageBuffer.getBufferCount() + ") (" + ((int) (_protocolMessageBuffer.getByteCount() / (_protocolMessageBuffer.getBufferCount() * _protocolMessageBuffer.getBufferSize().floatValue()) * 100)) + "%)");
                     }
 
                     while (_protocolMessageBuffer.hasMessage()) {
                         final ProtocolMessage message = _protocolMessageBuffer.popMessage();
+                        _protocolMessageBuffer.evictCorruptedPackets();
 
                         if (_callback != null) {
                             if (message != null) {

@@ -31,7 +31,7 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
 
         final ByteArray commandBytes = MutableByteArray.wrap(byteArrayReader.readBytes(12, Endian.BIG));
         final MessageType command = _messageTypeInflater.fromBytes(commandBytes);
-        if (command == null) { return null; }
+        // if (command == null) { return null; } // NOTE: unknown/unsupported commands are allowed but then discarded.
 
         final Integer payloadByteCount = byteArrayReader.readInteger(4, Endian.LITTLE);
         final byte[] payloadChecksum = byteArrayReader.readBytes(4, Endian.BIG);
@@ -58,7 +58,7 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
             final BitcoinProtocolMessageHeader bitcoinProtocolMessageHeader = (BitcoinProtocolMessageHeader) protocolMessageHeader;
 
             final MessageType messageType = bitcoinProtocolMessageHeader.command;
-            if (messageType.isLargeMessage()) {
+            if ( (messageType != null) && messageType.isLargeMessage() ) {
                 return (2 * BlockInflater.MAX_BYTE_COUNT);
             }
         }
