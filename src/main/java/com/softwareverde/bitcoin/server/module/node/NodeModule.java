@@ -443,9 +443,7 @@ public class NodeModule {
             public NodeFeatures getNodeFeatures() {
                 final NodeFeatures nodeFeatures = new NodeFeatures();
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                if (! bitcoinProperties.isTrimBlocksEnabled()) {
-                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                }
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22

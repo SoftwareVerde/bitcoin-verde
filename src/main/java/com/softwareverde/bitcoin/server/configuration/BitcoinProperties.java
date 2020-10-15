@@ -23,7 +23,6 @@ public class BitcoinProperties {
     protected Long _utxoCommitFrequency;
     protected Float _utxoPurgePercent;
     protected Boolean _bootstrapIsEnabled;
-    protected Boolean _trimBlocksIsEnabled;
     protected Boolean _indexingModeIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
@@ -53,7 +52,6 @@ public class BitcoinProperties {
     public Long getUtxoCacheCommitFrequency() { return _utxoCommitFrequency; }
     public Float getUtxoCachePurgePercent() { return _utxoPurgePercent; }
 
-    public Boolean isTrimBlocksEnabled() { return _trimBlocksIsEnabled; }
     public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
