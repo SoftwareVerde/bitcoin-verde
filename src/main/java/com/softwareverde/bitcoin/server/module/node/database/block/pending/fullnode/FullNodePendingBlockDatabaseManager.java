@@ -88,7 +88,7 @@ public class FullNodePendingBlockDatabaseManager {
         }
 
         final Long pendingBlockId = databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO pending_blocks (hash, previous_block_hash, timestamp, priority, was_downloaded) VALUES (?, ?, ?, ?, ?)")
+            new Query("INSERT INTO pending_blocks (hash, previous_block_hash, timestamp, priority, was_downloaded) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE priority = VALUES(priority), was_downloaded = VALUES(was_downloaded)")
                 .setParameter(blockHash)
                 .setParameter(previousBlockHash)
                 .setParameter(currentTimestamp)
