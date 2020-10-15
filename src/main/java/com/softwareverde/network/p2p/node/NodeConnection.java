@@ -156,7 +156,7 @@ public class NodeConnection {
         });
         _binarySocket.beginListening();
 
-        final Boolean isFirstConnection = (_connectionCount == 0);
+        final boolean isFirstConnection = (_connectionCount == 0);
         if (isFirstConnection) {
             Logger.debug("Connection established. " + _toString());
 

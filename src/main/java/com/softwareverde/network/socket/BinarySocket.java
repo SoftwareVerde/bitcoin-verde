@@ -2,15 +2,18 @@ package com.softwareverde.network.socket;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.logging.LoggerInstance;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 public class BinarySocket extends Socket {
-    public static Integer DEFAULT_BUFFER_SIZE = 1024 * 2;
+    public static Integer DEFAULT_BUFFER_SIZE = (1024 * 2);
 
     protected static class ReadThread extends Thread implements Socket.ReadThread {
+        private static final LoggerInstance LOG = Logger.getInstance(ReadThread.class);
+
         private final PacketBuffer _protocolMessageBuffer;
         private InputStream _rawInputStream;
         private Callback _callback;
@@ -27,14 +30,16 @@ public class BinarySocket extends Socket {
             while (true) {
                 try {
                     final byte[] buffer = _protocolMessageBuffer.getRecycledBuffer();
-                    final Integer bytesRead = _rawInputStream.read(buffer);
+                    final int bytesRead = _rawInputStream.read(buffer);
 
                     if (bytesRead < 0) {
                         throw new IOException("IO: Remote socket closed the connection.");
                     }
 
                     _protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                    Logger.debug("[Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ _protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ _protocolMessageBuffer.getBufferCount() +") ("+ ((int) (_protocolMessageBuffer.getByteCount() / (_protocolMessageBuffer.getBufferCount() * _protocolMessageBuffer.getBufferSize().floatValue()) * 100)) +"%)");
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("[Received " + bytesRead + " bytes from socket.] (Bytes In Buffer: " + _protocolMessageBuffer.getByteCount() + ") (Buffer Count: " + _protocolMessageBuffer.getBufferCount() + ") (" + ((int) (_protocolMessageBuffer.getByteCount() / (_protocolMessageBuffer.getBufferCount() * _protocolMessageBuffer.getBufferSize().floatValue()) * 100)) + "%)");
+                    }
 
                     while (_protocolMessageBuffer.hasMessage()) {
                         final ProtocolMessage message = _protocolMessageBuffer.popMessage();
@@ -49,7 +54,7 @@ public class BinarySocket extends Socket {
                     if (this.isInterrupted()) { break; }
                 }
                 catch (final Exception exception) {
-                    Logger.debug(exception);
+                    LOG.debug(exception);
                     break;
                 }
             }
