@@ -47,7 +47,7 @@ dependencies {
     implementation  group: 'org.mariadb.jdbc',          name: 'mariadb-java-client',    version: '2.4.1'
 
     api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
-    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.5.0'
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.6.0'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
     api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.0.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'

@@ -16,6 +16,17 @@ public class PacketBuffer extends ByteBuffer {
     protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
     protected final ProtocolMessageFactory<?> _protocolMessageFactory;
 
+    @Override
+    protected boolean _shouldAllowNewBuffer(final byte[] byteBuffer, final int byteCount) {
+        final boolean shouldAllowNewBuffer = super._shouldAllowNewBuffer(byteBuffer, byteCount);
+        if (! shouldAllowNewBuffer) {
+            Logger.warn("Packet buffer exceeded max size, clearing buffer.");
+            _resetBuffer();
+        }
+
+        return true;
+    }
+
     protected ProtocolMessageHeader _peakProtocolHeader() {
         final int headerByteCount = _protocolMessageHeaderInflater.getHeaderByteCount();
 
