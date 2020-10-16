@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.block;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NodeManagerContext;
@@ -30,6 +31,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
+import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -38,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockDownloader extends SleepyService {
     public interface Context extends BlockInflaters, NodeManagerContext, MultiConnectionFullDatabaseContext, PendingBlockStoreContext, SynchronizationStatusContext, SystemTimeContext, ThreadPoolContext { }
@@ -54,8 +57,6 @@ public class BlockDownloader extends SleepyService {
         }
     }
 
-    protected static final Long MAX_TIMEOUT = 30000L;
-
     protected final Context _context;
 
     protected final ConcurrentHashMap<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>(12);
@@ -68,6 +69,49 @@ public class BlockDownloader extends SleepyService {
     protected Long _lastGenesisDownloadTimestamp = null;
 
     protected Thread _unsynchronizedWatcher = null;
+
+    protected final Integer _historicThroughputMaxItemCount = 256;
+    protected final AtomicLong _totalDownloadCount = new AtomicLong(0L);
+    protected final AtomicLong _totalBytesDownloaded = new AtomicLong(0L);
+    protected final RotatingQueue<Long> _historicBytesPerSecond = new RotatingQueue<Long>(_historicThroughputMaxItemCount);
+    protected Long _cachedBytesPerSecond = null;
+
+    protected void _calculateThroughput() {
+        int i = 0;
+        long sum = 0L;
+        for (final Long bytesPerSecond : _historicBytesPerSecond) {
+            sum += bytesPerSecond;
+            i += 1;
+        }
+        if (i == 0) { return; }
+
+        _cachedBytesPerSecond = (sum / i);
+    }
+
+    protected Long _calculateTimeout() {
+        final long maxTimeoutMs = (5L * 60000L);
+        final long defaultTimeoutMs = 60000L;
+        final long minTimeoutMs = 10000L;
+        final Long downloadSpeedInBytesPerSecond = _cachedBytesPerSecond;
+        if (downloadSpeedInBytesPerSecond == null) {
+            return defaultTimeoutMs;
+        }
+
+        final long bufferFactor = 2L;
+        final long maxBlockByteCount = BlockInflater.MAX_BYTE_COUNT;
+        final long minSecondsRequired = (maxBlockByteCount / downloadSpeedInBytesPerSecond);
+        final long bufferedMinSecondsRequired = (minSecondsRequired * bufferFactor);
+
+        if (bufferedMinSecondsRequired > maxTimeoutMs) {
+            return maxTimeoutMs;
+        }
+
+        if (bufferedMinSecondsRequired < minTimeoutMs) {
+            return minTimeoutMs;
+        }
+
+        return bufferedMinSecondsRequired;
+    }
 
     protected void _storePendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
         try {
@@ -101,6 +145,9 @@ public class BlockDownloader extends SleepyService {
     //  Items exceeding the timeout have their onFailure method called.
     //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
     protected void _checkForStalledDownloads() {
+        final Long maxRequestDurationInMilliseconds = _calculateTimeout();
+        Logger.trace("Max download request duration: " + maxRequestDurationInMilliseconds + "ms");
+
         final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<Sha256Hash>();
         for (final Sha256Hash blockHash : _currentBlockDownloadSet.keySet()) {
             final CurrentDownload currentDownload = _currentBlockDownloadSet.get(blockHash);
@@ -112,7 +159,7 @@ public class BlockDownloader extends SleepyService {
 
             milliTimer.stop();
             final Long msElapsed = milliTimer.getMillisecondsElapsed();
-            if (msElapsed >= MAX_TIMEOUT) {
+            if (msElapsed >= maxRequestDurationInMilliseconds) {
                 stalledBlockHashes.add(blockHash);
             }
         }
@@ -155,6 +202,19 @@ public class BlockDownloader extends SleepyService {
                 }
                 final Long msElapsed = (currentDownload != null ? currentDownload.milliTimer.getMillisecondsElapsed() : null);
                 Logger.info("Block " + blockHash + " downloaded from " + nodeName + " in " + msElapsed + "ms");
+
+                { // Handle throughput monitoring...
+                    final Integer byteCount = block.getByteCount();
+                    final Long bytesPerSecond = ( ((msElapsed != null) && (msElapsed > 0)) ? ((byteCount / msElapsed) * 1000L) : null );
+                    if (bytesPerSecond != null) {
+                        _historicBytesPerSecond.add(bytesPerSecond);
+                    }
+                    _totalBytesDownloaded.addAndGet(byteCount);
+                    final long downloadCount = _totalDownloadCount.incrementAndGet();
+                    if ((downloadCount % _historicThroughputMaxItemCount) == 0) {
+                        _calculateThroughput();
+                    }
+                }
 
                 BlockDownloader.this.wakeUp();
 
@@ -251,8 +311,8 @@ public class BlockDownloader extends SleepyService {
             }
             Logger.trace("Download plan contains " + downloadPlan.getCount() + " items.");
 
-            final int maxNewDownloadCount = Math.max(1, maximumConcurrentDownloadCount - _currentBlockDownloadSet.size());
-            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(maxNewDownloadCount, new NodeManager.NodeFilter<BitcoinNode>() {
+            final Integer activeNodeCount = bitcoinNodeManager.getActiveNodeCount();
+            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(activeNodeCount, new NodeManager.NodeFilter<BitcoinNode>() {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
                     final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
@@ -262,7 +322,6 @@ public class BlockDownloader extends SleepyService {
             final int nodeCount = bitcoinNodes.getCount();
             if (nodeCount == 0) { return false; }
 
-            int nextIndex = 0;
             for (final PendingBlockId pendingBlockId : downloadPlan) {
                 if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
 
@@ -275,9 +334,8 @@ public class BlockDownloader extends SleepyService {
                     continue;
                 }
 
-                final BitcoinNode bitcoinNode = bitcoinNodes.get(nextIndex % nodeCount);
-                nextIndex += 1;
-
+                // TODO: Prefer nodes not currently serving a block instead of selecting a random node...
+                final BitcoinNode bitcoinNode = bitcoinNodes.get((int) (Math.random() * nodeCount));
                 final NodeId nodeId = bitcoinNode.getId();
 
                 final MilliTimer timer = new MilliTimer();

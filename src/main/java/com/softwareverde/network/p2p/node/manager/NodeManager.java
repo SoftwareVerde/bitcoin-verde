@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeManager<NODE extends Node> {
-    public static final Long PING_AFTER_MS_IDLE = 5L * 60000L; // 5 Minutes
+    public static final Long PING_AFTER_MS_IDLE = (5L * 60000L); // 5 Minutes
 
     protected static ThreadPool _threadPool;
 
