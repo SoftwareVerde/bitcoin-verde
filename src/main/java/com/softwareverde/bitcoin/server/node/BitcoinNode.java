@@ -81,6 +81,7 @@ import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -265,9 +266,25 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected static <T, S extends Callback<?>> void _removeValueFromMapSet(final Map<T, Set<S>> sourceMap, final Object callback) {
+        synchronized (sourceMap) {
+            final Iterator<Map.Entry<T, Set<S>>> iterator = sourceMap.entrySet().iterator();
+            while (iterator.hasNext()) {
+                final Map.Entry<T, Set<S>> entry = iterator.next();
+                final Set<S> set = entry.getValue();
+                set.remove(callback);
+
+                if (set.isEmpty()) {
+                    iterator.remove();
+                }
+            }
+        }
+    }
+
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
 
+    // Requests Maps
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
@@ -1534,6 +1551,31 @@ public class BitcoinNode extends Node {
     public NodeFeatures getNodeFeatures() {
         if (_synchronizeVersionMessage == null) { return null; }
         return _synchronizeVersionMessage.getNodeFeatures();
+    }
+
+    public <T extends Callback<?>> void removeCallback(final T callback) {
+        _removeValueFromMapSet(_downloadBlockRequests, callback);
+        _removeValueFromMapSet(_downloadMerkleBlockRequests, callback);
+        _removeValueFromMapSet(_downloadBlockHeadersRequests, callback);
+        _removeValueFromMapSet(_downloadTransactionRequests, callback);
+        _removeValueFromMapSet(_downloadThinBlockRequests, callback);
+        _removeValueFromMapSet(_downloadExtraThinBlockRequests, callback);
+        _removeValueFromMapSet(_downloadThinTransactionsRequests, callback);
+    }
+
+    public void removeCallback(final BlockInventoryMessageCallback callback) {
+        _downloadAddressBlocksRequests.remove(callback);
+    }
+
+    public void clearRequests() {
+        synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
+        synchronized (_downloadMerkleBlockRequests) { _downloadMerkleBlockRequests.clear(); }
+        synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
+        synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
+        synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
+        synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
+        synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
+        synchronized (_downloadAddressBlocksRequests) { _downloadAddressBlocksRequests.clear(); }
     }
 
     /**

@@ -46,7 +46,7 @@ public class PendingRequestsManager<NODE> extends SleepyService {
         catch (final InterruptedException exception) { return false; }
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-        final Long expiredStartTime = (now - TIMEOUT_MS);
+        final long expiredStartTime = (now - TIMEOUT_MS);
 
         final Iterator<Map.Entry<NodeManager.NodeApiRequest<NODE>, Long>> iterator = _pendingRequests.entrySet().iterator();
         while (iterator.hasNext()) {

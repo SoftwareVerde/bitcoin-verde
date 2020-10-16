@@ -229,6 +229,10 @@ public class BlockDownloader extends SleepyService {
                 didRespond.set(true);
                 pin.release();
 
+                if (bitcoinNode != null) {
+                    bitcoinNode.removeCallback(this);
+                }
+
                 _currentBlockDownloadSet.remove(blockHash);
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
