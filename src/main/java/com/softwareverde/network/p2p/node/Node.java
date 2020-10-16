@@ -75,7 +75,7 @@ public abstract class Node {
     /**
      * Latencies in milliseconds...
      */
-    protected final CircleBuffer<Long> _latencies = new CircleBuffer<Long>(32);
+    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<Long>(32);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -258,7 +258,7 @@ public abstract class Node {
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
         final Long msElapsed = (now - pingRequest.timestamp);
 
-        _latencies.push(msElapsed);
+        _latenciesMs.push(msElapsed);
 
         if (pingCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -360,6 +360,22 @@ public abstract class Node {
                 _disconnect();
             }
         });
+    }
+
+    protected Long _calculateAveragePingMs() {
+        final int itemCount = _latenciesMs.getCount();
+        long sum = 0L;
+        long count = 0L;
+        for (int i = 0; i < itemCount; ++i) {
+            final Long value = _latenciesMs.get(i);
+            if (value == null) { continue; }
+
+            sum += value;
+            count += 1L;
+        }
+        if (count == 0L) { return Long.MAX_VALUE; }
+
+        return (sum / count);
     }
 
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
@@ -576,18 +592,6 @@ public abstract class Node {
      * Returns the average ping (in milliseconds) for the node over the course of the last 32 pings.
      */
     public Long getAveragePing() {
-        final int itemCount = _latencies.getCount();
-        long sum = 0L;
-        long count = 0L;
-        for (int i = 0; i < itemCount; ++i) {
-            final Long value = _latencies.get(i);
-            if (value == null) { continue; }
-
-            sum += value;
-            count += 1L;
-        }
-        if (count == 0L) { return Long.MAX_VALUE; }
-
-        return (sum / count);
+        return _calculateAveragePingMs();
     }
 }

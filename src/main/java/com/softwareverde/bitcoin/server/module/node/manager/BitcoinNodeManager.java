@@ -525,7 +525,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     }
 
                     @Override
-                    public void onFailure(final List<Sha256Hash> transactionHashes) {
+                    public void onFailure(final Sha256Hash transactionHash) {
                         if (apiRequest.didTimeout) { return; }
 
                         _pendingRequestsManager.removePendingRequest(apiRequest);
