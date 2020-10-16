@@ -41,7 +41,7 @@ public class MutableNodeHealth implements NodeHealth {
 
     protected Long _calculateHealth() {
         synchronized (_mutex) {
-            final Long maxHealth = (_maxHealth - _pingInMilliseconds);
+            final long maxHealth = (_maxHealth - _pingInMilliseconds);
 
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             final Long millisecondsRequiredToHealToFullHealth = _maxHealth;
@@ -56,7 +56,7 @@ public class MutableNodeHealth implements NodeHealth {
                     health = Math.min(maxHealth, health + (request.getStartTimeInMilliseconds() - previousRequestEndTime));
                 }
 
-                final Long consumedHealth;
+                final long consumedHealth;
                 { // Consume the elapsed duration, or 5% of the max health if it has not been completed...
                     final Long requestDurationInMilliseconds = request.calculateDurationInMilliseconds();
                     if (requestDurationInMilliseconds == null) {

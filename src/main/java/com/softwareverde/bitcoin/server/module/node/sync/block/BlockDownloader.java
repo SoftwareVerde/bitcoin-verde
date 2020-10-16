@@ -170,7 +170,7 @@ public class BlockDownloader extends SleepyService {
         }
     }
 
-    protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode) {
+    protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
         Logger.trace("Downloading " + blockHash + " from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null));
 
         final BitcoinNodeManager nodeManager = _context.getNodeManager();
@@ -188,7 +188,7 @@ public class BlockDownloader extends SleepyService {
                 didRespond.set(true);
                 pin.release();
 
-                final CurrentDownload currentDownload = _currentBlockDownloadSet.remove(blockHash);
+                _currentBlockDownloadSet.remove(blockHash);
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
                 }
@@ -229,7 +229,7 @@ public class BlockDownloader extends SleepyService {
                 didRespond.set(true);
                 pin.release();
 
-                final CurrentDownload currentDownload = _currentBlockDownloadSet.remove(blockHash);
+                _currentBlockDownloadSet.remove(blockHash);
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
                 }
@@ -254,12 +254,7 @@ public class BlockDownloader extends SleepyService {
             }
         });
 
-        if (bitcoinNode == null) {
-            nodeManager.requestBlock(blockHash, downloadBlockCallback);
-        }
-        else {
-            bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
-        }
+        nodeManager.requestBlock(bitcoinNode, blockHash, downloadBlockCallback);
     }
 
     @Override
@@ -295,7 +290,7 @@ public class BlockDownloader extends SleepyService {
 
                         if (secondsSinceLastDownloadAttempt > 5) {
                             _lastGenesisDownloadTimestamp = systemTime.getCurrentTimeInSeconds();
-                            _downloadBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
+                            _downloadBlock(BlockHeader.GENESIS_BLOCK_HASH, null, null);
                         }
                     }
                 }
@@ -322,6 +317,7 @@ public class BlockDownloader extends SleepyService {
             final int nodeCount = bitcoinNodes.getCount();
             if (nodeCount == 0) { return false; }
 
+            int nextNodeIndex = 0;
             for (final PendingBlockId pendingBlockId : downloadPlan) {
                 if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
 
@@ -334,8 +330,7 @@ public class BlockDownloader extends SleepyService {
                     continue;
                 }
 
-                // TODO: Prefer nodes not currently serving a block instead of selecting a random node...
-                final BitcoinNode bitcoinNode = bitcoinNodes.get((int) (Math.random() * nodeCount));
+                final BitcoinNode bitcoinNode = bitcoinNodes.get(nextNodeIndex % nodeCount);
                 final NodeId nodeId = bitcoinNode.getId();
 
                 final MilliTimer timer = new MilliTimer();
@@ -344,9 +339,11 @@ public class BlockDownloader extends SleepyService {
                 _currentBlockDownloadSet.put(blockHash, currentDownload);
 
                 timer.start();
-                _downloadBlock(blockHash, bitcoinNode);
+                _downloadBlock(blockHash, bitcoinNode, currentDownload);
 
                 pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
+
+                nextNodeIndex += 1;
             }
         }
         catch (final DatabaseException exception) {

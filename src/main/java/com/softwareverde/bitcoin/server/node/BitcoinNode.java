@@ -267,6 +267,19 @@ public class BitcoinNode extends Node {
 
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
+
+    protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
+    protected final Set<BlockInventoryMessageCallback> _downloadAddressBlocksRequests = new HashSet<BlockInventoryMessageCallback>();
+
+    protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
+    protected final LocalNodeFeatures _localNodeFeatures;
+
     protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
@@ -285,18 +298,6 @@ public class BitcoinNode extends Node {
 
     protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback = null;
     protected SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback = null;
-
-    protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
-    protected final Set<BlockInventoryMessageCallback> _downloadAddressBlocksRequests = new HashSet<BlockInventoryMessageCallback>();
-
-    protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
-    protected final LocalNodeFeatures _localNodeFeatures;
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;

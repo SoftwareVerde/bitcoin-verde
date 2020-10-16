@@ -667,7 +667,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void requestBlock(final BitcoinNode selectedNode, final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        _requestBlock(selectedNode, blockHash, callback);
+        if (selectedNode == null) {
+            _requestBlock(blockHash, callback);
+        }
+        else {
+            _requestBlock(selectedNode, blockHash, callback);
+        }
     }
 
     public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
