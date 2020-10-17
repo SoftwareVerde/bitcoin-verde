@@ -775,7 +775,7 @@ public class NodeModule {
 
                     for (final Transaction transaction : transactions) {
                         final Sha256Hash transactionHash = transaction.getHash();
-                        if (_transactionWhitelist != null) { // Prevent penalizing nodes requesting this Transaction...
+                        { // Prevent penalizing nodes requesting this Transaction...
                             _transactionWhitelist.addTransactionHash(transactionHash);
                         }
                     }

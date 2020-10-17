@@ -60,6 +60,9 @@ public class BlockchainBuilder extends SleepyService {
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
 
+    protected volatile Boolean _isShuttingDown = false;
+    protected volatile Boolean _isRunning = false;
+
     /**
      * Stores and validates the pending Block.
      *  If not provided, the transactionOutputSet is loaded from the database.
@@ -156,144 +159,156 @@ public class BlockchainBuilder extends SleepyService {
         _averageBlocksPerSecond.value = (blockCount / (totalTimeInMilliseconds / 1000F));
     }
 
+    protected void _assembleBlockchain(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final Thread thread = Thread.currentThread();
+
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+
+        pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
+
+        { // Special case for storing the Genesis block...
+            if (! _hasGenesisBlock) {
+                final PendingBlockId genesisPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(BlockHeader.GENESIS_BLOCK_HASH);
+                final Boolean hasBlockDataAvailable = pendingBlockDatabaseManager.hasBlockData(genesisPendingBlockId);
+
+                final Boolean genesisBlockWasLoaded;
+                if (hasBlockDataAvailable) {
+                    genesisBlockWasLoaded = _processGenesisBlock(genesisPendingBlockId, databaseManager, pendingBlockDatabaseManager);
+                }
+                else {
+                    genesisBlockWasLoaded = false;
+                }
+
+                if (genesisBlockWasLoaded) {
+                    _hasGenesisBlock = true;
+                }
+                else {
+                    _blockDownloadRequester.requestBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
+                }
+            }
+        }
+
+        while ( (! thread.isInterrupted()) && (! _isShuttingDown) ) {
+            final MilliTimer milliTimer = new MilliTimer();
+            milliTimer.start();
+
+            // Select the first pending block to process; if none are found, request one to be downloaded...
+            final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
+            if (candidatePendingBlockId == null) {
+                // Request the next head block be downloaded... (depends on BlockHeaders)
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
+                if (nextBlockId != null) {
+                    final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
+                    final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
+                    final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash);
+                    if (! isInvalid) { // Do not request blocks that have failed to process multiple times...
+                        Logger.debug("Requesting Block: " + nextBlockHash);
+                        _blockDownloadRequester.requestBlock(nextBlockHash, previousBlockHash);
+                    }
+                }
+                break;
+            }
+
+            // Process the first available candidate block...
+            final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
+            final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
+            if (! processCandidateBlockWasSuccessful) {
+                TransactionUtil.startTransaction(databaseConnection);
+                pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
+                TransactionUtil.commitTransaction(databaseConnection);
+                Logger.debug("Deleted failed pending block.");
+
+                final Sha256Hash blockHash = candidatePendingBlock.getBlockHash();
+                blockHeaderDatabaseManager.markBlockAsInvalid(blockHash);
+
+                continue;
+            }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            milliTimer.stop();
+            _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
+            milliTimer.start();
+            _updateAverageBlockProcessingTime();
+
+            // Process the any viable descendant blocks of the candidate block...
+            PendingBlock previousPendingBlock = candidatePendingBlock;
+            while ( (! thread.isInterrupted()) && (! _isShuttingDown) ) {
+                final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
+                if (pendingBlockIds.isEmpty()) { break; }
+
+                for (int i = 0; i < pendingBlockIds.getCount(); ++i) {
+                    if (thread.isInterrupted() || _isShuttingDown) { break; }
+
+                    final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
+                    final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
+
+                    final PendingBlock pendingBlock;
+                    final UnspentTransactionOutputContext unspentTransactionOutputContext;
+                    {
+                        final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
+                        if (preloadedPendingBlock == null) {
+                            pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
+                            unspentTransactionOutputContext = null;
+
+                            Logger.debug("Pending block failed to load: " + pendingBlockHash);
+                        }
+                        else {
+                            pendingBlock = preloadedPendingBlock.getPendingBlock();
+                            unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
+                        }
+                    }
+
+                    final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.
+
+                    TransactionUtil.startTransaction(databaseConnection);
+                    pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
+                    TransactionUtil.commitTransaction(databaseConnection);
+
+                    if (! processBlockWasSuccessful) {
+                        blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash);
+                        Logger.debug("Pending block failed during processing: " + pendingBlockHash);
+                        break;
+                    }
+
+                    previousPendingBlock = pendingBlock;
+
+                    milliTimer.stop();
+                    _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
+                    milliTimer.start();
+                }
+
+                _updateAverageBlockProcessingTime();
+            }
+        }
+    }
+
     @Override
     protected void _onStart() { }
 
     @Override
     public Boolean _run() {
-        final Thread thread = Thread.currentThread();
+        if (_isShuttingDown) { return false; }
+
+        _isRunning = true;
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-            pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
-
-            { // Special case for storing the Genesis block...
-                if (! _hasGenesisBlock) {
-                    final PendingBlockId genesisPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(BlockHeader.GENESIS_BLOCK_HASH);
-                    final Boolean hasBlockDataAvailable = pendingBlockDatabaseManager.hasBlockData(genesisPendingBlockId);
-
-                    final Boolean genesisBlockWasLoaded;
-                    if (hasBlockDataAvailable) {
-                        genesisBlockWasLoaded = _processGenesisBlock(genesisPendingBlockId, databaseManager, pendingBlockDatabaseManager);
-                    }
-                    else {
-                        genesisBlockWasLoaded = false;
-                    }
-
-                    if (genesisBlockWasLoaded) {
-                        _hasGenesisBlock = true;
-                    }
-                    else {
-                        _blockDownloadRequester.requestBlock(BlockHeader.GENESIS_BLOCK_HASH, null);
-                        return false;
-                    }
-                }
-            }
-
-            while (! thread.isInterrupted()) {
-                final MilliTimer milliTimer = new MilliTimer();
-                milliTimer.start();
-
-                // Select the first pending block to process; if none are found, request one to be downloaded...
-                final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
-                if (candidatePendingBlockId == null) {
-                    // Request the next head block be downloaded... (depends on BlockHeaders)
-                    final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                    final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
-                    if (nextBlockId != null) {
-                        final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
-                        final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-                        final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash);
-                        if (! isInvalid) { // Do not request blocks that have failed to process multiple times...
-                            Logger.debug("Requesting Block: " + nextBlockHash);
-                            _blockDownloadRequester.requestBlock(nextBlockHash, previousBlockHash);
-                        }
-                    }
-                    break;
-                }
-
-                // Process the first available candidate block...
-                final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
-                final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
-                if (! processCandidateBlockWasSuccessful) {
-                    TransactionUtil.startTransaction(databaseConnection);
-                    pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
-                    TransactionUtil.commitTransaction(databaseConnection);
-                    Logger.debug("Deleted failed pending block.");
-
-                    final Sha256Hash blockHash = candidatePendingBlock.getBlockHash();
-                    blockHeaderDatabaseManager.markBlockAsInvalid(blockHash);
-
-                    continue;
-                }
-
-                TransactionUtil.startTransaction(databaseConnection);
-                pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
-                TransactionUtil.commitTransaction(databaseConnection);
-
-                milliTimer.stop();
-                _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
-                milliTimer.start();
-                _updateAverageBlockProcessingTime();
-
-                // Process the any viable descendant blocks of the candidate block...
-                PendingBlock previousPendingBlock = candidatePendingBlock;
-                while (! thread.isInterrupted()) {
-                    final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
-                    if (pendingBlockIds.isEmpty()) { break; }
-
-                    for (int i = 0; i < pendingBlockIds.getCount(); ++i) {
-                        final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
-                        final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
-
-                        final PendingBlock pendingBlock;
-                        final UnspentTransactionOutputContext unspentTransactionOutputContext;
-                        {
-                            final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
-                            if (preloadedPendingBlock == null) {
-                                pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
-                                unspentTransactionOutputContext = null;
-
-                                Logger.debug("Pending block failed to load: " + pendingBlockHash);
-                            }
-                            else {
-                                pendingBlock = preloadedPendingBlock.getPendingBlock();
-                                unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
-                            }
-                        }
-
-                        final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.
-
-                        TransactionUtil.startTransaction(databaseConnection);
-                        pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
-                        TransactionUtil.commitTransaction(databaseConnection);
-
-                        if (! processBlockWasSuccessful) {
-                            blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash);
-                            Logger.debug("Pending block failed during processing: " + pendingBlockHash);
-                            break;
-                        }
-
-                        previousPendingBlock = pendingBlock;
-
-                        milliTimer.stop();
-                        _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
-                        milliTimer.start();
-                    }
-
-                    _updateAverageBlockProcessingTime();
-                }
-            }
+            _assembleBlockchain(databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
+        }
+        finally {
+            _isRunning = false;
         }
 
         return false;
@@ -301,6 +316,8 @@ public class BlockchainBuilder extends SleepyService {
 
     @Override
     protected void _onSleep() {
+        if (_isShuttingDown) { return; }
+
         final Status blockDownloaderStatus = _blockDownloaderStatusMonitor.getStatus();
         if (blockDownloaderStatus != Status.ACTIVE) {
             final BitcoinNodeManager bitcoinNodeManager = _context.getNodeManager();
@@ -313,6 +330,31 @@ public class BlockchainBuilder extends SleepyService {
             catch (final DatabaseException exception) {
                 Logger.debug(exception);
             }
+        }
+    }
+
+    /**
+     * Avoids interrupting the block storing process to avoid invalidating the UTXO set.
+     */
+    @Override
+    public synchronized void stop() {
+        if (_isShuttingDown) {
+            super.stop();
+            return;
+        }
+
+        _isShuttingDown = true;
+        try {
+            for (int i = 0; i < 12; ++i) { // Wait for up to 60 seconds...
+                if (! _isRunning) { break; }
+                Thread.sleep(500L);
+            }
+            if (_isRunning) { // If the service still hasn't exited then interrupt the thread.
+                super.stop();
+            }
+        }
+        catch (final Exception exception) {
+            super.stop();
         }
     }
 
