@@ -4,7 +4,7 @@ import com.softwareverde.logging.Logger;
 
 public abstract class SleepyService {
     public enum Status {
-        ACTIVE, SLEEPING, STOPPED
+        ACTIVE, SLEEPING, SHUTTING_DOWN, STOPPED
     }
 
     public interface StatusMonitor {
@@ -14,6 +14,9 @@ public abstract class SleepyService {
     private final Object _monitor = new Object();
     private final Runnable _coreRunnable;
     private final StatusMonitor _statusMonitor;
+
+    protected Long _stopTimeoutMs = 10000L;
+    protected volatile Status _status = Status.STOPPED;
 
     private volatile Boolean _shouldRestart = false;
     private Thread _thread = null;
@@ -32,6 +35,13 @@ public abstract class SleepyService {
         _thread.start();
     }
 
+    protected Boolean _shouldAbort() {
+        final Thread thread = _thread;
+        if (thread == null) { return true; }
+
+        return thread.isInterrupted();
+    }
+
     protected abstract void _onStart();
     protected abstract Boolean _run();
     protected abstract void _onSleep();
@@ -44,6 +54,10 @@ public abstract class SleepyService {
                 try {
                     _onStart();
                     while (! thread.isInterrupted()) {
+                        if (_status != Status.SHUTTING_DOWN) {
+                            _status = Status.ACTIVE;
+                        }
+
                         try {
                             final Boolean shouldContinue = _run();
 
@@ -54,6 +68,11 @@ public abstract class SleepyService {
                         catch (final Exception exception) {
                             Logger.warn(exception);
                             break;
+                        }
+                        finally {
+                            if (_status != Status.SHUTTING_DOWN) {
+                                _status = Status.SLEEPING;
+                            }
                         }
                     }
                 }
@@ -80,22 +99,15 @@ public abstract class SleepyService {
         _statusMonitor = new StatusMonitor() {
             @Override
             public Status getStatus() {
-                final Thread thread = _thread;
-                if ( (thread == null) || (thread.isInterrupted()) ) {
-                    return Status.STOPPED;
-                }
-
-                if (! _shouldRestart) {
-                    return Status.SLEEPING;
-                }
-
-                return Status.ACTIVE;
+                return _status;
             }
         };
 
         _coreRunnable = new Runnable() {
             @Override
             public void run() {
+                _status = Status.SLEEPING;
+
                 final Thread thread = Thread.currentThread();
                 while (! thread.isInterrupted()) {
                     try {
@@ -116,6 +128,8 @@ public abstract class SleepyService {
                         }
                     }
                 }
+
+                _status = Status.STOPPED;
             }
         };
     }
@@ -139,10 +153,11 @@ public abstract class SleepyService {
     public synchronized void stop() {
         if (_thread != null) {
             _shouldRestart = false;
+            _status = Status.SHUTTING_DOWN;
 
             _thread.interrupt();
             try {
-                _thread.join(10000L);
+                _thread.join(_stopTimeoutMs);
             }
             catch (final InterruptedException ignored) { }
 

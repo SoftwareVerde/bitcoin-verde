@@ -65,6 +65,7 @@ public class UnspentTransactionOutputManager {
 
     protected void _commitInMemoryUtxoSetToDisk() throws DatabaseException {
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
+        Logger.info("Committing UTXO set.");
         unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory);
     }
 

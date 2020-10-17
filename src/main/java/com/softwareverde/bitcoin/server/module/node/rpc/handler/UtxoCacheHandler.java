@@ -61,6 +61,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
         final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            Logger.info("Committing UTXO set.");
             unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
         }
         catch (final DatabaseException exception) {

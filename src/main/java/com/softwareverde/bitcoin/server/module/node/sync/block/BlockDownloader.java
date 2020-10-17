@@ -23,7 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -42,7 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class BlockDownloader extends SleepyService {
+public class BlockDownloader extends GracefulSleepyService {
     public interface Context extends BlockInflaters, NodeManagerContext, MultiConnectionFullDatabaseContext, PendingBlockStoreContext, SynchronizationStatusContext, SystemTimeContext, ThreadPoolContext { }
 
     public static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
@@ -185,6 +185,8 @@ public class BlockDownloader extends SleepyService {
         final BitcoinNodeManager.DownloadBlockCallback downloadBlockCallback = new BitcoinNodeManager.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
+                if (_shouldAbort()) { return; }
+
                 didRespond.set(true);
                 pin.release();
 
@@ -226,6 +228,8 @@ public class BlockDownloader extends SleepyService {
 
             @Override
             public void onFailure(final Sha256Hash blockHash) {
+                if (_shouldAbort()) { return; }
+
                 didRespond.set(true);
                 pin.release();
 
@@ -273,6 +277,7 @@ public class BlockDownloader extends SleepyService {
         final int maximumConcurrentDownloadCount = Math.max(1, Math.min(16, (bitcoinNodeManager.getActiveNodeCount() * 2)));
 
         _checkForStalledDownloads();
+        if (_shouldAbort()) { return false; }
 
         if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) {
             Logger.trace("Downloader busy; " + _currentBlockDownloadSet.size() + " in flight. Sleeping.");
@@ -310,6 +315,8 @@ public class BlockDownloader extends SleepyService {
             }
             Logger.trace("Download plan contains " + downloadPlan.getCount() + " items.");
 
+            if (_shouldAbort()) { return false; }
+
             final Integer activeNodeCount = bitcoinNodeManager.getActiveNodeCount();
             final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(activeNodeCount, new NodeManager.NodeFilter<BitcoinNode>() {
                 @Override
@@ -323,6 +330,8 @@ public class BlockDownloader extends SleepyService {
 
             int nextNodeIndex = 0;
             for (final PendingBlockId pendingBlockId : downloadPlan) {
+                if (_shouldAbort()) { return false; }
+
                 if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
 
                 final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);

@@ -361,6 +361,7 @@ public class BlockHeaderDownloader extends SleepyService {
             @Override
             public void onResult(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
                 if (! _isProcessingHeaders.compareAndSet(false, true)) { return; }
+                if (_shouldAbort()) { return; }
 
                 try {
                     _processBlockHeaders(blockHeaders);
@@ -442,14 +443,20 @@ public class BlockHeaderDownloader extends SleepyService {
 
             final boolean didTimeout;
 
-            try { _headersDownloadedPin.wait(MAX_TIMEOUT_MS); }
-            catch (final InterruptedException exception) { return false; }
+            for (int i = 0; i < 30; ++i) {
+                if (_shouldAbort()) { return false; }
+                try { _headersDownloadedPin.wait(MAX_TIMEOUT_MS / 30); }
+                catch (final InterruptedException exception) { return false; }
+            }
 
             // If the _headersDownloadedPin timed out because processing the headers took too long, wait for the processing to complete and then consider it a success.
             synchronized (_isProcessingHeaders) {
                 if (_isProcessingHeaders.get()) {
-                    try { _isProcessingHeaders.wait(); }
-                    catch (final InterruptedException exception) { return false; }
+                    while (_isProcessingHeaders.get()) {
+                        if (_shouldAbort()) { return false; }
+                        try { _isProcessingHeaders.wait(250); }
+                        catch (final InterruptedException exception) { return false; }
+                    }
 
                     didTimeout = false;
                 }
@@ -468,7 +475,7 @@ public class BlockHeaderDownloader extends SleepyService {
             }
         }
 
-        return true;
+        return (! _shouldAbort());
     }
 
     @Override

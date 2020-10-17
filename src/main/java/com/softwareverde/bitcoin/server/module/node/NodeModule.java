@@ -309,6 +309,7 @@ public class NodeModule {
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MilliTimer utxoCommitTimer = new MilliTimer();
                 utxoCommitTimer.start();
+                Logger.info("Committing UTXO set.");
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionPool);
                 utxoCommitTimer.stop();
                 Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
@@ -816,7 +817,7 @@ public class NodeModule {
 
             final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(statisticsContainer, _rpcThreadPool, _masterInflater);
             {
-                final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
+                final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, synchronizationStatusHandler);
                 final UtxoCacheHandler utxoCacheHandler = new UtxoCacheHandler(databaseManagerFactory);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);

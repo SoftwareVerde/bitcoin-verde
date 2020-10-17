@@ -299,6 +299,7 @@ public class BlockProcessor {
 
         // 6. Commit the UTXO set to ensure UTXOs removed by a now-undone commit are re-added...
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+        Logger.info("Committing UTXO set.");
         unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory.getDatabaseConnectionFactory());
 
         timer.stop();

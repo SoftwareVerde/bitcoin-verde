@@ -30,7 +30,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -41,7 +41,7 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
-public class BlockchainBuilder extends SleepyService {
+public class BlockchainBuilder extends GracefulSleepyService {
     public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext { }
 
     public interface NewBlockProcessedCallback {
@@ -59,9 +59,6 @@ public class BlockchainBuilder extends SleepyService {
 
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
-
-    protected volatile Boolean _isShuttingDown = false;
-    protected volatile Boolean _isRunning = false;
 
     /**
      * Stores and validates the pending Block.
@@ -192,7 +189,7 @@ public class BlockchainBuilder extends SleepyService {
             }
         }
 
-        while ( (! thread.isInterrupted()) && (! _isShuttingDown) ) {
+        while (! _shouldAbort()) {
             final MilliTimer milliTimer = new MilliTimer();
             milliTimer.start();
 
@@ -241,12 +238,12 @@ public class BlockchainBuilder extends SleepyService {
 
             // Process the any viable descendant blocks of the candidate block...
             PendingBlock previousPendingBlock = candidatePendingBlock;
-            while ( (! thread.isInterrupted()) && (! _isShuttingDown) ) {
+            while (! _shouldAbort()) {
                 final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
                 if (pendingBlockIds.isEmpty()) { break; }
 
                 for (int i = 0; i < pendingBlockIds.getCount(); ++i) {
-                    if (thread.isInterrupted() || _isShuttingDown) { break; }
+                    if (_shouldAbort()) { break; }
 
                     final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
                     final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
@@ -296,9 +293,7 @@ public class BlockchainBuilder extends SleepyService {
 
     @Override
     public Boolean _run() {
-        if (_isShuttingDown) { return false; }
-
-        _isRunning = true;
+        if (_shouldAbort()) { return false; }
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -307,16 +302,13 @@ public class BlockchainBuilder extends SleepyService {
         catch (final DatabaseException exception) {
             Logger.debug(exception);
         }
-        finally {
-            _isRunning = false;
-        }
 
         return false;
     }
 
     @Override
     protected void _onSleep() {
-        if (_isShuttingDown) { return; }
+        if (_shouldAbort()) { return; }
 
         final Status blockDownloaderStatus = _blockDownloaderStatusMonitor.getStatus();
         if (blockDownloaderStatus != Status.ACTIVE) {
@@ -330,31 +322,6 @@ public class BlockchainBuilder extends SleepyService {
             catch (final DatabaseException exception) {
                 Logger.debug(exception);
             }
-        }
-    }
-
-    /**
-     * Avoids interrupting the block storing process to avoid invalidating the UTXO set.
-     */
-    @Override
-    public synchronized void stop() {
-        if (_isShuttingDown) {
-            super.stop();
-            return;
-        }
-
-        _isShuttingDown = true;
-        try {
-            for (int i = 0; i < 12; ++i) { // Wait for up to 60 seconds...
-                if (! _isRunning) { break; }
-                Thread.sleep(500L);
-            }
-            if (_isRunning) { // If the service still hasn't exited then interrupt the thread.
-                super.stop();
-            }
-        }
-        catch (final Exception exception) {
-            super.stop();
         }
     }
 
