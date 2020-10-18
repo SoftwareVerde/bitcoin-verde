@@ -150,6 +150,8 @@ public class UnspentTransactionOutputDatabaseManager {
         final int maxUtxoPerBatch = Math.min(1024, transactionalDatabaseManager.getMaxQueryBatchSize());
         final int maxItemCount = (maxUtxoPerBatch * 32); // The maximum number of items in queue at any point in time...
 
+        Logger.trace("maxKeepCount=" + maxKeepCount + ", maxUtxoPerBatch=" + maxUtxoPerBatch + ", maxItemCount=" + maxItemCount);
+
         final Long minUtxoBlockHeight;
         final Long maxUtxoBlockHeight;
         {
@@ -160,6 +162,8 @@ public class UnspentTransactionOutputDatabaseManager {
             maxUtxoBlockHeight = row.getLong("max_block_height");
             minUtxoBlockHeight = row.getLong("min_block_height");
         }
+
+        Logger.trace("minUtxoBlockHeight=" + minUtxoBlockHeight + ", maxUtxoBlockHeight=" + maxUtxoBlockHeight);
 
         final Comparator<UnspentTransactionOutput> utxoComparator = new Comparator<UnspentTransactionOutput>() {
             @Override
@@ -433,7 +437,7 @@ public class UnspentTransactionOutputDatabaseManager {
                 .setParameter(newCommittedBlockHeight)
         );
 
-        Logger.info(
+        Logger.debug(
             "Commit Utxo Timer:\n" +
             "    Commit inMemoryUtxoRetainerBatchRunner=" + inMemoryUtxoRetainerBatchRunner.getTotalItemCount() + " in " + inMemoryUtxoRetainerBatchRunner.getExecutionTime() + "ms\n" +
             "    Commit onDiskUtxoDeleteBatchRunner=" + onDiskUtxoDeleteBatchRunner.getTotalItemCount() + " in " + onDiskUtxoDeleteBatchRunner.getExecutionTime() + "ms\n" +

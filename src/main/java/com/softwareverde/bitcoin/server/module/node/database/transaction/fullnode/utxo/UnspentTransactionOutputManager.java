@@ -48,6 +48,9 @@ public class UnspentTransactionOutputManager {
         final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
 
         long blockHeight = (unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
+        if (blockHeight <= maxBlockHeight) {
+            Logger.info("UTXO set is " + ((maxBlockHeight - blockHeight) + 1) + " blocks behind.");
+        }
         while (blockHeight <= maxBlockHeight) {
             final PreloadedBlock preloadedBlock = blockLoader.getBlock(blockHeight);
             if (preloadedBlock == null) {
@@ -55,6 +58,7 @@ public class UnspentTransactionOutputManager {
                 break;
             }
 
+            Logger.trace("Applying block " + preloadedBlock.getBlockHeight() + " to UTXO set.");
             _updateUtxoSetWithBlock(preloadedBlock.getBlock(), preloadedBlock.getBlockHeight());
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight); // Updating the Uncommitted UTXO Block Height is required to enable mid-rebuild commits.
             blockHeight += 1L;

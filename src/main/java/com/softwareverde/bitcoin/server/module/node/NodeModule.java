@@ -1038,6 +1038,7 @@ public class NodeModule {
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
 
                 if (_rebuildUtxoSet) {
+                    Logger.info("Rebuilding UTXO set from genesis.");
                     unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader);
                 }
                 else {
