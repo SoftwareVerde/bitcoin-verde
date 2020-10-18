@@ -610,7 +610,7 @@ public class BlockProcessor {
 
                     try {
                         Logger.info("Rebuilding UTXO set after block error.");
-                        final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, threadPool);
+                        final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, threadPool);
                         unspentTransactionOutputManager.buildUtxoSet(blockLoader);
                     }
                     finally {

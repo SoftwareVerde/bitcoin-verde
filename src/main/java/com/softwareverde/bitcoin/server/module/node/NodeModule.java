@@ -27,6 +27,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -168,6 +169,8 @@ public class NodeModule {
     protected final MilliTimer _uptimeTimer = new MilliTimer();
     protected final Thread _databaseMaintenanceThread;
     protected final Thread _loggerFlushThread;
+
+    protected final LowMemoryMonitor _lowMemoryMonitor;
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
@@ -926,6 +929,23 @@ public class NodeModule {
             });
         }
 
+        _lowMemoryMonitor = new LowMemoryMonitor(0.9F, new Runnable() {
+            @Override
+            public void run() {
+                Logger.warn("90% of memory usage reached.");
+                final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
+                final int bitcoinNodeCount = bitcoinNodes.getCount();
+                for (int i = 0; i < bitcoinNodeCount; ++i) {
+                    final BitcoinNode bitcoinNode = bitcoinNodes.get(i);
+                    if ((i % 2) == 0) {
+                        bitcoinNode.disconnect();
+                    }
+                }
+
+                _bitcoinNodeManager.setMaxNodeCount(Math.max(4, (bitcoinNodeCount / 2)));
+            }
+        });
+
         _loggerFlushThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -1035,7 +1055,7 @@ public class NodeModule {
                 final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionPool, utxoCommitFrequency);
 
-                final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 128, databaseManagerFactory, _mainThreadPool);
+                final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, _mainThreadPool);
 
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");

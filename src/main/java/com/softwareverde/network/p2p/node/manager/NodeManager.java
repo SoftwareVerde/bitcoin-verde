@@ -93,8 +93,8 @@ public class NodeManager<NODE extends Node> {
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
     protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The list of all node addresses advertised by peers.
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
-    protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime;
+    protected Integer _maxNodeCount;
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
     protected Boolean _isShuttingDown = false;
 
@@ -894,6 +894,10 @@ public class NodeManager<NODE extends Node> {
     public Integer getActiveNodeCount() {
         final List<NODE> nodes = _getActiveNodes();
         return nodes.getCount();
+    }
+
+    public void setMaxNodeCount(final Integer maxNodeCount) {
+        _maxNodeCount = maxNodeCount;
     }
 
     public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
