@@ -19,11 +19,17 @@ public class DatabaseConfigurer {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
             commandLineArguments.setInnoDbBufferPoolByteCount(Math.min(ByteUtil.Unit.Binary.GIBIBYTES, databaseProperties.getMaxMemoryByteCount()));
             commandLineArguments.setQueryCacheByteCount(0L);
-            commandLineArguments.setMaxAllowedPacketByteCount(128L * ByteUtil.Unit.Binary.MEBIBYTES);
+            commandLineArguments.setMaxAllowedPacketByteCount(8L * ByteUtil.Unit.Binary.MEBIBYTES);
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
         }
         else {
-            final Long maxDatabaseMemory = databaseProperties.getMaxMemoryByteCount();
+            // The default per_thread_buffer is roughly 3mb excluding the max_allowed_packet.
+            //  per_thread_buffer = read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + join_buffer_size + max_allowed_packet
+            final long maxAllowedPacketByteCount = (8L * ByteUtil.Unit.Binary.MEBIBYTES);
+            final long bytesPerConnection = ((3L * ByteUtil.Unit.Binary.MEBIBYTES) + maxAllowedPacketByteCount);
+            final long overheadByteCount = (bytesPerConnection * maxDatabaseThreadCount);
+
+            final long maxDatabaseMemory = (databaseProperties.getMaxMemoryByteCount() - overheadByteCount);
 
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (maxDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total database memory.
@@ -50,7 +56,7 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--myisam-sort-buffer-size=4096"); // Reduce per-connection memory allocation (only used for MyISAM DDL statements).
 
             commandLineArguments.setQueryCacheByteCount(null); // Deprecated, removed in Mysql 8.
-            commandLineArguments.setMaxAllowedPacketByteCount(64L * ByteUtil.Unit.Binary.MEBIBYTES);
+            commandLineArguments.setMaxAllowedPacketByteCount(maxAllowedPacketByteCount);
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
 
             // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);

@@ -34,6 +34,8 @@ public class BitcoinVerdeDatabase implements Database {
     public static final InitFile BITCOIN = new InitFile("/sql/full_node/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile STRATUM = new InitFile("/sql/stratum/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
 
+    public static final Integer MAX_DATABASE_CONNECTION_COUNT = 32; // Increasing too much may cause MySQL to use excessive memory...
+
     public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties) {
         return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, null);
     }
@@ -65,8 +67,7 @@ public class BitcoinVerdeDatabase implements Database {
             if (databaseProperties.useEmbeddedDatabase()) {
                 // Initialize the embedded database...
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                final Integer maxDatabaseThreadCount = 64; // Increasing too much may cause MySQL to use excessive memory...
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, bitcoinProperties);
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, MAX_DATABASE_CONNECTION_COUNT, databaseProperties, bitcoinProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);

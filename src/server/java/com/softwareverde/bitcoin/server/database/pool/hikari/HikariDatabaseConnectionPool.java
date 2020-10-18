@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database.pool.hikari;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionCore;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.properties.DatabaseProperties;
@@ -42,9 +43,9 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
         _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(15));
-        _dataSource.setMaxLifetime(TimeUnit.MINUTES.toMillis(15));
-        _dataSource.setMaximumPoolSize(32); // NOTE: MySQL Default is 151.
-        _dataSource.setMinimumIdle(8);
+        _dataSource.setMaxLifetime(TimeUnit.HOURS.toMillis(1)); // NOTE: MySQL has a default max of 8 hours.
+        _dataSource.setMaximumPoolSize(BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT); // NOTE: MySQL default is 151.
+        _dataSource.setMinimumIdle(4);
         _dataSource.setAutoCommit(true);
         _dataSource.setLeakDetectionThreshold(60 * 1000L);
 
