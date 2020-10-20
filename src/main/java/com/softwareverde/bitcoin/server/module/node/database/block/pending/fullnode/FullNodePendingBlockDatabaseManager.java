@@ -333,7 +333,7 @@ public class FullNodePendingBlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE pending_blocks.was_downloaded = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash AND process_count > 2) GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 128")
+            new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash WHERE pending_blocks.was_downloaded = 1 AND blocks.has_transactions = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash AND process_count > 2) ORDER BY pending_blocks.priority ASC LIMIT 128")
         );
 
         for (final Row row : rows) {
