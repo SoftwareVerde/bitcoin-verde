@@ -105,6 +105,7 @@ import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -156,6 +157,7 @@ public class NodeModule {
     protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
+    protected final List<SleepyService> _allServices;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -809,6 +811,17 @@ public class NodeModule {
             }
         });
 
+        _allServices = new ImmutableList<SleepyService>(
+            _blockchainIndexer,
+            _slpTransactionProcessor,
+            _transactionProcessor,
+            _transactionDownloader,
+            _blockchainBuilder,
+            _blockDownloader,
+            _blockHeaderDownloader,
+            _spentTransactionOutputsCleanupService
+        );
+
         final Integer rpcPort = _bitcoinProperties.getBitcoinRpcPort();
         if (rpcPort > 0) {
             final NodeRpcHandler.StatisticsContainer statisticsContainer = new NodeRpcHandler.StatisticsContainer();
@@ -833,7 +846,7 @@ public class NodeModule {
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
-                for (final SleepyService sleepyService : new SleepyService[] { _blockchainIndexer, _slpTransactionProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader, _spentTransactionOutputsCleanupService }) {
+                for (final SleepyService sleepyService : _allServices) {
                     if (sleepyService != null) {
                         final Class<?> clazz = sleepyService.getClass();
                         final String serviceName = clazz.getSimpleName();
@@ -1183,9 +1196,11 @@ public class NodeModule {
             if (sleepCount == 0) {
                 runtime.gc();
 
-                // Wakeup the Spent UTXO Cleanup Service...
-                if (_spentTransactionOutputsCleanupService != null) {
-                    _spentTransactionOutputsCleanupService.wakeUp();
+                // Wakeup sleepy services every 5 minutes...
+                for (final SleepyService sleepyService : _allServices) {
+                    if (sleepyService != null) {
+                        sleepyService.wakeUp();
+                    }
                 }
             }
 
