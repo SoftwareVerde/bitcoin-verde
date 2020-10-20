@@ -606,11 +606,22 @@ public class SpvModule {
             nodeInitializerContext.synchronizationStatus = synchronizationStatusHandler;
             nodeInitializerContext.blockInventoryMessageHandler = new BitcoinNode.BlockInventoryMessageCallback() {
                 @Override
-                public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+                public void onNewInventory(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
                     if (! _bitcoinNodeManager.hasBloomFilter()) { return; }
 
                     // Only restart the synchronization process if it has already successfully completed.
                     _merkleBlockDownloader.wakeUp();
+                }
+
+                @Override
+                public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                    final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
+                    for (final BlockHeader blockHeader : blockHeaders) {
+                        final Sha256Hash blockHash = blockHeader.getHash();
+                        blockHashes.add(blockHash);
+                    }
+
+                    this.onNewInventory(bitcoinNode, blockHashes);
                 }
             };
             nodeInitializerContext.threadPoolFactory = threadPoolFactory;

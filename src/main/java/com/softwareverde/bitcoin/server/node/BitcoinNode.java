@@ -98,7 +98,8 @@ public class BitcoinNode extends Node {
     }
 
     public interface BlockInventoryMessageCallback extends BitcoinNodeCallback {
-        void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
+        void onNewInventory(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
+        void onNewHeaders(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders);
     }
 
     public interface DownloadBlockCallback extends Callback<Block>, BitcoinNodeCallback {
@@ -688,7 +689,7 @@ public class BitcoinNode extends Node {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                blockInventoryMessageHandler.onResult(BitcoinNode.this, objectHashes);
+                                blockInventoryMessageHandler.onNewInventory(BitcoinNode.this, objectHashes);
                             }
                         });
                     }
@@ -741,7 +742,7 @@ public class BitcoinNode extends Node {
                             @Override
                             public void run() {
                                 for (final BlockInventoryMessageCallback blockInventoryMessageCallback : addressBlocksCallbacks) {
-                                    blockInventoryMessageCallback.onResult(BitcoinNode.this, objectHashes);
+                                    blockInventoryMessageCallback.onNewInventory(BitcoinNode.this, objectHashes);
                                 }
 
                                 spvBlockInventoryMessageCallback.onResult(objectHashes);
@@ -828,7 +829,6 @@ public class BitcoinNode extends Node {
         Logger.trace(this.getConnectionString() + " _onBlockHeadersMessageReceived: " + blockHeaders.getCount());
 
         final boolean announceNewBlocksViaHeadersIsEnabled = _announceNewBlocksViaHeadersIsEnabled;
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
         final boolean allBlockHeadersAreValid;
         {
             boolean isValid = true;
@@ -836,11 +836,6 @@ public class BitcoinNode extends Node {
                 if (! blockHeader.isValid()) {
                     isValid = false;
                     break;
-                }
-
-                if (announceNewBlocksViaHeadersIsEnabled) {
-                    final Sha256Hash blockHash = blockHeader.getHash();
-                    blockHashes.add(blockHash);
                 }
             }
             allBlockHeadersAreValid = isValid;
@@ -851,13 +846,14 @@ public class BitcoinNode extends Node {
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
         final Boolean wasRequested = _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null), _threadPool);
 
+        Logger.trace(firstBlockHeader.getHash() + " was announced: " + (! wasRequested));
         if ( (! wasRequested) && announceNewBlocksViaHeadersIsEnabled ) {
             final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
             if (blockInventoryMessageHandler != null) {
                 _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        blockInventoryMessageHandler.onResult(BitcoinNode.this, blockHashes);
+                        blockInventoryMessageHandler.onNewHeaders(BitcoinNode.this, blockHeaders);
                     }
                 });
             }

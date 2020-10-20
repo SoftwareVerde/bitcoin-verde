@@ -1,12 +1,13 @@
 package com.softwareverde.bitcoin.address;
 
+import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class AddressTests {
+public class AddressTests extends UnitTest {
     @Test
     public void should_calculate_checksum_0() {
         // Setup

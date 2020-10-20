@@ -652,7 +652,7 @@ public class NodeModule {
                         _blockHeaderDownloader.wakeUp();
                     }
 
-                    if (synchronizationStatusHandler.getState() == State.ONLINE) {
+                    if (blockHeight >= blockHeaderDownloaderBlockHeight) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
                             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -664,12 +664,7 @@ public class NodeModule {
                             final Boolean newBlockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(newBlockBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
 
                             if (newBlockIsOnMainChain) {
-                                if (blockHeight < blockHeaderDownloaderBlockHeight) {
-                                    synchronizationStatusHandler.setState(State.SYNCHRONIZING);
-                                }
-                                else {
-                                    synchronizationStatusHandler.setState(State.ONLINE);
-                                }
+                                synchronizationStatusHandler.setState(State.ONLINE);
                             }
 
                             { // Broadcast new Block...
@@ -716,7 +711,7 @@ public class NodeModule {
                             final Sha256Hash blockHash = blockHeader.getHash();
                             blockHashes.add(blockHash);
                         }
-                        blockInventoryMessageHandler.onResult(bitcoinNode, blockHashes);
+                        blockInventoryMessageHandler.onNewInventory(bitcoinNode, blockHashes);
                     }
 
                     _blockDownloader.wakeUp();
@@ -747,10 +742,15 @@ public class NodeModule {
                 }
             });
 
-            blockInventoryMessageHandler.setNewBlockHashReceivedCallback(new Runnable() {
+            blockInventoryMessageHandler.setNewInventoryReceivedCallback(new BlockInventoryMessageHandler.NewInventoryReceivedCallback() {
                 @Override
-                public void run() {
+                public void onNewBlockHashesReceived(final List<Sha256Hash> blockHashes) {
                     _blockDownloader.wakeUp();
+                }
+
+                @Override
+                public void onNewBlockHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+                    _blockHeaderDownloader.onNewBlockHeaders(bitcoinNode, blockHeaders);
                 }
             });
 

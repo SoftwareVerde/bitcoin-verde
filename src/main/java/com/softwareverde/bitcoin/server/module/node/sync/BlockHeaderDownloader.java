@@ -501,4 +501,19 @@ public class BlockHeaderDownloader extends SleepyService {
     public Long getBlockHeight() {
         return _headBlockHeight;
     }
+
+    public void onNewBlockHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+        _processBlockHeaders(blockHeaders);
+
+        final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
+        if (newBlockHeaderAvailableCallback != null) {
+            final ThreadPool threadPool = _context.getThreadPool();
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    newBlockHeaderAvailableCallback.onNewHeadersReceived(bitcoinNode, blockHeaders);
+                }
+            });
+        }
+    }
 }
