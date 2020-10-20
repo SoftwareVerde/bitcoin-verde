@@ -151,6 +151,8 @@ public class BlockDownloader extends GracefulSleepyService {
         final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<Sha256Hash>();
         for (final Sha256Hash blockHash : _currentBlockDownloadSet.keySet()) {
             final CurrentDownload currentDownload = _currentBlockDownloadSet.get(blockHash);
+            if (currentDownload == null) { continue; }
+
             final MilliTimer milliTimer = currentDownload.milliTimer;
             if (milliTimer == null) {
                 stalledBlockHashes.add(blockHash);
