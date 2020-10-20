@@ -36,6 +36,8 @@ public class DatabaseConfigurer {
             final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(maxDatabaseMemory - logBufferByteCount);
             final Integer bufferPoolInstanceCount = (bufferPoolByteCount <= ByteUtil.Unit.Binary.GIBIBYTES ? 1 : 32); // Experimental; https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
 
+            // TODO: Experiment with innodb_change_buffer_max_size and innodb_change_buffering for better IBD performance.
+
             commandLineArguments.setInnoDbLogFileByteCount(logFileByteCount); // Redo Log file (on-disk)
             commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount); // Redo Log (in-memory)
             commandLineArguments.setInnoDbBufferPoolByteCount(bufferPoolByteCount); // Innodb Dirty Page Cache

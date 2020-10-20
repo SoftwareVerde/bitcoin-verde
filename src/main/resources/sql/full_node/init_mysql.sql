@@ -97,7 +97,7 @@ CREATE TABLE unspent_transaction_outputs (
     is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT 'NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.',
     block_height INT UNSIGNED COMMENT 'NULL indicates the output was not in the cache when it was marked for delete, or there was a rollback of the UTXO set.',
     PRIMARY KEY (transaction_hash, `index`) USING HASH,
-    INDEX utxo_block_height_ix (block_height DESC) USING BTREE
+    INDEX utxo_block_height_ix (block_height) USING BTREE
 ) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE unspent_transaction_outputs_buffer (
