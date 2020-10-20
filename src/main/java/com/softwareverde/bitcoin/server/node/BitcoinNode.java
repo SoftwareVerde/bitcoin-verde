@@ -215,10 +215,13 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected static <U, T, S extends Callback<U>> void _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value, final ThreadPool threadPool) {
+    /**
+     * Returns true iff a callback was executed.
+     */
+    protected static <U, T, S extends Callback<U>> Boolean _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value, final ThreadPool threadPool) {
         synchronized (callbackMap) {
             final Set<S> callbackSet = callbackMap.remove(key);
-            if ((callbackSet == null) || (callbackSet.isEmpty())) { return; }
+            if ((callbackSet == null) || (callbackSet.isEmpty())) { return false; }
 
             for (final S callback : callbackSet) {
                 threadPool.execute(new Runnable() {
@@ -228,6 +231,7 @@ public class BitcoinNode extends Node {
                     }
                 });
             }
+            return true;
         }
     }
 
@@ -823,6 +827,8 @@ public class BitcoinNode extends Node {
         final List<BlockHeader> blockHeaders = blockHeadersMessage.getBlockHeaders();
         Logger.trace(this.getConnectionString() + " _onBlockHeadersMessageReceived: " + blockHeaders.getCount());
 
+        final boolean announceNewBlocksViaHeadersIsEnabled = _announceNewBlocksViaHeadersIsEnabled;
+        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockHeaders.getCount());
         final boolean allBlockHeadersAreValid;
         {
             boolean isValid = true;
@@ -831,6 +837,11 @@ public class BitcoinNode extends Node {
                     isValid = false;
                     break;
                 }
+
+                if (announceNewBlocksViaHeadersIsEnabled) {
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    blockHashes.add(blockHash);
+                }
             }
             allBlockHeadersAreValid = isValid;
         }
@@ -838,7 +849,19 @@ public class BitcoinNode extends Node {
         if (blockHeaders.isEmpty()) { return; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null), _threadPool);
+        final Boolean wasRequested = _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null), _threadPool);
+
+        if ( (! wasRequested) && announceNewBlocksViaHeadersIsEnabled ) {
+            final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
+            if (blockInventoryMessageHandler != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        blockInventoryMessageHandler.onResult(BitcoinNode.this, blockHashes);
+                    }
+                });
+            }
+        }
     }
 
     protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage) {
