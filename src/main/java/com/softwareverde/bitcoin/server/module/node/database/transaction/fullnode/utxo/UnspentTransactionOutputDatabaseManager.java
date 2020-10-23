@@ -812,6 +812,7 @@ public class UnspentTransactionOutputDatabaseManager {
             UTXO_READ_MUTEX.unlock();
         }
 
+        // TODO: remove non-deterministic group-by clause.
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.hash IN (?) GROUP BY transactions.hash")
                 .setInClauseParameters(unspentTransactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
