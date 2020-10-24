@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -57,6 +58,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             this.inputIndexes = inputIndexes;
         }
     }
+
+    protected static final String PENDING_TRANSACTION_KEY = "next_pending_transaction_id";
 
     protected final FullNodeDatabaseManager _databaseManager;
     protected final AddressInflater _addressInflater;
@@ -200,6 +203,40 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new AddressTransactions(blockchainSegmentId, transactionIds, inputIndexes, outputIndexes);
     }
 
+    protected Long _getNextUnprocessedTransactionId() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT value FROM properties WHERE key = ?")
+                .setParameter(PENDING_TRANSACTION_KEY)
+        );
+        if (rows.isEmpty()) { return 0L; }
+
+        final Row row = rows.get(0);
+        return row.getLong("value");
+    }
+
+    protected void _updateNextUnprocessedTransactionId(final List<TransactionId> transactionIds) throws DatabaseException {
+        if (transactionIds.isEmpty()) { return; }
+
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        Long nextTransactionId = _getNextUnprocessedTransactionId();
+
+        for (final TransactionId transactionId : transactionIds) {
+            final long transactionIdLong = transactionId.longValue();
+            if (transactionIdLong >= nextTransactionId) {
+                nextTransactionId = transactionIdLong;
+            }
+        }
+
+        databaseConnection.executeSql(
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                .setParameter(PENDING_TRANSACTION_KEY)
+                .setParameter(nextTransactionId)
+        );
+    }
+
     @Override
     public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final Address address, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final AddressTransactions addressTransactions = _getAddressTransactions(blockchainSegmentId, address);
@@ -296,39 +333,34 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     @Override
     public void queueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
-        if (transactionIds.isEmpty()) { return; }
-
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT IGNORE transaction_output_processor_queue (transaction_id) VALUES (?)");
-        for (final TransactionId transactionId : transactionIds) {
-            query.setParameter(transactionId);
-        }
-
-        databaseConnection.executeSql(query);
+        _updateNextUnprocessedTransactionId(transactionIds);
     }
 
     @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT transaction_id FROM transaction_output_processor_queue ORDER BY id ASC LIMIT " + batchSize));
+        final Long firstTransactionId = _getNextUnprocessedTransactionId();
 
-        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM transactions WHERE id >= ? ORDER BY id ASC LIMIT " + batchSize)
+                .setParameter(firstTransactionId)
+        );
+
+        if (rows.isEmpty()) { return new MutableList<TransactionId>(0); }
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
         for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            transactionIds.add(transactionId);
+            final Long rowId = row.getLong("id");
+            final TransactionId transactionId = TransactionId.wrap(rowId);
+            listBuilder.add(transactionId);
         }
-        return transactionIds;
+
+        return listBuilder.build();
     }
 
     @Override
     public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM transaction_output_processor_queue WHERE transaction_id IN (?)")
-                .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
-        );
+        _updateNextUnprocessedTransactionId(transactionIds);
     }
 
     @Override
