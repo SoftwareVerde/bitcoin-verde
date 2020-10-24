@@ -315,14 +315,6 @@ CREATE TABLE indexed_transaction_inputs (
     INDEX indexed_transaction_inputs_prevout_ix (spends_transaction_id, spends_output_index) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE transaction_output_processor_queue (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_id INT UNSIGNED NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY transaction_output_processor_queue_uq (transaction_id),
-    FOREIGN KEY transaction_output_processor_queue_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
-
 CREATE TABLE validated_slp_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,

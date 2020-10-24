@@ -276,13 +276,6 @@ CREATE TABLE IF NOT EXISTS "indexed_transaction_inputs" (
 	PRIMARY KEY ("transaction_id", "input_index")
 );
 
-CREATE TABLE IF NOT EXISTS "transaction_output_processor_queue" (
-	"id" INTEGER NOT NULL,
-	"transaction_id" INTEGER NOT NULL,
-	PRIMARY KEY ("id"),
-	FOREIGN KEY("transaction_id") REFERENCES "transactions" ("id") ON UPDATE RESTRICT ON DELETE CASCADE
-);
-
 CREATE TABLE IF NOT EXISTS "validated_slp_transactions" (
 	"id" INTEGER NOT NULL,
 	"transaction_id" INTEGER NOT NULL,
@@ -345,7 +338,6 @@ CREATE UNIQUE INDEX "pending_transactions_dependent_transactions_pending_transac
 CREATE UNIQUE INDEX "properties_properties_uq" ON "properties" ("key");
 CREATE UNIQUE INDEX "script_types_script_types_uq" ON "script_types" ("type");
 CREATE UNIQUE INDEX "transaction_data_transaction_data_uq" ON "transaction_data" ("transaction_id");
-CREATE UNIQUE INDEX "transaction_output_processor_queue_transaction_output_processor_queue_uq" ON "transaction_output_processor_queue" ("transaction_id");
 CREATE UNIQUE INDEX "transactions_transactions_uq" ON "transactions" ("hash");
 CREATE INDEX "unconfirmed_transaction_inputs_transaction_inputs_tx_id_fk" ON "unconfirmed_transaction_inputs" ("transaction_id");
 CREATE INDEX "unconfirmed_transaction_inputs_unconfirmed_transaction_inputs_tx_hash_ix" ON "unconfirmed_transaction_inputs" ("previous_transaction_hash", "previous_transaction_output_index");

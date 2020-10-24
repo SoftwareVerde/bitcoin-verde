@@ -33,7 +33,6 @@ public class DatabaseMaintainer {
         listBuilder.add("unconfirmed_transaction_inputs");
         listBuilder.add("indexed_transaction_outputs");
         listBuilder.add("indexed_transaction_inputs");
-        listBuilder.add("transaction_output_processor_queue");
         listBuilder.add("validated_slp_transactions");
         listBuilder.add("hosts");
         listBuilder.add("nodes");
