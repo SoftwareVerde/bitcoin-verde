@@ -207,7 +207,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT value FROM properties WHERE key = ?")
+            new Query("SELECT value FROM properties WHERE `key` = ?")
                 .setParameter(PENDING_TRANSACTION_KEY)
         );
         if (rows.isEmpty()) { return 0L; }
