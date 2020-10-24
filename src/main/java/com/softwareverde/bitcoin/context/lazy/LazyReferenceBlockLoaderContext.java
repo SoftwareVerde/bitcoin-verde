@@ -42,6 +42,16 @@ public class LazyReferenceBlockLoaderContext implements AsertReferenceBlockLoade
     }
 
     @Override
+    public Long getBlockTimestamp(final BlockId blockId) throws ContextException {
+        try {
+            return _blockHeaderDatabaseManager.getBlockTimestamp(blockId);
+        }
+        catch (final DatabaseException exception) {
+            throw new ContextException(exception);
+        }
+    }
+
+    @Override
     public Long getBlockHeight(final BlockId blockId) throws ContextException {
         try {
             return _blockHeaderDatabaseManager.getBlockHeight(blockId);

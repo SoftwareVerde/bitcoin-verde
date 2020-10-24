@@ -14,6 +14,7 @@ public class AsertReferenceBlockLoader {
     public interface ReferenceBlockLoaderContext {
         BlockId getHeadBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId) throws ContextException;
         MedianBlockTime getMedianBlockTime(BlockId blockId) throws ContextException;
+        Long getBlockTimestamp(BlockId blockId) throws ContextException;
         Long getBlockHeight(BlockId blockId) throws ContextException;
         BlockId getBlockIdAtHeight(BlockchainSegmentId blockchainSegmentId, Long blockHeight) throws ContextException;
         Difficulty getDifficulty(BlockId blockId) throws ContextException;
@@ -83,10 +84,13 @@ public class AsertReferenceBlockLoader {
         }
 
         final Long blockHeight = maxBlockHeight;
+        final Long parentBlockHeight = ((blockHeight > 0L) ? (blockHeight - 1L) : 0L);
         final BlockId blockId = _context.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
-        final Difficulty difficulty = _context.getDifficulty(blockId);
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockId);
+        final BlockId parentBlockId = _context.getBlockIdAtHeight(blockchainSegmentId, parentBlockHeight);
 
-        return new AsertReferenceBlock(blockHeight, medianBlockTime, difficulty);
+        final Difficulty difficulty = _context.getDifficulty(blockId);
+        final Long previousBlockTimestamp = _context.getBlockTimestamp(parentBlockId);
+
+        return new AsertReferenceBlock(blockHeight, previousBlockTimestamp, difficulty);
     }
 }

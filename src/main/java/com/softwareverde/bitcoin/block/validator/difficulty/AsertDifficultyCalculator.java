@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.logging.Logger;
 
 import java.math.BigInteger;
 
@@ -12,15 +12,20 @@ import java.math.BigInteger;
  *  https://github.com/pokkst/bitcoincashj/blob/master/core/src/main/java/org/bitcoinj/params/AbstractBitcoinNetParams.java
  */
 public class AsertDifficultyCalculator {
-    public static final Long TARGET_BLOCK_SPACING = (10L * 60L);  // 10 minutes per block.
+    public static final Long TARGET_BLOCK_SPACING = (10L * 60L); // 10 minutes per block.
     public static final Long HALF_LIFE = (2L * 24L * 60L * 60L); // 2 Days, in seconds.
 
-    protected Difficulty _computeAsertTarget(final AsertReferenceBlock referenceBlock, final MedianBlockTime blockTime, final BigInteger blockHeight) {
+    protected BigInteger _getHalfLife() {
+        return BigInteger.valueOf(AsertDifficultyCalculator.HALF_LIFE);
+    }
+
+    protected Difficulty _computeAsertTarget(final AsertReferenceBlock referenceBlock, final Long previousBlockTimestamp, final BigInteger previousBlockHeight) {
         final int shiftBitCount = 16;
 
-        final MedianBlockTime referenceBlockMedianBlockTime = referenceBlock.blockTime;
-        final BigInteger heightDiff = blockHeight.subtract(referenceBlock.blockHeight);
-        final long blockTimeDifferenceInSeconds = (blockTime.getCurrentTimeInSeconds() - referenceBlockMedianBlockTime.getCurrentTimeInSeconds());
+        final Long referenceBlockTime = referenceBlock.parentBlockTimestamp;
+        final BigInteger heightDiff = previousBlockHeight.subtract(referenceBlock.blockHeight);
+        final long blockTimeDifferenceInSeconds = (previousBlockTimestamp - referenceBlockTime);
+        Logger.trace("anchor_bits=" + referenceBlock.difficulty.encode() + ", time_diff=" + blockTimeDifferenceInSeconds + ", height_diff=" + heightDiff);
 
         final BigInteger heightDifferenceWithOffset = heightDiff.add(BigInteger.ONE);
         final BigInteger desiredHeight = BigInteger.valueOf(TARGET_BLOCK_SPACING).multiply(heightDifferenceWithOffset);
@@ -28,7 +33,8 @@ public class AsertDifficultyCalculator {
         final int shiftCount;
         final BigInteger exponent;
         {
-            final BigInteger value = (((BigInteger.valueOf(blockTimeDifferenceInSeconds).subtract(desiredHeight)).shiftLeft(shiftBitCount)).divide(BigInteger.valueOf(HALF_LIFE)));
+            final BigInteger halfLifeBigInteger = _getHalfLife();
+            final BigInteger value = (((BigInteger.valueOf(blockTimeDifferenceInSeconds).subtract(desiredHeight)).shiftLeft(shiftBitCount)).divide(halfLifeBigInteger));
             shiftCount = (value.shiftRight(shiftBitCount)).intValue();
             exponent = value.subtract(BigInteger.valueOf(shiftCount << shiftBitCount));
         }
@@ -71,7 +77,9 @@ public class AsertDifficultyCalculator {
         return Difficulty.fromBigInteger(target);
     }
 
-    public Difficulty computeAsertTarget(final AsertReferenceBlock referenceBlock, final MedianBlockTime blockTime, final Long blockHeight) {
-        return _computeAsertTarget(referenceBlock, blockTime, BigInteger.valueOf(blockHeight));
+    public Difficulty computeAsertTarget(final AsertReferenceBlock referenceBlock, final Long previousBlockTimestamp, final Long blockHeight) {
+        // For calculating the Difficulty of blockHeight N, the parent height, while technically an arbitrary choice, is used in due to the evolution of the algorithm.
+        final BigInteger previousBlockHeightBigInteger = BigInteger.valueOf(blockHeight - 1L);
+        return _computeAsertTarget(referenceBlock, previousBlockTimestamp, previousBlockHeightBigInteger);
     }
 }

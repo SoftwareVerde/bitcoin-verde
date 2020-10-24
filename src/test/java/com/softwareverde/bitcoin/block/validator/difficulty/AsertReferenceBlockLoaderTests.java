@@ -39,19 +39,21 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
 
         for (int i = 0; i < 10000; ++i) {
-            final Long blockHeight = (699998L - i);
+            final long blockHeight = (699998L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
         {
-            final Long blockHeight = 699999L;
+            final long blockHeight = 699999L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -74,19 +76,24 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
 
         for (int i = 0; i < 10000; ++i) {
-            final Long blockHeight = (699999L - i);
+            final long blockHeight = (699999L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
+        final Long expectedPreviousBlockTimestamp;
         {
-            final Long blockHeight = 700000L;
+            final long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
+
+            expectedPreviousBlockTimestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + (blockHeight - 1L)); // i.e. the previous block.
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -100,7 +107,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         Assert.assertNotNull(asertReferenceBlock);
         Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
         Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
-        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+        Assert.assertEquals(expectedPreviousBlockTimestamp, asertReferenceBlock.parentBlockTimestamp);
 
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
@@ -115,24 +122,29 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
             final Long blockHeight = (699999L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
+        final Long expectedPreviousBlockTimestamp;
         {
             final Long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
+            expectedPreviousBlockTimestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + (blockHeight - 1L));
         }
 
         {
             final Long blockHeight = 700001L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033274"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -146,7 +158,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         Assert.assertNotNull(asertReferenceBlock);
         Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
         Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
-        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+        Assert.assertEquals(expectedPreviousBlockTimestamp, asertReferenceBlock.parentBlockTimestamp);
 
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
@@ -163,24 +175,29 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
             final Long blockHeight = (699999L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
+        final Long expectedPreviousBlockTimestamp;
         {
             final Long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
+            expectedPreviousBlockTimestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + (blockHeight - 1L));
         }
 
         for (int i = 0; i < afterCount; ++i) {
             final Long blockHeight = (700001L + i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033274"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -194,7 +211,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         Assert.assertNotNull(asertReferenceBlock);
         Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
         Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
-        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+        Assert.assertEquals(expectedPreviousBlockTimestamp, asertReferenceBlock.parentBlockTimestamp);
 
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
@@ -211,24 +228,29 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
             final Long blockHeight = (699999L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
+        final Long expectedPreviousBlockTimestamp;
         {
             final Long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
+            expectedPreviousBlockTimestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + (blockHeight - 1L));
         }
 
         for (int i = 0; i < afterCount; ++i) {
             final Long blockHeight = (700001L + i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033274"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -242,7 +264,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         Assert.assertNotNull(asertReferenceBlock);
         Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
         Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
-        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+        Assert.assertEquals(expectedPreviousBlockTimestamp, asertReferenceBlock.parentBlockTimestamp);
 
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
@@ -259,24 +281,29 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
             final Long blockHeight = (699999L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
+        final Long expectedPreviousBlockTimestamp;
         {
             final Long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
+            expectedPreviousBlockTimestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + (blockHeight - 1L));
         }
 
         for (int i = 0; i < afterCount; ++i) {
             final Long blockHeight = (700001L + i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033274"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -290,7 +317,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         Assert.assertNotNull(asertReferenceBlock);
         Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
         Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
-        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+        Assert.assertEquals(expectedPreviousBlockTimestamp, asertReferenceBlock.parentBlockTimestamp);
 
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());
@@ -307,16 +334,20 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
             final Long blockHeight = (699999L - i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18031F32"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, NOT_ACTIVATED_BLOCK_TIME, timestamp, difficulty);
         }
 
+        final Long expectedPreviousBlockTimestamp;
         {
             final Long blockHeight = 700000L;
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033273"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
+            expectedPreviousBlockTimestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + (blockHeight - 1L));
         }
 
         final int afterCount = 144; // This must at least match the parentCount within the AsertReferenceBlockLoader in order to activate this test case.
@@ -324,8 +355,9 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
             final Long blockHeight = (700001L + i);
             final BlockId blockId = BlockId.wrap(blockHeight + 1L);
             final Difficulty difficulty = Difficulty.decode(ByteArray.fromHexString("18033274"));
+            final long timestamp = (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP + blockHeight);
 
-            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, difficulty);
+            context.setBlockHeader(BLOCKCHAIN_SEGMENT_ID, blockId, blockHeight, ACTIVATION_BLOCK_TIME, timestamp, difficulty);
         }
 
         final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(context);
@@ -339,7 +371,7 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         Assert.assertNotNull(asertReferenceBlock);
         Assert.assertEquals(BigInteger.valueOf(700000L), asertReferenceBlock.blockHeight);
         Assert.assertEquals(Difficulty.decode(ByteArray.fromHexString("18033273")), asertReferenceBlock.difficulty);
-        Assert.assertEquals(ACTIVATION_BLOCK_TIME, asertReferenceBlock.blockTime);
+        Assert.assertEquals(expectedPreviousBlockTimestamp, asertReferenceBlock.parentBlockTimestamp);
 
         TOTAL_LOOKUP_COUNT.addAndGet(context.getLookupCount());
         TOTAL_MTP_CALCULATION_COUNT.addAndGet(context.getMedianTimePastCalculationCount());

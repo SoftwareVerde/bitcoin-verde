@@ -21,16 +21,18 @@ public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
     protected static final BigInteger TWO_TO_THE_POWER_OF_256 = BigInteger.valueOf(2L).pow(256);
 
-    protected final MedianBlockHeaderSelector _medianBlockHeaderSelector;
     protected final DifficultyCalculatorContext _context;
+    protected final MedianBlockHeaderSelector _medianBlockHeaderSelector;
+    protected final AsertDifficultyCalculator _asertDifficultyCalculator;
 
-    protected DifficultyCalculator(final DifficultyCalculatorContext blockchainContext, final MedianBlockHeaderSelector medianBlockHeaderSelector) {
+    protected DifficultyCalculator(final DifficultyCalculatorContext blockchainContext, final MedianBlockHeaderSelector medianBlockHeaderSelector, final AsertDifficultyCalculator asertDifficultyCalculator) {
         _context = blockchainContext;
         _medianBlockHeaderSelector = medianBlockHeaderSelector;
+        _asertDifficultyCalculator = asertDifficultyCalculator;
     }
 
     public DifficultyCalculator(final DifficultyCalculatorContext blockchainContext) {
-        this(blockchainContext, new MedianBlockHeaderSelector());
+        this(blockchainContext, new MedianBlockHeaderSelector(), new AsertDifficultyCalculator());
     }
 
     protected Difficulty _calculateNewBitcoinCoreTarget(final Long forBlockHeight) {
@@ -104,10 +106,12 @@ public class DifficultyCalculator {
         return previousBlockHeader.getDifficulty();
     }
 
-    protected Difficulty _calculateAserti32dBitcoinCashTarget(final Long blockHeight, final MedianBlockTime medianBlockTime) {
-        final AsertDifficultyCalculator asertDifficultyCalculator = new AsertDifficultyCalculator();
+    protected Difficulty _calculateAserti32dBitcoinCashTarget(final Long blockHeight) {
+        final BlockHeader previousBlockHeader = _context.getBlockHeader((blockHeight > 0) ? (blockHeight - 1L) : 0L); // The ASERT algorithm uses the parent block's timestamp, except for the genesis block itself (which should never happen).
+        final Long previousBlockTimestamp = previousBlockHeader.getTimestamp();
+
         final AsertReferenceBlock referenceBlock = _context.getAsertReferenceBlock();
-        return asertDifficultyCalculator.computeAsertTarget(referenceBlock, medianBlockTime, blockHeight);
+        return _asertDifficultyCalculator.computeAsertTarget(referenceBlock, previousBlockTimestamp, blockHeight);
     }
 
     protected Difficulty _calculateCw144BitcoinCashTarget(final Long forBlockHeight) {
@@ -205,7 +209,7 @@ public class DifficultyCalculator {
 
         final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
         if (HF20201115.isEnabled(medianBlockTime)) {
-            return _calculateAserti32dBitcoinCashTarget(blockHeight, medianBlockTime);
+            return _calculateAserti32dBitcoinCashTarget(blockHeight);
         }
 
         if (HF20171113.isEnabled(blockHeight)) {
