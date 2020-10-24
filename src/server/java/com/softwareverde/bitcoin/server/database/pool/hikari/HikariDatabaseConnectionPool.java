@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.properties.DatabaseProperties;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.LoggerInstance;
@@ -15,7 +16,6 @@ import com.zaxxer.hikari.HikariPoolMXBean;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.sql.Connection;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,7 +40,9 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
     protected final LoggerInstance _logger = Logger.getInstance(this.getClass());
 
     protected void _initHikariDataSource(final DatabaseProperties databaseProperties) {
-        _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
+        // NOTE: Using the MariaDB driver causes an unbounded memory leak within MySQL 5.7 & 8 (and Percona 8).
+        _dataSource.setDriverClassName(com.mysql.jdbc.Driver.class.getName());
+
         _dataSource.setConnectionInitSql("SET NAMES 'utf8mb4'");
         _dataSource.setConnectionTimeout(TimeUnit.SECONDS.toMillis(15));
         _dataSource.setMaxLifetime(TimeUnit.HOURS.toMillis(1)); // NOTE: MySQL has a default max of 8 hours.
@@ -55,17 +57,20 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         final String username = databaseProperties.getUsername();
         final String password = databaseProperties.getPassword();
 
-        _dataSource.setJdbcUrl("jdbc:mariadb://" + hostname + ":" + port + "/" + schema);
+        final String connectionString = MysqlDatabaseConnectionFactory.createConnectionString(hostname, port, schema);
+        _dataSource.setJdbcUrl(connectionString);
         _dataSource.setUsername(username);
         _dataSource.setPassword(password);
 
-        { // Enable prepared statement caching...
-            final Properties config = new Properties();
-            config.setProperty("cachePrepStmts", "true");
-            config.setProperty("prepStmtCacheSize", "250");
-            config.setProperty("prepStmtCacheSqlLimit", "2048");
-            _dataSource.setDataSourceProperties(config);
-        }
+        // NOTE: Caching prepared statements are likely not the cause of a memory leak within MySQL, however it wasn't
+        //  conclusively absolved, and since the performance benefit was not measured the caching is disabled.
+//        { // Enable prepared statement caching...
+//            final Properties config = new Properties();
+//            config.setProperty("cachePrepStmts", "true");
+//            config.setProperty("prepStmtCacheSize", "250");
+//            config.setProperty("prepStmtCacheSqlLimit", "2048");
+//            _dataSource.setDataSourceProperties(config);
+//        }
 
         try {
             _dataSource.setLogWriter(new PrintWriter(new Writer() {
