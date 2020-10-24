@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.SystemUtil;
@@ -29,7 +30,11 @@ public class DatabaseConfigurer {
             final long bytesPerConnection = ((3L * ByteUtil.Unit.Binary.MEBIBYTES) + maxAllowedPacketByteCount);
             final long overheadByteCount = (bytesPerConnection * maxDatabaseThreadCount);
 
+            final long minMemoryRequired = (256L * ByteUtil.Unit.Binary.MEBIBYTES);
             final long maxDatabaseMemory = (databaseProperties.getMaxMemoryByteCount() - overheadByteCount);
+            if (maxDatabaseMemory < minMemoryRequired) {
+                throw new RuntimeException("Insufficient memory available to allocate desired settings. Consider reducing the number of allowed connections.");
+            }
 
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (maxDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total database memory.

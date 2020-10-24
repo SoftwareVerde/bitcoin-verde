@@ -30,7 +30,9 @@ public class DatabaseConfigurerTests {
         };
 
         final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-        final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
+        final Integer maxDatabaseThreadCount = 5000; // Reasonably large number of connections. (MySQL allows up to 10k)
+        final Long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
+        final Long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
         DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
@@ -44,7 +46,7 @@ public class DatabaseConfigurerTests {
         }
 
         // Assert
-        final Long expectedBufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(systemByteCount - (logFileByteCount / 4L));
+        final Long expectedBufferPoolByteCount = (usableSystemMemory - (logFileByteCount / 4L)); // Slightly more than 10GB due to 3MB per-connection overhead...
         Assert.assertEquals(Long.valueOf(logFileByteCount / 4L), Util.parseLong(arguments.get("--innodb_log_buffer_size")));
         Assert.assertEquals(expectedBufferPoolByteCount, Util.parseLong(arguments.get("--innodb_buffer_pool_size")));
     }
@@ -68,7 +70,9 @@ public class DatabaseConfigurerTests {
         };
 
         final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-        final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
+        final Integer maxDatabaseThreadCount = 32; // Maximum supported by MySql...
+        final Long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
+        final Long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
         DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
@@ -82,8 +86,9 @@ public class DatabaseConfigurerTests {
         }
 
         // Assert
+        final Long bufferPoolByteCount = (usableSystemMemory - (logFileByteCount / 4L));
         Assert.assertEquals(Long.valueOf(logFileByteCount / 4L), Util.parseLong(arguments.get("--innodb_log_buffer_size")));
-        Assert.assertEquals(Long.valueOf(systemByteCount - (logFileByteCount / 4L)), Util.parseLong(arguments.get("--innodb_buffer_pool_size")));
+        Assert.assertEquals(bufferPoolByteCount, Util.parseLong(arguments.get("--innodb_buffer_pool_size")));
     }
 
     @Test
@@ -104,7 +109,9 @@ public class DatabaseConfigurerTests {
         };
 
         final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-        final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
+        final Integer maxDatabaseThreadCount = 64;
+        final Long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
+        final Long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
         DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
@@ -118,7 +125,7 @@ public class DatabaseConfigurerTests {
         }
 
         // Assert
-        Assert.assertEquals(Util.parseLong(arguments.get("--innodb_log_buffer_size")), Long.valueOf(systemByteCount / 4L));
-        Assert.assertEquals(Util.parseLong(arguments.get("--innodb_buffer_pool_size")), Long.valueOf(systemByteCount * 3L / 4L));
+        Assert.assertEquals(Long.valueOf(usableSystemMemory / 4L), Util.parseLong(arguments.get("--innodb_log_buffer_size")));
+        Assert.assertEquals(Long.valueOf(usableSystemMemory * 3L / 4L), Util.parseLong(arguments.get("--innodb_buffer_pool_size")));
     }
 }
