@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync.block;
 
+import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -59,7 +60,8 @@ public class BlockDownloader extends GracefulSleepyService {
 
     protected final Context _context;
 
-    protected final ConcurrentHashMap<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>(12);
+    protected final ConcurrentHashMap<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>();
+    protected final ConcurrentHashSet<NodeId> _hasBlockInFlight = new ConcurrentHashSet<NodeId>();
 
     protected Runnable _newBlockAvailableCallback = null;
 
@@ -168,7 +170,13 @@ public class BlockDownloader extends GracefulSleepyService {
 
         for (final Sha256Hash stalledBlockHash : stalledBlockHashes) {
             Logger.warn("Stalled Block Detected: " + stalledBlockHash);
-            _currentBlockDownloadSet.remove(stalledBlockHash);
+            final CurrentDownload currentDownload = _currentBlockDownloadSet.remove(stalledBlockHash);
+            if (currentDownload != null) {
+                final NodeId nodeId = currentDownload.nodeId;
+                if (nodeId != null) {
+                    _hasBlockInFlight.remove(nodeId);
+                }
+            }
         }
     }
 
@@ -189,12 +197,17 @@ public class BlockDownloader extends GracefulSleepyService {
             public void onResult(final Block block) {
                 if (_shouldAbort()) { return; }
 
-                didRespond.set(true);
+                final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
                 pin.release();
 
                 _currentBlockDownloadSet.remove(blockHash);
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
+
+                    final NodeId nodeId = currentDownload.nodeId;
+                    if (nodeId != null) {
+                        _hasBlockInFlight.remove(nodeId);
+                    }
                 }
 
                 final Sha256Hash blockHash = block.getHash();
@@ -232,20 +245,27 @@ public class BlockDownloader extends GracefulSleepyService {
             public void onFailure(final Sha256Hash blockHash) {
                 if (_shouldAbort()) { return; }
 
-                didRespond.set(true);
+                final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
                 pin.release();
 
                 if (bitcoinNode != null) {
                     bitcoinNode.removeCallback(this);
                 }
 
-                _currentBlockDownloadSet.remove(blockHash);
+                final boolean callbackExistedInSet = (_currentBlockDownloadSet.remove(blockHash) != null);
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
+
+                    final NodeId nodeId = currentDownload.nodeId;
+                    if (nodeId != null) {
+                        _hasBlockInFlight.remove(nodeId);
+                    }
                 }
                 final Long msElapsed = (currentDownload != null ? currentDownload.milliTimer.getMillisecondsElapsed() : null);
 
-                Logger.info("Block " + blockHash + " failed from " + nodeName + ((msElapsed != null) ? (" after " + msElapsed + "ms.") : "."));
+                if ( callbackExistedInSet && (! hasAlreadyResponded) ) {
+                    Logger.info("Block " + blockHash + " failed from " + nodeName + ((msElapsed != null) ? (" after " + msElapsed + "ms.") : "."));
+                }
             }
         };
 
@@ -330,7 +350,6 @@ public class BlockDownloader extends GracefulSleepyService {
             final int nodeCount = bitcoinNodes.getCount();
             if (nodeCount == 0) { return false; }
 
-            int nextNodeIndex = 0;
             for (final PendingBlockId pendingBlockId : downloadPlan) {
                 if (_shouldAbort()) { return false; }
 
@@ -345,8 +364,21 @@ public class BlockDownloader extends GracefulSleepyService {
                     continue;
                 }
 
-                final BitcoinNode bitcoinNode = bitcoinNodes.get(nextNodeIndex % nodeCount);
-                final NodeId nodeId = bitcoinNode.getId();
+                BitcoinNode selectedNode = null;
+                { // Find a node that does not already have a block in-flight.
+                    // NOTE: BCHN nodes do not allow multiple in-flight blocks.
+                    for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+                        final NodeId nodeId = bitcoinNode.getId();
+                        final boolean hadBlockInFlight = (!_hasBlockInFlight.add(nodeId));
+                        if (hadBlockInFlight) { continue; }
+
+                        selectedNode = bitcoinNode;
+                        break;
+                    }
+                    if (selectedNode == null) { break; }
+                }
+
+                final NodeId nodeId = selectedNode.getId();
 
                 final MilliTimer timer = new MilliTimer();
                 final CurrentDownload currentDownload = new CurrentDownload(nodeId, timer);
@@ -354,11 +386,9 @@ public class BlockDownloader extends GracefulSleepyService {
                 _currentBlockDownloadSet.put(blockHash, currentDownload);
 
                 timer.start();
-                _downloadBlock(blockHash, bitcoinNode, currentDownload);
+                _downloadBlock(blockHash, selectedNode, currentDownload);
 
                 pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
-
-                nextNodeIndex += 1;
             }
         }
         catch (final DatabaseException exception) {
