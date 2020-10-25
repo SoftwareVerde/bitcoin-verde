@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -86,7 +87,7 @@ public class ChainValidationModule {
         final MasterInflater masterInflater = new CoreInflater();
 
         final BlockchainSegmentId blockchainSegmentId;
-        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionFactory();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater, _checkpointConfiguration);
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
