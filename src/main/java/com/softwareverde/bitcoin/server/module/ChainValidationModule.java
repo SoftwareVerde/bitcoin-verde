@@ -86,7 +86,7 @@ public class ChainValidationModule {
         final MasterInflater masterInflater = new CoreInflater();
 
         final BlockchainSegmentId blockchainSegmentId;
-        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionFactory();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater, _checkpointConfiguration);
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

@@ -59,7 +59,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         }
     }
 
-    protected static final String PENDING_TRANSACTION_KEY = "next_pending_transaction_id";
+    protected static final String LAST_INDEXED_TRANSACTION_KEY = "last_indexed_transaction_id";
 
     protected final FullNodeDatabaseManager _databaseManager;
     protected final AddressInflater _addressInflater;
@@ -203,12 +203,12 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return new AddressTransactions(blockchainSegmentId, transactionIds, inputIndexes, outputIndexes);
     }
 
-    protected Long _getNextUnprocessedTransactionId() throws DatabaseException {
+    protected Long _getLastIndexedTransactionId() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(PENDING_TRANSACTION_KEY)
+                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
         );
         if (rows.isEmpty()) { return 0L; }
 
@@ -216,12 +216,12 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return row.getLong("value");
     }
 
-    protected void _updateNextUnprocessedTransactionId(final List<TransactionId> transactionIds) throws DatabaseException {
+    protected void _updateLastIndexedTransactionId(final List<TransactionId> transactionIds) throws DatabaseException {
         if (transactionIds.isEmpty()) { return; }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        Long nextTransactionId = _getNextUnprocessedTransactionId();
+        Long nextTransactionId = _getLastIndexedTransactionId();
 
         for (final TransactionId transactionId : transactionIds) {
             final long transactionIdLong = transactionId.longValue();
@@ -232,7 +232,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         databaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(PENDING_TRANSACTION_KEY)
+                .setParameter(LAST_INDEXED_TRANSACTION_KEY)
                 .setParameter(nextTransactionId)
         );
     }
@@ -333,12 +333,12 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     @Override
     public void queueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
-        _updateNextUnprocessedTransactionId(transactionIds);
+        _updateLastIndexedTransactionId(transactionIds);
     }
 
     @Override
     public List<TransactionId> getUnprocessedTransactions(final Integer batchSize) throws DatabaseException {
-        final Long firstTransactionId = _getNextUnprocessedTransactionId();
+        final Long firstTransactionId = _getLastIndexedTransactionId();
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
@@ -360,7 +360,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     @Override
     public void dequeueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
-        _updateNextUnprocessedTransactionId(transactionIds);
+        _updateLastIndexedTransactionId(transactionIds);
     }
 
     @Override

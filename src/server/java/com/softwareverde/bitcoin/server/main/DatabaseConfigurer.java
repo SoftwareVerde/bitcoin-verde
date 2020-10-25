@@ -39,7 +39,7 @@ public class DatabaseConfigurer {
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (maxDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total database memory.
             final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(maxDatabaseMemory - logBufferByteCount);
-            final Integer bufferPoolInstanceCount = (bufferPoolByteCount <= ByteUtil.Unit.Binary.GIBIBYTES ? 1 : 32); // Experimental; https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
+            final Integer bufferPoolInstanceCount = (bufferPoolByteCount <= ByteUtil.Unit.Binary.GIBIBYTES ? 1 : 4); // 32=Experimental; https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
 
             // TODO: Experiment with innodb_change_buffer_max_size and innodb_change_buffering for better IBD performance.
 

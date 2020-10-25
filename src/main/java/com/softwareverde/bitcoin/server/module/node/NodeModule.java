@@ -26,7 +26,6 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
-import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
@@ -308,14 +307,14 @@ public class NodeModule {
         Logger.info("[Committing UTXO Set]");
         {
             final Database database = _environment.getDatabase();
-            final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionPool();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
+            final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MilliTimer utxoCommitTimer = new MilliTimer();
                 utxoCommitTimer.start();
                 Logger.info("Committing UTXO set.");
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionPool);
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
                 utxoCommitTimer.stop();
                 Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
             }
@@ -334,9 +333,9 @@ public class NodeModule {
         }
 
         Logger.info("[Shutting Down Database]");
-        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
         try {
-            databaseConnectionPool.close();
+            databaseConnectionFactory.close();
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -406,9 +405,9 @@ public class NodeModule {
         });
 
         final Database database = _environment.getDatabase();
-        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
-            databaseConnectionPool,
+            databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
             _masterInflater,
@@ -843,7 +842,7 @@ public class NodeModule {
                 final RpcDataHandler rpcDataHandler = new RpcDataHandler(transactionInflaters, databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
-                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionPool);
+                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
                 for (final SleepyService sleepyService : _allServices) {
@@ -917,7 +916,7 @@ public class NodeModule {
         }
 
         { // Initialize the DatabaseMaintenance Thread...
-            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(databaseConnectionPool);
+            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(databaseConnectionFactory);
             _databaseMaintenanceThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -990,9 +989,9 @@ public class NodeModule {
         timer.start();
 
         final Database database = _environment.getDatabase();
-        final DatabaseConnectionPool databaseConnectionPool = _environment.getDatabaseConnectionPool();
+        final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
-            databaseConnectionPool,
+            databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
             _masterInflater,
@@ -1066,7 +1065,7 @@ public class NodeModule {
                 final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
                 final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
-                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionPool, utxoCommitFrequency);
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, utxoCommitFrequency);
 
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, _mainThreadPool);
 
