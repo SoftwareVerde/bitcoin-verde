@@ -206,8 +206,7 @@ public class BlockProcessor {
         final MilliTimer timer = new MilliTimer();
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
         try {
-            final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
             Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
             timer.start();
             // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
@@ -300,20 +299,20 @@ public class BlockProcessor {
         // 6. Commit the UTXO set to ensure UTXOs removed by a now-undone commit are re-added...
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
         Logger.info("Committing UTXO set.");
-        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory.getDatabaseConnectionFactory());
+        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs();
 
         timer.stop();
         Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
     }
 
-    protected AsyncFuture _applyBlockToUtxoSetAsync(final Long blockHeight, final Block block, final FullNodeDatabaseManager databaseManager, final DatabaseConnectionFactory databaseConnectionFactory) {
+    protected AsyncFuture _applyBlockToUtxoSetAsync(final Long blockHeight, final Block block, final FullNodeDatabaseManager databaseManager) {
         final AsyncFuture future = new AsyncFuture();
 
         (new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
                     unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight);
                 }
                 catch (final DatabaseException exception) {
@@ -443,7 +442,7 @@ public class BlockProcessor {
 
                 final AsyncFuture utxoFuture;
                 if (blockIsConnectedToUtxoSet && (blockHeight > 0L)) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
-                    utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager, databaseConnectionFactory);
+                    utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager);
                 }
                 else {
                     utxoFuture = null;
@@ -599,8 +598,7 @@ public class BlockProcessor {
                     headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
                 }
 
-                final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, _utxoCommitFrequency);
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
 
                 unspentTransactionOutputManager.clearUncommittedUtxoSet(); // Clear the UTXO set's invalidation state before rebuilding.
 

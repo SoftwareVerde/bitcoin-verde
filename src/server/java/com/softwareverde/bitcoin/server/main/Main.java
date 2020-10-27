@@ -9,9 +9,11 @@ import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
 import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.ChainValidationModule;
 import com.softwareverde.bitcoin.server.module.DatabaseModule;
@@ -23,6 +25,7 @@ import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.LineNumberAnnotatedLog;
 import com.softwareverde.logging.Log;
 import com.softwareverde.logging.LogLevel;
@@ -232,6 +235,14 @@ public class Main {
                     throw new RuntimeException("");
                 }
                 Logger.info("[Database Online]");
+
+                try { // Set the SQL mode... (allow non-deterministic group-by clauses)
+                    final DatabaseConnection databaseConnection = database.getMaintenanceConnection();
+                    databaseConnection.executeSql(new Query("SET GLOBAL sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'"));
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug("Unable to set SQL mode.", exception);
+                }
 
                 final DatabaseConnectionPool databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
                 final Environment environment = new Environment(database, databaseConnectionFactory);

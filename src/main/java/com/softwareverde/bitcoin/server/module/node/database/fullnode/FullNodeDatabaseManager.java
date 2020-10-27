@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManagerCore;
@@ -166,7 +167,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     public UnspentTransactionOutputDatabaseManager getUnspentTransactionOutputDatabaseManager() {
         if (_unspentTransactionOutputDatabaseManager == null) {
-            _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputDatabaseManager(_maxUtxoCount, _utxoPurgePercent, this, _blockStore, _masterInflater);
+            _unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputJvmManager(_maxUtxoCount, _utxoPurgePercent, this, _blockStore, _masterInflater);
         }
 
         return _unspentTransactionOutputDatabaseManager;

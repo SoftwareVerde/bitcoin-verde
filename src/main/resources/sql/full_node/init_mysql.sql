@@ -91,34 +91,11 @@ CREATE VIEW head_block AS (
 
 -- UTXO Tables
 
-CREATE TABLE unspent_transaction_outputs (
-    transaction_hash BINARY(32) NOT NULL,
-    `index` INT UNSIGNED NOT NULL,
-    is_spent TINYINT(1) UNSIGNED DEFAULT 0 COMMENT 'NULL indicates that the output is unspent and the row is synchronized with committed_unspent_transaction_outputs table.',
-    block_height INT UNSIGNED COMMENT 'NULL indicates the output was not in the cache when it was marked for delete, or there was a rollback of the UTXO set.',
-    PRIMARY KEY (transaction_hash, `index`) USING HASH,
-    INDEX utxo_block_height_ix (block_height) USING BTREE
-) ENGINE=MEMORY DEFAULT CHARSET=LATIN1;
-
-CREATE TABLE unspent_transaction_outputs_buffer (
-    transaction_hash BINARY(32) NOT NULL,
-    `index` INT UNSIGNED NOT NULL,
-    is_spent TINYINT(1) UNSIGNED DEFAULT 0,
-    block_height INT UNSIGNED,
-    PRIMARY KEY (transaction_hash, `index`) USING HASH
-) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
-
 CREATE TABLE committed_unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     is_spent TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     block_height INT UNSIGNED NOT NULL,
-    PRIMARY KEY (transaction_hash, `index`)
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
-
-CREATE TABLE stale_committed_unspent_transaction_outputs (
-    transaction_hash BINARY(32) NOT NULL,
-    `index` INT UNSIGNED NOT NULL,
     PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 

@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
@@ -19,7 +18,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
     public Long getCachedUtxoCount() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            return unspentTransactionOutputDatabaseManager.getCachedUnspentTransactionOutputCount(true);
+            return unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputCount(true);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
@@ -58,11 +57,10 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
 
     @Override
     public void commitUtxoCache() {
-        final DatabaseConnectionFactory databaseConnectionFactory = _databaseManagerFactory.getDatabaseConnectionFactory();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             Logger.info("Committing UTXO set.");
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs();
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
