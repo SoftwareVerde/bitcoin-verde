@@ -28,7 +28,14 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
 
     @Override
     public Long getMaxCachedUtxoCount() {
-        return UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT;
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            return unspentTransactionOutputDatabaseManager.getMaxUtxoCount();
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+            return null;
+        }
     }
 
     @Override

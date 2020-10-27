@@ -15,6 +15,7 @@ public class DatabaseConfigurer {
     public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Integer maxDatabaseThreadCount, final DatabaseProperties databaseProperties, final BitcoinProperties bitcoinProperties) {
         // final long maxHeapTableSize = ((bitcoinProperties != null ? bitcoinProperties.getMaxUtxoCacheByteCount() : 0L) + (16L * ByteUtil.Unit.Binary.MEBIBYTES)); // Include 16MB for MySQL sort tmp-tables...
         // commandLineArguments.addArgument("--max_heap_table_size=" + maxHeapTableSize); // Maximum engine=MEMORY table size.
+        commandLineArguments.addArgument("--sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'"); // Disable ONLY_FULL_GROUP_BY.
 
         if (SystemUtil.isWindowsOperatingSystem()) {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
