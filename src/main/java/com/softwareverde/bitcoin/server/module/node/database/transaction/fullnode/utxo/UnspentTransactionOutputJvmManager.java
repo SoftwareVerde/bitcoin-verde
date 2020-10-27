@@ -32,6 +32,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.MilliTimer;
@@ -437,7 +438,10 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         milliTimer.start();
 
                         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+                            TransactionUtil.startTransaction(databaseConnection);
                             UnspentTransactionOutputJvmManager.commitDoubleBufferedUnspentTransactionOutputs(newCommittedBlockHeight, databaseManager);
+                            TransactionUtil.commitTransaction(databaseConnection);
                         }
                         catch (final Exception exception) {
                             _invalidateUncommittedUtxoSet();
