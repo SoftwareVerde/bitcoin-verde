@@ -307,7 +307,7 @@ public class NodeModule {
                 final MilliTimer utxoCommitTimer = new MilliTimer();
                 utxoCommitTimer.start();
                 Logger.info("Committing UTXO set.");
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs();
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, true);
                 utxoCommitTimer.stop();
                 Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
             }
@@ -1061,10 +1061,10 @@ public class NodeModule {
 
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");
-                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader);
+                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader, databaseManagerFactory);
                 }
                 else {
-                    unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                    unspentTransactionOutputManager.buildUtxoSet(blockLoader, databaseManagerFactory);
                 }
             }
             catch (final DatabaseException exception) {
