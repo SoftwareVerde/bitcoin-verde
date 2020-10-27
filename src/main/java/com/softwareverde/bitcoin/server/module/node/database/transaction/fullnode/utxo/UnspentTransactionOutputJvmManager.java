@@ -32,6 +32,8 @@ import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +41,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class UnspentTransactionOutputJvmManager implements UnspentTransactionOutputDatabaseManager {
@@ -66,9 +70,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     protected long _minBlockHeight = Long.MAX_VALUE;
     protected long _maxBlockHeight = 0L;
 
-    // TODO: Needs to be singleton or static.
-
-    protected void _clearUncommittedUtxoSet() throws DatabaseException {
+    protected void _clearUncommittedUtxoSet() {
         UnspentTransactionOutputJvmManager.UNCOMMITTED_UTXO_BLOCK_HEIGHT.value = 0L;
 
         UTXO_SET.clear();
@@ -76,7 +78,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
     protected static Long _getCommittedUnspentTransactionOutputBlockHeight(final DatabaseConnection databaseConnection) throws DatabaseException {
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, value FROM properties WHERE `key` = ?")
+            new Query("SELECT value FROM properties WHERE `key` = ?")
                 .setParameter(UnspentTransactionOutputJvmManager.COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
         );
         if (rows.isEmpty()) { return 0L; }
@@ -228,14 +230,23 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final int maxUtxoPerBatch = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
         final int maxItemCount = (maxUtxoPerBatch * 32); // The maximum number of items in queue at any point in time...
 
+        final AtomicLong onDiskDeleteExecutionTime = new AtomicLong(0L);
+        final AtomicInteger onDiskDeleteItemCount = new AtomicInteger(0);
+        final AtomicInteger onDiskDeleteBatchCount = new AtomicInteger(0);
         final BlockingQueueBatchRunner<UtxoKey> onDiskUtxoDeleteBatchRunner = BlockingQueueBatchRunner.newSortedInstance(maxUtxoPerBatch, maxItemCount, UtxoKey.COMPARATOR, false, new BatchRunner.Batch<UtxoKey>() {
             @Override
             public void run(final List<UtxoKey> unspentTransactionOutputs) throws Exception {
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+                onDiskDeleteBatchCount.incrementAndGet();
+
                 { // Commit the output as spent...
                     final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET is_spent = 1 WHERE (transaction_hash, `index`) IN (?)");
                     query.setExpandedInClauseParameters(unspentTransactionOutputs, new ValueExtractor<UtxoKey>() {
                         @Override
                         public InClauseParameter extractValues(final UtxoKey value) {
+                            onDiskDeleteItemCount.incrementAndGet();
+
                             final TypedParameter transactionHash = new TypedParameter(value.transactionHash);
                             final TypedParameter outputIndex = new TypedParameter(value.outputIndex);
                             return new InClauseParameter(transactionHash, outputIndex);
@@ -246,15 +257,27 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         databaseConnection.executeSql(query);
                     }
                 }
+
+                nanoTimer.stop();
+                onDiskDeleteExecutionTime.addAndGet(nanoTimer.getMillisecondsElapsed().longValue());
             }
         });
 
+        final AtomicLong onDiskInsertExecutionTime = new AtomicLong(0L);
+        final AtomicInteger onDiskInsertItemCount = new AtomicInteger(0);
+        final AtomicInteger onDiskInsertBatchCount = new AtomicInteger(0);
         final BlockingQueueBatchRunner<UnspentTransactionOutput> onDiskUtxoInsertBatchRunner = BlockingQueueBatchRunner.newSortedInstance(maxUtxoPerBatch, maxItemCount, UnspentTransactionOutput.COMPARATOR, false, new BatchRunner.Batch<UnspentTransactionOutput>() {
             @Override
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+                onDiskInsertBatchCount.incrementAndGet();
+
                 // NOTE: updating is_spent to zero on a duplicate key is required in order to undo a block that has been committed to disk.
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 0");
                 for (final UnspentTransactionOutput transactionOutputIdentifier : batchItems) {
+                    onDiskInsertItemCount.incrementAndGet();
+
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getTransactionHash());
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getOutputIndex());
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
@@ -263,6 +286,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 synchronized (databaseConnection) {
                     databaseConnection.executeSql(batchedInsertQuery);
                 }
+
+                nanoTimer.stop();
+                onDiskInsertExecutionTime.addAndGet(nanoTimer.getMillisecondsElapsed().longValue());
             }
         });
 
@@ -287,6 +313,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             flushedUnspentStateCode = spentState.intValue();
         }
 
+        long totalTimeWaited = 0L;
+        final MilliTimer iterationTimer = new MilliTimer();
+        iterationTimer.start();
         // TODO: Initialize UtxoValues to the same object.
         int i = 0;
         final JvmSpentState transientSpentState = new JvmSpentState(); // Re-initialize the same instance instead of creating many objects.
@@ -301,13 +330,22 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             if ( (! transientSpentState.isFlushedToDisk()) || transientSpentState.isFlushMandatory()) {
                 if (transientSpentState.isSpent()) {
                     // Delete the spent UTXO from disk.
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
                     onDiskUtxoDeleteBatchRunner.waitForQueueCapacity(maxItemCount);
+                    nanoTimer.stop();
+                    totalTimeWaited += nanoTimer.getMillisecondsElapsed();
                     onDiskUtxoDeleteBatchRunner.addItem(utxoKey);
                 }
                 else {
                     // Insert the unspent UTXO to disk.
                     final UnspentTransactionOutput unspentTransactionOutput = new UnspentTransactionOutput(utxoKey, utxoValue);
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
                     onDiskUtxoInsertBatchRunner.waitForQueueCapacity(maxItemCount);
+                    nanoTimer.stop();
+                    totalTimeWaited += nanoTimer.getMillisecondsElapsed();
+
                     onDiskUtxoInsertBatchRunner.addItem(unspentTransactionOutput);
                 }
             }
@@ -356,6 +394,18 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
             i += 1;
         }
+        iterationTimer.stop();
+
+        Logger.trace(
+            "iterationTimer=" + iterationTimer.getMillisecondsElapsed() +
+            ", onDiskDeleteExecutionTime=" + onDiskDeleteExecutionTime +
+            ", onDiskDeleteItemCount=" + onDiskDeleteItemCount +
+            ", onDiskDeleteBatchCount=" + onDiskDeleteBatchCount +
+            ", onDiskInsertExecutionTime=" + onDiskInsertExecutionTime +
+            ", onDiskInsertItemCount=" + onDiskInsertItemCount +
+            ", onDiskInsertBatchCount=" + onDiskInsertBatchCount +
+            ", totalTimeWaited=" + totalTimeWaited
+        );
 
         onDiskUtxoDeleteBatchRunner.finish();
         onDiskUtxoInsertBatchRunner.finish();

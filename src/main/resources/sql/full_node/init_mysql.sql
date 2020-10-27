@@ -277,11 +277,9 @@ CREATE TABLE validated_slp_transactions (
 -- Misc
 
 CREATE TABLE properties (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `key` VARCHAR(255) NOT NULL,
     `value` VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY properties_uq (`key`)
+    PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO metadata (version, timestamp) VALUES (3, UNIX_TIMESTAMP());
