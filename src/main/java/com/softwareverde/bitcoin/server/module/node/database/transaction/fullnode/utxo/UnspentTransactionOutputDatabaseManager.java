@@ -79,8 +79,8 @@ public interface UnspentTransactionOutputDatabaseManager {
 
     void setUncommittedUnspentTransactionOutputBlockHeight(Long blockHeight) throws DatabaseException;
 
-    Long getUnspentTransactionOutputBlockHeight() throws DatabaseException;
-    Long getUnspentTransactionOutputBlockHeight(Boolean noLock) throws DatabaseException;
+    Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
+    Long getUncommittedUnspentTransactionOutputBlockHeight(Boolean noLock) throws DatabaseException;
 
     void clearCommittedUtxoSet() throws DatabaseException;
 
