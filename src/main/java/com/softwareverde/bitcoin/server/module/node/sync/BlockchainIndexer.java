@@ -323,10 +323,10 @@ public class BlockchainIndexer extends SleepyService {
         nanoTimer.start();
 
         final boolean shouldExecuteAsynchronously = (_threadCount > 0);
-        final int batchCount = (shouldExecuteAsynchronously ? (BATCH_SIZE * _threadCount) : BATCH_SIZE);
-        final MutableList<TransactionId> transactionIdQueue = new MutableList<TransactionId>(batchCount);
+        final int maxBatchCount = (shouldExecuteAsynchronously ? (BATCH_SIZE * _threadCount) : BATCH_SIZE);
+        final MutableList<TransactionId> transactionIdQueue = new MutableList<TransactionId>(maxBatchCount);
         try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
-            final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(batchCount);
+            final List<TransactionId> queuedTransactionIds = context.getUnprocessedTransactions(maxBatchCount);
             transactionIdQueue.addAll(queuedTransactionIds);
         }
         catch (final Exception exception) {
@@ -364,8 +364,9 @@ public class BlockchainIndexer extends SleepyService {
 
         nanoTimer.stop();
         final double msElapsed = nanoTimer.getMillisecondsElapsed();
-        final long tps = (long) ((batchCount * 1000L) / (msElapsed > 0D ? msElapsed : 0.01));
-        Logger.info("Indexed " + batchCount + " transactions in " + msElapsed + "ms. (" + tps + "tps)");
+        final int actualBatchCount = transactionIdQueue.getCount();
+        final long tps = (long) ((actualBatchCount * 1000L) / (msElapsed > 0D ? msElapsed : 0.01));
+        Logger.info("Indexed " + actualBatchCount + " transactions in " + msElapsed + "ms. (" + tps + "tps)");
 
         return true;
     }
@@ -381,41 +382,5 @@ public class BlockchainIndexer extends SleepyService {
 
     public void setOnSleepCallback(final Runnable onSleepCallback) {
         _onSleepCallback = onSleepCallback;
-    }
-
-    public Boolean indexTransaction(final TransactionId transactionId) {
-        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
-            final Object indexResult = _indexTransaction(transactionId, null, context);
-            return (indexResult != null);
-        }
-        catch (final ContextException contextException) {
-            Logger.debug(contextException);
-            return false;
-        }
-    }
-
-    public Boolean indexTransactions(final List<Transaction> transactions) {
-        try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
-            context.startDatabaseTransaction();
-
-            final MutableList<TransactionId> processedTransactionIds = new MutableList<TransactionId>(transactions.getCount());
-            for (final Transaction transaction : transactions) {
-                if (Transaction.isSlpTransaction(transaction)) { continue; } // SLP Transactions must be validated in-order due to their recursive nature.
-
-                final TransactionId transactionId = _indexTransaction(null, transaction, context);
-                if (transactionId == null) { continue; }
-
-                processedTransactionIds.add(transactionId);
-            }
-
-            context.dequeueTransactionsForProcessing(processedTransactionIds);
-            context.commitDatabaseTransaction();
-
-            return (processedTransactionIds.getCount() > 0);
-        }
-        catch (final ContextException contextException) {
-            Logger.debug(contextException);
-            return false;
-        }
     }
 }
