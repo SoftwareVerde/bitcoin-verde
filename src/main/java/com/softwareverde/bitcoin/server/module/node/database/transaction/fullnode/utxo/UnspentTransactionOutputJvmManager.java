@@ -52,6 +52,10 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     protected static final Container<Long> UNCOMMITTED_UTXO_BLOCK_HEIGHT = new Container<Long>(null); // null indicates uninitialized; -1 represents an invalidated set, and must first be cleared (via _clearUncommittedUtxoSet) before any other operations are performed.
     protected static final String COMMITTED_UTXO_BLOCK_HEIGHT_KEY = "committed_utxo_block_height";
 
+    protected static Long getUtxoBlockHeight() {
+        return Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, 0L);
+    }
+
     protected static Boolean isUtxoCacheDefunct() {
         return (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, 0L) <= -1L);
     }
@@ -387,8 +391,10 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
             i += 1;
 
-            if ((i % (Math.max(10, startSize) / 10)) == 0) {
-                Logger.trace("Flushing thread " + ((10 * i) / (startSize / 10)) + "% done. " + (startSize - i) + " remaining.");
+            if (startSize >= 10) {
+                if ((i % (startSize / 10)) == 0) {
+                    Logger.trace("Flushing thread " + ((10 * i) / (startSize / 10)) + "% done. " + (startSize - i) + " remaining.");
+                }
             }
         }
         iterationTimer.stop();
@@ -421,10 +427,15 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         synchronized (DOUBLE_BUFFER) {
             DOUBLE_BUFFER.clear();
         }
+
+        // This request for garbage collection is not strictly necessary but considering the drastic change in memory
+        // usage, it is useful to ensure a collection after the double-buffer is cleared, particularly in cases when
+        // periodic calls to gc aren't schedule (i.e. initial node boot).
+        System.gc();
     }
 
     protected void _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final Boolean shouldBlockUntilComplete) throws DatabaseException {
-        if (Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, 0L) <= 0L) { return; } // Prevent committing a UTXO set that has been invalidated or empty...
+        if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) { return; } // Prevent committing a UTXO set that has been invalidated or empty...
 
         UTXO_WRITE_MUTEX.lock();
         try {
@@ -433,8 +444,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     DOUBLE_BUFFER.wait();
                 }
 
-                final Long newCommittedBlockHeight = UNCOMMITTED_UTXO_BLOCK_HEIGHT.value;
-                if (Util.coalesce(newCommittedBlockHeight, 0L) <= 0L) {
+                final Long newCommittedBlockHeight = UnspentTransactionOutputJvmManager.getUtxoBlockHeight();
+                if (UnspentTransactionOutputJvmManager.isUtxoCacheDefunct()) {
                     throw new DatabaseException("UTXO set invalidated.");
                 }
 
@@ -559,6 +570,11 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
         _minBlockHeight = minBlockHeight;
         _maxBlockHeight = maxBlockHeight;
+
+        // This request for garbage collection is not strictly necessary but considering the drastic change in memory
+        // usage, it is useful to ensure a collection after the double-buffer is cleared, particularly in cases when
+        // periodic calls to gc aren't schedule (i.e. initial node boot).
+        System.gc();
     }
 
     public UnspentTransactionOutputJvmManager(final Long maxUtxoCount, final Float purgePercent, final FullNodeDatabaseManager databaseManager, final BlockStore blockStore, final MasterInflater masterInflater) {
