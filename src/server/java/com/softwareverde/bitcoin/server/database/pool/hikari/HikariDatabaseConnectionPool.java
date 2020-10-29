@@ -66,6 +66,8 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         //  conclusively absolved, and since the performance benefit was not measured the caching is disabled.
 //        { // Enable prepared statement caching...
 //            final Properties config = new Properties();
+//            config.setProperty("useServerPrepStmts", "true");
+//            config.setProperty("rewriteBatchedStatements", "true");
 //            config.setProperty("cachePrepStmts", "true");
 //            config.setProperty("prepStmtCacheSize", "250");
 //            config.setProperty("prepStmtCacheSqlLimit", "2048");
