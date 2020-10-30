@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.BlockingQueueBatchRunner;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.JvmSpentState;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UnspentTransactionOutput;
@@ -235,15 +234,19 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
             final UtxoValue utxoValue = UTXO_SET.remove(utxoKey); // Remove the UTXO from the set.
-            final JvmSpentState spentState = utxoValue.getSpentState();
 
-            if (spentState.isFlushedToDisk() || spentState.isFlushMandatory()) { // If the UTXO has already been committed to disk as unspent then it must be flushed as spent (aka removed) from disk.
+            // The utxoValue could be null either due to the UTXO being a cache miss (i.e. it was already committed before the reorg) or because it never existed at all.
+            //  In the latter case, the double-buffer will be technically inserting the non-existing UTXO into the database as spent; this is generally not a problem other than causing an unnecessary disk write.
+            //  This could be mitigated by only doing an update to spent if the row exists, but the performance hit doesn't warrant the extra ~48 bytes.
+            final JvmSpentState spentState = (utxoValue != null ? utxoValue.getSpentState() : null);
+
+            if ( (spentState == null) || (spentState.isFlushedToDisk() || spentState.isFlushMandatory()) ) { // If the UTXO has already been committed to disk as unspent then it must be flushed as spent (aka removed) from disk.
                 final JvmSpentState newSpentState = new JvmSpentState();
                 newSpentState.setIsSpent(true);
                 newSpentState.setIsFlushedToDisk(false);
                 newSpentState.setIsFlushMandatory(true);
 
-                final UtxoValue newUtxoValue = new UtxoValue(newSpentState, utxoValue.blockHeight);
+                final UtxoValue newUtxoValue = new UtxoValue(newSpentState, (utxoValue != null ? utxoValue.blockHeight : UNKNOWN_BLOCK_HEIGHT));
                 queuedUpdates.put(utxoKey, newUtxoValue);
             }
         }
@@ -285,7 +288,6 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         final int maxUtxoPerBatch = Math.min(1024, databaseManager.getMaxQueryBatchSize());
-        final int maxItemCount = (maxUtxoPerBatch * 32); // The maximum number of items in queue at any point in time...
 
         final AtomicLong onDiskDeleteExecutionTime = new AtomicLong(0L);
         final AtomicInteger onDiskDeleteItemCount = new AtomicInteger(0);
@@ -323,14 +325,18 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
                 onDiskInsertBatchCount.incrementAndGet();
 
+                // NOTE: block_height is currently unused, however the field could become useful during re-loading UTXOs
+                //  into the cache based on recency, to facilitate UTXO commitments, and to facilitate more intelligent reorgs.
+
                 // NOTE: updating is_spent to zero on a duplicate key is required in order to undo a block that has been committed to disk.
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_spent = 0");
                 for (final UnspentTransactionOutput transactionOutputIdentifier : batchItems) {
                     onDiskInsertItemCount.incrementAndGet();
 
+                    final long blockHeight = transactionOutputIdentifier.getBlockHeight();
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getTransactionHash());
                     batchedInsertQuery.setParameter(transactionOutputIdentifier.getOutputIndex());
-                    batchedInsertQuery.setParameter(transactionOutputIdentifier.getBlockHeight());
+                    batchedInsertQuery.setParameter(Math.max(blockHeight, 0L)); // block_height is an UNSIGNED INT; in the case of a reorg UTXO, the UTXO height can be set to -1, so 0 is used as a compatible placeholder.
                 }
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
@@ -559,7 +565,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     final long iterationsRemaining = (oldItemCount - i - 1L);
                     final double purgeAggressiveness = Math.min(1D, (( (double) remainingPurgeCount ) / iterationsRemaining)); // 0=purgeNothing, 1=purgeEverything
                     final long purgeDistanceThreshold = ( oldMinBlockHeight + ((long) (oldTotalBlockDistance * purgeAggressiveness)) );
-                    if (utxoValue.blockHeight < purgeDistanceThreshold) {
+                    if (utxoValue.blockHeight <= purgeDistanceThreshold) {
                         iterator.remove();
                         remainingPurgeCount -= 1;
                         wasPurged = true;
@@ -574,6 +580,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
             i += 1;
         }
+
+        Logger.debug("remainingPurgeCount=" + remainingPurgeCount);
 
         _minBlockHeight = minBlockHeight;
         _maxBlockHeight = maxBlockHeight;
