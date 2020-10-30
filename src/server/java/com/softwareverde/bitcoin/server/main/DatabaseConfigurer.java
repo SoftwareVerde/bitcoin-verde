@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.SystemUtil;
