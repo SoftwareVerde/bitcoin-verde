@@ -764,8 +764,6 @@ public class NodeModule {
                 @Override
                 public void onNewTransactions(final List<Transaction> transactions) {
                     if (indexModeIsEnabled) {
-                        // NOTE: SLP Transactions will not skip the queue due to validation requiring recursion.
-                        _blockchainIndexer.indexTransactions(transactions); // Bypass the queue in order to more quickly serve indexed data on new Transactions.
                         _blockchainIndexer.wakeUp();
                     }
 

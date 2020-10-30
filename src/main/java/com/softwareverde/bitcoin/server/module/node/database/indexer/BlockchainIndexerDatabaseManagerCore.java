@@ -333,7 +333,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
     @Override
     public void queueTransactionsForProcessing(final List<TransactionId> transactionIds) throws DatabaseException {
-        _updateLastIndexedTransactionId(transactionIds);
+
     }
 
     @Override
@@ -342,7 +342,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE id >= ? ORDER BY id ASC LIMIT " + batchSize)
+            new Query("SELECT id FROM transactions WHERE id > ? ORDER BY id ASC LIMIT " + batchSize)
                 .setParameter(firstTransactionId)
         );
 
