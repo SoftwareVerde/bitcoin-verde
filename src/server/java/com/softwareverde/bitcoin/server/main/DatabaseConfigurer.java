@@ -16,18 +16,23 @@ public class DatabaseConfigurer {
         final long maxHeapTableSize = ((bitcoinProperties != null ? bitcoinProperties.getMaxUtxoCacheByteCount() : 0L) + (16L * ByteUtil.Unit.Binary.MEBIBYTES)); // Include 16MB for MySQL sort tmp-tables...
         commandLineArguments.addArgument("--max_heap_table_size=" + maxHeapTableSize); // Maximum engine=MEMORY table size.
 
+        final long maxAllowedPacketByteCount = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
+        commandLineArguments.setMaxAllowedPacketByteCount(maxAllowedPacketByteCount);
+
         if (SystemUtil.isWindowsOperatingSystem()) {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
             commandLineArguments.setInnoDbBufferPoolByteCount(Math.min(ByteUtil.Unit.Binary.GIBIBYTES, databaseProperties.getMaxMemoryByteCount()));
             commandLineArguments.setQueryCacheByteCount(0L);
-            commandLineArguments.setMaxAllowedPacketByteCount(8L * ByteUtil.Unit.Binary.MEBIBYTES);
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
         }
         else {
             // The default per_thread_buffer is roughly 3mb excluding the max_allowed_packet.
             //  per_thread_buffer = read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + join_buffer_size + max_allowed_packet
-            final long maxAllowedPacketByteCount = (8L * ByteUtil.Unit.Binary.MEBIBYTES);
-            final long bytesPerConnection = ((3L * ByteUtil.Unit.Binary.MEBIBYTES) + maxAllowedPacketByteCount);
+
+            // Technically for the worst-case scenario, the bytesPerConnection should be a function of maxAllowedPacketByteCount,
+            //  but since the vast majority of queries only use a fraction of this amount, the calculation takes the "steadyState" packet size instead.
+            final long steadyStatePacketSize = (8L * ByteUtil.Unit.Binary.MEBIBYTES);
+            final long bytesPerConnection = ((3L * ByteUtil.Unit.Binary.MEBIBYTES) + steadyStatePacketSize);
             final long overheadByteCount = (bytesPerConnection * maxDatabaseThreadCount);
 
             final long minMemoryRequired = (256L * ByteUtil.Unit.Binary.MEBIBYTES);
@@ -63,7 +68,6 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--myisam-sort-buffer-size=4096"); // Reduce per-connection memory allocation (only used for MyISAM DDL statements).
 
             commandLineArguments.setQueryCacheByteCount(null); // Deprecated, removed in Mysql 8.
-            commandLineArguments.setMaxAllowedPacketByteCount(maxAllowedPacketByteCount);
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
 
             // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
