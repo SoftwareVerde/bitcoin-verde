@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
@@ -67,7 +68,8 @@ public interface UnspentTransactionOutputDatabaseManager {
     /**
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked for the duration of this call.
      */
-    void commitUnspentTransactionOutputs() throws DatabaseException;
+    void commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory) throws DatabaseException;
+    void commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory, Boolean blockUntilComplete) throws DatabaseException;
 
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount(Boolean noLock) throws DatabaseException;
@@ -77,8 +79,8 @@ public interface UnspentTransactionOutputDatabaseManager {
 
     void setUncommittedUnspentTransactionOutputBlockHeight(Long blockHeight) throws DatabaseException;
 
-    Long getUnspentTransactionOutputBlockHeight() throws DatabaseException;
-    Long getUnspentTransactionOutputBlockHeight(Boolean noLock) throws DatabaseException;
+    Long getUncommittedUnspentTransactionOutputBlockHeight() throws DatabaseException;
+    Long getUncommittedUnspentTransactionOutputBlockHeight(Boolean noLock) throws DatabaseException;
 
     void clearCommittedUtxoSet() throws DatabaseException;
 

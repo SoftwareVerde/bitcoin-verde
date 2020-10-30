@@ -299,7 +299,7 @@ public class BlockProcessor {
         // 6. Commit the UTXO set to ensure UTXOs removed by a now-undone commit are re-added...
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
         Logger.info("Committing UTXO set.");
-        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs();
+        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
 
         timer.stop();
         Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
@@ -313,7 +313,7 @@ public class BlockProcessor {
             public void run() {
                 try {
                     final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
-                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight);
+                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight, _context.getDatabaseManagerFactory());
                 }
                 catch (final DatabaseException exception) {
                     future.setException(exception);
@@ -609,7 +609,7 @@ public class BlockProcessor {
                     try {
                         Logger.info("Rebuilding UTXO set after block error.");
                         final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, threadPool);
-                        unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                        unspentTransactionOutputManager.buildUtxoSet(blockLoader, databaseManagerFactory);
                     }
                     finally {
                         threadPool.stop();

@@ -48,7 +48,7 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _databaseConnectionFactory, 2016L);
+            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, 2016L);
 
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
             final Block block0 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK));
@@ -164,7 +164,7 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.storeBlock(block1);
                 }
-                unspentTransactionOutputManager.applyBlockToUtxoSet(block1, 1L);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(block1, 1L, _fullNodeDatabaseManagerFactory);
 
                 final TransactionOutput coinbaseTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(new TransactionOutputIdentifier(block1CoinbaseTransaction.getHash(), 0));
                 Assert.assertNull(coinbaseTransactionOutput); // Spent by Block1 Transaction1...
@@ -181,7 +181,7 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.storeBlock(block2);
                 }
-                unspentTransactionOutputManager.applyBlockToUtxoSet(block2, 2L);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(block2, 2L, _fullNodeDatabaseManagerFactory);
 
                 final TransactionOutput coinbaseTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(new TransactionOutputIdentifier(block1CoinbaseTransaction.getHash(), 0));
                 Assert.assertNull(coinbaseTransactionOutput); // Spent by Block1's Transaction1...
@@ -228,7 +228,7 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _databaseConnectionFactory, 2016L);
+            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, 2016L);
 
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
             final Block block0 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK));
@@ -344,7 +344,7 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.storeBlock(block1);
                 }
-                unspentTransactionOutputManager.applyBlockToUtxoSet(block1, 1L);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(block1, 1L, _fullNodeDatabaseManagerFactory);
 
                 final TransactionOutput coinbaseTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(new TransactionOutputIdentifier(block1CoinbaseTransaction.getHash(), 0));
                 Assert.assertNull(coinbaseTransactionOutput); // Spent by Block1 Transaction1...
@@ -356,13 +356,13 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
                 Assert.assertNotNull(transactionOutput1);
             }
 
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory); // Commit the UTXO set...
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true); // Commit the UTXO set...
 
             { // Store and sanity-check Block2 state...
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.storeBlock(block2);
                 }
-                unspentTransactionOutputManager.applyBlockToUtxoSet(block2, 2L);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(block2, 2L, _fullNodeDatabaseManagerFactory);
 
                 final TransactionOutput coinbaseTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(new TransactionOutputIdentifier(block1CoinbaseTransaction.getHash(), 0));
                 Assert.assertNull(coinbaseTransactionOutput); // Spent by Block1's Transaction1...
@@ -386,11 +386,11 @@ public class UnspentTransactionOutputManagerTests extends IntegrationTest {
                 Assert.assertNotNull(transactionOutput5);
             }
 
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory); // Commit the UTXO set...
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true); // Commit the UTXO set...
 
             // Action
             unspentTransactionOutputManager.removeBlockFromUtxoSet(block2, 2L);
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseConnectionFactory); // Commit the UTXO set...
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true); // Commit the UTXO set...
             unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
 
             // Assert
