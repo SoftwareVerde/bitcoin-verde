@@ -34,7 +34,7 @@ public class BitcoinVerdeDatabase implements Database {
     public static final InitFile BITCOIN = new InitFile("/sql/full_node/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile STRATUM = new InitFile("/sql/stratum/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
 
-    public static final Integer MAX_DATABASE_CONNECTION_COUNT = 32; // Increasing too much may cause MySQL to use excessive memory...
+    public static final Integer MAX_DATABASE_CONNECTION_COUNT = 64; // Increasing too much may cause MySQL to use excessive memory...
 
     public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties) {
         return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, null);
