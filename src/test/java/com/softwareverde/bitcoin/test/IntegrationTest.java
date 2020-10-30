@@ -20,7 +20,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -143,8 +143,21 @@ public class IntegrationTest extends UnitTest {
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
 
-        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputDatabaseManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
+        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputJvmManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
+
+        // Clear the static UTXO cache and the double buffer.
+        new UnspentTransactionOutputJvmManager(null, 0.5F, null, null, null) {
+            {
+                final Thread doubleBufferThread = UnspentTransactionOutputJvmManager.DOUBLE_BUFFER_THREAD;
+                if (doubleBufferThread != null) {
+                    doubleBufferThread.join();
+                }
+
+                UnspentTransactionOutputJvmManager.UTXO_SET.clear();
+                UnspentTransactionOutputJvmManager.DOUBLE_BUFFER.clear();
+            }
+        };
     }
 
     @Override

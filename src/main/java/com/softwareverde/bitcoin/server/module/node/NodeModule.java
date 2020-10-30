@@ -43,7 +43,6 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.SpentTransactionOutputsCleanupService;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
@@ -153,7 +152,6 @@ public class NodeModule {
     protected final BlockchainBuilder _blockchainBuilder;
     protected final BlockchainIndexer _blockchainIndexer;
     protected final SlpTransactionProcessor _slpTransactionProcessor;
-    protected final SpentTransactionOutputsCleanupService _spentTransactionOutputsCleanupService;
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final List<SleepyService> _allServices;
@@ -269,11 +267,6 @@ public class NodeModule {
             _slpTransactionProcessor.stop();
         }
 
-        if (_spentTransactionOutputsCleanupService != null) {
-            Logger.info("[Stopping Spent UTXO  Cleanup Service]");
-            _spentTransactionOutputsCleanupService.stop();
-        }
-
         if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
             Logger.info("[Stopping Blockchain Indexer]");
             _blockchainIndexer.stop();
@@ -314,7 +307,7 @@ public class NodeModule {
                 final MilliTimer utxoCommitTimer = new MilliTimer();
                 utxoCommitTimer.start();
                 Logger.info("Committing UTXO set.");
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseConnectionFactory);
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, true);
                 utxoCommitTimer.stop();
                 Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
             }
@@ -624,8 +617,6 @@ public class NodeModule {
             });
         }
 
-        _spentTransactionOutputsCleanupService = new SpentTransactionOutputsCleanupService(databaseManagerFactory);
-
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setSynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
@@ -815,8 +806,7 @@ public class NodeModule {
             _transactionDownloader,
             _blockchainBuilder,
             _blockDownloader,
-            _blockHeaderDownloader,
-            _spentTransactionOutputsCleanupService
+            _blockHeaderDownloader
         );
 
         final Integer rpcPort = _bitcoinProperties.getBitcoinRpcPort();
@@ -1063,16 +1053,16 @@ public class NodeModule {
                 final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
                 final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
-                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, databaseConnectionFactory, utxoCommitFrequency);
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
 
                 final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, _mainThreadPool);
 
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");
-                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader);
+                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader, databaseManagerFactory);
                 }
                 else {
-                    unspentTransactionOutputManager.buildUtxoSet(blockLoader);
+                    unspentTransactionOutputManager.buildUtxoSet(blockLoader, databaseManagerFactory);
                 }
             }
             catch (final DatabaseException exception) {
@@ -1170,11 +1160,6 @@ public class NodeModule {
         if (_slpTransactionProcessor != null) {
             Logger.info("[Started SlpTransaction Processor]");
             _slpTransactionProcessor.start();
-        }
-
-        if (_spentTransactionOutputsCleanupService != null) {
-            Logger.info("[Started Spent UTXO Cleanup Service]");
-            _spentTransactionOutputsCleanupService.start();
         }
 
         if (! _bitcoinProperties.skipNetworking()) {

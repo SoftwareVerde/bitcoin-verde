@@ -24,10 +24,7 @@ public class DatabaseMaintainer {
         listBuilder.add("blockchain_segments");
         listBuilder.add("transactions");
         listBuilder.add("block_transactions");
-        listBuilder.add("unspent_transaction_outputs");
-        listBuilder.add("unspent_transaction_outputs_buffer");
         listBuilder.add("committed_unspent_transaction_outputs");
-        listBuilder.add("stale_committed_unspent_transaction_outputs");
         listBuilder.add("unconfirmed_transactions");
         listBuilder.add("unconfirmed_transaction_outputs");
         listBuilder.add("unconfirmed_transaction_inputs");
