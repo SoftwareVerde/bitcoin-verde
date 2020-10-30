@@ -558,7 +558,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     // Progressively purge UTXOs as the iterator creeps towards the end, prioritizing purging older UTXOs.
                     final long iterationsRemaining = (oldItemCount - i - 1L);
                     final double purgeAggressiveness = Math.min(1D, (( (double) remainingPurgeCount ) / iterationsRemaining)); // 0=purgeNothing, 1=purgeEverything
-                    final long purgeDistanceThreshold = (oldMaxBlockHeight - (long) ((oldTotalBlockDistance * purgeAggressiveness) + 0.5D)); // Round up.
+                    final long purgeDistanceThreshold = ( oldMinBlockHeight + ((long) (oldTotalBlockDistance * purgeAggressiveness)) );
                     if (utxoValue.blockHeight < purgeDistanceThreshold) {
                         iterator.remove();
                         remainingPurgeCount -= 1;
