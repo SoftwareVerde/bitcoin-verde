@@ -34,6 +34,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -552,12 +553,19 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
 
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.lock();
-        final java.util.List<Row> rows;
+        java.util.List<Row> rows = new ArrayList<Row>(0);
         try {
-            rows = databaseConnection.query(
-                new Query("SELECT transaction_id FROM unconfirmed_transaction_inputs WHERE (previous_transaction_hash, previous_transaction_output_index) IN (?)")
-                    .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
-            );
+            final int batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+            final BatchRunner<TransactionOutputIdentifier> batchRunner = new BatchRunner<TransactionOutputIdentifier>(batchSize, false);
+            batchRunner.run(new MutableList<TransactionOutputIdentifier>(transactionOutputIdentifiers), new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                @Override
+                public void run(final List<TransactionOutputIdentifier> batchItems) throws Exception {
+                    rows.addAll(databaseConnection.query(
+                        new Query("SELECT transaction_id FROM unconfirmed_transaction_inputs WHERE (previous_transaction_hash, previous_transaction_output_index) IN (?)")
+                            .setExpandedInClauseParameters(batchItems, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
+                    ));
+                }
+            });
         }
         finally {
             TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_READ_LOCK.unlock();
