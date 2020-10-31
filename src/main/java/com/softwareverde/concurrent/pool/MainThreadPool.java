@@ -55,7 +55,9 @@ public class MainThreadPool implements ThreadPool {
             }
         });
 
-        threadPoolExecutor.allowCoreThreadTimeOut(true);
+        if (_threadKeepAliveMilliseconds > 0L) {
+            threadPoolExecutor.allowCoreThreadTimeOut(true);
+        }
 
         return threadPoolExecutor;
     }

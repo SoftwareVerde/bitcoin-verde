@@ -448,7 +448,7 @@ public class BlockProcessor {
                     utxoFuture = null;
                 }
 
-                transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory);
+                transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory, _maxThreadCount);
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
                 if (transactionsStoredSuccessfully) {

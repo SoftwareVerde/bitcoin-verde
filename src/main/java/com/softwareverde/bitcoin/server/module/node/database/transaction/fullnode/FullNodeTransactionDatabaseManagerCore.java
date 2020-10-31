@@ -255,7 +255,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         return listBuilder.build();
     }
 
-    protected List<TransactionId> _storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
+    protected List<TransactionId> _storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxThreadCount) throws DatabaseException {
         final List<Transaction> sortedTransactions;
         { // TODO: Have the caller sort the Transactions in order to optimize for CTOR...
             final MutableList<Transaction> unsortedTransactions = new MutableList<Transaction>(transactions);
@@ -274,7 +274,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         {
             if (databaseConnectionFactory != null) {
                 final Integer batchSize = Math.min(512, _databaseManager.getMaxQueryBatchSize());
-                batchRunner = new BatchRunner<Transaction>(batchSize, true);
+                batchRunner = new BatchRunner<Transaction>(batchSize, true, maxThreadCount);
             }
             else {
                 final Integer batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
@@ -675,7 +675,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions) throws DatabaseException {
-        return _storeTransactionHashes(transactions, null);
+        return _storeTransactionHashes(transactions, null, null);
     }
 
     /**
@@ -683,8 +683,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
      *  Therefore, if a block fails to validate, some invalid Transaction Hashes may persist through the rollback.
      */
     @Override
-    public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory) throws DatabaseException {
-        return _storeTransactionHashes(transactions, databaseConnectionFactory);
+    public List<TransactionId> storeTransactionHashes(final List<Transaction> transactions, final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxThreadCount) throws DatabaseException {
+        return _storeTransactionHashes(transactions, databaseConnectionFactory, maxThreadCount);
     }
 
     @Override

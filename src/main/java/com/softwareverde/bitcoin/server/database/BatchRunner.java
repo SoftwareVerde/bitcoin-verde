@@ -1,10 +1,12 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.concurrent.Pin;
+import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.Util;
 
 public class BatchRunner<T> {
     public interface Batch<T> {
@@ -13,45 +15,46 @@ public class BatchRunner<T> {
 
     protected final Boolean _asynchronousExecutionIsEnabled;
     protected final Integer _maxItemCountPerBatch;
+    protected final Integer _maxConcurrentThreadCount;
 
     protected void _executeAsynchronously(final Runnable[] runnables, final Container<Exception> exceptionContainer) throws DatabaseException {
         final int batchCount = runnables.length;
+        final int threadCount = Math.min(runnables.length, _maxConcurrentThreadCount);
+        final MainThreadPool threadPool = new MainThreadPool(threadCount, 0L);
 
-        final Thread[] threads = new Thread[batchCount];
-        for (int i = 0; i < batchCount; ++i) {
-            final Runnable runnable = runnables[i];
-            final Thread thread = new Thread(runnable);
-            threads[i] = thread;
-
-            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                @Override
-                public void uncaughtException(final Thread thread, final Throwable exception) {
-                    Logger.debug(exception);
-                }
-            });
-            thread.setName("BatchRunner");
-            thread.start();
-        }
         try {
+            final Pin[] pins = new Pin[batchCount];
             for (int i = 0; i < batchCount; ++i) {
-                threads[i].join();
+                final Runnable runnable = runnables[i];
+                final Pin pin = new Pin();
+                pins[i] = pin;
+
+                threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            runnable.run();
+                        }
+                        catch (final Exception exception) {
+                            exceptionContainer.value = exception;
+                        }
+                        finally {
+                            pin.release();
+                        }
+                    }
+                });
+            }
+
+            for (int i = 0; i < batchCount; ++i) {
+                final Pin pin = pins[i];
+                pin.waitForRelease(Long.MAX_VALUE);
             }
         }
         catch (final InterruptedException exception) {
-            for (int i = 0; i < batchCount; ++i) {
-                threads[i].interrupt();
-            }
-
-            try {
-                for (int i = 0; i < batchCount; ++i) {
-                    threads[i].join();
-                }
-            }
-            catch (final Exception suppressedException) {
-                exception.addSuppressed(suppressedException);
-            }
-
             throw new DatabaseException(exception);
+        }
+        finally {
+            threadPool.stop();
         }
     }
 
@@ -60,8 +63,12 @@ public class BatchRunner<T> {
     }
 
     public BatchRunner(final Integer maxItemCountPerBatch, final Boolean executeAsynchronously) {
+        this(maxItemCountPerBatch, executeAsynchronously, null);
+    }
+    public BatchRunner(final Integer maxItemCountPerBatch, final Boolean executeAsynchronously, final Integer maxConcurrentThreadCount) {
         _maxItemCountPerBatch = maxItemCountPerBatch;
         _asynchronousExecutionIsEnabled = executeAsynchronously;
+        _maxConcurrentThreadCount = Util.coalesce(maxConcurrentThreadCount, Integer.MAX_VALUE);
     }
 
     public void run(final List<T> totalCollection, final Batch<T> batch) throws DatabaseException {
