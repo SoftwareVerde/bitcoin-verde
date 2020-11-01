@@ -33,6 +33,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -62,6 +63,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
     protected final ConcurrentHashMap<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>();
     protected final ConcurrentHashSet<NodeId> _hasBlockInFlight = new ConcurrentHashSet<NodeId>();
+    protected final ConcurrentHashSet<NodeId> _hasSecondBlockInFlight = new ConcurrentHashSet<NodeId>();
 
     protected Runnable _newBlockAvailableCallback = null;
 
@@ -76,9 +78,33 @@ public class BlockDownloader extends GracefulSleepyService {
     protected final AtomicLong _totalDownloadCount = new AtomicLong(0L);
     protected final AtomicLong _totalBytesDownloaded = new AtomicLong(0L);
     protected final RotatingQueue<Long> _historicBytesPerSecond = new RotatingQueue<Long>(_historicThroughputMaxItemCount);
+    protected Long _lastCacheUpdate = null;
     protected Long _cachedBytesPerSecond = null;
+    protected Float _cachedBlocksPerSecond = null;
+
+    /**
+     * Attempts to reserve a download slot for the node.
+     *  Returns true if the nodeId had capacity to accept a new request.
+     */
+    protected boolean _addBlockInFlight(final NodeId nodeId) {
+        final boolean hadCapacity = _hasBlockInFlight.add(nodeId);
+        if (hadCapacity) { return true; }
+
+        final boolean hadSecondaryCapacity = _hasSecondBlockInFlight.add(nodeId);
+        return hadSecondaryCapacity;
+    }
+
+    protected void _removeInFlightBlock(final NodeId nodeId) {
+        final boolean wasRemoved = _hasBlockInFlight.remove(nodeId);
+        if (! wasRemoved) {
+            _hasSecondBlockInFlight.remove(nodeId);
+        }
+    }
 
     protected void _calculateThroughput() {
+        final SystemTime systemTime = _context.getSystemTime();
+        final Long now = systemTime.getCurrentTimeInSeconds();
+
         int i = 0;
         long sum = 0L;
         for (final Long bytesPerSecond : _historicBytesPerSecond) {
@@ -87,32 +113,18 @@ public class BlockDownloader extends GracefulSleepyService {
         }
         if (i == 0) { return; }
 
+        if (_lastCacheUpdate != null) {
+            final long secondsSinceLastUpdate = (now - _lastCacheUpdate);
+            _cachedBlocksPerSecond = ( ((float) i) / secondsSinceLastUpdate);
+        }
+
         _cachedBytesPerSecond = (sum / i);
+        _lastCacheUpdate = now;
     }
 
     protected Long _calculateTimeout() {
-        final long maxTimeoutMs = (5L * 60000L);
-        final long defaultTimeoutMs = 60000L;
-        final long minTimeoutMs = 10000L;
-        final Long downloadSpeedInBytesPerSecond = _cachedBytesPerSecond;
-        if (downloadSpeedInBytesPerSecond == null) {
-            return defaultTimeoutMs;
-        }
-
-        final long bufferFactor = 2L;
-        final long maxBlockByteCount = BlockInflater.MAX_BYTE_COUNT;
-        final long minSecondsRequired = (maxBlockByteCount / downloadSpeedInBytesPerSecond);
-        final long bufferedMinSecondsRequired = (minSecondsRequired * bufferFactor);
-
-        if (bufferedMinSecondsRequired > maxTimeoutMs) {
-            return maxTimeoutMs;
-        }
-
-        if (bufferedMinSecondsRequired < minTimeoutMs) {
-            return minTimeoutMs;
-        }
-
-        return bufferedMinSecondsRequired;
+        final float buffer = 2.0F;
+        return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_MEGABYTES_PER_SECOND) * buffer * 1000L);
     }
 
     protected void _storePendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
@@ -174,7 +186,7 @@ public class BlockDownloader extends GracefulSleepyService {
             if (currentDownload != null) {
                 final NodeId nodeId = currentDownload.nodeId;
                 if (nodeId != null) {
-                    _hasBlockInFlight.remove(nodeId);
+                    _removeInFlightBlock(nodeId);
                 }
             }
         }
@@ -186,8 +198,7 @@ public class BlockDownloader extends GracefulSleepyService {
         final BitcoinNodeManager nodeManager = _context.getNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
-        final long bitcoinNodePing = (bitcoinNode != null ? bitcoinNode.getAveragePing() : 0L);
-        final Long maxTimeout = Math.min(Math.max(1000L, bitcoinNodePing), 5000L);
+        final long maxTimeoutMs = _calculateTimeout();
         final AtomicBoolean didRespond = new AtomicBoolean(false);
         final Pin pin = new Pin();
 
@@ -206,7 +217,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
                     final NodeId nodeId = currentDownload.nodeId;
                     if (nodeId != null) {
-                        _hasBlockInFlight.remove(nodeId);
+                        _removeInFlightBlock(nodeId);
                     }
                 }
 
@@ -258,7 +269,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
                     final NodeId nodeId = currentDownload.nodeId;
                     if (nodeId != null) {
-                        _hasBlockInFlight.remove(nodeId);
+                        _removeInFlightBlock(nodeId);
                     }
                 }
                 final Long msElapsed = (currentDownload != null ? currentDownload.milliTimer.getMillisecondsElapsed() : null);
@@ -274,7 +285,7 @@ public class BlockDownloader extends GracefulSleepyService {
             @Override
             public void run() {
                 try {
-                    pin.waitForRelease(maxTimeout);
+                    pin.waitForRelease(maxTimeoutMs);
                 }
                 catch (final Exception exception) { }
 
@@ -296,7 +307,8 @@ public class BlockDownloader extends GracefulSleepyService {
         final BitcoinNodeManager bitcoinNodeManager = _context.getNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
-        final int maximumConcurrentDownloadCount = Math.max(1, Math.min(16, (bitcoinNodeManager.getActiveNodeCount() * 2)));
+        final Integer activeNodeCount = bitcoinNodeManager.getActiveNodeCount();
+        final int maximumConcurrentDownloadCount = (activeNodeCount * 2);
 
         _checkForStalledDownloads();
         if (_shouldAbort()) { return false; }
@@ -339,7 +351,6 @@ public class BlockDownloader extends GracefulSleepyService {
 
             if (_shouldAbort()) { return false; }
 
-            final Integer activeNodeCount = bitcoinNodeManager.getActiveNodeCount();
             final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(activeNodeCount, new NodeManager.NodeFilter<BitcoinNode>() {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
@@ -365,12 +376,11 @@ public class BlockDownloader extends GracefulSleepyService {
                 }
 
                 BitcoinNode selectedNode = null;
-                { // Find a node that does not already have a block in-flight.
-                    // NOTE: BCHN nodes do not allow multiple in-flight blocks.
+                { // Prefer a node that does not already have a block in-flight.
                     for (final BitcoinNode bitcoinNode : bitcoinNodes) {
                         final NodeId nodeId = bitcoinNode.getId();
-                        final boolean hadBlockInFlight = (!_hasBlockInFlight.add(nodeId));
-                        if (hadBlockInFlight) { continue; }
+                        final boolean hadCapacity = _addBlockInFlight(nodeId);
+                        if (! hadCapacity) { continue; }
 
                         selectedNode = bitcoinNode;
                         break;
@@ -410,6 +420,14 @@ public class BlockDownloader extends GracefulSleepyService {
                 stringBuilder.append(entry.getKey() + ": " + msElapsed + "ms via " + (currentDownload != null ? currentDownload.nodeId : null));
             }
             Logger.trace(stringBuilder.toString());
+        }
+
+        if (_cachedBytesPerSecond != null) {
+            final String blocksPerSecondLog = (StringUtil.formatPercent(Util.coalesce(_cachedBlocksPerSecond), false) + " blocks/s, ");
+            final String kBpsLog = ((_cachedBytesPerSecond / 1024L) + " kBps, ");
+            final String activeNodeLog = (activeNodeCount + " active nodes, ");
+            final String blocksInFlightLog = (_currentBlockDownloadSet.size() + " blocks in flight");
+            Logger.info("Download " + kBpsLog + blocksPerSecondLog + activeNodeLog + blocksInFlightLog + ".");
         }
 
         return true;

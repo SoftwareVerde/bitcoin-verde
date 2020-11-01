@@ -373,7 +373,7 @@ public class NodeModule {
         _environment = environment;
 
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
-        _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
+        _mainThreadPool = new MainThreadPool(Math.max(32 + (maxPeerCount * 8), 256), 5000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
 
         _mainThreadPool.setShutdownCallback(new Runnable() {

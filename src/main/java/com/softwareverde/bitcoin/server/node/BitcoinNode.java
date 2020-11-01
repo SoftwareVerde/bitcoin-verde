@@ -89,6 +89,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BitcoinNode extends Node {
+    public static final Long MIN_MEGABYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mpbs, slower than 3G.
+
     protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
     public interface BitcoinNodeCallback { }
@@ -358,9 +360,8 @@ public class BitcoinNode extends Node {
 
     protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
         if (callback instanceof DownloadBlockCallback) {
-            final long largestBlockInMegabits = ((BlockInflater.MAX_BYTE_COUNT * 8L) / ByteUtil.Unit.Si.MEGABYTES);
-            final double minMbpsSupported = 1D; // 1mbps, lower than 3G.
-            return (long) ((largestBlockInMegabits / minMbpsSupported) * 1000L);
+            final float buffer = 2.0F;
+            return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_MEGABYTES_PER_SECOND) * buffer * 1000L);
         }
 
         return (30L * 1000L); // 30 seconds...
@@ -463,6 +464,7 @@ public class BitcoinNode extends Node {
         synchronized (this) {
             if (_requestMonitorThread == null) {
                 _requestMonitorThread = new Thread(_requestMonitor);
+                _requestMonitorThread.setName("Bitcoin Node - Request Monitor");
                 _requestMonitorThread.start();
             }
         }
