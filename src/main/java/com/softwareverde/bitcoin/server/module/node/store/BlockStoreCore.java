@@ -93,6 +93,7 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public Boolean storeBlock(final Block block, final Long blockHeight) {
         if (_blockDataDirectory == null) { return false; }
+        if (block == null) { return false; }
 
         final Sha256Hash blockHash = block.getHash();
 

@@ -16,6 +16,7 @@ public class DatabaseConfigurer {
         // commandLineArguments.addArgument("--max_heap_table_size=" + maxHeapTableSize); // Maximum engine=MEMORY table size.
         // commandLineArguments.addArgument("--sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'"); // Disable ONLY_FULL_GROUP_BY. // TODO: too many arguments.
 
+        final long connectionsReservedForRoot = 1;
         final long maxAllowedPacketByteCount = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
         commandLineArguments.setMaxAllowedPacketByteCount(maxAllowedPacketByteCount);
 
@@ -23,7 +24,7 @@ public class DatabaseConfigurer {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
             commandLineArguments.setInnoDbBufferPoolByteCount(Math.min(ByteUtil.Unit.Binary.GIBIBYTES, databaseProperties.getMaxMemoryByteCount()));
             commandLineArguments.setQueryCacheByteCount(0L);
-            commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
+            commandLineArguments.addArgument("--max-connections=" + (maxDatabaseThreadCount + connectionsReservedForRoot));
         }
         else {
             // The default per_thread_buffer is roughly 3mb excluding the max_allowed_packet.
@@ -44,7 +45,7 @@ public class DatabaseConfigurer {
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(databaseProperties.getLogFileByteCount());
             final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (maxDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total database memory.
             final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(maxDatabaseMemory - logBufferByteCount);
-            final Integer bufferPoolInstanceCount;
+            final int bufferPoolInstanceCount;
             { // https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
                 final int segmentCount = (int) (bufferPoolByteCount / (256L * ByteUtil.Unit.Binary.MEBIBYTES));
                 if (segmentCount < 1) { bufferPoolInstanceCount = 1; }
@@ -74,7 +75,7 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--myisam-sort-buffer-size=4096"); // Reduce per-connection memory allocation (only used for MyISAM DDL statements).
 
             commandLineArguments.setQueryCacheByteCount(null); // Deprecated, removed in Mysql 8.
-            commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
+            commandLineArguments.addArgument("--max-connections=" + (maxDatabaseThreadCount + connectionsReservedForRoot));
 
             // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
             // commandLineArguments.addArgument("--general-log-file=query.log");
