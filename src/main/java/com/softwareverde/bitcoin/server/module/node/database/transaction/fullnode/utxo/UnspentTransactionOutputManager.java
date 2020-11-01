@@ -52,13 +52,14 @@ public class UnspentTransactionOutputManager {
         }
         while (blockHeight <= maxBlockHeight) {
             final PreloadedBlock preloadedBlock = blockLoader.getBlock(blockHeight);
-            if (preloadedBlock == null) {
+            final Block block = (preloadedBlock != null ? preloadedBlock.getBlock() : null);
+            if ( (preloadedBlock == null) || (block == null) ) {
                 Logger.debug("Unable to load block: " + blockHeight);
                 break;
             }
 
             Logger.trace("Applying block " + blockHeight + " to UTXO set.");
-            _updateUtxoSetWithBlock(preloadedBlock.getBlock(), blockHeight, databaseManagerFactory);
+            _updateUtxoSetWithBlock(block, blockHeight, databaseManagerFactory);
             blockHeight += 1L;
         }
 
