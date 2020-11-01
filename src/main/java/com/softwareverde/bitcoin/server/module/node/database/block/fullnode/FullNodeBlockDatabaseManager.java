@@ -104,10 +104,10 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             associateTransactionsTimer.start();
             _associateTransactionsToBlock(transactionIds, diskOffsets, blockId);
             associateTransactionsTimer.stop();
-            Logger.info("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
+            Logger.debug("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
         }
         storeBlockTimer.stop();
-        Logger.info("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
+        Logger.debug("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
         return transactionIds;
     }
 
