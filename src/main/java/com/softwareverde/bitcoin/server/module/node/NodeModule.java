@@ -994,22 +994,32 @@ public class NodeModule {
             headersBootstrapper.run();
         }
 
-        final Long headBlockHeight;
+        final boolean reIndexPendingBlocks;
         {
-            Long blockHeight = null;
-            try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            final Boolean configParameter = _bitcoinProperties.shouldReIndexPendingBlocks();
+            if (configParameter != null) {
+                reIndexPendingBlocks = configParameter;
             }
-            catch (final DatabaseException exception) {
-                Logger.debug(exception);
-            }
-            headBlockHeight = Util.coalesce(blockHeight);
-        }
+            else {
+                final Long headBlockHeight;
+                {
+                    Long blockHeight = null;
+                    try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                        blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.debug(exception);
+                    }
+                    headBlockHeight = Util.coalesce(blockHeight);
+                }
 
-        if (headBlockHeight < 2016L) { // Index previously downloaded blocks...
+                reIndexPendingBlocks = (headBlockHeight < 2016L);
+            }
+        }
+        if (reIndexPendingBlocks) { // Index previously downloaded blocks...
             Logger.info("[Indexing Pending Blocks]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

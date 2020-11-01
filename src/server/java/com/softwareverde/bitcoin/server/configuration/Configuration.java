@@ -132,6 +132,12 @@ public class Configuration {
         }
 
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
+
+        {
+            final String reIndexPendingBlocks = _properties.getProperty("bitcoin.reIndexPendingBlocks", null);
+            _bitcoinProperties._shouldReIndexPendingBlocks = ((reIndexPendingBlocks != null) ? Util.parseBool(reIndexPendingBlocks) : null);
+        }
+
         _bitcoinProperties._indexingModeIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.indexBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
