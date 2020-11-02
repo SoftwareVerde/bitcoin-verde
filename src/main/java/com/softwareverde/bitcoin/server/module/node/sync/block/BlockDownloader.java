@@ -180,8 +180,10 @@ public class BlockDownloader extends GracefulSleepyService {
             }
         }
 
+        boolean encounteredStalledBlock = false;
         for (final Sha256Hash stalledBlockHash : stalledBlockHashes) {
             Logger.warn("Stalled Block Detected: " + stalledBlockHash);
+            encounteredStalledBlock = true;
             final CurrentDownload currentDownload = _currentBlockDownloadSet.remove(stalledBlockHash);
             if (currentDownload != null) {
                 final NodeId nodeId = currentDownload.nodeId;
@@ -189,6 +191,9 @@ public class BlockDownloader extends GracefulSleepyService {
                     _removeInFlightBlock(nodeId);
                 }
             }
+        }
+        if (encounteredStalledBlock) {
+            BlockDownloader.this.wakeUp();
         }
     }
 
@@ -277,6 +282,8 @@ public class BlockDownloader extends GracefulSleepyService {
                 if ( callbackExistedInSet && (! hasAlreadyResponded) ) {
                     Logger.info("Block " + blockHash + " failed from " + nodeName + ((msElapsed != null) ? (" after " + msElapsed + "ms.") : "."));
                 }
+
+                BlockDownloader.this.wakeUp();
             }
         };
 
@@ -430,7 +437,7 @@ public class BlockDownloader extends GracefulSleepyService {
             Logger.info("Download " + kBpsLog + blocksPerSecondLog + activeNodeLog + blocksInFlightLog + ".");
         }
 
-        return true;
+        return false;
     }
 
     @Override
