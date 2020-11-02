@@ -462,11 +462,15 @@ public class BitcoinNode extends Node {
     @Override
     protected void _onConnect() {
         synchronized (this) {
-            if (_requestMonitorThread == null) {
-                _requestMonitorThread = new Thread(_requestMonitor);
-                _requestMonitorThread.setName("Bitcoin Node - Request Monitor");
-                _requestMonitorThread.start();
+            final Thread existingRequestMonitorThread = _requestMonitorThread;
+            if (existingRequestMonitorThread != null) {
+                existingRequestMonitorThread.interrupt();
             }
+
+            _requestMonitorThread = new Thread(_requestMonitor);
+            _requestMonitorThread.setName("Bitcoin Node - Request Monitor - " + _connection.toString());
+            _requestMonitorThread.setDaemon(true); // Ensure the thread is closed when the process dies (unnecessary, but proper).
+            _requestMonitorThread.start();
         }
         super._onConnect();
     }
@@ -532,12 +536,21 @@ public class BitcoinNode extends Node {
         return new Runnable() {
             @Override
             public void run() {
-                final Thread currentThread = Thread.currentThread();
-                while (! currentThread.isInterrupted()) {
-                    try { Thread.sleep(1000L); }
-                    catch (final Exception exception) { break; }
+                try {
+                    final Thread currentThread = Thread.currentThread();
+                    while ((! currentThread.isInterrupted()) && BitcoinNode.this.isConnected()) {
+                        try { Thread.sleep(1000L); }
+                        catch (final Exception exception) { break; }
 
-                    _checkForFailedRequests();
+                        _checkForFailedRequests();
+                    }
+                }
+                finally {
+                    synchronized (BitcoinNode.this) {
+                        if (_requestMonitorThread == Thread.currentThread()) {
+                            _requestMonitorThread = null;
+                        }
+                    }
                 }
             }
         };

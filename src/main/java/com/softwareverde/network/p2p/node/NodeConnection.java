@@ -283,6 +283,13 @@ public class NodeConnection {
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
         _threadPool = threadPool;
+
+        _binarySocket.setOnClosedCallback(new Runnable() {
+            @Override
+            public void run() {
+                _disconnect();
+            }
+        });
     }
 
     /**
