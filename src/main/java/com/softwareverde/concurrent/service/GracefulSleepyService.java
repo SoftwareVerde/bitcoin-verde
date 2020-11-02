@@ -10,8 +10,6 @@ public abstract class GracefulSleepyService extends SleepyService {
 
     @Override
     public synchronized void stop() {
-        _status = Status.SHUTTING_DOWN;
-
         if (_isShuttingDown) {
             // stop was invoked twice; shutdown via interrupt.
             super.stop();
@@ -21,7 +19,7 @@ public abstract class GracefulSleepyService extends SleepyService {
         _isShuttingDown = true;
         try {
             for (int i = 0; i < 20; ++i) {
-                if (_status != Status.ACTIVE) { break; }
+                if (_status == Status.ACTIVE) { break; }
                 Thread.sleep(_stopTimeoutMs / 20L);
             }
             if (_status != Status.ACTIVE) { // If the service still hasn't exited then interrupt the thread.

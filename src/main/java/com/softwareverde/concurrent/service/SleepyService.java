@@ -4,7 +4,7 @@ import com.softwareverde.logging.Logger;
 
 public abstract class SleepyService {
     public enum Status {
-        ACTIVE, SLEEPING, SHUTTING_DOWN, STOPPED
+        ACTIVE, SLEEPING, STOPPED
     }
 
     public interface StatusMonitor {
@@ -54,9 +54,7 @@ public abstract class SleepyService {
                 try {
                     _onStart();
                     while (! thread.isInterrupted()) {
-                        if (_status != Status.SHUTTING_DOWN) {
-                            _status = Status.ACTIVE;
-                        }
+                        _status = Status.ACTIVE;
 
                         try {
                             final Boolean shouldContinue = _run();
@@ -70,9 +68,7 @@ public abstract class SleepyService {
                             break;
                         }
                         finally {
-                            if (_status != Status.SHUTTING_DOWN) {
-                                _status = Status.SLEEPING;
-                            }
+                            _status = Status.SLEEPING;
                         }
                     }
                 }
@@ -117,6 +113,7 @@ public abstract class SleepyService {
                         Logger.warn("Exception encountered in " + this.getClass().getSimpleName(), exception);
 
                         if (! thread.isInterrupted()) {
+                            // Briefly sleep in order to avoid rapidly loop in the case of an exception.
                             try {
                                 synchronized (_monitor) {
                                     _monitor.wait(1000);
@@ -153,7 +150,6 @@ public abstract class SleepyService {
     public synchronized void stop() {
         if (_thread != null) {
             _shouldRestart = false;
-            _status = Status.SHUTTING_DOWN;
 
             _thread.interrupt();
             try {
