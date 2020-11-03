@@ -1,5 +1,5 @@
 group 'com.softwareverde'
-version '1.3.1'
+version '1.3.2'
 
 apply plugin: 'java'
 apply plugin: 'java-library'
@@ -81,11 +81,11 @@ dependencies {
 task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
-                    'Implementation-Version': version,
+                    'Implementation-Version': archiveVersion,
                     'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
     }
 
-    baseName = project.name + '-server-all'
+    archiveBaseName = project.name + '-server-all'
 
     from (configurations.serverCompileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
         exclude 'META-INF/MANIFEST.MF'
@@ -103,10 +103,10 @@ task makeFatJar(type: Jar) {
 task makeLibJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Verde Library',
-                    'Implementation-Version': version
+                    'Implementation-Version': archiveVersion
     }
 
-    baseName = project.name + '-lib'
+    archiveBaseName = project.name + '-lib'
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
@@ -116,12 +116,14 @@ task makeLibJar(type: Jar) {
 task makeJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
-                    'Implementation-Version': version,
+                    'Implementation-Version': archiveVersion,
                     'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
                     'Class-Path': (project.configurations.serverCompileClasspath + configurations.serverRuntimeClasspath).collect { 'libs/' + it.getName() }.join(' ')
     }
 
-    baseName = project.name + '-server'
+    archiveBaseName = project.name + '-server'
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     from sourceSets.main.output
     from sourceSets.server.output
@@ -132,6 +134,8 @@ task makeJar(type: Jar) {
 task copyDependencies(type: Copy) {
     from (configurations.serverCompileClasspath + configurations.serverRuntimeClasspath)
     into "$buildDir/libs/libs"
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 test {
@@ -197,7 +201,7 @@ allprojects {
     }
 
     // Requires "dot".  `brew install graphviz`
-    task javadoc(overwrite: true, dependsOn: compileJava) {
+    task makeDocumentation(dependsOn: javadoc) {
         setDescription('Generates Javadoc API documentation with UMLGraph diagrams')
         setGroup(JavaBasePlugin.DOCUMENTATION_GROUP)
 
