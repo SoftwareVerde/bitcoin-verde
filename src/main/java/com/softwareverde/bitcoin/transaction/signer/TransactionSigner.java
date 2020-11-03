@@ -233,7 +233,9 @@ public class TransactionSigner {
                     mutableScript.subScript(subscriptIndex);
                 }
 
-                mutableScript.removeOperations(Opcode.CODE_SEPARATOR);
+                // NOTE: (Subtly) According to Buip55 CODE_SEPARATOR are not removed in the new BCH serialization format.
+                // mutableScript.removeOperations(Opcode.CODE_SEPARATOR);
+
                 scriptForSigning = mutableScript;
             }
 
