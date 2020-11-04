@@ -1,7 +1,19 @@
-# Bitcoin Verde v1.2.2
+# Bitcoin Verde v1.3.1
 
 
 ## Updates
+
+**v1.3.1**
+- Reverting difficulty calculation to an older, more stable version.
+- Dependency updates and other minor improvements.
+
+**v1.3.0**
+- 20200515 HF support (OP_REVERSE).
+- The Explorer now returns results via pagination for better performance.
+- Added CashAddr and improved SLP support to the Explorer.
+- Misc. Wallet Updates & Bug Fixes.
+- Added Bitcoin-Sign-Message support.
+
 
 **v1.2.0**
 - 20191115 HF support (Multisig Schnorr Signatures).
