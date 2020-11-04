@@ -24,6 +24,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class DifficultyCalculatorTests extends IntegrationTest {
+
     protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -399,7 +400,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_00000000000000000343E9875012F2062554C8752929892C82A0C0743AC7DCFD() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -533,7 +534,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_000000000000000002173D0AC7B3A30F2AAC302449778D72386C785D2C370429() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -674,7 +675,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_0000000000000000044B32C9A65C643A5B7EA4C38C5A34E6E1203998D3B38392() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -803,7 +804,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_difficulty_for_block_000000000000000001D49711B252E3C8DDAEFEC6A668B3104E4C4EE63908A587() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();

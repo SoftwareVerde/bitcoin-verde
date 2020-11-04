@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.test;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.ReadUncommittedDatabaseConnectionFactoryWrapper;
@@ -8,6 +10,8 @@ import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCa
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -33,7 +37,7 @@ public class IntegrationTest extends UnitTest {
     protected final MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
-    protected final FullNodeDatabaseManagerFactory _readUncomittedDatabaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _readUncommittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
 
     public IntegrationTest() {
@@ -42,7 +46,7 @@ public class IntegrationTest extends UnitTest {
         _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-        _readUncomittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
+        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
@@ -98,5 +102,55 @@ public class IntegrationTest extends UnitTest {
         catch (final Exception exception) {
             throw new RuntimeException(exception);
         }
+    }
+
+    protected FullNodeDatabaseManagerFactory _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable() {
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        return _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable(databaseConnectionFactory, _databaseManagerCache);
+    }
+
+    protected FullNodeDatabaseManagerFactory _getReadUncommittedDatabaseManagerFactoryThatFakesMedianBlockTimesWhenNotCalculable() {
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
+        return _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
+    }
+
+    protected FullNodeDatabaseManagerFactory _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache) {
+            @Override
+            public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
+                final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
+                return new FullNodeDatabaseManager(databaseConnection, _databaseManagerCache) {
+                    @Override
+                    public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
+                        if (_blockHeaderDatabaseManager == null) {
+                            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this) {
+                                @Override
+                                public MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+                                    try {
+                                        return super.calculateMedianBlockTime(blockId);
+                                    }
+                                    catch (Exception ignored) {
+                                        return MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+                                    }
+                                }
+
+                                @Override
+                                public MedianBlockTime calculateMedianBlockTimeStartingWithBlock(final BlockId blockId) throws DatabaseException {
+                                    try {
+                                        return super.calculateMedianBlockTimeStartingWithBlock(blockId);
+                                    }
+                                    catch (Exception ignored) {
+                                        return MedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
+                                    }
+                                }
+                            };
+                        }
+
+                        return _blockHeaderDatabaseManager;
+                    }
+                };
+            }
+        };
     }
 }

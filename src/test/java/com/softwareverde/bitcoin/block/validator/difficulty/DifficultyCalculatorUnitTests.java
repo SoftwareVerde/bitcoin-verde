@@ -30,7 +30,7 @@ import org.junit.Test;
 import java.math.BigInteger;
 import java.util.HashMap;
 
-import static com.softwareverde.bitcoin.block.validator.difficulty.AsertDifficultyCalculator.*;
+import static com.softwareverde.bitcoin.block.validator.difficulty.AsertDifficultyCalculator.AsertReferenceBlockLoader;
 
 class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.database.FakeDatabaseManager {
     protected static final BlockchainSegmentId BLOCKCHAIN_SEGMENT_ID = BlockchainSegmentId.wrap(1L);

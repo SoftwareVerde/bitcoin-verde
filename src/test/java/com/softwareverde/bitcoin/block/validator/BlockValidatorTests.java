@@ -137,12 +137,13 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_validate_block_that_contains_transaction_that_spends_outputs_in_same_block() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()) {
             final BlockInflater blockInflater = new BlockInflater();
+            final FullNodeDatabaseManagerFactory readUncommittedDatabaseManagerFactory = _getReadUncommittedDatabaseManagerFactoryThatFakesMedianBlockTimesWhenNotCalculable();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
 
             { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
                 final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -279,7 +280,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
 
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
 
             final BlockchainSegmentId genesisBlockchainSegmentId;
             {
@@ -330,18 +331,19 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void difficulty_should_be_recalculated_every_2016th_block() throws Exception {
         // Setup
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()) {
             final TimeZone timeZone = TimeZone.getTimeZone("GMT+1:00"); // Rome, Italy; DST
             final long blockHeight = 2016 * 2; // 32256L;
 
             final Long genesisBlockTimestamp = (DateUtil.datetimeToTimestamp("2009-01-03 18:15:05", timeZone) / 1000L);
 
             final BlockInflater blockInflater = new BlockInflater();
+            final FullNodeDatabaseManagerFactory readUncommittedDatabaseManagerFactory = _getReadUncommittedDatabaseManagerFactoryThatFakesMedianBlockTimesWhenNotCalculable();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 _storeBlocks(1, genesisBlockTimestamp); // Store the genesis block... (Since the genesis-block is considered block-height 0.)
@@ -465,7 +467,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
 
             final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
             final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -510,7 +512,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final TransactionSigner transactionSigner = new TransactionSigner();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
             final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, NetworkTime.MAX_VALUE, MedianBlockTime.MAX_VALUE);
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
 
             final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
 
@@ -640,7 +642,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final TransactionSigner transactionSigner = new TransactionSigner();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
             final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, NetworkTime.MAX_VALUE, MedianBlockTime.MAX_VALUE);
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
             final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
 
             Sha256Hash lastBlockHash = null;
@@ -815,7 +817,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final TransactionSigner transactionSigner = new TransactionSigner();
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
             final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, NetworkTime.MAX_VALUE, MedianBlockTime.MAX_VALUE);
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());
             final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
 
             Sha256Hash lastBlockHash = null;
@@ -950,7 +952,7 @@ public class BlockValidatorTests extends IntegrationTest {
         try (
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCacheCore(unspentTransactionOutputCacheFactory);
                 final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-                final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()
+                final FullNodeDatabaseManager databaseManager = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable().newDatabaseManager()
         ) {
             final BlockInflater blockInflater = new BlockInflater();
             final DatabaseConnection databaseConnection = _database.newConnection();
@@ -971,7 +973,7 @@ public class BlockValidatorTests extends IntegrationTest {
             };
             // final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
             final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = _getDatabaseManagerFactoryThatFakesMedianBlocksTimesWhenNotCalculable(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
 
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
             final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new FakeMedianBlockTime());

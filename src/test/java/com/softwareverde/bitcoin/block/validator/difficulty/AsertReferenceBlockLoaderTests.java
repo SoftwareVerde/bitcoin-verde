@@ -16,7 +16,7 @@ import org.junit.Test;
 import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.softwareverde.bitcoin.block.validator.difficulty.AsertDifficultyCalculator.*;
+import static com.softwareverde.bitcoin.block.validator.difficulty.AsertDifficultyCalculator.AsertReferenceBlockLoader;
 
 public class AsertReferenceBlockLoaderTests extends UnitTest {
 
