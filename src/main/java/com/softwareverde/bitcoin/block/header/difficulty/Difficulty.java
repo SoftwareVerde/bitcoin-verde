@@ -7,17 +7,18 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 
 public interface Difficulty extends Constable<ImmutableDifficulty> {
     Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
     ByteArray BASE_DIFFICULTY_SIGNIFICAND = new ImmutableByteArray(new byte[] { (byte) 0x00, (byte) 0xFF, (byte) 0xFF });
-    ImmutableDifficulty BASE_DIFFICULTY = new ImmutableDifficulty(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
+    Long MAX_SIGNIFICAND_VALUE = 0x7FFFFFL; // ByteUtil.bytesToLong(HexUtil.hexStringToByteArray("7FFFFF"));
 
-    Long MAX_SIGNIFICAND_VALUE = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray("7FFFFF"));
+    ImmutableDifficulty BASE_DIFFICULTY = new ImmutableDifficulty(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
+    ImmutableDifficulty MAX_DIFFICULTY = Difficulty.decode(ByteArray.fromHexString("1D00FFFF"));
 
     static ImmutableDifficulty fromBigInteger(final BigInteger bigInteger) {
         final int significandByteCount = 3;
@@ -52,8 +53,13 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
         return new ImmutableDifficulty(significand, exponent);
     }
 
+    static BigInteger toBigInteger(final Difficulty difficulty) {
+        final ByteArray byteArray = difficulty.getBytes();
+        return new BigInteger(byteArray.getBytes());
+    }
+
     static BigDecimal calculateHashesPerSecond(final Difficulty difficulty) {
-        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), BigDecimal.ROUND_HALF_UP));
+        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), RoundingMode.HALF_UP));
     }
 
     static ImmutableDifficulty decode(final ByteArray encodedBytes) {

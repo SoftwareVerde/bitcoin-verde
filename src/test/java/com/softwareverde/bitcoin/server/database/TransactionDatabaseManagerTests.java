@@ -52,7 +52,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
             final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, NetworkTime.MAX_VALUE, MedianBlockTime.MAX_VALUE);
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new BlockValidatorTests.FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseManagerFactory, transactionValidatorFactory, NetworkTime.MAX_VALUE, new BlockValidatorTests.FakeMedianBlockTime());
 
             final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
 

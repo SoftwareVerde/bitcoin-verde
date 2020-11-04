@@ -46,7 +46,7 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         _readLock = readWriteLock.readLock();
         _writeLock = readWriteLock.writeLock();
 
-        _requiredBlockCount = BLOCK_COUNT;
+        _requiredBlockCount = MedianBlockTime.BLOCK_COUNT;
         _previousBlocks = new RotatingQueue<BlockHeader>(_requiredBlockCount);
     }
 
