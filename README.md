@@ -1,7 +1,13 @@
-# Bitcoin Verde v1.3.1
+# Bitcoin Verde v1.4.0
 
 
 ## Updates
+
+**v1.4.0**
+- Support for ASERT difficulty adjustment algorithm.
+
+**v1.3.2**
+- Fix for signature pre-image with OP_CODESEPARATOR.
 
 **v1.3.1**
 - Reverting difficulty calculation to an older, more stable version.
