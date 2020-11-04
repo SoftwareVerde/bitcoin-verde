@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.validator.BatchedBlockHeaders;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.merkleroot.ImmutableMerkleRoot;
@@ -18,6 +19,7 @@ import com.softwareverde.bitcoin.test.fake.database.FakeBlockHeaderDatabaseManag
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
@@ -37,6 +39,7 @@ class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.databas
     protected final HashMap<BlockId, BlockHeader> _blockHeaders = new HashMap<BlockId, BlockHeader>();
     protected final HashMap<BlockId, Long> _blockHeights = new HashMap<BlockId, Long>();
     protected final HashMap<Long, BlockId> _blocksByBlockHeight = new HashMap<Long, BlockId>();
+    protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<BlockId, MedianBlockTime>();
     protected final HashMap<BlockId, ChainWork> _chainWork = new HashMap<BlockId, ChainWork>();
 
     @Override
@@ -80,10 +83,15 @@ class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.databas
             public ChainWork getChainWork(final BlockId blockId) {
                 return _chainWork.get(blockId);
             }
+
+            @Override
+            public MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+                return _medianBlockTimes.get(blockId);
+            }
         };
     }
 
-    public void registerBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork) {
+    public BlockId registerBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final ChainWork chainWork) {
         final Sha256Hash blockHash = blockHeader.getHash();
 
         final BlockId blockId = BlockId.wrap(_nextBlockId);
@@ -94,6 +102,8 @@ class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.databas
         _chainWork.put(blockId, chainWork);
 
         _nextBlockId += 1L;
+
+        return blockId;
     }
 }
 
@@ -111,7 +121,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
      *              d. Return S[1].
      *      """
      */
-    //@Test
+//    @Test
     public void should_select_block_header_based_on_insert_order_when_timestamps_are_identical() {
 
         // Setup
@@ -178,100 +188,101 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         Assert.assertNotNull(difficulty); // Since the difficulty no longer correlates to main net, success is defined by not receiving a null pointer exception during calculation...
     }
 
-//    @Test
-//    public void should_activate_testnet_headers() throws Exception {
-//        // Setup
-//        HF20201115.enableTestNet();
-//        final Long testNetHalfLife = (3600L);
-//
-//        try {
-//            final FakeDatabaseManager databaseManager = new FakeDatabaseManager();
-//
-//            final Json headersObjectJson = Json.parse(IoUtil.getResource("/aserti3-2d/test-net-headers.json"));
-//
-//
-//            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-//            final FakeReferenceBlockLoaderContext referenceBlockLoaderContext = new FakeReferenceBlockLoaderContext();
-//            final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
-//
-//            final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
-//            final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
-//            final HashMap<Long, ChainWork> chainWorks = difficultyCalculatorContext.getChainWorks();
-//
-//            { // Inflate the context from the testnet json resource...
-//                final int headerCount = headersObjectJson.length();
-//                for (int i = 0; i < headerCount; ++i) {
-//                    final Json json = headersObjectJson.get(i);
-//
-//                    final Long blockHeight = json.getLong("height");
-//                    final Long blockTimestamp = json.getLong("time");
-//
-//                    final MutableBlockHeader blockHeader = new MutableBlockHeader();
-//                    blockHeader.setVersion(json.getLong("version"));
-//                    blockHeader.setTimestamp(blockTimestamp);
-//                    blockHeader.setNonce(json.getLong("nonce"));
-//
-//                    final ByteArray difficultyBytes = ByteArray.fromHexString(json.getString("bits"));
-//                    final Difficulty difficulty = Difficulty.decode(difficultyBytes);
-//                    blockHeader.setDifficulty(difficulty);
-//
-//                    final MerkleRoot merkleRoot = ImmutableMerkleRoot.fromHexString(json.getString("merkleroot"));
-//                    blockHeader.setMerkleRoot(merkleRoot);
-//
-//                    final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(json.getString("previousblockhash"));
-//                    blockHeader.setPreviousBlockHash(previousBlockHash);
-//
-//                    final Sha256Hash expectedBlockHash = Sha256Hash.fromHexString(json.getString("hash"));
-//
-//                    final Sha256Hash blockHash = blockHeader.getHash();
-//                    Assert.assertEquals(expectedBlockHash, blockHash);
-//
-//                    // BlockHeader
-//                    blockHeaders.put(blockHeight, blockHeader);
-//
-//                    // ChainWork
-//                    final ChainWork chainWork = ChainWork.fromHexString(json.getString("chainwork"));
-//                    chainWorks.put(blockHeight, chainWork);
-//
-//                    // MedianTimePast
-//                    final MedianBlockTime medianTimePast = MedianBlockTime.fromSeconds(json.getLong("mediantime"));
-//                    medianBlockTimes.put(blockHeight, medianTimePast);
-//
-//                    // AsertReferenceBlockLoader
-//                    final BlockId blockId = BlockId.wrap(blockHeight + 1L);
-//                    referenceBlockLoaderContext.setBlockHeader(blockchainSegmentId, blockId, blockHeight, medianTimePast, blockTimestamp, difficulty);
-//
-//                    // Debug
-//                    Logger.debug("TestNet Block: " + blockHeight + ": " + blockHash + " " + difficultyBytes + " " + medianTimePast + " " + chainWork);
-//                }
-//            }
-//
-//            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(
-//                    databaseManager,
-//                    new MedianBlockHeaderSelector(),
-//                    asertReferenceBlockLoader,
-//                    new AsertDifficultyCalculator() {
-//                        @Override
-//                        protected BigInteger _getHalfLife() {
-//                            return BigInteger.valueOf(testNetHalfLife);
-//                        }
-//                    }
-//            ) { };
-//
-//            final Long blockHeight = 1416399L;
-//
-//            // Action
-//            final AsertReferenceBlock asertReferenceBlock = asertReferenceBlockLoader.getAsertReferenceBlock(blockchainSegmentId);
-//            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeight);
-//
-//            // Assert
-//            Assert.assertEquals(BigInteger.valueOf(1416397L), asertReferenceBlock.blockHeight);
-//
-//            final BlockHeader blockHeader = blockHeaders.get(blockHeight);
-//            Assert.assertEquals(blockHeader.getDifficulty(), difficulty);
-//        }
-//        finally {
-//            HF20201115.enableMainNet();
-//        }
-//    }
+    @Test
+    public void should_activate_testnet_headers() throws Exception {
+        // Setup
+        HF20201115.enableTestNet();
+        final Long testNetHalfLife = (3600L);
+
+        try {
+            final FakeDatabaseManager databaseManager = new FakeDatabaseManager();
+
+            final Json headersObjectJson = Json.parse(IoUtil.getResource("/aserti3-2d/test-net-headers.json"));
+
+
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+            final FakeReferenceBlockLoaderContext referenceBlockLoaderContext = new FakeReferenceBlockLoaderContext();
+            final AsertReferenceBlockLoader asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
+
+            final BatchedBlockHeaders blockHeaders = new BatchedBlockHeaders(255);
+
+            final ChainWork startingChainWork = ChainWork.fromHexString("00000000000000000000000000000000000000000000006d1950c4da4c5b4699");
+            blockHeaders.setCurrentChainWork(startingChainWork);
+
+            { // Inflate the context from the testnet json resource...
+                final int headerCount = headersObjectJson.length();
+                for (int i = 0; i < headerCount; ++i) {
+
+                    final Json json = headersObjectJson.get(i);
+
+                    final Long blockHeight = json.getLong("height");
+                    final Long blockTimestamp = json.getLong("time");
+
+                    final MutableBlockHeader blockHeader = new MutableBlockHeader();
+                    blockHeader.setVersion(json.getLong("version"));
+                    blockHeader.setTimestamp(blockTimestamp);
+                    blockHeader.setNonce(json.getLong("nonce"));
+
+                    final ByteArray difficultyBytes = ByteArray.fromHexString(json.getString("bits"));
+                    final Difficulty difficulty = Difficulty.decode(difficultyBytes);
+                    blockHeader.setDifficulty(difficulty);
+
+                    final MerkleRoot merkleRoot = ImmutableMerkleRoot.fromHexString(json.getString("merkleroot"));
+                    blockHeader.setMerkleRoot(merkleRoot);
+
+                    final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(json.getString("previousblockhash"));
+                    blockHeader.setPreviousBlockHash(previousBlockHash);
+
+                    final Sha256Hash expectedBlockHash = Sha256Hash.fromHexString(json.getString("hash"));
+
+                    final Sha256Hash blockHash = blockHeader.getHash();
+                    Assert.assertEquals(expectedBlockHash, blockHash);
+
+                    final ChainWork chainWork = ChainWork.fromHexString(json.getString("chainwork"));
+                    final MedianBlockTime medianTimePast = MedianBlockTime.fromSeconds(json.getLong("mediantime"));
+
+                    final BlockId blockId = databaseManager.registerBlockHeader(blockHeader, blockHeight, chainWork);
+
+                    blockHeaders.put(blockHeight, blockHeader);
+
+                    databaseManager._chainWork.put(blockId, chainWork);
+                    databaseManager._medianBlockTimes.put(blockId, medianTimePast);
+
+                    // AsertReferenceBlockLoader
+                    referenceBlockLoaderContext.setBlockHeader(blockchainSegmentId, blockId, blockHeight, medianTimePast, blockTimestamp, difficulty);
+
+                    // Debug
+                    Logger.debug("TestNet Block: " + blockHeight + ": " + blockHash + " " + difficultyBytes + " " + medianTimePast + " " + chainWork);
+                }
+            }
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(
+                    databaseManager,
+                    blockHeaders,
+                    asertReferenceBlockLoader,
+                    new AsertDifficultyCalculator() {
+                        @Override
+                        protected BigInteger _getHalfLife() {
+                            return BigInteger.valueOf(testNetHalfLife);
+                        }
+                    }
+            ) { };
+
+            final Long blockHeight = 1416399L;
+
+            // Action
+            final AsertReferenceBlock asertReferenceBlock = asertReferenceBlockLoader.getAsertReferenceBlock(blockchainSegmentId);
+            final BlockHeader blockHeader = blockHeaders.getBlockHeader(blockHeight);
+            final ChainWork chainWork = blockHeaders.getChainWork(blockHeight);
+            databaseManager.registerBlockHeader(blockHeader, blockHeight, chainWork);
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(BigInteger.valueOf(1416397L), asertReferenceBlock.blockHeight);
+            Assert.assertEquals(blockHeader.getDifficulty(), difficulty);
+        }
+        finally {
+            HF20201115.enableMainNet();
+        }
+    }
 }
