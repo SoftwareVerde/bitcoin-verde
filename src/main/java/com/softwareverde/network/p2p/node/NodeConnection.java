@@ -67,8 +67,9 @@ public class NodeConnection {
                 catch (final IOException exception) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    Logger.debug("Connection failed. Retrying in 3000ms... (" + _toString() + ")");
-                    try { Thread.sleep(3000); } catch (final Exception exception) { break; }
+                    final long timeoutMs = 3000L;
+                    Logger.debug("Connection failed. Retrying in " + timeoutMs + "ms... (" + _toString() + ")");
+                    try { Thread.sleep(timeoutMs); } catch (final Exception exception) { break; }
                 }
             }
 

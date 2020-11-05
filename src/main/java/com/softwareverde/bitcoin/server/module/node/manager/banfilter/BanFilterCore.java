@@ -18,7 +18,7 @@ import java.util.HashSet;
 public class BanFilterCore implements BanFilter {
     public static class BanCriteria {
         public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 10;
-        public static final Long FAILED_CONNECTION_ATTEMPT_MILLISECOND_SPAN = 5000L;
+        public static final Long FAILED_CONNECTION_ATTEMPT_SECONDS_SPAN = 20L;
 
         public static List<Sha256Hash> INVALID_BLOCKS = new ImmutableList<Sha256Hash>(
             Sha256Hash.fromHexString("0000000000000000005CCD563C9ED7212AD591467CD3DB71A17D44918B687F34"),   // BTC Block 504031
@@ -26,11 +26,12 @@ public class BanFilterCore implements BanFilter {
         );
     }
 
-    protected static final Long MAX_BAN_DURATION = (60L * 60L); // 1 Hour (in seconds)...
+    protected static final Long DEFAULT_BAN_DURATION = (60L * 60L); // 1 Hour (in seconds)...
 
     protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final HashSet<Ip> _whitelist = new HashSet<Ip>();
+    protected Long _banDurationInSeconds = DEFAULT_BAN_DURATION;
 
     protected void _unbanIp(final Ip ip, final DatabaseManager databaseManager) throws DatabaseException {
         final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
@@ -47,12 +48,12 @@ public class BanFilterCore implements BanFilter {
 
     protected Boolean _shouldBanIp(final Ip ip, final DatabaseManager databaseManager) throws DatabaseException {
         final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-        final Long sinceTimestamp = (_systemTime.getCurrentTimeInSeconds() - BanCriteria.FAILED_CONNECTION_ATTEMPT_MILLISECOND_SPAN);
+        final Long sinceTimestamp = (_systemTime.getCurrentTimeInSeconds() - BanCriteria.FAILED_CONNECTION_ATTEMPT_SECONDS_SPAN);
         final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForIp(ip, sinceTimestamp);
         final boolean shouldBanIp = (failedConnectionCount >= BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
 
         if (shouldBanIp) {
-            Logger.debug("Ip (" + ip + ") failed to connect " + failedConnectionCount + " times within " + BanCriteria.FAILED_CONNECTION_ATTEMPT_MILLISECOND_SPAN + "ms.");
+            Logger.debug("Ip (" + ip + ") failed to connect " + failedConnectionCount + " times within " + BanCriteria.FAILED_CONNECTION_ATTEMPT_SECONDS_SPAN + "s.");
         }
 
         return shouldBanIp;
@@ -72,7 +73,7 @@ public class BanFilterCore implements BanFilter {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-            final Long sinceTimestamp = (_systemTime.getCurrentTimeInSeconds() - MAX_BAN_DURATION);
+            final Long sinceTimestamp = (_systemTime.getCurrentTimeInSeconds() - _banDurationInSeconds);
             return nodeDatabaseManager.isBanned(ip, sinceTimestamp);
         }
         catch (final DatabaseException exception) {
@@ -193,5 +194,9 @@ public class BanFilterCore implements BanFilter {
         _whitelist.remove(ip);
 
         Logger.debug("Removed ip from Whitelist: " + ip);
+    }
+
+    public void setBanDuration(final Long banDurationInSeconds) {
+        _banDurationInSeconds = banDurationInSeconds;
     }
 }

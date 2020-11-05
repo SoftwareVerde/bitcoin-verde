@@ -161,7 +161,9 @@ public class IntegrationTest extends UnitTest {
     }
 
     @Override
-    public void after() throws Exception { }
+    public void after() throws Exception {
+        Thread.sleep(500L); // Allow Integration DB to complete cleanup before next test.
+    }
 
     protected static final String INSERT_BLOCK_QUERY = "INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 

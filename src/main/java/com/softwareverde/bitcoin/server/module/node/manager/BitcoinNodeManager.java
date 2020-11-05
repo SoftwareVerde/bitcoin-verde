@@ -284,17 +284,17 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected void _addNotHandshakedNode(final BitcoinNode bitcoinNode) {
         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
 
+        final Ip ip = nodeIpAddress.getIp();
+        final Boolean isBanned = _banFilter.isIpBanned(ip);
+        if ( (_isShuttingDown) || (isBanned) ) {
+            _removeNode(bitcoinNode);
+            return;
+        }
+
+        super._addNotHandshakedNode(bitcoinNode);
+
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-
-            final Boolean isBanned = nodeDatabaseManager.isBanned(nodeIpAddress.getIp());
-            if ( (_isShuttingDown) || (isBanned) ) {
-                _removeNode(bitcoinNode);
-                return;
-            }
-
-            super._addNotHandshakedNode(bitcoinNode);
-
             nodeDatabaseManager.storeNode(bitcoinNode);
         }
         catch (final DatabaseException databaseException) {
