@@ -10,6 +10,9 @@ rm -rf out 2>/dev/null
 mkdir -p out/conf
 cp -R conf/* out/conf/.
 
+# Copy README
+cp README.md out/.
+
 # Create SSL Placeholder Directory
 mkdir -p out/ssl
 
