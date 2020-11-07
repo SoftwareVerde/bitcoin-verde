@@ -11,7 +11,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public interface UnspentTransactionOutputDatabaseManager {
     Long DEFAULT_MAX_UTXO_CACHE_COUNT = 500000L;
     Float DEFAULT_PURGE_PERCENT = 0.5F;
-    Long BYTES_PER_UTXO = 128L; // TODO
+    Long BYTES_PER_UTXO = 128L; // NOTE: This value is larger than the actual size.  // TODO: Research a more accurate UTXO byte count.
 
     interface SpentState {
         Boolean isSpent();

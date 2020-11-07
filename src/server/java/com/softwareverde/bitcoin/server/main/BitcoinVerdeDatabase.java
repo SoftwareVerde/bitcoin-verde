@@ -53,7 +53,7 @@ public class BitcoinVerdeDatabase implements Database {
         @Override
         public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
             if ( (currentVersion < 3) && (requiredVersion <= 3) ) {
-                return false; // TODO
+                return false; // Upgrading from Verde v1 (DB v1-v2) is not supported.
             }
 
             return false;

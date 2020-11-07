@@ -535,7 +535,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             flushedUnspentStateCode = spentState.intValue();
         }
 
-        // TODO: Initialize UtxoValues to the same object.
+        // TODO: Initialize UtxoValues to the same object to reduce memory footprint.
         int i = 0;
         final JvmSpentState transientSpentState = new JvmSpentState(); // Re-initialize the same instance instead of creating many objects.
         final Iterator<Map.Entry<UtxoKey, UtxoValue>> iterator = UTXO_SET.entrySet().iterator();
@@ -557,7 +557,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             }
             else {
                 // Mark the UTXO as flushed and clear the mandatory-flush flag.
-                entry.setValue(new UtxoValue(flushedUnspentStateCode, utxoValue.blockHeight)); // TODO: cache/reuse UTXO values with the same blockHeight.
+                entry.setValue(new UtxoValue(flushedUnspentStateCode, utxoValue.blockHeight)); // TODO: cache/reuse UTXO values with the same blockHeight to reduce memory footprint.
 
                 boolean wasPurged = false;
                 if (remainingPurgeCount > 0) {
