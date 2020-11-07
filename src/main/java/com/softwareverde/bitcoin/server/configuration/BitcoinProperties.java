@@ -48,7 +48,8 @@ public class BitcoinProperties {
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     public Long getMaxCachedUtxoCount() {
-        return (_maxUtxoCacheByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
+        final Long maxUtxoCacheWithDoubleBufferByteCount = (_maxUtxoCacheByteCount / 2L); // Disk-writes are double-buffered, using up to double the size in the worst-case scenario.
+        return (maxUtxoCacheWithDoubleBufferByteCount / UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);
     }
     public Long getUtxoCacheCommitFrequency() { return _utxoCommitFrequency; }
     public Float getUtxoCachePurgePercent() { return _utxoPurgePercent; }
