@@ -4,15 +4,24 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.MedianBlockTimeDatabaseManagerUtil;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.Map;
+
 public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManager {
+    static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
+        return FakeFullNodeBlockHeaderDatabaseManager.newInitializedMedianBlockTime(blockDatabaseManager, headBlockHash);
+    }
+
     @Override
     default BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         throw new UnsupportedOperationException();
@@ -28,11 +37,6 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
 
     @Override
     default List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders, final Integer maxBatchSize) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
@@ -123,22 +127,12 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     }
 
     @Override
-    default MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException {
+    default MutableMedianBlockTime calculateMedianBlockHeaderTime() throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    default MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default MedianBlockTime calculateMedianBlockTimeStartingWithBlock(final BlockId blockId) throws DatabaseException {
+    default MutableMedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
         throw new UnsupportedOperationException();
     }
 
@@ -150,5 +144,20 @@ public interface FakeBlockHeaderDatabaseManager extends BlockHeaderDatabaseManag
     @Override
     default BlockId getBlockIdAtHeight(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    default Map<BlockId, Long> getBlockHeights(List<BlockId> blockIds) throws DatabaseException {
+        throw new UnsupportedOperationException();
+    }
+}
+
+class FakeFullNodeBlockHeaderDatabaseManager extends FullNodeBlockHeaderDatabaseManager {
+    public static MutableMedianBlockTime newInitializedMedianBlockTime(final BlockHeaderDatabaseManager blockDatabaseManager, final Sha256Hash headBlockHash) throws DatabaseException {
+        return MedianBlockTimeDatabaseManagerUtil.calculateMedianBlockTime(blockDatabaseManager, headBlockHash);
+    }
+
+    public FakeFullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
+        super(databaseManager, checkpointConfiguration);
     }
 }

@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.bip.HF20191115;
 import com.softwareverde.bitcoin.bip.HF20200515;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -36,7 +36,7 @@ public class StringOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
 
         if (! _opcode.isEnabled()) {
             Logger.debug("Opcode is disabled: " + _opcode);

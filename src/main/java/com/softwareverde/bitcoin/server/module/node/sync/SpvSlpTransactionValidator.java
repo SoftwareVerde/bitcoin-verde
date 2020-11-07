@@ -18,12 +18,22 @@ import com.softwareverde.network.p2p.node.manager.NodeManager;
 import java.util.concurrent.TimeUnit;
 
 public class SpvSlpTransactionValidator extends SleepyService {
-    private final SpvDatabaseManagerFactory _databaseManagerFactory;
-    private final BitcoinNodeManager _bitcoinNodeManager;
+    protected final SpvDatabaseManagerFactory _databaseManagerFactory;
+    protected final BitcoinNodeManager _bitcoinNodeManager;
+    protected final Object _sleepPin = new Object();
 
     public SpvSlpTransactionValidator(final SpvDatabaseManagerFactory spvDatabaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = spvDatabaseManagerFactory;
         _bitcoinNodeManager = bitcoinNodeManager;
+    }
+
+    @Override
+    public synchronized void wakeUp() {
+        synchronized (_sleepPin) {
+            _sleepPin.notifyAll();
+        }
+
+        super.wakeUp();
     }
 
     @Override
@@ -48,7 +58,7 @@ public class SpvSlpTransactionValidator extends SleepyService {
             });
             if (bitcoinNode == null) {
                 // unable to find an appropriate node
-                Logger.warn("Unable to request SLP validity of " + unknownValidityTransactionHashes.getCount() + " transactions: no SLP indexing nodes available.");
+                Logger.debug("Unable to request SLP validity of " + unknownValidityTransactionHashes.getCount() + " transactions: no SLP indexing nodes available.");
                 Thread.sleep(TimeUnit.SECONDS.toMillis(20));
                 return true;
             }
@@ -57,7 +67,7 @@ public class SpvSlpTransactionValidator extends SleepyService {
             Logger.info("Requesting SLP status of " + unknownValidityTransactionHashes.getCount() + " transactions from: " + bitcoinNode.getConnectionString());
             int startIndex = 0;
             while (startIndex < unknownValidityTransactionHashes.getCount()) {
-                final MutableList<Sha256Hash> batchOfHashes = new MutableList<>();
+                final MutableList<Sha256Hash> batchOfHashes = new MutableList<Sha256Hash>();
                 for (int i = 0; (i < QuerySlpStatusMessage.MAX_HASH_COUNT) && ((startIndex + i) < unknownValidityTransactionHashes.getCount()); i++) {
                     batchOfHashes.add(unknownValidityTransactionHashes.get(startIndex + i));
                 }
@@ -66,13 +76,15 @@ public class SpvSlpTransactionValidator extends SleepyService {
                 startIndex += batchOfHashes.getCount();
             }
 
-            // TODO: Refactor this so the validator could immediately wake up if a call to ::wakeUp was invoked (i.e. when an indexing node was connected)...
-            Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+            final long oneMinuteInMilliseconds = TimeUnit.MINUTES.toMillis(1);
+            synchronized (_sleepPin) {
+                _sleepPin.wait(oneMinuteInMilliseconds);
+            }
 
             return true;
         }
         catch (final Exception exception) {
-            Logger.error("Problem synchronizing SLP Validity.", exception);
+            Logger.debug("Problem synchronizing SLP Validity.", exception);
             return false;
         }
     }

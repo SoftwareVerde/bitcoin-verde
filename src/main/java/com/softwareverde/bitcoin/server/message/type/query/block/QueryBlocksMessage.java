@@ -8,6 +8,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -16,8 +17,8 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     public static Integer MAX_BLOCK_HASH_COUNT = 500;
 
     protected Integer _version;
-    protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
-    protected Sha256Hash _stopBeforeBlockHash = Sha256Hash.EMPTY_HASH;
+    protected final MutableList<Sha256Hash> _blockHashes = new MutableList<Sha256Hash>();
+    protected final MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public QueryBlocksMessage() {
         super(MessageType.QUERY_BLOCKS);
@@ -29,52 +30,58 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     /**
      * NOTE: Block Hashes should be added in descending order by block height (i.e. head Block first)...
      */
-    public void addBlockHash(final Sha256Hash blockHeaderHash) {
-        if (_blockHeaderHashes.getCount() >= MAX_BLOCK_HASH_COUNT) { return; }
-        if (blockHeaderHash == null) { return; }
+    public void addBlockHash(final Sha256Hash blockHash) {
+        if (_blockHashes.getCount() >= MAX_BLOCK_HASH_COUNT) { return; }
+        if (blockHash == null) { return; }
 
-        _blockHeaderHashes.add(blockHeaderHash.asConst());
+        _blockHashes.add(blockHash.asConst());
     }
 
-    public void clearBlockHeaderHashes() {
-        _blockHeaderHashes.clear();
+    public void clearBlockHashes() {
+        _blockHashes.clear();
     }
 
     /**
      * NOTE: Block Hashes are sorted in descending order by block height (i.e. head Block first)...
      */
     public List<Sha256Hash> getBlockHashes() {
-        return _blockHeaderHashes;
+        return _blockHashes;
     }
 
     public Sha256Hash getStopBeforeBlockHash() {
         return _stopBeforeBlockHash;
     }
 
-    public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
-        _stopBeforeBlockHash = (blockHeaderHash != null ? blockHeaderHash.asConst() : Sha256Hash.EMPTY_HASH);
+    public void setStopBeforeBlockHash(final Sha256Hash blockHash) {
+        if (blockHash == null) {
+            _stopBeforeBlockHash.setBytes(Sha256Hash.EMPTY_HASH);
+            return;
+        }
+
+        _stopBeforeBlockHash.setBytes(blockHash);
     }
 
     @Override
     protected ByteArray _getPayload() {
-        final int blockHeaderCount = _blockHeaderHashes.getCount();
-        final int blockHeaderHashByteCount = 32;
+        final int blockHeaderCount = _blockHashes.getCount();
+        final int blockHashByteCount = Sha256Hash.BYTE_COUNT;
 
         final byte[] versionBytes = ByteUtil.integerToBytes(_version);
         final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
-        final byte[] blockHeaderHashesBytes = new byte[blockHeaderHashByteCount * blockHeaderCount];
+        final byte[] blockHashesBytes = new byte[blockHashByteCount * blockHeaderCount];
 
         for (int i = 0; i < blockHeaderCount; ++i) {
-            final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(_blockHeaderHashes.getCount() - i - 1);
-            final int startIndex = (blockHeaderHashByteCount * i);
-            ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash.getBytes(), startIndex);
+            final Sha256Hash blockHash = _blockHashes.get(i);
+            final int startIndex = (blockHashByteCount * i);
+            final ByteArray littleEndianBlockHash = blockHash.toReversedEndian();
+            ByteUtil.setBytes(blockHashesBytes, littleEndianBlockHash.getBytes(), startIndex);
         }
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_stopBeforeBlockHash.getBytes(), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(blockHashesBytes, Endian.BIG);
+        byteArrayBuilder.appendBytes(_stopBeforeBlockHash, Endian.LITTLE);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

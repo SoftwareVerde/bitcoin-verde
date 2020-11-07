@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.util.bytearray.ByteArrayReader;
@@ -33,7 +33,7 @@ public class LockTimeOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableTransactionContext context) {
         switch (_opcode) {
             case CHECK_LOCK_TIME_THEN_VERIFY: {
                 final Boolean operationIsEnabled = Bip65.isEnabled(context.getBlockHeight());
@@ -92,13 +92,13 @@ public class LockTimeOperation extends SubTypedOperation {
 
                 final SequenceNumber stackSequenceNumber = stackSequenceNumberValue.asSequenceNumber();
 
-                if (! stackSequenceNumber.isDisabled()) {
+                if (! stackSequenceNumber.isRelativeLockTimeDisabled()) {
                     if (transaction.getVersion() < 2) {
                         return false;
                     }
 
                     final SequenceNumber transactionInputSequenceNumber = transactionInput.getSequenceNumber();
-                    if (transactionInputSequenceNumber.isDisabled()) {
+                    if (transactionInputSequenceNumber.isRelativeLockTimeDisabled()) {
                         return false;
                     }
 

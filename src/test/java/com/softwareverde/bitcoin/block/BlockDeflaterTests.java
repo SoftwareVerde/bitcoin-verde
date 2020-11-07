@@ -39,9 +39,11 @@ public class BlockDeflaterTests {
         // Action
         final Integer toBytesByteCount = blockDeflater.toBytes(block).getByteCount();
         final Integer getByteCountByteCount = blockDeflater.getByteCount(block);
+        final Integer blockGetByteCount = block.getByteCount();
 
         // Assert
         Assert.assertEquals(expectedByteCount, toBytesByteCount);
         Assert.assertEquals(expectedByteCount, getByteCountByteCount);
+        Assert.assertEquals(expectedByteCount, blockGetByteCount);
     }
 }

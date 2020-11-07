@@ -22,7 +22,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptBuilder;
@@ -51,7 +51,12 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
 
 public class Wallet {
     protected static final Long BYTES_PER_TRANSACTION_INPUT = 148L; // P2PKH Inputs are either 147-148 bytes for compressed addresses, or 179-180 bytes for uncompressed addresses.
@@ -236,8 +241,8 @@ public class Wallet {
         final PublicKey decompressedPublicKey = publicKey.decompress();
 
         final AddressInflater addressInflater = new AddressInflater();
-        final Address decompressedAddress = addressInflater.uncompressedFromPrivateKey(constPrivateKey);
-        final Address compressedAddress = addressInflater.compressedFromPrivateKey(constPrivateKey);
+        final Address decompressedAddress = addressInflater.fromPrivateKey(constPrivateKey, false);
+        final Address compressedAddress = addressInflater.fromPrivateKey(constPrivateKey, true);
 
         _privateKeys.put(compressedPublicKey.asConst(), constPrivateKey);
         _privateKeys.put(decompressedPublicKey.asConst(), constPrivateKey);
@@ -395,8 +400,8 @@ public class Wallet {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final AddressInflater addressInflater = new AddressInflater();
-        final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
-        final Address address = addressInflater.uncompressedFromPublicKey(publicKey);
+        final Address address = addressInflater.fromPublicKey(publicKey, false);
+        final Address compressedAddress = addressInflater.fromPublicKey(publicKey, true);
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
@@ -822,7 +827,7 @@ public class Wallet {
                 transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
             }
 
-            final MutableContext context = MutableContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime);
+            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime);
             final Boolean outputIsUnlocked = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
 
             if (! outputIsUnlocked) {
@@ -906,7 +911,7 @@ public class Wallet {
         Logger.debug(signedTransaction.getHash());
         Logger.debug(transactionDeflater.toBytes(signedTransaction));
 
-        final Integer transactionByteCount = transactionDeflater.getByteCount(signedTransaction);
+        final Integer transactionByteCount = signedTransaction.getByteCount();
 
         if (feesContainer.value < (transactionByteCount * _satoshisPerByteFee)) {
             Logger.info("Failed to create a transaction with sufficient fee...");
@@ -949,8 +954,8 @@ public class Wallet {
             bloomFilter.addItem(publicKey.compress());
 
             // Add receiving matchers...
-            bloomFilter.addItem(addressInflater.uncompressedFromPrivateKey(privateKey));
-            bloomFilter.addItem(addressInflater.compressedFromPrivateKey(privateKey));
+            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey, false));
+            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey, true));
         }
 
         return bloomFilter;
@@ -1207,8 +1212,8 @@ public class Wallet {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final AddressInflater addressInflater = new AddressInflater();
-        final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
-        final Address address = addressInflater.uncompressedFromPublicKey(publicKey);
+        final Address address = addressInflater.fromPublicKey(publicKey, false);
+        final Address compressedAddress = addressInflater.fromPublicKey(publicKey, true);
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
@@ -1349,7 +1354,7 @@ public class Wallet {
     public synchronized Address getReceivingAddress() {
         final AddressInflater addressInflater = new AddressInflater();
         for (final PublicKey publicKey : _privateKeys.keySet()) {
-            return addressInflater.compressedFromPublicKey(publicKey);
+            return addressInflater.fromPublicKey(publicKey, true);
         }
 
         return null;

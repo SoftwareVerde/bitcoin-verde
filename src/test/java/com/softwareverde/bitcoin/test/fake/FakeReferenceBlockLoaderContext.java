@@ -2,16 +2,17 @@ package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.validator.difficulty.AsertDifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
+import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 
-public class FakeReferenceBlockLoaderContext implements AsertDifficultyCalculator.AsertReferenceBlockLoader.ReferenceBlockLoaderContext {
+public class FakeReferenceBlockLoaderContext implements AsertReferenceBlockLoader.ReferenceBlockLoaderContext {
     protected final HashMap<BlockchainSegmentId, BlockId> _headBlockIds = new HashMap<BlockchainSegmentId, BlockId>();
     protected final HashMap<BlockId, MedianBlockTime> _medianBlockTimes = new HashMap<BlockId, MedianBlockTime>();
     protected final HashMap<BlockId, Long> _blockTimestamps = new HashMap<BlockId, Long>();
@@ -67,7 +68,7 @@ public class FakeReferenceBlockLoaderContext implements AsertDifficultyCalculato
     }
 
     @Override
-    public Long getBlockTimestamp(final BlockId blockId) throws AsertDifficultyCalculator.ContextException {
+    public Long getBlockTimestamp(final BlockId blockId) throws ContextException {
         final Long blockTimestamp = _blockTimestamps.get(blockId);
         if (blockTimestamp == null) {
             Logger.debug("Requested unknown Timestamp for BlockId: " + blockId);

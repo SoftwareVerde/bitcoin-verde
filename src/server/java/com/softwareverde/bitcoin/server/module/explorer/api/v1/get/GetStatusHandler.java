@@ -31,6 +31,7 @@ public class GetStatusHandler implements RequestHandler<Environment> {
 
             final String status;
             final Json statisticsJson;
+            final Json utxoCacheStatusJson;
             final Json serverLoadJson;
             final Json serviceStatusesJson;
             {
@@ -45,6 +46,7 @@ public class GetStatusHandler implements RequestHandler<Environment> {
                 }
 
                 statisticsJson = rpcResponseJson.get("statistics");
+                utxoCacheStatusJson = rpcResponseJson.get("utxoCacheStatus");
                 status = rpcResponseJson.getString("status");
                 serverLoadJson = rpcResponseJson.get("serverLoad");
                 serviceStatusesJson = rpcResponseJson.get("serviceStatuses");
@@ -54,6 +56,7 @@ public class GetStatusHandler implements RequestHandler<Environment> {
             statusResult.setWasSuccess(true);
             statusResult.setStatus(status);
             statusResult.setStatistics(statisticsJson);
+            statusResult.setUtxoCacheStatus(utxoCacheStatusJson);
             statusResult.setServerLoad(serverLoadJson);
             statusResult.setServiceStatuses(serviceStatusesJson);
             return new JsonResponse(Response.Codes.OK, statusResult);

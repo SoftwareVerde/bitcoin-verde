@@ -14,7 +14,7 @@ public interface SequenceNumber extends Constable<ImmutableSequenceNumber>, Json
     Long getValue();
     ByteArray getBytes();
 
-    Boolean isDisabled();
+    Boolean isRelativeLockTimeDisabled();
 
     Long getMaskedValue(); // Returns the last 2 bytes of the value, as per Bip68... (https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki)
 

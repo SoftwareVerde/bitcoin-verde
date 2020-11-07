@@ -17,7 +17,7 @@ public class AddressInflaterTests {
         final String base32AddressString = "bitcoincash:qqswr73n8gzgsygazzfn9qm3qk46dtescsyrzewzuj";
 
         // Action
-        final Address address = addressInflater.uncompressedFromBase32Check(base32AddressString);
+        final Address address = addressInflater.fromBase32Check(base32AddressString);
 
         // Assert
         Assert.assertNotNull(address);
@@ -30,7 +30,7 @@ public class AddressInflaterTests {
         final String base32AddressString = "http://bitcoincash:qqswr73n8gzgsygazzfn9qm3qk46dtescsyrzewzuj";
 
         // Action
-        final Address address = addressInflater.uncompressedFromBase32Check(base32AddressString);
+        final Address address = addressInflater.fromBase32Check(base32AddressString);
 
         // Assert
         Assert.assertNull(address);
@@ -53,8 +53,8 @@ public class AddressInflaterTests {
         final AddressInflater addressInflater = new AddressInflater();
 
         // Action
-        final Address bitcoinAddress = addressInflater.uncompressedFromPrivateKey(privateKey);
-        final CompressedAddress compressedAddress = addressInflater.compressedFromPrivateKey(privateKey);
+        final Address bitcoinAddress = addressInflater.fromPrivateKey(privateKey, false);
+        final Address compressedAddress = addressInflater.fromPrivateKey(privateKey, true);
         final PublicKey publicKey = privateKey.getPublicKey();
         final PublicKey compressedPublicKey = publicKey.compress();
 
@@ -84,8 +84,8 @@ public class AddressInflaterTests {
         final AddressInflater addressInflater = new AddressInflater();
 
         // Action
-        final Address bitcoinAddress = addressInflater.uncompressedFromPrivateKey(privateKey);
-        final CompressedAddress compressedAddress = addressInflater.compressedFromPrivateKey(privateKey);
+        final Address bitcoinAddress = addressInflater.fromPrivateKey(privateKey);
+        final Address compressedAddress = addressInflater.fromPrivateKey(privateKey, true);
         final PublicKey publicKey = privateKey.getPublicKey();
         final PublicKey compressedPublicKey = publicKey.compress();
 
@@ -116,8 +116,8 @@ public class AddressInflaterTests {
         final AddressInflater addressInflater = new AddressInflater();
 
         // Action
-        final CompressedAddress compressedAddress = addressInflater.compressedFromPublicKey(compressedPublicKey);
-        final Address decompressedBitcoinAddress = addressInflater.uncompressedFromPublicKey(decompressedPublicKey);
+        final Address compressedAddress = addressInflater.fromPublicKey(compressedPublicKey);
+        final Address decompressedBitcoinAddress = addressInflater.fromPublicKey(decompressedPublicKey);
 
         // Assert
         TestUtil.assertEqual(expectedPublicKey, decompressedPublicKey.getBytes());
@@ -125,5 +125,19 @@ public class AddressInflaterTests {
 
         Assert.assertEquals(expectedAddressString, decompressedBitcoinAddress.toBase58CheckEncoded());
         Assert.assertEquals(expectedCompressedAddressString, compressedAddress.toBase58CheckEncoded());
+    }
+
+    @Test
+    public void should_return_null_for_invalid_slp_address() {
+        // Setup
+        final AddressInflater addressInflater = new AddressInflater();
+        final String slpAddressString = "simpleledger:qpkpqwnht42ne6gzx3qtuuwjge2gpyqnkszwkc9rgz";
+        final String invalidSlpAddressString = "simpleledger:qpkpqwnht42ne6gzx3qtuuwjge2gpyqnkszwkc9rg"; // Missing the final letter of the checksum...
+
+        // Action
+        final Address address = addressInflater.fromBase32Check(invalidSlpAddressString);
+
+        // Assert
+        Assert.assertNull(address);
     }
 }

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -16,4 +17,6 @@ public interface BlockDatabaseManager {
     Boolean hasTransactions(Sha256Hash blockHash) throws DatabaseException;
     Integer getTransactionCount(BlockId blockId) throws DatabaseException;
     List<TransactionId> getTransactionIds(BlockId blockId) throws DatabaseException;
+
+    MutableMedianBlockTime calculateMedianBlockTime() throws DatabaseException;
 }

@@ -47,4 +47,12 @@ public class IoUtil extends com.softwareverde.util.IoUtil {
         final File file = new File(path);
         return file.exists();
     }
+
+    public static Boolean isEmpty(final String path) {
+        final File file = new File(path);
+        if (! file.exists()) { return true; }
+        if (! file.isFile()) { return true; }
+
+        return (file.length() < 1);
+    }
 }

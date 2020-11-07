@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -7,10 +10,10 @@ import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
-import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -21,10 +24,10 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashSet;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNodeDatabaseManager {
 
@@ -122,12 +125,14 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
 
             if (rows.isEmpty()) {
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent) VALUES (?, ?, ?, ?, ?)")
+                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
                         .setParameter(hostId)
                         .setParameter(port)
                         .setParameter(now)
                         .setParameter(now)
                         .setParameter(userAgent)
+                        .setParameter(0L)
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
             else {
@@ -217,10 +222,8 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
     }
 
     @Override
-    public Boolean updateBlockInventory(final BitcoinNode node, final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+    public Boolean updateBlockInventory(final BitcoinNode node, final Long blockHeight, final Sha256Hash blockHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (pendingBlockIds.isEmpty()) { return false; }
 
         final Ip ip = node.getIp();
         final Integer port = node.getPort();
@@ -228,42 +231,36 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final NodeId nodeId = _getNodeId(ip, port);
         if (nodeId == null) { return false; }
 
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_blocks_inventory (node_id, pending_block_id) VALUES (?, ?)");
-        for (final PendingBlockId pendingBlockId : pendingBlockIds) {
-            batchedInsertQuery.setParameter(nodeId);
-            batchedInsertQuery.setParameter(pendingBlockId);
+        java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, head_block_height, head_block_hash FROM nodes WHERE id = ?")
+                .setParameter(nodeId)
+        );
+        if (rows.isEmpty()) { return false; }
+        final Row row = rows.get(0);
+        final Long headBlockHeight = row.getLong("head_block_height");
+        final Sha256Hash headBlockHash = Sha256Hash.wrap(row.getBytes("head_block_hash"));
+
+        if (headBlockHeight > blockHeight) { return false; }
+        if (Util.areEqual(headBlockHeight, blockHeight)) {
+            if (Util.areEqual(headBlockHash, blockHash)) {
+                return false;
+            }
         }
-        databaseConnection.executeSql(batchedInsertQuery);
-
-        return (databaseConnection.getRowsAffectedCount() > 0);
-    }
-
-    @Override
-    public void deleteBlockInventory(final PendingBlockId pendingBlockId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id = ?")
-                .setParameter(pendingBlockId)
+            new Query("UPDATE nodes SET head_block_height = ?, head_block_hash = ? WHERE id = ?")
+                .setParameter(blockHeight)
+                .setParameter(blockHash)
+                .setParameter(nodeId)
         );
+        return true;
     }
 
     @Override
-    public void deleteBlockInventory(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+    public void updateTransactionInventory(final BitcoinNode node, final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        if (transactionHashes.isEmpty()) { return; }
+
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (pendingBlockIds.isEmpty()) { return; }
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (?)")
-                .setInClauseParameters(pendingBlockIds, ValueExtractor.IDENTIFIER)
-        );
-    }
-
-    @Override
-    public void updateTransactionInventory(final BitcoinNode node, final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (pendingTransactionIds.isEmpty()) { return; }
 
         final Ip ip = node.getIp();
         final Integer port = node.getPort();
@@ -271,11 +268,12 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final NodeId nodeId = _getNodeId(ip, port);
         if (nodeId == null) { return; }
 
-        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_transactions_inventory (node_id, pending_transaction_id) VALUES (?, ?)");
-        for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_transactions_inventory (node_id, hash) VALUES (?, ?)");
+        for (final Sha256Hash transactionHash : transactionHashes) {
             batchedInsertQuery.setParameter(nodeId);
-            batchedInsertQuery.setParameter(pendingTransactionId);
+            batchedInsertQuery.setParameter(transactionHash);
         }
+
         databaseConnection.executeSql(batchedInsertQuery);
     }
 
@@ -284,7 +282,7 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (?)")
+            new Query("SELECT node_id FROM node_transactions_inventory WHERE hash = ? AND node_id IN (?)")
                 .setParameter(transactionHash)
                 .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
         );
@@ -314,63 +312,45 @@ public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNo
     public List<NodeId> filterNodesViaBlockInventory(final List<NodeId> nodeIds, final Sha256Hash blockHash, final FilterType filterType) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final ReentrantReadWriteLock.ReadLock pendingBlockTableReadLock = PendingBlockDatabaseManager.READ_LOCK;
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, head_block_height, head_block_hash FROM nodes WHERE id IN (?)")
+                .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
+        );
 
-        final java.util.List<Row> rows;
-        try {
-            pendingBlockTableReadLock.lock();
-
-            rows = databaseConnection.query(
-                new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (?)")
-                    .setParameter(blockHash)
-                    .setInClauseParameters(nodeIds, ValueExtractor.IDENTIFIER)
-            );
-        }
-        finally {
-            pendingBlockTableReadLock.unlock();
-        }
+        // TODO: Check for blockchain node feature...
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
-        if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
-            for (final NodeId nodeId : nodeIds) {
-                filteredNodes.add(nodeId);
-            }
-        }
+
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
         for (final Row row : rows) {
-            final NodeId nodeWithTransaction = NodeId.wrap(row.getLong("node_id"));
+            final NodeId nodeId = NodeId.wrap(row.getLong("id"));
+            final Long nodeBlockHeight = row.getLong("head_block_height");
+            final Sha256Hash nodeBlockHash = Sha256Hash.wrap(row.getBytes("head_block_hash"));
 
-            if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
-                filteredNodes.remove(nodeWithTransaction);
+            final BlockId nodeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(nodeBlockHash);
+            final BlockchainSegmentId nodeBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(nodeBlockId);
+            final Boolean nodeIsOnSameBlockchain = (blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, nodeBlockchainSegmentId, BlockRelationship.ANY));
+            final boolean nodeHasBlock = ((nodeBlockHeight >= blockHeight) && nodeIsOnSameBlockchain);
+            // TODO: Nodes that diverged after the desired blockHeight could still serve the block...
+
+            if (filterType == FilterType.KEEP_NODES_WITH_INVENTORY) {
+                if (nodeHasBlock) {
+                    filteredNodes.add(nodeId);
+                }
             }
-            else {
-                filteredNodes.add(nodeWithTransaction);
+            else if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
+                if (! nodeHasBlock) {
+                    filteredNodes.add(nodeId);
+                }
             }
         }
 
         return new ImmutableList<NodeId>(filteredNodes);
-    }
-
-    @Override
-    public void deleteTransactionInventory(final PendingTransactionId pendingTransactionId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id = ?")
-                .setParameter(pendingTransactionId)
-        );
-    }
-
-    @Override
-    public void deleteTransactionInventory(final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        if (pendingTransactionIds.isEmpty()) { return; }
-
-        databaseConnection.executeSql(
-            new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (?)")
-                .setInClauseParameters(pendingTransactionIds, ValueExtractor.IDENTIFIER)
-        );
     }
 
     @Override

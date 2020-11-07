@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -65,7 +65,7 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1).getBytes()));
 
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         final ScriptRunner scriptRunner = new ScriptRunner();
 
         final TransactionInput transactionInput = transaction1.getTransactionInputs().get(0);
@@ -103,7 +103,7 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionHexString, HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
 
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         context.setTransaction(transaction);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
@@ -132,7 +132,7 @@ public class ScriptRunnerTests {
         // Setup
         final ScriptRunner scriptRunner = new ScriptRunner();
 
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         context.setBlockHeight(590000L);
 
         final String[] lockingScriptStrings = new String[7];
@@ -186,7 +186,7 @@ public class ScriptRunnerTests {
         // Setup
         final ScriptRunner scriptRunner = new ScriptRunner();
 
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         context.setBlockHeight(590000L);
 
         final String[] lockingScriptStrings = new String[11];
@@ -262,7 +262,7 @@ public class ScriptRunnerTests {
         final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("80100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E87")));
 
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
-        final MutableContext context = new MutableContext();
+        final MutableTransactionContext context = new MutableTransactionContext();
         context.setBlockHeight(0L);
         context.setMedianBlockTime(medianBlockTime);
         final ScriptRunner scriptRunner = new ScriptRunner();

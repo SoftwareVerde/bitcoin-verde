@@ -14,17 +14,24 @@ import com.softwareverde.database.DatabaseException;
 public class BlockFinderHashesBuilder {
     protected final DatabaseManager _databaseManager;
 
-    public BlockFinderHashesBuilder(final DatabaseManager databaseManager) {
-        _databaseManager = databaseManager;
-    }
-
-    public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
+    protected List<Sha256Hash> _createBlockFinderBlockHashes(final Boolean processedBlocksOnly, final Integer offset) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
 
         final Long maxBlockHeight;
         final BlockchainSegmentId headBlockchainSegmentId;
-        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+        final BlockId headBlockId;
+        {
+            final BlockId blockId;
+            if (processedBlocksOnly) {
+                blockId = blockDatabaseManager.getHeadBlockId();
+            }
+            else {
+                blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            }
+
+            headBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, offset);
+        }
         if (headBlockId != null) {
             headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
             maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
@@ -36,7 +43,7 @@ public class BlockFinderHashesBuilder {
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(BitcoinUtil.log2(maxBlockHeight.intValue()) + 11);
         int blockHeightStep = 1;
-        for (Long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
+        for (long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
 
@@ -48,5 +55,25 @@ public class BlockFinderHashesBuilder {
         }
 
         return blockHashes;
+    }
+
+    public BlockFinderHashesBuilder(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
+    }
+
+    public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
+        return _createBlockFinderBlockHashes(true, 0);
+    }
+
+    public List<Sha256Hash> createBlockFinderBlockHashes(final Integer offset) throws DatabaseException {
+        return _createBlockFinderBlockHashes(true, offset);
+    }
+
+    public List<Sha256Hash> createBlockHeaderFinderBlockHashes() throws DatabaseException {
+        return _createBlockFinderBlockHashes(false, 0);
+    }
+
+    public List<Sha256Hash> createBlockHeaderFinderBlockHashes(final Integer offset) throws DatabaseException {
+        return _createBlockFinderBlockHashes(false, offset);
     }
 }

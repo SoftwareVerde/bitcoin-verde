@@ -25,6 +25,8 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
     static Boolean isCoinbaseTransaction(final Transaction transaction) {
+        if (transaction == null) { return false; }
+
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         if (transactionInputs.getCount() != 1) { return false; }
 
@@ -36,6 +38,8 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     }
 
     static Boolean isSlpTransaction(final Transaction transaction) {
+        if (transaction == null) { return false; }
+
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
         return SlpScriptInflater.matchesSlpFormat(transactionOutput.getLockingScript());
@@ -98,6 +102,8 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     Long getTotalOutputValue();
     Boolean matches(BloomFilter bloomFilter);
     CoinbaseTransaction asCoinbase();
+
+    Integer getByteCount();
 
     @Override
     ConstTransaction asConst();

@@ -2,7 +2,11 @@ package com.softwareverde.bitcoin.chain;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.miner.Miner;
@@ -26,17 +30,19 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -65,10 +71,16 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(expectedValue, blockHeight);
     }
 
-    @Before
-    public void setup() {
-        _resetDatabase();
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+
         _nonce = 0L;
+    }
+
+    @Override @After
+    public void after() throws Exception {
+        super.after();
     }
 
     @Test
@@ -1119,6 +1131,57 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
             //        }
         }
     }
+
+    @Test
+    public void should_return_original_head_block_during_contention() throws Exception {
+        final BlockInflater blockInflater = _masterInflater.getBlockInflater();
+
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+            // MainChain Blocks
+            final Block genesisBlock = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK)); // 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F
+
+            // ForkChain2 Blocks
+            final Block forkChain2Block01 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_1)); // 0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2
+            final Block forkChain2Block02 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_2)); // 00000000314E669144E0781C432EB33F2079834D406E46393291E94199F433EE
+            final Block forkChain2Block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain2.BLOCK_3)); // 00000000EC006D368F4610AAEA50986B4E71450C81E8A2E1D947A2BF93F0BCB7
+
+            // ForkChain4 Blocks
+            final Block forkChain4Block03 = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.ForkChain4.BLOCK_3)); // 00000000C77EFC229BD4EF49BBC08C17AB26B7AC242C10B0105179EFA1A2D0D6
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                // Action/Assert
+                blockDatabaseManager.storeBlock(genesisBlock);
+                Assert.assertEquals(BlockchainSegmentId.wrap(1L), blockchainDatabaseManager.getHeadBlockchainSegmentId());
+                Assert.assertEquals(BlockId.wrap(1L), blockHeaderDatabaseManager.getHeadBlockHeaderId());
+                Assert.assertEquals(BlockId.wrap(1L), blockDatabaseManager.getHeadBlockId());
+
+                blockDatabaseManager.storeBlock(forkChain2Block01);
+                Assert.assertEquals(BlockchainSegmentId.wrap(1L), blockchainDatabaseManager.getHeadBlockchainSegmentId());
+                Assert.assertEquals(BlockId.wrap(2L), blockHeaderDatabaseManager.getHeadBlockHeaderId());
+                Assert.assertEquals(BlockId.wrap(2L), blockDatabaseManager.getHeadBlockId());
+
+                blockDatabaseManager.storeBlock(forkChain2Block02);
+                Assert.assertEquals(BlockchainSegmentId.wrap(1L), blockchainDatabaseManager.getHeadBlockchainSegmentId());
+                Assert.assertEquals(BlockId.wrap(3L), blockHeaderDatabaseManager.getHeadBlockHeaderId());
+                Assert.assertEquals(BlockId.wrap(3L), blockDatabaseManager.getHeadBlockId());
+
+                final BlockId blockId = blockDatabaseManager.storeBlock(forkChain4Block03);
+                Assert.assertEquals(BlockchainSegmentId.wrap(1L), blockchainDatabaseManager.getHeadBlockchainSegmentId());
+                Assert.assertEquals(BlockId.wrap(4L), blockHeaderDatabaseManager.getHeadBlockHeaderId());
+                Assert.assertEquals(BlockId.wrap(4L), blockDatabaseManager.getHeadBlockId());
+
+                blockDatabaseManager.storeBlock(forkChain2Block03);
+                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+                Assert.assertEquals(blockchainSegmentId, blockchainDatabaseManager.getHeadBlockchainSegmentId());
+                Assert.assertEquals(blockId, blockHeaderDatabaseManager.getHeadBlockHeaderId());
+                Assert.assertEquals(blockId, blockDatabaseManager.getHeadBlockId());
+            }
+        }
+    }
 }
 
 class Void {
@@ -1146,7 +1209,7 @@ class Void {
         final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
         final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
 
-        final Integer tenMinutesInSeconds = (60 * 10);
+        final int tenMinutesInSeconds = (60 * 10);
 
         final MutableBlock mutableBlock = new MutableBlock();
         mutableBlock.setPreviousBlockHash(block5.getHash());
@@ -1155,7 +1218,7 @@ class Void {
         mutableBlock.setVersion(block5.getVersion());
 
         final PrivateKey privateKey = PrivateKey.fromHexString("9F40477DAB2F6822360E6C690F8278DB73E536156A402BBBE798A85DCBE1A8AC");
-        final Address payToAddress = addressInflater.uncompressedFromPrivateKey(privateKey);
+        final Address payToAddress = addressInflater.fromPrivateKey(privateKey, false);
 
         {
             final MutableCoinbaseTransaction coinbaseTransaction = new MutableCoinbaseTransaction();
@@ -1182,7 +1245,7 @@ class Void {
                 transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
                 transaction.addTransactionInput(transactionInput);
             }
-            transaction.addTransactionOutput(_createTransactionOutput(addressInflater.uncompressedFromPrivateKey(privateKey)));
+            transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey, false)));
 
             final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
             signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
@@ -1190,7 +1253,7 @@ class Void {
             final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
             final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
-            final MutableContext context = new MutableContext();
+            final MutableTransactionContext context = new MutableTransactionContext();
             context.setCurrentScript(null);
             context.setTransactionInputIndex(0);
             context.setTransactionInput(transactionInput);

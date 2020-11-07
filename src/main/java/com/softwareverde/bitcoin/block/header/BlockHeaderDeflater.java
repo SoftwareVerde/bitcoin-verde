@@ -1,15 +1,17 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 public class BlockHeaderDeflater {
     public static class BlockHeaderByteData {
@@ -33,10 +35,13 @@ public class BlockHeaderDeflater {
     }
 
     protected BlockHeaderByteData _createByteData(final BlockHeader blockHeader) {
+        final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+        final MerkleRoot merkleRoot = blockHeader.getMerkleRoot();
+
         final BlockHeaderByteData byteData = new BlockHeaderByteData();
         ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(blockHeader.getVersion()));
-        ByteUtil.setBytes(byteData.previousBlockHash, blockHeader.getPreviousBlockHash().getBytes());
-        ByteUtil.setBytes(byteData.merkleRoot, blockHeader.getMerkleRoot().getBytes());
+        ByteUtil.setBytes(byteData.previousBlockHash, previousBlockHash.getBytes());
+        ByteUtil.setBytes(byteData.merkleRoot, merkleRoot.getBytes());
 
         final byte[] timestampBytes = ByteUtil.longToBytes(blockHeader.getTimestamp());
         for (int i = 0; i < byteData.timestamp.length; ++i) {
@@ -56,8 +61,7 @@ public class BlockHeaderDeflater {
 
     public ByteArray toBytes(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
-        final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return _serializeByteData(blockHeaderByteData);
     }
 
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
@@ -86,7 +90,7 @@ public class BlockHeaderDeflater {
             final Difficulty difficulty = blockHeader.getDifficulty();
 
             final Json difficultyJson = new Json();
-            difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, BigDecimal.ROUND_HALF_UP));
+            difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, RoundingMode.HALF_UP));
             difficultyJson.put("value", difficulty.encode());
             difficultyJson.put("mask", difficulty.getBytes());
             json.put("difficulty", difficultyJson);

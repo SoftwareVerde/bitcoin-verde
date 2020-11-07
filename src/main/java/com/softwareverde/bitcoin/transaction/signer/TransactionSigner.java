@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -23,7 +24,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.Schnorr;
-import com.softwareverde.cryptography.secp256k1.Secp256k1;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.secp256k1.signature.Signature;
@@ -299,7 +299,6 @@ public class TransactionSigner {
         }
 
         { // 10. Serialize this Transaction's HashType...
-            // TODO: Bitcoin ABC has additional code here, including XOR'ing with 0xDEAD... Unsure of its purpose/intent. Might have to revisit.
             final byte hashTypeByte = hashType.toByte();
             final byte[] hashTypeWithForkId = ByteUtil.integerToBytes(FORK_ID << 8);
             hashTypeWithForkId[3] |= hashTypeByte;

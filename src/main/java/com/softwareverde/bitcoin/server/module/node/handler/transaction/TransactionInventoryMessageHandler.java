@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -23,15 +23,22 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
     protected final BitcoinNode _bitcoinNode;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Runnable _newInventoryCallback;
+    protected final SynchronizationStatus _synchronizationStatus;
 
-    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final FullNodeDatabaseManagerFactory databaseManagerFactory, final Runnable newInventoryCallback) {
+    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus, final Runnable newInventoryCallback) {
         _bitcoinNode = bitcoinNode;
         _databaseManagerFactory = databaseManagerFactory;
         _newInventoryCallback = newInventoryCallback;
+        _synchronizationStatus = synchronizationStatus;
     }
 
     @Override
     public void onResult(final List<Sha256Hash> transactionHashes) {
+        if (_synchronizationStatus != null) {
+            final Boolean isReadyForTransactions = _synchronizationStatus.isReadyForTransactions();
+            if (! isReadyForTransactions) { return; }
+        }
+
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
@@ -50,8 +57,8 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
             }
 
             if (! unseenTransactionHashes.isEmpty()) {
-                final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.storeTransactionHashes(unseenTransactionHashes);
-                nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, pendingTransactionIds);
+                pendingTransactionDatabaseManager.storeTransactionHashes(unseenTransactionHashes);
+                nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, unseenTransactionHashes);
 
                 if (_newInventoryCallback != null) {
                     _newInventoryCallback.run();

@@ -7,8 +7,6 @@ import java.io.InputStream;
 public class SpvResourceLoader {
     public static final String BOOTSTRAP_HEADERS            = "/bootstrap/headers.dat";
     public static final String INIT_SQL_SQLITE              = "/sql/spv/init_sqlite.sql";
-    public static final String INIT_SQL_INDEXES_SQLITE      = "/sql/spv/init_indexes_sqlite.sql";
-    public static final String INIT_SQL_METADATA_SQLITE     = "/sql/spv/init_metadata_sqlite.sql";
 
     /**
      * Attempts to find the resource using different resource-loading entities.  The IoUtil method, this class's

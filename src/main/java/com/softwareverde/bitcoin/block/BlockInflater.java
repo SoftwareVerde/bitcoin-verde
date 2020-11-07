@@ -7,18 +7,22 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.ByteUtil;
 
 public class BlockInflater {
-    public static final Integer MAX_TRANSACTION_COUNT = Integer.MAX_VALUE; // TODO: Set to the the current consensus value...
+    public static final Integer MAX_BYTE_COUNT = (int) (32L * ByteUtil.Unit.Si.MEGABYTES);
+    public static final Integer MAX_TRANSACTION_COUNT = (BlockInflater.MAX_BYTE_COUNT / TransactionInflater.MIN_BYTE_COUNT);
 
     protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final TransactionInflater transactionInflater = new TransactionInflater();
 
+        final Integer startPosition = byteArrayReader.getPosition();
+
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
-        final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (transactionCount > MAX_TRANSACTION_COUNT) { return null; }
 
         final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount);
@@ -32,7 +36,13 @@ public class BlockInflater {
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return new MutableBlock(blockHeader, transactions);
+        final Integer endPosition = byteArrayReader.getPosition();
+        final Integer byteCount = (endPosition - startPosition);
+
+        final MutableBlock mutableBlock = new MutableBlock(blockHeader, transactions);
+        mutableBlock.cacheByteCount(byteCount);
+
+        return mutableBlock;
     }
 
     public MutableBlock fromBytes(final ByteArrayReader byteArrayReader) {

@@ -55,12 +55,12 @@ public class SearchHandler implements RequestHandler<Environment> {
                 final AddressInflater addressInflater = new AddressInflater();
                 final Address address;
                 {
-                    final Address base58Address = addressInflater.uncompressedFromBase58Check(queryParam);
+                    final Address base58Address = addressInflater.fromBase58Check(queryParam);
                     if (base58Address != null) {
                         address = base58Address;
                     }
                     else {
-                        address = addressInflater.uncompressedFromBase32Check(queryParam);
+                        address = addressInflater.fromBase32Check(queryParam);
                     }
                 }
 

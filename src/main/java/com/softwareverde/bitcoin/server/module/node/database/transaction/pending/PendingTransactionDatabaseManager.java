@@ -116,7 +116,7 @@ public class PendingTransactionDatabaseManager {
         final Long minSecondsBetweenDownloadAttempts = 5L;
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT node_transactions_inventory.node_id, pending_transactions.id AS pending_transaction_id FROM pending_transactions LEFT OUTER JOIN pending_transaction_data ON pending_transactions.id = pending_transaction_data.pending_transaction_id INNER JOIN node_transactions_inventory ON node_transactions_inventory.pending_transaction_id = pending_transactions.id WHERE (pending_transaction_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND node_transactions_inventory.node_id IN (?) ORDER BY pending_transactions.priority ASC, pending_transactions.id ASC LIMIT 1024")
+            new Query("SELECT node_transactions_inventory.node_id, pending_transactions.id AS pending_transaction_id FROM pending_transactions LEFT OUTER JOIN pending_transaction_data ON pending_transactions.id = pending_transaction_data.pending_transaction_id INNER JOIN node_transactions_inventory ON node_transactions_inventory.hash = pending_transactions.hash WHERE (pending_transaction_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND node_transactions_inventory.node_id IN (?) ORDER BY pending_transactions.priority ASC, pending_transactions.id ASC LIMIT 1024")
                 .setParameter(currentTimestamp)
                 .setParameter(minSecondsBetweenDownloadAttempts)
                 .setInClauseParameters(connectedNodeIds, ValueExtractor.IDENTIFIER)
@@ -161,7 +161,7 @@ public class PendingTransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        return Sha256Hash.copyOf(row.getBytes("hash"));
     }
 
     protected void _incrementFailedDownloadCount(final PendingTransactionId pendingTransactionId) throws DatabaseException {
@@ -197,9 +197,16 @@ public class PendingTransactionDatabaseManager {
     protected void _deletePendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        final Sha256Hash pendingTransactionHash = _getPendingTransactionHash(pendingTransactionId);
+
         databaseConnection.executeSql(
             new Query("DELETE FROM pending_transactions WHERE id = ?")
                 .setParameter(pendingTransactionId)
+        );
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM node_transactions_inventory WHERE hash = ?")
+                .setParameter(pendingTransactionHash)
         );
     }
 
@@ -226,19 +233,37 @@ public class PendingTransactionDatabaseManager {
 
         if (pendingTransactionIds.isEmpty()) { return; }
 
+        final HashSet<Sha256Hash> pendingTransactionHashes = new HashSet<Sha256Hash>(pendingTransactionIds.getCount());
+        for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
+            final Sha256Hash pendingTransactionHash = _getPendingTransactionHash(pendingTransactionId);
+            pendingTransactionHashes.add(pendingTransactionHash);
+        }
+
         databaseConnection.executeSql(
             new Query("DELETE FROM pending_transactions WHERE id IN (?)")
                 .setInClauseParameters(pendingTransactionIds, ValueExtractor.IDENTIFIER)
+        );
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM node_transactions_inventory WHERE hash IN (?)")
+                .setInClauseParameters(pendingTransactionHashes, ValueExtractor.SHA256_HASH)
         );
     }
 
     protected void _purgeExpiredOrphanedTransactions() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final Long minimumTimestamp = (_systemTime.getCurrentTimeInSeconds() - MAX_ORPHANED_TRANSACTION_AGE_IN_SECONDS);
-        databaseConnection.executeSql(
-            new Query("DELETE pending_transactions FROM pending_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions.hash WHERE (transactions.id IS NOT NULL) OR (pending_transactions.timestamp < ?)")
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT pending_transactions.id FROM pending_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions.hash WHERE (transactions.id IS NOT NULL) OR (pending_transactions.timestamp < ?)")
                 .setParameter(minimumTimestamp)
         );
+        final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(rows.size());
+        for (final Row row : rows) {
+            final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
+            pendingTransactionIds.add(pendingTransactionId);
+        }
+
+        _deletePendingTransactions(pendingTransactionIds);
     }
 
     protected Boolean _hasTransactionData(final PendingTransactionId pendingTransactionId) throws DatabaseException {
@@ -274,7 +299,7 @@ public class PendingTransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
         final ByteArray transactionData = MutableByteArray.wrap(row.getBytes("data"));
 
         final Transaction transaction = _transactionInflater.fromBytes(transactionData);
@@ -296,7 +321,7 @@ public class PendingTransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
         final ByteArray transactionData;
         {
             if (includeDataIfAvailable) {
@@ -461,6 +486,9 @@ public class PendingTransactionDatabaseManager {
         }
     }
 
+    /**
+     * Returns a list of PendingTransactionIds that may be processed (i.e. their previous Outputs have been processed).
+     */
     public List<PendingTransactionId> selectCandidatePendingTransactionIds() throws DatabaseException {
         try {
             READ_LOCK.lock();

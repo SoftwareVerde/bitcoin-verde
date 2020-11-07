@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.chain;
 
-import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockHasher;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -16,6 +20,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,9 +30,9 @@ import java.util.Random;
 // NOTE: These tests were back-ported from DocChain...
 public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
 
-    @Before
-    public void setup() throws Exception {
-        _resetDatabase();
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
 
         final BlockInflater blockInflater = new BlockInflater();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
@@ -42,6 +47,11 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
                 blockDatabaseManager.insertBlock(genesisBlock);
             }
         }
+    }
+
+    @After
+    public void after() throws Exception {
+        super.after();
     }
 
     private Sha256Hash _insertTestBlocks(final Sha256Hash startingHash, final int blockCount) throws DatabaseException {

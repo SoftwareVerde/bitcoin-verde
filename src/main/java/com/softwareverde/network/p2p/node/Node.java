@@ -6,7 +6,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
@@ -68,7 +72,10 @@ public abstract class Node {
 
     protected final ThreadPool _threadPool;
 
-    protected final CircleBuffer<Long> _latencies = new CircleBuffer<Long>(32);
+    /**
+     * Latencies in milliseconds...
+     */
+    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<Long>(32);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -251,7 +258,7 @@ public abstract class Node {
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
         final Long msElapsed = (now - pingRequest.timestamp);
 
-        _latencies.push(msElapsed);
+        _latenciesMs.push(msElapsed);
 
         if (pingCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -285,7 +292,7 @@ public abstract class Node {
             _networkTimeOffset = ((nodeTime - currentTime) * 1000L);
         }
 
-        _localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
+        _localNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
 
         { // Ensure that this node sends its SynchronizeVersion message before the AcknowledgeVersionMessage is transmitted...
             // NOTE: Since  Node::handshake may have been invoked already, it's possible for a race condition between responding to
@@ -353,6 +360,22 @@ public abstract class Node {
                 _disconnect();
             }
         });
+    }
+
+    protected Long _calculateAveragePingMs() {
+        final int itemCount = _latenciesMs.getCount();
+        long sum = 0L;
+        long count = 0L;
+        for (int i = 0; i < itemCount; ++i) {
+            final Long value = _latenciesMs.get(i);
+            if (value == null) { continue; }
+
+            sum += value;
+            count += 1L;
+        }
+        if (count == 0L) { return Long.MAX_VALUE; }
+
+        return (sum / count);
     }
 
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
@@ -497,6 +520,10 @@ public abstract class Node {
         _nodeDisconnectedCallback = nodeDisconnectedCallback;
     }
 
+    public void setLocalNodeIpAddress(final NodeIpAddress nodeIpAddress) {
+        _localNodeIpAddress = nodeIpAddress;
+    }
+
     public void ping(final PingCallback pingCallback) {
         _ping(pingCallback);
     }
@@ -561,19 +588,10 @@ public abstract class Node {
         return Util.areEqual(_id, ((Node) object)._id);
     }
 
+    /**
+     * Returns the average ping (in milliseconds) for the node over the course of the last 32 pings.
+     */
     public Long getAveragePing() {
-        final int itemCount = _latencies.getCount();
-        long sum = 0L;
-        long count = 0L;
-        for (int i = 0; i < itemCount; ++i) {
-            final Long value = _latencies.get(i);
-            if (value == null) { continue; }
-
-            sum += value;
-            count += 1L;
-        }
-        if (count == 0L) { return Long.MAX_VALUE; }
-
-        return (sum / count);
+        return _calculateAveragePingMs();
     }
 }

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.input;
 
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.Constable;
@@ -26,8 +27,8 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
         }
 
         final MutableTransactionInput coinbaseTransactionInput = new MutableTransactionInput();
-        coinbaseTransactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
-        coinbaseTransactionInput.setPreviousOutputIndex(-1);
+        coinbaseTransactionInput.setPreviousOutputTransactionHash(TransactionOutputIdentifier.COINBASE.getTransactionHash());
+        coinbaseTransactionInput.setPreviousOutputIndex(TransactionOutputIdentifier.COINBASE.getOutputIndex());
         coinbaseTransactionInput.setUnlockingScript(unlockingScript);
         return coinbaseTransactionInput;
     }

@@ -22,10 +22,13 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
@@ -47,6 +50,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback {
+    public static final Integer MAX_ADDRESS_FILTER_SIZE = 256;
+
     protected static final String ERROR_MESSAGE_KEY = "errorMessage";
     protected static final String WAS_SUCCESS_KEY = "wasSuccess";
 
@@ -76,6 +81,15 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public interface ServiceInquisitor {
         Map<String, String> getServiceStatuses();
+    }
+
+    public interface UtxoCacheHandler {
+        Long getCachedUtxoCount();
+        Long getMaxCachedUtxoCount();
+        Long getUncommittedUtxoCount();
+        Long getCommittedUtxoBlockHeight();
+
+        void commitUtxoCache();
     }
 
     public interface QueryBlockchainHandler {
@@ -120,6 +134,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         void submitTransaction(Transaction transaction);
         void submitBlock(Block block);
+        void reconsiderBlock(Sha256Hash blockHash);
     }
 
     public interface LogLevelSetter {
@@ -171,11 +186,24 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         public final JsonSocket socket;
         public final Boolean rawFormat;
         public final Boolean includeTransactionFees;
+        public final BloomFilter addressFilter;
 
-        public HookListener(final JsonSocket socket, final Boolean rawFormat, final Boolean includeTransactionFees) {
+        public HookListener(final JsonSocket socket, final Boolean rawFormat, final Boolean includeTransactionFees, final List<Address> addressesFilter) {
             this.socket = socket;
             this.rawFormat = rawFormat;
             this.includeTransactionFees = includeTransactionFees;
+
+            if (addressesFilter != null) {
+                final Long itemCount = Math.min(MAX_ADDRESS_FILTER_SIZE, addressesFilter.getCount() * 2L);
+                final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(itemCount, 0.005D);
+                for (final Address address : addressesFilter) {
+                    bloomFilter.addItem(address);
+                }
+                this.addressFilter = bloomFilter;
+            }
+            else {
+                this.addressFilter = null;
+            }
         }
     }
 
@@ -189,6 +217,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     protected SynchronizationStatus _synchronizationStatusHandler = null;
     protected ShutdownHandler _shutdownHandler = null;
+    protected UtxoCacheHandler _utxoCacheHandler = null;
     protected NodeHandler _nodeHandler = null;
     protected QueryAddressHandler _queryAddressHandler = null;
     protected ThreadPoolInquisitor _threadPoolInquisitor = null;
@@ -275,11 +304,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
-            return;
-        }
-
-        if (! parameters.hasKey("hash")) {
-            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: [hash]");
             return;
         }
 
@@ -567,6 +591,28 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
+    protected void _queryUtxoCache(final Json parameters, final Json response) {
+        final UtxoCacheHandler utxoCacheHandler = _utxoCacheHandler;
+        if (utxoCacheHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Long utxoCacheCount = utxoCacheHandler.getCachedUtxoCount();
+        final Long maxUtxoCacheCount = utxoCacheHandler.getMaxCachedUtxoCount();
+        final Long uncommittedUtxoCount = utxoCacheHandler.getUncommittedUtxoCount();
+
+        final Long committedUtxoBlockHeight = utxoCacheHandler.getCommittedUtxoBlockHeight();
+
+        response.put("utxoCacheCount", utxoCacheCount);
+        response.put("maxUtxoCacheCount", maxUtxoCacheCount);
+        response.put("uncommittedUtxoCount", uncommittedUtxoCount);
+        response.put("committedUtxoBlockHeight", committedUtxoBlockHeight);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET:
     protected void _calculateNextDifficulty(final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -649,8 +695,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Long blockHeight = (dataHandler != null ? dataHandler.getBlockHeight() : null);
             final Long blockHeaderHeight = (dataHandler != null ? dataHandler.getBlockHeaderHeight() : null);
 
-            final Long blockTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockTimestamp()) : 0L);
-            final Long blockHeaderTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockHeaderTimestamp()) : 0L);
+            final long blockTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockTimestamp()) : 0L);
+            final long blockHeaderTimestampInSeconds = (dataHandler != null ? Util.coalesce(dataHandler.getBlockHeaderTimestamp()) : 0L);
 
             final Json statisticsJson = new Json();
             statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
@@ -665,6 +711,13 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
             response.put("statistics", statisticsJson);
+        }
+
+        { // Utxo Cache Status
+            final Json parameters = new Json();
+            final Json utxoCacheStatus = new Json();
+            _queryUtxoCache(parameters, utxoCacheStatus);
+            response.put("utxoCacheStatus", utxoCacheStatus);
         }
 
         { // Server Load
@@ -712,7 +765,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address.");
@@ -745,7 +798,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.uncompressedFromBase58Check(addressString);
+        final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
@@ -769,6 +822,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             final MetadataHandler metadataHandler = _metadataHandler;
             for (final Transaction transaction : addressTransactions) {
+                if (transaction == null) { continue; }
+
                 final Json transactionJson = transaction.toJson();
 
                 if (metadataHandler != null) {
@@ -917,6 +972,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
     }
 
+    // Requires POST:
+    protected void _commitUtxoCache(final Json parameters, final Json response) {
+        final UtxoCacheHandler utxoCacheHandler = _utxoCacheHandler;
+        if (utxoCacheHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        utxoCacheHandler.commitUtxoCache();
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires POST: <host>, <port>
     protected void _addNode(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1028,6 +1095,27 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Boolean shouldReturnRawData = parameters.getBoolean("rawFormat");
         final Boolean shouldIncludeTransactionFees = parameters.getBoolean("includeTransactionFees");
 
+        final List<Address> addressFilter;
+        {
+            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+            final Json addressFilterJson = parameters.getOrNull("addressFilter", Json.Types.JSON);
+            if ( (addressFilterJson != null) && addressFilterJson.isArray() ) {
+                final int itemCount = addressFilterJson.length();
+                final ImmutableListBuilder<Address> listBuilder = new ImmutableListBuilder<Address>(itemCount);
+                for (int i = 0; i < itemCount; ++i) {
+                    final String addressString = addressFilterJson.getString(i);
+                    final Address address = addressInflater.fromBase58Check(addressString);
+                    if (address != null) {
+                        listBuilder.add(address);
+                    }
+                }
+                addressFilter = listBuilder.build();
+            }
+            else {
+                addressFilter = null;
+            }
+        }
+
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
                 if (! _eventHooks.containsKey(hookEvent)) {
@@ -1035,12 +1123,33 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 }
 
                 final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);
-                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees));
+                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees, addressFilter));
             }
         }
 
         response.put(WAS_SUCCESS_KEY, 1);
         return true;
+    }
+
+    /**
+     * Replaces any existing HookListeners associated with the connection with the new HookListener configuration.
+     */
+    protected Boolean _updateHook(final Json parameters, final Json response, final JsonSocket connection) {
+        synchronized (_eventHooks) {
+            // Uninstall the original HookListener...
+            for (final MutableList<HookListener> hookListeners : _eventHooks.values()) {
+                final Iterator<HookListener> mutableIterator = hookListeners.mutableIterator();
+                while (mutableIterator.hasNext()) {
+                    final HookListener hookListener = mutableIterator.next();
+                    if (hookListener.socket == connection) {
+                        mutableIterator.remove();
+                    }
+                }
+            }
+        }
+
+        // Install the new HookListener...
+        return _addHook(parameters, response, connection);
     }
 
     // Requires POST: <transaction>
@@ -1200,6 +1309,30 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires POST: <blockHash>
+    protected void _reconsiderBlock(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("blockHash")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: blockHash");
+            return;
+        }
+
+        final Sha256Hash blockHash = Sha256Hash.fromHexString(parameters.getString("blockHash"));
+        if (blockHash == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block hash.");
+            return;
+        }
+
+        dataHandler.reconsiderBlock(blockHash);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires POST: <host>
     protected void _addIpToWhitelist(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1272,6 +1405,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             nodeJson.put("initializationTimestamp", (node.getInitializationTimestamp() / 1000L));
             nodeJson.put("lastMessageReceivedTimestamp", (node.getLastMessageReceivedTimestamp() / 1000L));
             nodeJson.put("networkOffset", node.getNetworkTimeOffset());
+            nodeJson.put("ping", node.getAveragePing());
+            nodeJson.put("blockHeight", node.getBlockHeight());
 
             final NodeIpAddress localNodeIpAddress = node.getLocalNodeIpAddress();
             nodeJson.put("localHost", (localNodeIpAddress != null ? localNodeIpAddress.getIp() : null));
@@ -1307,6 +1442,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public void setShutdownHandler(final ShutdownHandler shutdownHandler) {
         _shutdownHandler = shutdownHandler;
+    }
+
+    public void setUtxoCacheHandler(final UtxoCacheHandler utxoCacheHandler) {
+        _utxoCacheHandler = utxoCacheHandler;
     }
 
     public void setNodeHandler(final NodeHandler nodeHandler) {
@@ -1479,6 +1618,13 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                         final HookListener hookListener = iterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
 
+                        final BloomFilter addressFilter = hookListener.addressFilter;
+                        if (addressFilter != null) {
+                            if (! transaction.matches(addressFilter)) {
+                                continue;
+                            }
+                        }
+
                         final ProtocolMessage protocolMessage;
                         if (hookListener.rawFormat) {
                             protocolMessage = (hookListener.includeTransactionFees ? lazyRawProtocolMessageWithFee.getProtocolMessage() : lazyRawProtocolMessage.getProtocolMessage());
@@ -1543,6 +1689,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _queryBlockHeight(parameters, response);
                             } break;
 
+                            case "UTXO_CACHE": {
+                                _queryUtxoCache(parameters, response);
+                            } break;
+
                             case "DIFFICULTY": {
                                 _calculateNextDifficulty(response);
                             } break;
@@ -1600,6 +1750,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _shutdown(parameters, response);
                             } break;
 
+                            case "COMMIT_UTXO_CACHE": {
+                                _commitUtxoCache(parameters, response);
+                            } break;
+
                             case "ADD_NODE": {
                                 _addNode(parameters, response);
                             } break;
@@ -1625,6 +1779,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 closeConnection = (! keepSocketOpen);
                             } break;
 
+                            case "UPDATE_HOOK": {
+                                final Boolean keepSocketOpen = _updateHook(parameters, response, socketConnection);
+                                closeConnection = (! keepSocketOpen);
+                            } break;
+
                             case "TRANSACTION": {
                                 _receiveTransaction(parameters, response);
                             } break;
@@ -1645,6 +1804,13 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _setLogLevel(parameters, response);
                             } break;
 
+                            case "RECONSIDER_BLOCK": {
+                                _reconsiderBlock(parameters, response);
+                            } break;
+
+                            // TODO: Add invalidate-block command (see: feature/invalidate-block/master).
+                            // TODO: Add rebuild-UTXO set from block-height command.
+
                             default: {
                                 response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
@@ -1658,7 +1824,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                 socketConnection.write(new JsonProtocolMessage(response));
 
-                if (closeConnection) {
+                if (closeConnection) { // TODO: Allow for keeping the connection alive...
                     socketConnection.close();
                 }
             }

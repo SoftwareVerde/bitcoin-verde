@@ -60,7 +60,7 @@ public class PayoutAddressApi extends AuthenticatedServlet {
             final Address address;
 
             if (! addressString.isEmpty()) {
-                address = addressInflater.uncompressedFromBase58Check(addressString);
+                address = addressInflater.fromBase58Check(addressString);
                 if (address == null) {
                     return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid address."));
                 }

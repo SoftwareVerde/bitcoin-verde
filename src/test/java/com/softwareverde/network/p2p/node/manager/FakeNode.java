@@ -5,7 +5,11 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.util.type.time.SystemTime;
@@ -65,6 +69,9 @@ public class FakeNode extends Node {
             public NodeIpAddress getLocalNodeIpAddress() {
                 return null;
             }
+
+            @Override
+            public NodeIpAddress getRemoteNodeIpAddress() { return null; }
 
             @Override
             public Long getTimestamp() {

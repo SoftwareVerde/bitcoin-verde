@@ -67,8 +67,9 @@ public class NodeConnection {
                 catch (final IOException exception) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    Logger.debug("Connection failed. Retrying in 3000ms... (" + _toString() + ")");
-                    try { Thread.sleep(3000); } catch (final Exception exception) { break; }
+                    final long timeoutMs = 3000L;
+                    Logger.debug("Connection failed. Retrying in " + timeoutMs + "ms... (" + _toString() + ")");
+                    try { Thread.sleep(timeoutMs); } catch (final Exception exception) { break; }
                 }
             }
 
@@ -156,7 +157,7 @@ public class NodeConnection {
         });
         _binarySocket.beginListening();
 
-        final Boolean isFirstConnection = (_connectionCount == 0);
+        final boolean isFirstConnection = (_connectionCount == 0);
         if (isFirstConnection) {
             Logger.debug("Connection established. " + _toString());
 
@@ -243,7 +244,7 @@ public class NodeConnection {
     }
 
     protected void _writeOrQueueMessage(final ProtocolMessage message) {
-        final Boolean messageWasQueued;
+        final boolean messageWasQueued;
 
         final BinarySocket binarySocket = _binarySocket;
         if (_socketIsConnected(binarySocket)) {
@@ -283,6 +284,13 @@ public class NodeConnection {
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
         _threadPool = threadPool;
+
+        _binarySocket.setOnClosedCallback(new Runnable() {
+            @Override
+            public void run() {
+                _disconnect();
+            }
+        });
     }
 
     /**

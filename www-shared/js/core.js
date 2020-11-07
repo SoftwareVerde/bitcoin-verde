@@ -459,6 +459,10 @@ class Ui {
         const pageNavigation = $(".transactions-nav .page-navigation", blockUi);
 
         const changePage = function(pageNumber) {
+            if ( (pageNumber < 0) || (pageNumber >= pageCount) ) {
+                return;
+            }
+
             Api.getBlockTransactions(block.hash, { pageSize: pageSize, pageNumber: pageNumber }, function(data) {
                 const container = $(".transactions", blockUi);
                 container.empty();
