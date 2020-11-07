@@ -1,7 +1,33 @@
-# Bitcoin Verde v1.3.1
+# Bitcoin Verde v2.0.0
 
+## Patch Notes
 
-## Updates
+**v2.0.0**
+- Non-Indexing Module
+    - Reduced disk footprint to less than 300GB.
+    - Reduced initial sync to less than 24hrs.
+    - Reduced required CPU/Memory resources.
+    - Resolves funded feature [#7][i7].
+- 20201115 HF support (ASERT DAA).
+    - Stabilizes block time intervals at 10minutes/block.
+- CashAddr and SLP support for Explorer
+    - Partly resolves funded feature [#10][i10].
+- Improved logging performance and space-efficiency.
+- Added historic checkpoints support to improve security during IBD.
+- Fixed an issue preventing communication to Bitcoin Unlimited nodes.
+- Added peer-discovery via DNS.
+
+**NOTE**: v2 is fundamentally incompatible with v1.
+If you are upgrading from v1, you must perform a full resynchronization from a clean directory.
+
+[i7]: https://github.com/softwareverde/bitcoin-verde/issues/7
+[i10]: https://github.com/softwareverde/bitcoin-verde/issues/10
+
+**v1.4.0**
+- Support for ASERT difficulty adjustment algorithm.
+
+**v1.3.2**
+- Fix for signature pre-image with OP_CODESEPARATOR.
 
 **v1.3.1**
 - Reverting difficulty calculation to an older, more stable version.
@@ -21,7 +47,8 @@
 - Many SPV wallet SDK improvements.
 - Additional RPC commands including SLP validation.
 - Imported reference client test vectors to confirm compatibility.
-- Implemented a block cache for facilitating other nodes during their initial block download and improving performance of the explorer module.
+- Implemented a block cache for facilitating other nodes during their initial block download and improving performance
+of the explorer module.
 - NUM2BIN now follows ABC's quirk of allowing large byte arrays for encoding.
 - Migrated to Hikari database connection pool.
 - Optional block header bootstrapping for improved initial block download.
@@ -59,8 +86,8 @@
 ## Description
 
 
-Bitcoin-Verde is a ground-up implementation of the Bitcoin (Cash) (BCH) protocol.  This project is an
-indexing full node, blockchain explorer, and library.
+Bitcoin-Verde is a ground-up implementation of the Bitcoin (Cash) (BCH) protocol.  This project is a
+mining-enabled, all-in-one indexing full node, blockchain explorer, and library.
 
 
 ## Purpose
@@ -68,28 +95,19 @@ indexing full node, blockchain explorer, and library.
 
 Bitcoin Core (BTC) is the primary group responsible for development on BTC's client.  In the past, lack of
 a diversified development team and node implementation, have caused bugs to become a part of the protocol.
-BCH currently has roughly two popular full-node implementations (Bitcoin ABC and Bitcoin Unlimited).
-However, these implementations are forked versions of Bitcoin Core, which means they may share the same
-(undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the protocol will
-result in incompatible blocks, causing a temporary fork.  This situation is healthy for the network in
-the long term, as the temporary forks will resolve over time, with the intended implementation becoming
-the consensus.
+BCH currently has roughly multiple popular full-node implementations (BCHN, BCHD, Bitcoin Unlimited, Flowee,
+and more).  However, many of these implementations are forked versions of Bitcoin Core, which means they
+may share the same (undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the
+protocol will result in incompatible blocks, causing a temporary fork.  This situation is healthy for the
+network in the long term, as the temporary forks will resolve over time, with the intended implementation
+becoming the consensus.
 
 
 ## Disclaimer
 
-
-Bitcoin Verde has gone through weeks of testing, but v1.1.0 is still considered a Beta release.  Please
-use this software with discretion.  As v1.1.0, the Bitcoin Verde node validates the entirety of the BCH
-blockchain, relays new blocks and transactions, and can process upwards of 4,000 transactions per second;
-however this implementation does not have the bitcoind tests run against it yet, so there may still be
-implementation differences between this implementation and the reference client's derivatives.
-
-
 Windows Users: Bitcoin Verde has been tested heavily on Linux and OS X.  On Windows, there may be many
-issues.  On Windows, expect your node to not run as quickly due to `secp256k1` and `utxo-cache` libraries
-not being cross-compiled for Windows.  Furthermore, the Windows build may not even complete its initial
-block download.  If you are kind enough to run this implementation on Windows, please report any problems.
+issues.  If you are kind enough to run this implementation on Windows, please create an issue describing
+the problem you encountered.
 
 ## Getting Started
 
@@ -103,42 +121,39 @@ To build the node, run the following:
 This command will run the gradle command to download dependencies and build the jar file, its
 configuration, and run-scripts, located within the `out` directory.
 
-
-To enable and compile the btree-utxocache, configure your environment to compile C++ code; on linux
-installing the 'build-essential' package should suffice. Then cd into `jni/utxo-cache` and run
-`./scripts/make.sh`, and `./scripts/copy-bin.sh`.  (NOTE: These scripts are located at
-`jni/utxo-cache/scripts`, not the project root).  After the build completes, cd into the project
-root, and rebuild the project via `./scripts/make.sh`.
-
+If you are running on OSX, you may need to run `./scripts/osx/link-openssl.sh` before running the node.
 
 To run the node, you may `cd` into `out` and execute one of the `run-*` scripts. Or from the project
-directory, run `./scripts/run.sh`, `./scripts/run-node.sh`, `./scripts/run-database.sh` etc.
+directory, run `./scripts/run-node.sh` (or `./run-node.sh` from the `out` directory).
+
+Review the `out/conf/server.conf` and change the node's settings as desired.
+
+The default configuration requires ~6GB ram at its peak, and a 300GB SSD to perform optimally.  Best performance is
+achieved by increasing the `bitcoin.database.maxMemoryByteCount` and by running on an NVME drive.
+
+For more detailed instructions, please refer to https://bitcoinverde.org/documentation/
 
 
-Review the `conf/server.conf` and change any settings as desired.  Changes made to `conf/server.conf`
-will be semi-permanent across builds, while changes made to `out/conf/server.conf` are ephemeral.
+## Upgrading to v2.0.0 from v1.+
 
+Bitcoin Verde v2 is fundamentally incompatible with v1.
+If you are upgrading from v1, you must perform a full resynchronization from a clean directory.
 
-For more more detailed instructions, please refer to http://bitcoinverde.org/documentation/
-
-
-## Upgrading from 1.0.x
-
-
-IMPORTANT: the `make.sh` script will completely remove the `out` directory, which is where blocks
-are stored.  Running this command to upgrade will cause your node to re-sync from scratch.  To
-upgrade, checkout `v1.1.0` and run `./scripts/make-jar.sh`.  Restart your node via
-`./scripts/rpc-shutdown.sh` and `./scripts/rpc/run-node.sh`.
+The `make.sh` script will completely remove the `out` directory, which is where blocks, indexes, and
+configurations are stored.  Running this command to upgrade will cause your node to re-sync from scratch.
+To upgrade, shutdown your node via `./scripts/shutdown.sh`, then remove (or make a backup of) your existing `out`
+directory.  Checkout `v2.0.0` and run `./scripts/make.sh`.  Finally, start your node via `./scripts/rpc/run-node.sh`.
 
 
 ## Running the Node as a Service/Daemon
 
 
 The ./scripts/run-node.sh script will run the node in the current shell, which will exit upon logout.
-To run the Node as a detatched process, you can start the run-node script via nohup, like so:
-`touch logs/node.log && nohup ./scripts/run-node.sh >> logs/node.log & tail -f logs/node.log`
-With this command you should be able to stop watching the logs with ctrl-c and may logout without
-the node quitting.
+To run the Node as a detached process, you can start the run-node script via nohup, like so:
+`nohup ./scripts/run-node.sh &`.
+
+Logs are located within `out/logs/node.log`, and are gzipped and rotated.  You can monitor your node's progress via
+the explorer or by tailing the logs directly via: `tail -F out/logs/node.log`.
 
 Alternatively, you can install the daemon scripts located in `daemons` directory.  Currently,
 Bitcoin Verde comes with init.d and systemd versions of these scripts.  Installing them is
@@ -164,8 +179,5 @@ Generic enquiries may be directed to bitcoin-verde@softwareverde.com
 ## Running on macOS Catalina
 
 If the embedded database fails to start due to being unable to find the SSL lib, consider
-executing the following commands and trying again:
-
-    sudo ln -s /usr/lib/libssl.dylib /usr/local/opt/openssl/lib/libssl.1.0.0.dylib
-    sudo ln -s /usr/lib/libcrypto.dylib /usr/local/opt/openssl/lib/libcrypto.1.0.0.dylib
+executing the following commands and trying again: `./scripts/osx/link-openssl.sh`
 
