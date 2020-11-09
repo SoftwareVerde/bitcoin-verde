@@ -84,6 +84,7 @@ CREATE VIEW head_block AS (
         blocks
         INNER JOIN ( SELECT chain_work FROM blocks WHERE has_transactions = 1 ORDER BY chain_work DESC LIMIT 1 ) AS best_block_work
             ON blocks.chain_work = best_block_work.chain_work
+    WHERE blocks.has_transactions = 1
     ORDER BY
         blocks.id ASC
     LIMIT 1
