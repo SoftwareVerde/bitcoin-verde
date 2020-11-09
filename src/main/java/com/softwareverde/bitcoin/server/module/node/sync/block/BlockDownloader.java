@@ -362,11 +362,18 @@ public class BlockDownloader extends GracefulSleepyService {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
                     final Boolean hasBlocks = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                    return Util.coalesce(hasBlocks, false);
+                    if (! Util.coalesce(hasBlocks, false)) { return false; }
+
+                    // TODO: Only apply this limitation if the Block is after the BCH fork.
+                    final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                    return Util.coalesce(isBitcoinCashNode, false);
                 }
             });
             final int nodeCount = bitcoinNodes.getCount();
-            if (nodeCount == 0) { return false; }
+            if (nodeCount == 0) {
+                Logger.debug("No nodes met download criteria.");
+                return false;
+            }
 
             for (final PendingBlockId pendingBlockId : downloadPlan) {
                 if (_shouldAbort()) { return false; }
