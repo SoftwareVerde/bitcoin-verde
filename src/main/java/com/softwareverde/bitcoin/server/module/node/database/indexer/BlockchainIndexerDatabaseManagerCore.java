@@ -80,7 +80,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                 }
                 else { // Exclude if the transaction is not in the mempool...
                     final Boolean transactionIsUnconfirmed = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
-                    if (transactionIsUnconfirmed) {
+                    if (! transactionIsUnconfirmed) {
                         continue;
                     }
                 }
