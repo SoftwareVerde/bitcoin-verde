@@ -635,7 +635,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             }
             else {
                 final Integer memoryPoolTransactionCount = _memoryPoolEnquirer.getMemoryPoolTransactionCount();
-                final Boolean memoryPoolIsTooEmpty = (memoryPoolTransactionCount >= MINIMUM_THIN_BLOCK_TRANSACTION_COUNT);
+                final boolean memoryPoolIsTooEmpty = (memoryPoolTransactionCount >= MINIMUM_THIN_BLOCK_TRANSACTION_COUNT);
                 shouldRequestThinBlocks = (! memoryPoolIsTooEmpty);
             }
         }
@@ -644,7 +644,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             final NodeFilter<BitcoinNode> nodeFilter = new NodeFilter<BitcoinNode>() {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
-                    return bitcoinNode.supportsExtraThinBlocks();
+                    final Boolean supportsExtraThinBlocks = bitcoinNode.supportsExtraThinBlocks();
+                    return Util.coalesce(supportsExtraThinBlocks, false);
                 }
             };
 

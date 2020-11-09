@@ -361,8 +361,8 @@ public class BlockDownloader extends GracefulSleepyService {
             final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(activeNodeCount, new NodeManager.NodeFilter<BitcoinNode>() {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
-                    final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
-                    return nodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                    final Boolean hasBlocks = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                    return Util.coalesce(hasBlocks, false);
                 }
             });
             final int nodeCount = bitcoinNodes.getCount();
