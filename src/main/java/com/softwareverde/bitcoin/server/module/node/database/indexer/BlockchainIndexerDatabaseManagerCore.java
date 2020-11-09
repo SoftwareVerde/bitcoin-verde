@@ -16,7 +16,6 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
@@ -34,31 +33,10 @@ import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Iterator;
 import java.util.Set;
 
 public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDatabaseManager {
-    protected static class AddressTransactions {
-        public final BlockchainSegmentId blockchainSegmentId;
-        public final List<TransactionId> transactionIds;
-        public final Map<TransactionId, MutableList<Integer>> outputIndexes;
-        public final Map<TransactionId, MutableList<Integer>> inputIndexes;
-
-        public AddressTransactions(final BlockchainSegmentId blockchainSegmentId) {
-            this.blockchainSegmentId = blockchainSegmentId;
-            this.transactionIds = new ImmutableList<TransactionId>();
-            this.outputIndexes = new HashMap<TransactionId, MutableList<Integer>>(0);
-            this.inputIndexes = new HashMap<TransactionId, MutableList<Integer>>(0);
-        }
-
-        public AddressTransactions(final BlockchainSegmentId blockchainSegmentId, final List<TransactionId> transactionIds, final HashMap<TransactionId, MutableList<Integer>> outputIndexes, final HashMap<TransactionId, MutableList<Integer>> inputIndexes) {
-            this.blockchainSegmentId = blockchainSegmentId;
-            this.transactionIds = transactionIds;
-            this.outputIndexes = outputIndexes;
-            this.inputIndexes = inputIndexes;
-        }
-    }
-
     protected static final String LAST_INDEXED_TRANSACTION_KEY = "last_indexed_transaction_id";
 
     protected final FullNodeDatabaseManager _databaseManager;
@@ -85,7 +63,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         return transactionBlockchainSegmentIds;
     }
 
-    protected List<TransactionId> _filterTransactionsConnectedToBlockchainSegment(final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds, final BlockchainSegmentId blockchainSegmentId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+    protected Set<TransactionId> _filterTransactionsConnectedToBlockchainSegment(final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds, final BlockchainSegmentId blockchainSegmentId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final HashMap<BlockchainSegmentId, Boolean> connectedBlockchainSegmentIds = new HashMap<BlockchainSegmentId, Boolean>(); // Used to cache the lookup result of connected BlockchainSegments.
         final HashSet<TransactionId> transactionIds = new HashSet<TransactionId>();
 
@@ -129,15 +107,15 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             transactionIds.add(transactionId);
         }
 
-        return new ImmutableList<TransactionId>(transactionIds);
+        return transactionIds;
     }
 
     protected AddressTransactions _getAddressTransactions(final BlockchainSegmentId blockchainSegmentId, final Address address) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows;
-        final HashMap<TransactionId, MutableList<Integer>> outputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
-        { // Load debits, with output_indexes...
+        final HashMap<TransactionId, MutableList<Integer>> previousOutputs = new HashMap<TransactionId, MutableList<Integer>>();
+        { // Load credits, with output_indexes...
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(
                 new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_outputs.transaction_id, indexed_transaction_outputs.output_index FROM indexed_transaction_outputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_outputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE indexed_transaction_outputs.address = ?")
                     .setParameter(address)
@@ -151,10 +129,10 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                 final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
                 final Integer outputIndex = row.getInteger("output_index");
 
-                MutableList<Integer> indexes = outputIndexes.get(transactionId);
+                MutableList<Integer> indexes = previousOutputs.get(transactionId);
                 if (indexes == null) {
                     indexes = new MutableList<Integer>(1);
-                    outputIndexes.put(transactionId, indexes);
+                    previousOutputs.put(transactionId, indexes);
                 }
 
                 indexes.add(outputIndex);
@@ -163,10 +141,10 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
             rows = transactionOutputRows;
         }
 
-        final HashMap<TransactionId, MutableList<Integer>> inputIndexes = new HashMap<TransactionId, MutableList<Integer>>();
-        { // Load credits, with input_indexes...
+        final HashMap<TransactionId, MutableList<Integer>> spentOutputs = new HashMap<TransactionId, MutableList<Integer>>();
+        { // Load debits, with input_indexes...
             final java.util.List<Row> transactionInputRows = databaseConnection.query(
-                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.input_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE (indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index) IN (?)")
+                new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE (indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index) IN (?)")
                     .setInClauseParameters(rows, new ValueExtractor<Row>() {
                         @Override
                         public InClauseParameter extractValues(final Row transactionOutputRows) {
@@ -181,16 +159,17 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
             // Build the inputIndexes map...
             for (final Row row : transactionInputRows) {
-                final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-                final Integer inputIndex = row.getInteger("input_index");
+                // final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+                final TransactionId spentTransactionId = TransactionId.wrap(row.getLong("spends_transaction_id"));
+                final Integer spentOutputIndex = row.getInteger("spends_output_index");
 
-                MutableList<Integer> indexes = inputIndexes.get(transactionId);
+                MutableList<Integer> indexes = spentOutputs.get(spentTransactionId);
                 if (indexes == null) {
                     indexes = new MutableList<Integer>(1);
-                    inputIndexes.put(transactionId, indexes);
+                    spentOutputs.put(spentTransactionId, indexes);
                 }
 
-                indexes.add(inputIndex);
+                indexes.add(spentOutputIndex);
             }
 
             rows.addAll(transactionInputRows);
@@ -198,9 +177,29 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         // Get Transactions that are connected to the provided blockchainSegmentId...
         final Set<Tuple<TransactionId, BlockchainSegmentId>> transactionBlockchainSegmentIds = _extractTransactionBlockchainSegmentIds(rows);
-        final List<TransactionId> transactionIds = _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, true);
+        final Set<TransactionId> connectedTransactionIds = _filterTransactionsConnectedToBlockchainSegment(transactionBlockchainSegmentIds, blockchainSegmentId, true);
 
-        return new AddressTransactions(blockchainSegmentId, transactionIds, inputIndexes, outputIndexes);
+        // Remove Transactions that are not connected to this blockchain...
+        { // PreviousOutputs
+            final Iterator<TransactionId> iterator = previousOutputs.keySet().iterator();
+            while (iterator.hasNext()) {
+                final TransactionId transactionId = iterator.next();
+                if (! connectedTransactionIds.contains(transactionId)) {
+                    iterator.remove();
+                }
+            }
+        }
+        { // SpentOutputs
+            final Iterator<TransactionId> iterator = spentOutputs.keySet().iterator();
+            while (iterator.hasNext()) {
+                final TransactionId transactionId = iterator.next();
+                if (! connectedTransactionIds.contains(transactionId)) {
+                    iterator.remove();
+                }
+            }
+        }
+
+        return new AddressTransactions(blockchainSegmentId, new ImmutableList<TransactionId>(connectedTransactionIds), previousOutputs, spentOutputs);
     }
 
     protected Long _getLastIndexedTransactionId() throws DatabaseException {
@@ -249,51 +248,27 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         final List<Integer> emptyList = new MutableList<Integer>(0);
 
-        final HashSet<Sha256Hash> previousTransactionHashSet = new HashSet<Sha256Hash>(); // Unique set of the required previousTransactions used to calculate the account's debits...
-        final HashMap<Sha256Hash, MutableList<Integer>> previousTransactionOutputIndexMap = new HashMap<Sha256Hash, MutableList<Integer>>(); // Map used to remember which output indexes are used for the previousTransactions...
-
         long balance = 0L;
         final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         for (final TransactionId transactionId : addressTransactions.transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
 
-            // Collect the previous Transaction hashes and which previous TransactionOutput indexes that apply debits to this account...
-            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-            for (final Integer inputIndex : Util.coalesce(addressTransactions.inputIndexes.get(transactionId), emptyList)) {
-                final TransactionInput transactionInput = transactionInputs.get(inputIndex);
-
-                final Sha256Hash previousTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
-
-                previousTransactionHashSet.add(previousTransactionHash);
-
-                MutableList<Integer> previousTransactionOutputIndexes = previousTransactionOutputIndexMap.get(previousTransactionHash);
-                if (previousTransactionOutputIndexes == null) {
-                    previousTransactionOutputIndexes = new MutableList<Integer>(1);
-                    previousTransactionOutputIndexMap.put(previousTransactionHash, previousTransactionOutputIndexes);
-                }
-                previousTransactionOutputIndexes.add(previousTransactionOutputIndex);
-            }
-
-            // Deduct all credits from the account for this transaction's outputs...
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            for (final Integer outputIndex : Util.coalesce(addressTransactions.outputIndexes.get(transactionId), emptyList)) {
-                final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
-                balance -= transactionOutput.getAmount();
+            // Collect the previousTransactions, and add the remembered outputs that credit into this account...
+            final List<TransactionOutput> previousTransactionOutputs = transaction.getTransactionOutputs();
+            for (final Integer outputIndex : Util.coalesce(addressTransactions.previousOutputs.get(transactionId), emptyList)) {
+                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(outputIndex);
+                balance += previousTransactionOutput.getAmount();
             }
         }
 
-        // Collect the previousTransactions, and add the remembered outputs that debit into this account...
-        final Map<Sha256Hash, TransactionId> previousTransactionIds = transactionDatabaseManager.getTransactionIds(new ImmutableList<Sha256Hash>(previousTransactionHashSet));
-        for (final Sha256Hash previousTransactionHash : previousTransactionIds.keySet()) {
-            final TransactionId transactionId = previousTransactionIds.get(previousTransactionHash);
+        for (final TransactionId transactionId : addressTransactions.spentOutputs.keySet()) {
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
 
-            final Transaction previousTransaction = transactionDatabaseManager.getTransaction(transactionId);
-
-            final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
-            for (final Integer previousOutputIndex : previousTransactionOutputIndexMap.get(previousTransactionHash)) {
-                final TransactionOutput previousTransactionOutput = previousTransactionOutputs.get(previousOutputIndex);
-                balance += previousTransactionOutput.getAmount();
+            // Deduct all debits from the account for this transaction's outputs...
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            for (final Integer outputIndex : Util.coalesce(addressTransactions.spentOutputs.get(transactionId), emptyList)) {
+                final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
+                balance -= transactionOutput.getAmount();
             }
         }
 
