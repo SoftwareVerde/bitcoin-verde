@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHashesHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.fake.FakeBinarySocket;
@@ -27,7 +27,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class QueryBlockHeadersHandlerTests extends IntegrationTest {
+public class RequestBlockHeadersHandlerTests extends IntegrationTest {
 
     protected static final LocalNodeFeatures _localNodeFeatures = new LocalNodeFeatures() {
         @Override
@@ -156,7 +156,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
+        final RequestBlockHashesHandler queryBlocksHandler = new RequestBlockHashesHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -165,7 +165,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
+        queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
 
         // Assert
         final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
@@ -198,7 +198,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
+        final RequestBlockHashesHandler queryBlocksHandler = new RequestBlockHashesHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -208,7 +208,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
+        queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
 
         // Assert
         final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
@@ -241,7 +241,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
+        final RequestBlockHashesHandler queryBlocksHandler = new RequestBlockHashesHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -251,7 +251,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
+        queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
 
         // Assert
         final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
@@ -284,7 +284,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
+        final RequestBlockHashesHandler queryBlocksHandler = new RequestBlockHashesHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -294,7 +294,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
+        queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
 
         // Assert
         final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
@@ -342,7 +342,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
+        final RequestBlockHashesHandler queryBlocksHandler = new RequestBlockHashesHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -350,7 +350,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[allBlocks.length - 1].getHash()); // Request the forked block (E')...
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
+        queryBlocksHandler.run(bitcoinNode, blockHashes, new ImmutableSha256Hash());
 
         // Assert
         final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();

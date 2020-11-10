@@ -5,11 +5,11 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 
-public class TransactionInventoryMessageHandlerFactory implements NodeInitializer.TransactionsAnnouncementCallbackFactory {
+public class TransactionInventoryMessageHandlerFactory implements NodeInitializer.TransactionsAnnouncementHandlerFactory {
     public static final TransactionInventoryMessageHandlerFactory IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY = new TransactionInventoryMessageHandlerFactory(null, null, null) {
         @Override
-        public BitcoinNode.TransactionInventoryMessageCallback createTransactionsAnnouncementCallback(final BitcoinNode bitcoinNode) {
-            return TransactionInventoryMessageHandler.IGNORE_NEW_TRANSACTIONS_HANDLER;
+        public BitcoinNode.TransactionInventoryAnnouncementHandler createTransactionsAnnouncementHandler(final BitcoinNode bitcoinNode) {
+            return TransactionInventoryAnnouncementHandler.IGNORE_NEW_TRANSACTIONS_HANDLER;
         }
     };
 
@@ -24,7 +24,7 @@ public class TransactionInventoryMessageHandlerFactory implements NodeInitialize
     }
 
     @Override
-    public BitcoinNode.TransactionInventoryMessageCallback createTransactionsAnnouncementCallback(final BitcoinNode bitcoinNode) {
-        return new TransactionInventoryMessageHandler(bitcoinNode, _databaseManagerFactory, _synchronizationStatus, _newInventoryCallback);
+    public BitcoinNode.TransactionInventoryAnnouncementHandler createTransactionsAnnouncementHandler(final BitcoinNode bitcoinNode) {
+        return new TransactionInventoryAnnouncementHandler(bitcoinNode, _databaseManagerFactory, _synchronizationStatus, _newInventoryCallback);
     }
 }

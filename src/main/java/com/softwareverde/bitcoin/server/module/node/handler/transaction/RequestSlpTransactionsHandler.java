@@ -12,7 +12,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTransactionsCallback {
+public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTransactionsHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
     protected Boolean _getSlpStatus(final FullNodeDatabaseManager databaseManager, final Sha256Hash transactionHash) throws DatabaseException {
@@ -28,7 +28,7 @@ public class RequestSlpTransactionsHandler implements BitcoinNode.RequestSlpTran
     }
 
     @Override
-    public void run(final List<Sha256Hash> transactionHashes, final BitcoinNode bitcoinNode) {
+    public void run(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final MutableList<Sha256Hash> validatedTransactionHashes = new MutableList<Sha256Hash>(transactionHashes.getCount());
             for (final Sha256Hash transactionHash : transactionHashes) {

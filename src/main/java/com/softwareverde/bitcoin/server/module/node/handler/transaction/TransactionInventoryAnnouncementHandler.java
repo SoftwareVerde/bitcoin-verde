@@ -14,10 +14,10 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-public class TransactionInventoryMessageHandler implements BitcoinNode.TransactionInventoryMessageCallback {
-    public static final BitcoinNode.TransactionInventoryMessageCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionInventoryMessageCallback() {
+public class TransactionInventoryAnnouncementHandler implements BitcoinNode.TransactionInventoryAnnouncementHandler {
+    public static final BitcoinNode.TransactionInventoryAnnouncementHandler IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionInventoryAnnouncementHandler() {
         @Override
-        public void onResult(final List<Sha256Hash> result) { }
+        public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> result) { }
     };
 
     protected final BitcoinNode _bitcoinNode;
@@ -25,7 +25,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
     protected final Runnable _newInventoryCallback;
     protected final SynchronizationStatus _synchronizationStatus;
 
-    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus, final Runnable newInventoryCallback) {
+    public TransactionInventoryAnnouncementHandler(final BitcoinNode bitcoinNode, final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus, final Runnable newInventoryCallback) {
         _bitcoinNode = bitcoinNode;
         _databaseManagerFactory = databaseManagerFactory;
         _newInventoryCallback = newInventoryCallback;
@@ -33,7 +33,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
     }
 
     @Override
-    public void onResult(final List<Sha256Hash> transactionHashes) {
+    public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
         if (_synchronizationStatus != null) {
             final Boolean isReadyForTransactions = _synchronizationStatus.isReadyForTransactions();
             if (! isReadyForTransactions) { return; }

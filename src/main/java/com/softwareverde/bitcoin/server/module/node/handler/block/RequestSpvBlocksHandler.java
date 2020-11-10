@@ -22,17 +22,17 @@ import com.softwareverde.logging.Logger;
 
 import java.util.HashSet;
 
-public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallback {
+public class RequestSpvBlocksHandler implements BitcoinNode.RequestSpvBlocksHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final SpvUnconfirmedTransactionsHandler _spvUnconfirmedTransactionsHandler;
 
-    public RequestSpvBlockHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler) {
+    public RequestSpvBlocksHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler) {
         _databaseManagerFactory = databaseManagerFactory;
         _spvUnconfirmedTransactionsHandler = spvUnconfirmedTransactionsHandler;
     }
 
     @Override
-    public void run(final List<Address> addresses, final BitcoinNode bitcoinNode) {
+    public void run(final BitcoinNode bitcoinNode, final List<Address> addresses) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

@@ -15,7 +15,7 @@ public class BitcoinNodeUtil {
     /**
      * Returns true iff a callback was executed.
      */
-    public static <T, S extends BitcoinNode.BitcoinNodeCallback> Boolean executeAndClearCallbacks(final ThreadPool threadPool, final Map<T, Set<BitcoinNode.PendingRequest<S>>> callbackMap, final T key, final BitcoinNode.CallbackExecutor<S> callbackExecutor) {
+    public static <T, S extends BitcoinNode.BitcoinNodeCallback> Boolean executeAndClearCallbacks(final ThreadPool threadPool, final Map<T, Set<BitcoinNode.PendingRequest<S>>> callbackMap, final Map<RequestId, FailableRequest> failableRequests, final T key, final BitcoinNode.CallbackExecutor<S> callbackExecutor) {
         synchronized (callbackMap) {
             final Set<BitcoinNode.PendingRequest<S>> pendingRequests = callbackMap.remove(key);
             if ((pendingRequests == null) || (pendingRequests.isEmpty())) { return false; }
@@ -27,6 +27,7 @@ public class BitcoinNodeUtil {
                         callbackExecutor.onResult(pendingRequest);
                     }
                 });
+                failableRequests.remove(pendingRequest.requestId);
             }
             return true;
         }
@@ -74,13 +75,13 @@ public class BitcoinNodeUtil {
         }
     }
 
-    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, T>> void failPendingRequests(final Map<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final Map<RequestId, FailableRequest> requestTimers, final BitcoinNode bitcoinNode) {
+    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, T>> void failPendingRequests(final Map<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final Map<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
         synchronized (pendingRequests) {
             for (final T key : pendingRequests.keySet()) {
                 for (final BitcoinNode.PendingRequest<S> pendingRequest : pendingRequests.get(key)) {
                     final RequestId requestId = pendingRequest.requestId;
                     final S callback = pendingRequest.callback;
-                    requestTimers.remove(requestId);
+                    failableRequests.remove(requestId);
                     callback.onFailure(requestId, bitcoinNode, key);
                 }
             }
@@ -88,13 +89,13 @@ public class BitcoinNodeUtil {
         }
     }
 
-    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, Void>> void failPendingVoidRequests(final Map<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final Map<RequestId, FailableRequest> requestTimers, final BitcoinNode bitcoinNode) {
+    public static <T, U, S extends BitcoinNode.FailableBitcoinNodeRequestCallback<U, Void>> void failPendingVoidRequests(final Map<T, Set<BitcoinNode.PendingRequest<S>>> pendingRequests, final Map<RequestId, FailableRequest> failableRequests, final BitcoinNode bitcoinNode) {
         synchronized (pendingRequests) {
             for (final T key : pendingRequests.keySet()) {
                 for (final BitcoinNode.PendingRequest<S> pendingRequest : pendingRequests.get(key)) {
                     final RequestId requestId = pendingRequest.requestId;
                     final S callback = pendingRequest.callback;
-                    requestTimers.remove(requestId);
+                    failableRequests.remove(requestId);
                     callback.onFailure(requestId, bitcoinNode, null);
                 }
             }
