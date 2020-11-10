@@ -64,9 +64,9 @@ public class BitcoinNodeHeadBlockFinder {
 
         Logger.trace("Finding Head Block for " + bitcoinNode + ", sending: " + blockHashes.get(0));
 
-        bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
+        bitcoinNode.requestBlockHeadersAfter(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
             @Override
-            public void onResult(final List<BlockHeader> blockHeaders) {
+            public void onResult(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
                 didRespond.set(true);
                 pin.release();
 

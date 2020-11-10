@@ -49,6 +49,7 @@ public abstract class Node {
     protected final NodeId _id;
     protected final NodeConnection _connection;
     protected final Long _initializationTime;
+    protected final Boolean _isOutboundConnection;
 
     protected final SystemTime _systemTime;
 
@@ -379,21 +380,7 @@ public abstract class Node {
     }
 
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
-        synchronized (NODE_ID_MUTEX) {
-            _id = NodeId.wrap(_nextId);
-            _nextId += 1;
-        }
-
-        _systemTime = new SystemTime();
-        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
-        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
-        _threadPool = threadPool;
-
-        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
-        _sendSingleMessageLock = queueMessageLock.readLock();
-        _sendMultiMessageLock = queueMessageLock.writeLock();
-
-        _initConnection();
+        this(host, port, binaryPacketFormat, new SystemTime(), threadPool);
     }
 
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime, final ThreadPool threadPool) {
@@ -406,6 +393,7 @@ public abstract class Node {
         _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+        _isOutboundConnection = true;
 
         final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
         _sendSingleMessageLock = queueMessageLock.readLock();
@@ -415,6 +403,10 @@ public abstract class Node {
     }
 
     public Node(final BinarySocket binarySocket, final ThreadPool threadPool) {
+        this(binarySocket, threadPool, false);
+    }
+
+    public Node(final BinarySocket binarySocket, final ThreadPool threadPool, final Boolean isOutboundConnection) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
@@ -424,6 +416,7 @@ public abstract class Node {
         _connection = new NodeConnection(binarySocket, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+        _isOutboundConnection = isOutboundConnection;
 
         final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
         _sendSingleMessageLock = queueMessageLock.readLock();
@@ -593,5 +586,9 @@ public abstract class Node {
      */
     public Long getAveragePing() {
         return _calculateAveragePingMs();
+    }
+
+    public Boolean isOutboundConnection() {
+        return _isOutboundConnection;
     }
 }

@@ -29,6 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.constable.list.List;
@@ -312,12 +313,14 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
         final Status blockDownloaderStatus = _blockDownloaderStatusMonitor.getStatus();
         if (blockDownloaderStatus != Status.ACTIVE) {
-            final BitcoinNodeManager bitcoinNodeManager = _context.getNodeManager();
+            final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
             final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
             try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
                 final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
-                bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
+                for (final BitcoinNode bitcoinNode : bitcoinNodeManager.getNodes()) {
+                    bitcoinNode.transmitBlockFinder(blockFinderHashes);
+                }
             }
             catch (final DatabaseException exception) {
                 Logger.debug(exception);

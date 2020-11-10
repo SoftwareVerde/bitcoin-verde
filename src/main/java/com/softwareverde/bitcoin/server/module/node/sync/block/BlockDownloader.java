@@ -13,13 +13,13 @@ import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.Pin;
@@ -31,7 +31,6 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
@@ -200,7 +199,7 @@ public class BlockDownloader extends GracefulSleepyService {
     protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
         Logger.trace("Downloading " + blockHash + " from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null));
 
-        final BitcoinNodeManager nodeManager = _context.getNodeManager();
+        final BitcoinNodeManager nodeManager = _context.getBitcoinNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         final long maxTimeoutMs = _calculateTimeout();
@@ -208,7 +207,7 @@ public class BlockDownloader extends GracefulSleepyService {
         final Pin pin = new Pin();
 
         final String nodeName = (bitcoinNode != null ? bitcoinNode.getConnectionString() : "best peer");
-        final BitcoinNodeManager.DownloadBlockCallback downloadBlockCallback = new BitcoinNodeManager.DownloadBlockCallback() {
+        final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
                 if (_shouldAbort()) { return; }
@@ -302,7 +301,7 @@ public class BlockDownloader extends GracefulSleepyService {
             }
         });
 
-        nodeManager.requestBlock(bitcoinNode, blockHash, downloadBlockCallback);
+        bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
     }
 
     @Override
@@ -311,7 +310,7 @@ public class BlockDownloader extends GracefulSleepyService {
     @Override
     protected Boolean _run() {
         final SystemTime systemTime = _context.getSystemTime();
-        final BitcoinNodeManager bitcoinNodeManager = _context.getNodeManager();
+        final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         final Integer activeNodeCount = bitcoinNodeManager.getActiveNodeCount();
@@ -358,15 +357,10 @@ public class BlockDownloader extends GracefulSleepyService {
 
             if (_shouldAbort()) { return false; }
 
-            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getBestNodes(activeNodeCount, new NodeManager.NodeFilter<BitcoinNode>() {
+            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getPreferredNodes(new NodeFilter() {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
-                    final Boolean hasBlocks = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-                    if (! Util.coalesce(hasBlocks, false)) { return false; }
-
-                    // TODO: Only apply this limitation if the Block is after the BCH fork.
-                    final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                    return Util.coalesce(isBitcoinCashNode, false);
+                    return true; // TODO: Ensure bitcoinNode is up-to-date before requesting block.
                 }
             });
             final int nodeCount = bitcoinNodes.getCount();

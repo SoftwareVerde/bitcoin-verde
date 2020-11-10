@@ -27,7 +27,7 @@ public class BlockchainBuilderContext implements BlockchainBuilder.Context {
     }
 
     @Override
-    public BitcoinNodeManager getNodeManager() {
+    public BitcoinNodeManager getBitcoinNodeManager() {
         return _nodeManager;
     }
 

@@ -12,10 +12,12 @@ import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -45,7 +47,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final Context _context;
 
     protected final BlockDownloadRequester _blockDownloadRequester;
-    protected final BitcoinNodeManager.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
+    protected final BitcoinNode.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
 
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
     protected final MilliTimer _timer;
@@ -83,7 +85,7 @@ public class BlockHeaderDownloader extends SleepyService {
     }
 
     protected void _downloadGenesisBlock() {
-        final Runnable retry = new Runnable() {
+        final Runnable retryGenesisBlockDownload = new Runnable() {
             @Override
             public void run() {
                 try { Thread.sleep(5000L); } catch (final InterruptedException exception) { return; }
@@ -91,43 +93,59 @@ public class BlockHeaderDownloader extends SleepyService {
             }
         };
 
-        final BitcoinNodeManager nodeManager = _context.getNodeManager();
-        nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNodeManager.DownloadBlockCallback() {
+        final ThreadPool threadPool = _context.getThreadPool();
+
+        final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
+        final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getNodes(new NodeFilter() {
             @Override
-            public void onResult(final Block block) {
-                final Sha256Hash blockHash = block.getHash();
-                Logger.trace("GENESIS RECEIVED: " + blockHash);
-                if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
-
-                final ThreadPool threadPool = _context.getThreadPool();
-                final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-
-                boolean genesisBlockWasStored = false;
-                try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                    genesisBlockWasStored = _validateAndStoreBlockHeader(block, _headBlockHeight, databaseManager);
-                }
-                catch (final DatabaseException databaseException) {
-                    Logger.debug(databaseException);
-                }
-                if (! genesisBlockWasStored) {
-                    threadPool.execute(retry);
-                    return;
-                }
-
-                Logger.trace("GENESIS STORED: " + block.getHash());
-
-                synchronized (_genesisBlockPin) {
-                    _hasGenesisBlock = true;
-                    _genesisBlockPin.notifyAll();
-                }
-            }
-
-            @Override
-            public void onFailure(final Sha256Hash blockHash) {
-                final ThreadPool threadPool = _context.getThreadPool();
-                threadPool.execute(retry);
+            public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
+                final Boolean hasBlockchainEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                return Util.coalesce(hasBlockchainEnabled, false);
             }
         });
+
+        if (bitcoinNodes.isEmpty()) {
+            threadPool.execute(retryGenesisBlockDownload);
+            return;
+        }
+
+        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+            bitcoinNode.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
+                @Override
+                public void onResult(final Block block) {
+                    if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
+
+                    final Sha256Hash blockHash = block.getHash();
+                    Logger.trace("GENESIS RECEIVED: " + blockHash);
+
+                    final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
+                    boolean genesisBlockWasStored = false;
+                    try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        genesisBlockWasStored = _validateAndStoreBlockHeader(block, _headBlockHeight, databaseManager);
+                    }
+                    catch (final DatabaseException databaseException) {
+                        Logger.debug(databaseException);
+                    }
+                    if (! genesisBlockWasStored) {
+                        threadPool.execute(retryGenesisBlockDownload);
+                        return;
+                    }
+
+                    Logger.trace("GENESIS STORED: " + block.getHash());
+
+                    synchronized (_genesisBlockPin) {
+                        _hasGenesisBlock = true;
+                        _genesisBlockPin.notifyAll();
+                    }
+                }
+
+                @Override
+                public void onFailure(final Sha256Hash blockHash) {
+                    threadPool.execute(retryGenesisBlockDownload);
+                }
+            });
+        }
     }
 
     protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders, final BlockHeaderDatabaseManager blockHeaderDatabaseManager) {
@@ -357,7 +375,7 @@ public class BlockHeaderDownloader extends SleepyService {
         final SystemTime systemTime = _context.getSystemTime();
         _minBlockTimestamp = (systemTime.getCurrentTimeInSeconds() - 3600L); // Default to an hour ago...
 
-        _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
+        _downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
             @Override
             public void onResult(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
                 if (! _isProcessingHeaders.compareAndSet(false, true)) { return; }
@@ -387,11 +405,6 @@ public class BlockHeaderDownloader extends SleepyService {
                         _headersDownloadedPin.notifyAll();
                     }
                 }
-            }
-
-            @Override
-            public void onFailure() {
-                // Let the headersDownloadedPin timeout...
             }
         };
     }
@@ -434,8 +447,13 @@ public class BlockHeaderDownloader extends SleepyService {
             }
         }
 
-        final BitcoinNodeManager nodeManager = _context.getNodeManager();
-        nodeManager.requestBlockHeadersAfter(_lastBlockHash, _downloadBlockHeadersCallback);
+        final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
+        final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getPreferredNodes();
+        if (bitcoinNodes.isEmpty()) { return false; }
+
+        final int index = (int) (Math.random() * bitcoinNodes.getCount());
+        final BitcoinNode bitcoinNode = bitcoinNodes.get(index);
+        bitcoinNode.requestBlockHeadersAfter(_lastBlockHash, _downloadBlockHeadersCallback);
 
         synchronized (_headersDownloadedPin) {
             final MilliTimer timer = new MilliTimer();

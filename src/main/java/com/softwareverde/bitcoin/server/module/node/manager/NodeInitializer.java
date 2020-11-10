@@ -5,9 +5,6 @@ import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
-import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.p2p.node.address.NodeIpAddress;
-import com.softwareverde.network.socket.BinarySocket;
 
 public class NodeInitializer {
     public interface TransactionsAnnouncementCallbackFactory {
@@ -87,28 +84,6 @@ public class NodeInitializer {
         _spvBlockInventoryMessageCallback = properties.spvBlockInventoryMessageCallback;
         _binaryPacketFormat = properties.binaryPacketFormat;
         _onNewBloomFilterCallback = properties.onNewBloomFilterCallback;
-    }
-
-    public BitcoinNode initializeNode(final NodeIpAddress nodeIpAddress) {
-        final Ip ip = nodeIpAddress.getIp();
-        final Integer port = nodeIpAddress.getPort();
-        final String host = ip.toString();
-
-        final BitcoinNode bitcoinNode = new BitcoinNode(host, port, _binaryPacketFormat, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
-        _initializeNode(bitcoinNode);
-        return bitcoinNode;
-    }
-
-    public BitcoinNode initializeNode(final String host, final Integer port) {
-        final BitcoinNode bitcoinNode = new BitcoinNode(host, port, _binaryPacketFormat, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
-        _initializeNode(bitcoinNode);
-        return bitcoinNode;
-    }
-
-    public BitcoinNode initializeNode(final BinarySocket binarySocket) {
-        final BitcoinNode node = new BitcoinNode(binarySocket, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
-        _initializeNode(node);
-        return node;
     }
 
     public void initializeNode(final BitcoinNode bitcoinNode) {

@@ -11,7 +11,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockD
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.RequestBabysitter;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -35,7 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessageCallback {
     public interface Downloader {
-        void requestMerkleBlock(Sha256Hash blockHash, BitcoinNodeManager.DownloadMerkleBlockCallback callback);
+        void requestMerkleBlock(Sha256Hash blockHash, BitcoinNode.DownloadMerkleBlockCallback callback);
     }
 
     public interface DownloadCompleteCallback {
@@ -56,7 +55,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
 
     protected final AtomicBoolean _isPaused = new AtomicBoolean(true);
 
-    protected final BitcoinNodeManager.DownloadMerkleBlockCallback _onMerkleBlockDownloaded = new BitcoinNodeManager.DownloadMerkleBlockCallback() {
+    protected final BitcoinNode.DownloadMerkleBlockCallback _onMerkleBlockDownloaded = new BitcoinNode.DownloadMerkleBlockCallback() {
         private final ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>> _failedDownloadTimes = new ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>>();
 
         protected synchronized Boolean _processMerkleBlock(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
@@ -213,11 +212,11 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
         }
     }
 
-    public static class WatchedRequest extends RequestBabysitter.WatchedRequest implements BitcoinNodeManager.DownloadMerkleBlockCallback {
+    public static class WatchedRequest extends RequestBabysitter.WatchedRequest implements BitcoinNode.DownloadMerkleBlockCallback {
         protected final Sha256Hash _blockHash;
-        protected final BitcoinNodeManager.DownloadMerkleBlockCallback _callback;
+        protected final BitcoinNode.DownloadMerkleBlockCallback _callback;
 
-        public WatchedRequest(final Sha256Hash blockHash, final BitcoinNodeManager.DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
+        public WatchedRequest(final Sha256Hash blockHash, final BitcoinNode.DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
             _blockHash = blockHash;
             _callback = downloadMerkleBlockCallback;
         }

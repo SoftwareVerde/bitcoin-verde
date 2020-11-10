@@ -13,6 +13,7 @@ import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -75,6 +76,7 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         bitcoinNodeContext.memoryPoolEnquirer = null;
         bitcoinNodeContext.synchronizationStatusHandler = _synchronizationStatus;
         bitcoinNodeContext.threadPool = threadPool;
+        bitcoinNodeContext.systemTime = new SystemTime();
 
         final BitcoinNodeManager bitcoinNodeManager = new BitcoinNodeManager(bitcoinNodeContext);
 
@@ -119,6 +121,8 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
             bitcoinNode.disconnect();
         }
+
+        Thread.sleep(500L); // Allow for any callbacks to executed.
 
         // Assert the BitcoinNodes are re-banned.
         Assert.assertTrue(banFilter.isIpBanned(ip));

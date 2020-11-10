@@ -33,7 +33,7 @@ public class BlockHeaderDownloaderContext implements BlockHeaderDownloader.Conte
     }
 
     @Override
-    public BitcoinNodeManager getNodeManager() {
+    public BitcoinNodeManager getBitcoinNodeManager() {
         return _nodeManager;
     }
 

@@ -1,13 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
-import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
-import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
-import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
+import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
@@ -15,53 +8,110 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
-import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
-import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
+public class BitcoinNodeManager {
+    public static final Long PING_AFTER_MS_IDLE = (5L * 60000L); // 5 Minutes
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
-    public interface FailableCallback {
-        default void onFailure() { }
-    }
-    public interface BlockInventoryMessageCallback extends BitcoinNode.BlockInventoryMessageCallback, FailableCallback { }
-    public interface DownloadBlockCallback extends BitcoinNode.DownloadBlockCallback {
-        default void onFailure(Sha256Hash blockHash) { }
-    }
-    public interface DownloadMerkleBlockCallback extends BitcoinNode.DownloadMerkleBlockCallback {
-        default void onFailure(Sha256Hash blockHash) { }
-    }
-    public interface DownloadBlockHeadersCallback extends FailableCallback {
-        void onResult(List<BlockHeader> blockHeaders, BitcoinNode bitcoinNode);
-    }
-    public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
-        default void onFailure(List<Sha256Hash> transactionHashes) { }
-    }
+
     public interface NewNodeCallback {
         void onNodeHandshakeComplete(BitcoinNode bitcoinNode);
     }
+
+    public interface NodeApiTransmission { }
+
+    public static class NodeFilters {
+        public static final NodeFilter KEEP_ACTIVE_NODES = new NodeFilter() {
+            @Override
+            public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
+                return bitcoinNode.hasActiveConnection();
+            }
+        };
+
+        public static final NodeFilter KEEP_INACTIVE_NODES = new NodeFilter() {
+            @Override
+            public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
+                return (! bitcoinNode.hasActiveConnection());
+            }
+        };
+    }
+
+    protected class NodeMaintenanceThread extends Thread {
+        public NodeMaintenanceThread() {
+            this.setName("Node Manager - Maintenance Thread - " + this.getId());
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                _pingIdleNodes();
+                _removeDisconnectedNodes();
+                _removeHighLatencyNodes();
+
+                try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
+            }
+
+            Logger.debug("Node Maintenance Thread exiting...");
+        }
+    }
+
+    // protected final Object _mutex = new Object();
+    protected final SystemTime _systemTime;
+    protected final BitcoinNodeFactory _nodeFactory;
+    protected final ThreadPool _threadPool;
+
+    protected final ConcurrentHashMap<NodeId, BitcoinNode> _preferredNodes;
+    protected final ConcurrentHashMap<NodeId, BitcoinNode> _otherNodes;
+    protected ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(); // Nodes that have been added but have not yet completed their handshake.
+
+    // _connectedNodeAddresses contains NodeIpAddresses that are either currently-connected, are pending handshake, or are about to be connected to.
+    // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.
+    protected final ConcurrentHashSet<NodeIpAddress> _connectedNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+
+    protected final ConcurrentHashSet<NodeIpAddress> _seedNodes = new ConcurrentHashSet<NodeIpAddress>();
+    protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The list of all node addresses advertised by peers.
+    protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
+    protected final MutableNetworkTime _networkTime;
+    protected Integer _maxNodeCount;
+    protected Boolean _shouldOnlyConnectToSeedNodes = false;
+    protected Boolean _isShuttingDown = false;
+
+    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
+    protected NodeIpAddress _localNodeIpAddress = null;
+
+    protected final ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The current batch of new addresses advertised by peers that have not yet been seen.
+    protected Long _lastAddressBroadcastTimestamp = 0L;
 
     public static class Context {
         public Integer maxNodeCount;
@@ -73,6 +123,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         public MemoryPoolEnquirer memoryPoolEnquirer;
         public SynchronizationStatus synchronizationStatusHandler;
         public ThreadPool threadPool;
+        public SystemTime systemTime;
     }
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
@@ -176,10 +227,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected Thread _pollForReconnectionThread;
 
     protected Runnable _onNodeListChanged;
-    protected NewNodeCallback _onNewNode;
-
-    // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
-    protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
+    protected NewNodeCallback _newNodeCallback;
 
     protected void _pollForReconnection() {
         if (_isShuttingDown) { return; }
@@ -198,21 +246,569 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    @Override
-    protected void _initNode(final BitcoinNode node) {
-        node.enableTransactionRelay(_transactionRelayIsEnabled);
-
-        super._initNode(node);
-        _nodeInitializer.initializeNode(node);
+    protected Map<NodeId, BitcoinNode> _getAllHandshakedNodes() {
+        final int totalConnectedNodeCount = (_otherNodes.size() + _preferredNodes.size());
+        final HashMap<NodeId, BitcoinNode> allConnectedNodes = new HashMap<NodeId, BitcoinNode>(totalConnectedNodeCount);
+        allConnectedNodes.putAll(_preferredNodes);
+        allConnectedNodes.putAll(_otherNodes);
+        return allConnectedNodes;
     }
 
-    @Override
-    protected void _onAllNodesDisconnected() {
+    protected List<BitcoinNode> _filterNodes(final Map<?, BitcoinNode> nodes, final NodeFilter nodeFilter) {
+        return _filterNodes(nodes, nodes.size(), nodeFilter);
+    }
+
+    protected List<BitcoinNode> _filterNodes(final Map<?, BitcoinNode> nodes, final Integer requestedNodeCount, final NodeFilter nodeFilter) {
+        final MutableList<BitcoinNode> filteredNodes = new MutableList<BitcoinNode>(requestedNodeCount);
+        for (final BitcoinNode node : nodes.values()) {
+            if (nodeFilter.meetsCriteria(node)) {
+                filteredNodes.add(node);
+            }
+        }
+        return filteredNodes;
+    }
+
+    protected void _recalculateLocalNodeIpAddress() {
+        final HashMap<Ip, Integer> nodeIpAddressCounts = new HashMap<Ip, Integer>(_maxNodeCount / 2);
+        final HashMap<Integer, Integer> nodePortCounts = new HashMap<Integer, Integer>(_maxNodeCount / 2);
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode node : allNodes.values()) {
+            final NodeIpAddress nodeIpAddress = node.getLocalNodeIpAddress();
+            if (nodeIpAddress != null) {
+                { // Ip Counts
+                    final Ip ip = nodeIpAddress.getIp();
+                    final Integer count = Util.coalesce(nodeIpAddressCounts.get(ip));
+                    nodeIpAddressCounts.put(ip, (count + 1));
+                }
+                { // Port Counts
+                    final Integer port = nodeIpAddress.getPort();
+                    final Integer count = Util.coalesce(nodePortCounts.get(port));
+                    nodePortCounts.put(port, (count + 1));
+                }
+            }
+        }
+
+        Ip bestNodeIpAddress = null;
+        {
+            Integer bestCount = Integer.MIN_VALUE;
+            for (final Ip nodeIpAddress : nodeIpAddressCounts.keySet()) {
+                final Integer count = nodeIpAddressCounts.get(nodeIpAddress);
+                if (count > bestCount) {
+                    bestNodeIpAddress = nodeIpAddress;
+                    bestCount = count;
+                }
+            }
+        }
+
+        Integer bestNodePort = null;
+        {
+            Integer bestCount = 1; // Mandate that at least two peer's ports match, since if all connections are outbound then port will be unreliable.
+            for (final Integer nodePort : nodePortCounts.keySet()) {
+                final Integer count = nodePortCounts.get(nodePort);
+                if (count > bestCount) {
+                    bestNodePort = nodePort;
+                    bestCount = count;
+                }
+            }
+            if (bestNodePort == null) {
+                bestNodePort = _defaultExternalPort;
+            }
+        }
+
+        if ( (bestNodeIpAddress == null) || (bestNodePort == null) ) {
+            if (_localNodeIpAddress != null) {
+                _localNodeIpAddress = null;
+                Logger.info("External address unset.");
+            }
+            return;
+        }
+
+        final NodeIpAddress nodeIpAddress = new NodeIpAddress(bestNodeIpAddress, bestNodePort);
+        if (! Util.areEqual(_localNodeIpAddress, nodeIpAddress)) {
+            Logger.info("External address set to: " + nodeIpAddress);
+            _localNodeIpAddress = nodeIpAddress;
+        }
+    }
+
+    protected void _cleanupNotHandshakedNodes() {
+        final Long nowInMilliseconds = _systemTime.getCurrentTimeInMilliSeconds();
+
+        { // Cleanup any pending nodes that still haven't completed their handshake...
+            final Iterator<BitcoinNode> pendingNodesIterator = _pendingNodes.values().iterator();
+            while (pendingNodesIterator.hasNext()) {
+                final BitcoinNode oldPendingNode = pendingNodesIterator.next();
+
+                final Long pendingSinceTimeMilliseconds = oldPendingNode.getInitializationTimestamp();
+                if ((nowInMilliseconds - pendingSinceTimeMilliseconds) >= 30000L) {
+                    final NodeIpAddress nodeIpAddress = oldPendingNode.getRemoteNodeIpAddress();
+
+                    pendingNodesIterator.remove();
+                    oldPendingNode.disconnect();
+                    if (nodeIpAddress != null) {
+                        _connectedNodeAddresses.remove(nodeIpAddress);
+                    }
+                }
+            }
+        }
+    }
+
+    protected void _addHandshakedNode(final BitcoinNode bitcoinNode) {
+        if (_isShuttingDown) {
+            bitcoinNode.disconnect();
+            return;
+        }
+
+        if (bitcoinNode.isOutboundConnection()) {
+            boolean shouldKeepNode = true;
+            final Boolean blockchainIsEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+            if (! Util.coalesce(blockchainIsEnabled, false)) {
+                shouldKeepNode = false;
+            }
+
+            final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+            if (! Util.coalesce(isBitcoinCashNode, false)) {
+                shouldKeepNode = false;
+            }
+
+            final long blockHeightThreshold = 6L;
+            final Long currentBlockHeight = Util.coalesce(_synchronizationStatusHandler.getCurrentBlockHeight(), 0L);
+            if (currentBlockHeight > 0L) {
+                final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+                if (nodeBlockHeight == null) {
+                    shouldKeepNode = false;
+                }
+                else if (nodeBlockHeight < (currentBlockHeight - blockHeightThreshold)) {
+                    shouldKeepNode = false;
+                }
+            }
+
+            if (! shouldKeepNode) {
+                bitcoinNode.disconnect();
+                return;
+            }
+        }
+
+        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
+        final NodeId newNodeId = bitcoinNode.getId();
+
+        if (nodeIpAddress != null) {
+            _connectedNodeAddresses.add(nodeIpAddress);
+        }
+
+        boolean isPreferredNodeType = true;
+        final Boolean isOutboundConnection = bitcoinNode.isOutboundConnection();
+        if (isOutboundConnection) {
+            if (! Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED), false)) {
+                isPreferredNodeType = false;
+            }
+            if (! Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED), false)) {
+                isPreferredNodeType = false;
+            }
+
+            final Long currentBlockHeight = _synchronizationStatusHandler.getCurrentBlockHeight();
+            if (currentBlockHeight != null) {
+                final Long bitcoinBlockHeight = bitcoinNode.getBlockHeight();
+                if (bitcoinBlockHeight < (currentBlockHeight - 6L)) {
+                    isPreferredNodeType = false;
+                }
+            }
+        }
+
+        if (isPreferredNodeType) {
+            _preferredNodes.put(newNodeId, bitcoinNode);
+        }
+        else {
+            _otherNodes.put(newNodeId, bitcoinNode);
+        }
+    }
+
+    protected void _addNotHandshakedNode(final BitcoinNode bitcoinNode) {
+        final NodeId nodeId = bitcoinNode.getId();
+        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
+
+        if (nodeIpAddress != null) {
+            final Ip ip = nodeIpAddress.getIp();
+            final Boolean isBanned = _banFilter.isIpBanned(ip);
+            if ((_isShuttingDown) || (isBanned)) {
+                _removeNode(bitcoinNode);
+                return;
+            }
+
+            _connectedNodeAddresses.add(nodeIpAddress);
+        }
+
+        _cleanupNotHandshakedNodes();
+
+        _pendingNodes.put(nodeId, bitcoinNode);
+    }
+
+    protected void _removeNode(final BitcoinNode node) {
+        final NodeId nodeId = node.getId();
+
+        Logger.info("Dropped Node: " + node.getConnectionString());
+
+        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+
+        _preferredNodes.remove(nodeId);
+        _otherNodes.remove(nodeId);
+        _pendingNodes.remove(nodeId);
+        if (nodeIpAddress != null) {
+            _connectedNodeAddresses.remove(nodeIpAddress);
+        }
+
+        node.setNodeDisconnectedCallback(null);
+        node.setNodeHandshakeCompleteCallback(null);
+        node.setNodeConnectedCallback(null);
+        node.setNodeAddressesReceivedCallback(null);
+
+        node.disconnect();
+
+        if (_preferredNodes.isEmpty()) {
+            if (! _isShuttingDown) {
+                _onAllPreferredNodesDisconnected();
+            }
+        }
+
+        final Runnable onNodeListChangedCallback = _onNodeListChanged;
+        if (onNodeListChangedCallback != null) {
+            _threadPool.execute(onNodeListChangedCallback);
+        }
+    }
+
+    /**
+     * Returns a list of BitcoinNodes that provide no utility to the NodeManager.
+     *  Returns an empty list if there are no nodes that provide zero utility.
+     *  Nodes that provide no utility may include non-relaying observer-nodes,
+     *  nodes from different chains that have the same network-magic, etc.
+     */
+    protected List<BitcoinNode> _getUndesirableNodes() {
+        return new MutableList<BitcoinNode>(0);
+    }
+
+    protected void _broadcastNewNodesToExistingNodes(final List<NodeIpAddress> nodeIpAddresses) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode node : allNodes.values()) {
+            node.broadcastNodeAddresses(nodeIpAddresses);
+
+            Logger.debug("Broadcasting " + nodeIpAddresses.getCount() + " new Nodes to existing Node (" + node + ")");
+        }
+    }
+
+    protected void _broadcastExistingNodesToNewNode(final BitcoinNode newBitcoinNode) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        final Collection<BitcoinNode> bitcoinNodes = allNodes.values();
+
+        final MutableList<NodeIpAddress> nodeAddresses = new MutableList<NodeIpAddress>(bitcoinNodes.size());
+        for (final BitcoinNode node : bitcoinNodes) {
+            final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+            if (nodeIpAddress == null) { continue; }
+
+            nodeAddresses.add(nodeIpAddress);
+
+            Logger.debug("Broadcasting Existing Node (" + nodeIpAddress + ") to New Node (" + newBitcoinNode + ")");
+        }
+
+        newBitcoinNode.broadcastNodeAddresses(nodeAddresses);
+    }
+
+    protected void _onNodeDisconnected(final BitcoinNode bitcoinNode) {
+        Logger.debug("Node Disconnected: " + bitcoinNode.getConnectionString());
+        _removeNode(bitcoinNode);
+
+        final Ip ip = bitcoinNode.getIp();
+        _banFilter.onNodeDisconnected(ip);
+    }
+
+    /**
+     * Adds the nodeIpAddress as a to-be-connected node, if the node is not a duplicate.
+     * To-be-connected nodes will not be available to other threads for creating a new connection.
+     *  Returns true if the nodeIpAddress will not be a duplicate connection.
+     */
+    protected Boolean _markAddressForConnecting(final NodeIpAddress nodeIpAddress) {
+        if (nodeIpAddress == null) { return false; }
+        return (! _connectedNodeAddresses.add(nodeIpAddress));
+    }
+
+    protected Boolean _isConnectedToNode(final NodeIpAddress nodeIpAddress) {
+        if (nodeIpAddress == null) { return false; }
+        return _connectedNodeAddresses.contains(nodeIpAddress);
+    }
+
+    protected void _configureNode(final BitcoinNode bitcoinNode) {
+        bitcoinNode.enableTransactionRelay(_transactionRelayIsEnabled);
+
+        final Container<Boolean> nodeDidConnect = new Container<Boolean>(null);
+
+        final Runnable timeoutRunnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    synchronized (nodeDidConnect) {
+                        if (! Util.coalesce(nodeDidConnect.value, false)) {
+                            nodeDidConnect.wait(10000L);
+                        }
+                    }
+
+                    synchronized (nodeDidConnect) {
+                        if (nodeDidConnect.value != null) { // Node connected successfully or has already been marked as disconnected...
+                            return;
+                        }
+
+                        nodeDidConnect.value = false;
+
+                        Logger.info("Node failed to connect. Purging node: " + bitcoinNode.getConnectionString());
+
+                        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
+
+                        _pendingNodes.remove(bitcoinNode.getId());
+                        if (nodeIpAddress != null) {
+                            _connectedNodeAddresses.remove(nodeIpAddress);
+                        }
+
+                        bitcoinNode.disconnect();
+
+                        Logger.debug("Node purged.");
+
+                        if (_preferredNodes.isEmpty()) {
+                            if (! _isShuttingDown) {
+                                _onAllPreferredNodesDisconnected();
+                            }
+                        }
+                    }
+                }
+                catch (final Exception exception) { }
+            }
+
+            @Override
+            public String toString() {
+                return (BitcoinNodeManager.this.getClass().getSimpleName() + "." + "TimeoutRunnable"); // Used as a hack within FakeThreadPools...
+            }
+        };
+
+        { // Determine external address via peers...
+            _recalculateLocalNodeIpAddress();
+            final NodeIpAddress reportedLocalNodeIpAddress = _localNodeIpAddress;
+            if (reportedLocalNodeIpAddress != null) {
+                bitcoinNode.setLocalNodeIpAddress(reportedLocalNodeIpAddress);
+            }
+        }
+
+        bitcoinNode.setNodeAddressesReceivedCallback(new BitcoinNode.NodeAddressesReceivedCallback() {
+            @Override
+            public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
+                if (_isShuttingDown) { return; }
+
+                final List<NodeIpAddress> unseenNodeAddresses;
+                {
+                    final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<NodeIpAddress>(nodeIpAddresses.getCount());
+                    for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
+                        final boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
+                        if (haveAlreadySeenNode) { continue; }
+
+                        listBuilder.add(nodeIpAddress);
+                        _nodeAddresses.add(nodeIpAddress);
+                        _newNodeAddresses.add(nodeIpAddress);
+                    }
+                    unseenNodeAddresses = listBuilder.build();
+                }
+                if (unseenNodeAddresses.isEmpty()) { return; }
+
+                { // Batch at least 30 seconds worth of new NodeIpAddresses, then broadcast the group to current peers...
+                    final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+                    final long msElapsedSinceLastBroadcast = (now - _lastAddressBroadcastTimestamp);
+                    if (msElapsedSinceLastBroadcast >= 30000L) {
+                        _lastAddressBroadcastTimestamp = now;
+
+                        final List<NodeIpAddress> newNodeAddresses = new MutableList<NodeIpAddress>(_newNodeAddresses);
+                        _newNodeAddresses.clear();
+
+                        _broadcastNewNodesToExistingNodes(newNodeAddresses);
+                    }
+                }
+
+                if (! _shouldOnlyConnectToSeedNodes) {
+                    // Connect to the node if the NodeManager is still looking for peers...
+                    for (final NodeIpAddress nodeIpAddress : unseenNodeAddresses) {
+                        final int potentialNodeCount = (_pendingNodes.size() + _preferredNodes.size() + _otherNodes.size());
+                        if (potentialNodeCount >= _maxNodeCount) { break; }
+
+                        final Ip ip = nodeIpAddress.getIp();
+                        final String host = ip.toString();
+                        final Integer port = nodeIpAddress.getPort();
+
+                        final Boolean isAlreadyConnectedToNode = _markAddressForConnecting(nodeIpAddress);
+                        if (isAlreadyConnectedToNode) { continue; }
+
+                        final BitcoinNode newBitcoinNode = _nodeFactory.newNode(host, port);
+                        _addNode(newBitcoinNode);
+                    }
+                }
+            }
+        });
+
+        bitcoinNode.setNodeConnectedCallback(new BitcoinNode.NodeConnectedCallback() {
+            @Override
+            public void onNodeConnected() {
+                { // Handle connection timeout...
+                    synchronized (nodeDidConnect) {
+                        if (nodeDidConnect.value == null) {
+                            nodeDidConnect.value = true;
+                        }
+                        else if (! nodeDidConnect.value) {
+                            // Node connection timed out; abort.
+                            return;
+                        }
+
+                        nodeDidConnect.notifyAll();
+                    }
+                }
+
+                _onNodeConnected(bitcoinNode);
+            }
+        });
+
+        bitcoinNode.setNodeHandshakeCompleteCallback(new BitcoinNode.NodeHandshakeCompleteCallback() {
+            @Override
+            public void onHandshakeComplete() {
+                Logger.debug("HandshakeComplete: " + bitcoinNode.getConnectionString());
+
+                _pendingNodes.remove(bitcoinNode.getId());
+                _addHandshakedNode(bitcoinNode);
+
+                final Long nodeNetworkTimeOffset = bitcoinNode.getNetworkTimeOffset();
+                if (nodeNetworkTimeOffset != null) {
+                    _networkTime.includeOffsetInSeconds(nodeNetworkTimeOffset);
+                }
+
+                _broadcastExistingNodesToNewNode(bitcoinNode);
+                _onNodeHandshakeComplete(bitcoinNode);
+            }
+        });
+
+        bitcoinNode.setNodeDisconnectedCallback(new BitcoinNode.NodeDisconnectedCallback() {
+            @Override
+            public void onNodeDisconnected() {
+                _onNodeDisconnected(bitcoinNode);
+            }
+        });
+
+        _nodeInitializer.initializeNode(bitcoinNode);
+
+        bitcoinNode.connect();
+        bitcoinNode.handshake();
+
+        _threadPool.execute(timeoutRunnable);
+    }
+
+    protected void _pingIdleNodes() {
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        final MutableList<BitcoinNode> idleNodes = new MutableList<BitcoinNode>();
+        for (final BitcoinNode node : allNodes.values()) {
+            final Long lastMessageTime = node.getLastMessageReceivedTimestamp();
+            final long idleDuration = (now - lastMessageTime); // NOTE: Race conditions could result in a negative value...
+
+            if (idleDuration > PING_AFTER_MS_IDLE) {
+                idleNodes.add(node);
+            }
+        }
+
+        Logger.debug("Idle Node Count: " + idleNodes.getCount() + " / " + allNodes.size());
+
+        for (final BitcoinNode idleNode : idleNodes) {
+            if (! idleNode.handshakeIsComplete()) { return; }
+
+            Logger.debug("Pinging Idle Node: " + idleNode.getConnectionString());
+
+            idleNode.ping(new BitcoinNode.PingCallback() {
+                @Override
+                public void onResult(final Long pingInMilliseconds) {
+                    Logger.debug("Node Pong: " + pingInMilliseconds);
+                }
+            });
+        }
+    }
+
+    protected void _removeDisconnectedNodes() {
+        final MutableList<BitcoinNode> purgeableNodes = new MutableList<BitcoinNode>();
+
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode node : allNodes.values()) {
+            if (! node.isConnected()) {
+                final long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTimestamp());
+                if (nodeAge > 10000L) {
+                    purgeableNodes.add(node);
+                }
+            }
+        }
+
+        for (final BitcoinNode node : purgeableNodes) {
+            _removeNode(node);
+        }
+    }
+
+    protected void _removeHighLatencyNodes() {
+        final MutableList<BitcoinNode> purgeableNodes = new MutableList<BitcoinNode>();
+
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode node : allNodes.values()) {
+            if (node.isConnected()) {
+                final Long nodePing = node.getAveragePing();
+                if ( (nodePing != null) && (nodePing > 10000L) ) {
+                    purgeableNodes.add(node);
+                }
+            }
+        }
+
+        for (final BitcoinNode node : purgeableNodes) {
+            _removeNode(node);
+        }
+    }
+
+    protected void _addNode(final BitcoinNode bitcoinNode) {
+        if (_isShuttingDown) {
+            bitcoinNode.disconnect();
+            return;
+        }
+
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+            nodeDatabaseManager.storeNode(bitcoinNode);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.warn(databaseException);
+        }
+
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+
+        // Ensure the NodeManager does not exceed maxNodeCount.
+        if ((allNodes.size() + _pendingNodes.size()) >= _maxNodeCount) {
+            bitcoinNode.disconnect();
+            return;
+        }
+
+        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
+        final boolean isAlreadyConnectedToAddress = _markAddressForConnecting(nodeIpAddress);
+        if (isAlreadyConnectedToAddress) {
+            final NodeId nodeId = bitcoinNode.getId();
+            final boolean isDuplicateCallToAddNode = ( (allNodes.containsKey(nodeId)) || (_pendingNodes.containsKey(nodeId)) );
+            if (isDuplicateCallToAddNode) { return; }
+
+            // The bitcoinNode is actually a new connection to a node that we're already connected to
+            bitcoinNode.disconnect();
+            return;
+        }
+
+        _configureNode(bitcoinNode);
+        _addNotHandshakedNode(bitcoinNode);
+    }
+
+    protected void _onAllPreferredNodesDisconnected() {
         if (! _hasHadActiveConnectionSinceLastDisconnect.getAndSet(false)) { return; } // Prevent infinitely looping by aborting if no new connections were successful since the last attempt...
         _pollForReconnection();
     }
 
-    @Override
     protected void _onNodeConnected(final BitcoinNode bitcoinNode) {
         _hasHadActiveConnectionSinceLastDisconnect.set(true); // Allow for reconnection attempts after all connections die...
 
@@ -246,63 +842,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    @Override
-    protected void _onNodeDisconnected(final BitcoinNode bitcoinNode) {
-        super._onNodeDisconnected(bitcoinNode);
-
-        final Ip ip = bitcoinNode.getIp();
-        _banFilter.onNodeDisconnected(ip);
-
-        final Runnable onNodeListChangedCallback = _onNodeListChanged;
-        if (onNodeListChangedCallback != null) {
-            _threadPool.execute(onNodeListChangedCallback);
-        }
-    }
-
-    @Override
-    protected void _addHandshakedNode(final BitcoinNode node) {
-        if (_isShuttingDown) {
-            node.disconnect();
-            return;
-        }
-
-        final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-        final Boolean blockchainIsSynchronized = _synchronizationStatusHandler.isBlockchainSynchronized();
-        if (blockchainIsEnabled == null) {
-            Logger.debug("Unable to determine feature for node: " + node.getConnectionString());
-        }
-
-        if ( (! Util.coalesce(blockchainIsEnabled, false)) && (! blockchainIsSynchronized) ) {
-            node.disconnect();
-            return; // Reject SPV Nodes during the initial-sync...
-        }
-
-        super._addHandshakedNode(node);
-    }
-
-    @Override
-    protected void _addNotHandshakedNode(final BitcoinNode bitcoinNode) {
-        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
-
-        final Ip ip = nodeIpAddress.getIp();
-        final Boolean isBanned = _banFilter.isIpBanned(ip);
-        if ( (_isShuttingDown) || (isBanned) ) {
-            _removeNode(bitcoinNode);
-            return;
-        }
-
-        super._addNotHandshakedNode(bitcoinNode);
-
-        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-            nodeDatabaseManager.storeNode(bitcoinNode);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.warn(databaseException);
-        }
-    }
-
-    @Override
     protected void _onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
         if (_slpValidityCheckingIsEnabled) {
             if (Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED), false)) {
@@ -325,7 +864,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             Logger.debug(databaseException);
         }
 
-        final NewNodeCallback newNodeCallback = _onNewNode;
+        final NewNodeCallback newNodeCallback = _newNodeCallback;
         if (newNodeCallback != null) {
             _threadPool.execute(new Runnable() {
                 @Override
@@ -343,8 +882,116 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
+    public void setDefaultExternalPort(final Integer externalPortNumber) {
+        _defaultExternalPort = externalPortNumber;
+    }
+
+    public void defineSeedNode(final NodeIpAddress nodeIpAddress) {
+        _seedNodes.add(nodeIpAddress);
+    }
+
+    public void addNode(final BitcoinNode node) {
+        _addNode(node);
+    }
+
+    public NetworkTime getNetworkTime() {
+        return _networkTime;
+    }
+
+    public void startNodeMaintenanceThread() {
+        _nodeMaintenanceThread.start();
+    }
+
+    public void stopNodeMaintenanceThread() {
+        _nodeMaintenanceThread.interrupt();
+        try { _nodeMaintenanceThread.join(10000L); } catch (final Exception exception) { }
+    }
+
+    public List<NodeId> getNodeIds() {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        return new ImmutableList<NodeId>(allNodes.keySet());
+    }
+
+    public BitcoinNode getNode(final NodeId nodeId) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        return allNodes.get(nodeId);
+    }
+
+    public BitcoinNode getNode(final NodeFilter nodeFilter) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        final List<BitcoinNode> filteredNodes = _filterNodes(allNodes, nodeFilter);
+        if (filteredNodes == null) { return null; }
+        return filteredNodes.get(0);
+    }
+
+    public List<BitcoinNode> getPreferredNodes() {
+        return new ImmutableList<BitcoinNode>(_preferredNodes.values());
+    }
+
+    public List<BitcoinNode> getPreferredNodes(final NodeFilter nodeFilter) {
+        return _filterNodes(_preferredNodes, nodeFilter);
+    }
+
+    public List<BitcoinNode> getNodes() {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        return new ImmutableList<BitcoinNode>(allNodes.values());
+    }
+
+    public List<BitcoinNode> getNodes(final NodeFilter nodeFilter) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        return _filterNodes(allNodes, nodeFilter);
+    }
+
+    /**
+     * Returns true if the NodeManager is connected, or is connecting, to a node at the provided Ip and port.
+     */
+    public Boolean isConnectedToNode(final NodeIpAddress nodeIpAddress) {
+        return _isConnectedToNode(nodeIpAddress);
+    }
+
+    public Integer getActiveNodeCount() {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        final List<BitcoinNode> filteredNodes = _filterNodes(allNodes, NodeFilters.KEEP_ACTIVE_NODES);
+        return filteredNodes.getCount();
+    }
+
+    public void setMaxNodeCount(final Integer maxNodeCount) {
+        _maxNodeCount = maxNodeCount;
+    }
+
+    public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
+        _shouldOnlyConnectToSeedNodes = shouldOnlyConnectToSeedNodes;
+    }
+
+    public void shutdown() {
+        _isShuttingDown = true;
+
+        final Thread pollForReconnectionThread = _pollForReconnectionThread;
+        if (pollForReconnectionThread != null) {
+            pollForReconnectionThread.interrupt();
+
+            try { pollForReconnectionThread.join(5000L); } catch (final Exception exception) { }
+        }
+
+        final Map<NodeId, BitcoinNode> allHandshakedNodes = _getAllHandshakedNodes();
+        final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(allHandshakedNodes.values());
+        allNodes.addAll(_pendingNodes.values());
+
+        for (final BitcoinNode bitcoinNode : allNodes) {
+            _removeNode(bitcoinNode);
+        }
+    }
+
     public BitcoinNodeManager(final Context context) {
-        super(context.maxNodeCount, context.nodeFactory, context.networkTime, context.threadPool);
+        _systemTime = context.systemTime;
+        _preferredNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(context.maxNodeCount);
+        _otherNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(context.maxNodeCount);
+
+        _maxNodeCount = context.maxNodeCount;
+        _nodeFactory = context.nodeFactory;
+        _networkTime = context.networkTime;
+        _threadPool = context.threadPool;
+
         _databaseManagerFactory = context.databaseManagerFactory;
         _nodeInitializer = context.nodeInitializer;
         _banFilter = context.banFilter;
@@ -354,417 +1001,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool, _banFilter);
     }
 
-    protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
-        _selectNodeForRequest(new NodeApiRequest<BitcoinNode>() {
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                final NodeApiRequest<BitcoinNode> apiRequest = this;
-
-                bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
-                    @Override
-                    public void onResult(final List<BlockHeader> blockHeaders) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
-
-                        final Boolean shouldAcceptHeaders = _banFilter.onHeadersReceived(bitcoinNode, blockHeaders);
-                        if (! shouldAcceptHeaders) {
-                            Logger.info("Received invalid headers from " + bitcoinNode + ".");
-                            callback.onFailure();
-                            bitcoinNode.disconnect();
-                            return;
-                        }
-
-                        if (callback != null) {
-                            callback.onResult(blockHeaders, bitcoinNode);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                final Sha256Hash firstBlockHash = (blockHashes.isEmpty() ? null : blockHashes.get(0));
-                Logger.debug("Request failed: BitcoinNodeManager.requestBlockHeader("+ firstBlockHash +")");
-
-                if (callback != null) {
-                    callback.onFailure();
-                }
-            }
-        });
-    }
-
-    public void broadcastBlockFinder(final List<Sha256Hash> blockHashes) {
-        for (final BitcoinNode bitcoinNode : _nodes.values()) {
-            bitcoinNode.transmitBlockFinder(blockHashes);
-        }
-    }
-
-    public void requestBlockHashesAfter(final Sha256Hash blockHash) {
-        _sendMessage(new NodeApiMessage<BitcoinNode>() {
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                bitcoinNode.requestBlockHashesAfter(blockHash);
-            }
-        });
-    }
-
-    protected NodeApiRequest<BitcoinNode> _createRequestBlockRequest(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        return new NodeApiRequest<BitcoinNode>() {
-            protected BitcoinNode _bitcoinNode;
-
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                _bitcoinNode = bitcoinNode;
-
-                final NodeApiRequest<BitcoinNode> apiRequest = this;
-
-                bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
-                    @Override
-                    public void onResult(final Block block) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
-
-                        if (callback != null) {
-                            Logger.debug("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getConnectionString());
-                            callback.onResult(block);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(final Sha256Hash blockHash) {
-                        if (apiRequest.didTimeout) { return; }
-
-                        _pendingRequestsManager.removePendingRequest(apiRequest);
-
-                        apiRequest.onFailure();
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.debug("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
-
-                if (callback != null) {
-                    callback.onFailure(blockHash);
-                }
-            }
-        };
-    }
-
-    protected void _requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        _selectNodeForRequest(_createRequestBlockRequest(blockHash, callback));
-    }
-
-    protected void _requestBlock(final BitcoinNode selectedNode, final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        _selectNodeForRequest(selectedNode, _createRequestBlockRequest(blockHash, callback));
-    }
-
-    protected void _requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
-        final NodeApiRequest<BitcoinNode> downloadMerkleBlockRequest = new NodeApiRequest<BitcoinNode>() {
-            protected BitcoinNode _bitcoinNode;
-
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                _bitcoinNode = bitcoinNode;
-
-                final NodeApiRequest<BitcoinNode> apiRequest = this;
-
-                bitcoinNode.requestMerkleBlock(blockHash, new BitcoinNode.DownloadMerkleBlockCallback() {
-                    @Override
-                    public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
-
-                        final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
-                        if (callback != null) {
-                            Logger.debug("Received Merkle Block: "+ merkleBlock.getHash() +" from Node: " + bitcoinNode.getConnectionString());
-                            callback.onResult(merkleBlockParameters);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(final Sha256Hash blockHash) {
-                        if (apiRequest.didTimeout) { return; }
-
-                        _pendingRequestsManager.removePendingRequest(apiRequest);
-
-                        apiRequest.onFailure();
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.debug("Request failed: BitcoinNodeManager.requestMerkleBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
-
-                if (callback != null) {
-                    callback.onFailure(blockHash);
-                }
-            }
-        };
-
-        _selectNodeForRequest(downloadMerkleBlockRequest);
-    }
-
-    protected NodeApiRequest<BitcoinNode> _createRequestTransactionsRequest(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
-        return new NodeApiRequest<BitcoinNode>() {
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                final NodeApiRequest<BitcoinNode> apiRequest = this;
-
-                bitcoinNode.requestTransactions(transactionHashes, new BitcoinNode.DownloadTransactionCallback() {
-                    @Override
-                    public void onResult(final Transaction result) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
-
-                        if (callback != null) {
-                            callback.onResult(result);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(final Sha256Hash transactionHash) {
-                        if (apiRequest.didTimeout) { return; }
-
-                        _pendingRequestsManager.removePendingRequest(apiRequest);
-
-                        apiRequest.onFailure();
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.debug("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getCount() - 1) +")");
-
-                if (callback != null) {
-                    callback.onFailure(transactionHashes);
-                }
-            }
-        };
-    }
-
-    public void requestThinBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        final NodeApiRequest<BitcoinNode> thinBlockApiRequest = new NodeApiRequest<BitcoinNode>() {
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                final NodeApiRequest<BitcoinNode> apiRequest = this;
-
-                final BloomFilter bloomFilter = _memoryPoolEnquirer.getBloomFilter(blockHash);
-
-                bitcoinNode.requestThinBlock(blockHash, bloomFilter, new BitcoinNode.DownloadThinBlockCallback() { // TODO: Consider using ExtraThinBlocks... Unsure if the potential round-trip on a TransactionHash collision is worth it, though.
-                    @Override
-                    public void onResult(final BitcoinNode.ThinBlockParameters extraThinBlockParameters) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
-
-                        final BlockHeader blockHeader = extraThinBlockParameters.blockHeader;
-                        final List<Sha256Hash> transactionHashes = extraThinBlockParameters.transactionHashes;
-                        final List<Transaction> transactions = extraThinBlockParameters.transactions;
-
-                        final ThinBlockAssembler thinBlockAssembler = new ThinBlockAssembler(_memoryPoolEnquirer);
-
-                        final AssembleThinBlockResult assembleThinBlockResult = thinBlockAssembler.assembleThinBlock(blockHeader, transactionHashes, transactions);
-                        if (! assembleThinBlockResult.wasSuccessful()) {
-                            _selectNodeForRequest(bitcoinNode, new NodeApiRequest<BitcoinNode>() {
-                                @Override
-                                public void run(final BitcoinNode bitcoinNode) {
-                                    final NodeApiRequest<BitcoinNode> apiRequest = this;
-
-                                    bitcoinNode.requestThinTransactions(blockHash, assembleThinBlockResult.missingTransactions, new BitcoinNode.DownloadThinTransactionsCallback() {
-                                        @Override
-                                        public void onResult(final List<Transaction> missingTransactions) {
-                                            _onResponseReceived(bitcoinNode, apiRequest);
-                                            if (apiRequest.didTimeout) { return; }
-
-                                            final Block block = thinBlockAssembler.reassembleThinBlock(assembleThinBlockResult, missingTransactions);
-                                            if (block == null) {
-                                                Logger.debug("NOTICE: Falling back to traditional block.");
-                                                // Fallback on downloading block traditionally...
-                                                _requestBlock(blockHash, callback);
-                                            }
-                                            else {
-                                                Logger.debug("NOTICE: Thin block assembled. " + System.currentTimeMillis());
-                                                if (callback != null) {
-                                                    callback.onResult(assembleThinBlockResult.block);
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-
-                                @Override
-                                public void onFailure() {
-                                    Logger.debug("NOTICE: Falling back to traditional block.");
-
-                                    _pendingRequestsManager.removePendingRequest(apiRequest);
-
-                                    _requestBlock(blockHash, callback);
-                                }
-                            });
-                        }
-                        else {
-                            Logger.debug("NOTICE: Thin block assembled on first trip. " + System.currentTimeMillis());
-                            if (callback != null) {
-                                callback.onResult(assembleThinBlockResult.block);
-                            }
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.debug("Request failed: BitcoinNodeManager.requestThinBlock("+ blockHash +")");
-
-                if (callback != null) {
-                    callback.onFailure(blockHash);
-                }
-            }
-        };
-
-        final Boolean shouldRequestThinBlocks;
-        {
-            if (! _synchronizationStatusHandler.isBlockchainSynchronized()) {
-                shouldRequestThinBlocks = false;
-            }
-            else if (_memoryPoolEnquirer == null) {
-                shouldRequestThinBlocks = false;
-            }
-            else {
-                final Integer memoryPoolTransactionCount = _memoryPoolEnquirer.getMemoryPoolTransactionCount();
-                final boolean memoryPoolIsTooEmpty = (memoryPoolTransactionCount >= MINIMUM_THIN_BLOCK_TRANSACTION_COUNT);
-                shouldRequestThinBlocks = (! memoryPoolIsTooEmpty);
-            }
-        }
-
-        if (shouldRequestThinBlocks) {
-            final NodeFilter<BitcoinNode> nodeFilter = new NodeFilter<BitcoinNode>() {
-                @Override
-                public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
-                    final Boolean supportsExtraThinBlocks = bitcoinNode.supportsExtraThinBlocks();
-                    return Util.coalesce(supportsExtraThinBlocks, false);
-                }
-            };
-
-            final BitcoinNode selectedNode = _selectBestNode(nodeFilter);
-            if (selectedNode != null) {
-                Logger.debug("NOTICE: Requesting thin block. " + System.currentTimeMillis());
-                _selectNodeForRequest(selectedNode, thinBlockApiRequest);
-            }
-            else {
-                _requestBlock(blockHash, callback);
-            }
-        }
-        else {
-            _requestBlock(blockHash, callback);
-        }
-    }
-
-    public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        _requestBlock(blockHash, callback);
-    }
-
-    public void requestBlock(final BitcoinNode selectedNode, final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        if (selectedNode == null) {
-            _requestBlock(blockHash, callback);
-        }
-        else {
-            _requestBlock(selectedNode, blockHash, callback);
-        }
-    }
-
-    public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
-        if (_bloomFilter == null) {
-            Logger.warn("Requesting MerkleBlock without a BloomFilter.");
-        }
-
-        _requestMerkleBlock(blockHash, callback);
-    }
-
-    public void broadcastTransactionHash(final Sha256Hash transactionHash) {
-        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(1);
-        transactionHashes.add(transactionHash);
-
-        for (final BitcoinNode bitcoinNode : _nodes.values()) {
-            if (! bitcoinNode.isTransactionRelayEnabled()) { continue; }
-
-            bitcoinNode.transmitTransactionHashes(transactionHashes);
-        }
-    }
-
-    public void transmitBlockHash(final BitcoinNode bitcoinNode, final Block block) {
-        if (bitcoinNode.isNewBlocksViaHeadersEnabled()) {
-            bitcoinNode.transmitBlockHeader(block, block.getTransactionCount());
-        }
-        else {
-            final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
-            blockHashes.add(block.getHash());
-            bitcoinNode.transmitBlockHashes(blockHashes);
-        }
-    }
-
-    public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-        if (bitcoinNode.isNewBlocksViaHeadersEnabled()) {
-            final BlockHeaderWithTransactionCount cachedBlockHeader = _cachedTransmittedBlockHeader;
-            if ( (cachedBlockHeader != null) && (Util.areEqual(blockHash, cachedBlockHeader.getHash())) ) {
-                bitcoinNode.transmitBlockHeader(cachedBlockHeader);
-            }
-            else {
-                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                    if (blockId == null) { return; } // Block Hash has not been synchronized...
-
-                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
-                    final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
-                    if (transactionCount == null) { return; } // Block Hash is currently only a header...
-
-                    final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
-                    _cachedTransmittedBlockHeader = blockHeaderWithTransactionCount;
-
-                    bitcoinNode.transmitBlockHeader(blockHeaderWithTransactionCount);
-                }
-                catch (final DatabaseException exception) {
-                    Logger.warn(exception);
-                }
-            }
-        }
-        else {
-            final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
-            blockHashes.add(blockHash);
-
-            bitcoinNode.transmitBlockHashes(blockHashes);
-        }
-    }
-
-    public void requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback callback) {
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
-        blockHashes.add(blockHash);
-
-        _requestBlockHeaders(blockHashes, callback);
-    }
-
-    public void requestBlockHeadersAfter(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
-        _requestBlockHeaders(blockHashes, callback);
-    }
-
-    public void requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
-        if (transactionHashes.isEmpty()) { return; }
-
-        _selectNodeForRequest(_createRequestTransactionsRequest(transactionHashes, callback));
-    }
-
-    public void requestTransactions(final BitcoinNode selectedNode, final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
-        if (transactionHashes.isEmpty()) { return; }
-
-        _selectNodeForRequest(selectedNode, _createRequestTransactionsRequest(transactionHashes, callback));
-    }
-
     public Boolean hasBloomFilter() {
         return (_bloomFilter != null);
     }
@@ -772,7 +1008,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public void setBloomFilter(final MutableBloomFilter bloomFilter) {
         _bloomFilter = bloomFilter;
 
-        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode bitcoinNode : allNodes.values()) {
             bitcoinNode.setBloomFilter(_bloomFilter);
         }
     }
@@ -783,7 +1020,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         // Disconnect all currently-connected nodes at that ip...
         final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
 
-        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode bitcoinNode : allNodes.values()) {
             if (Util.areEqual(ip, bitcoinNode.getIp())) {
                 droppedNodes.add(bitcoinNode);
             }
@@ -823,13 +1061,14 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void setNewNodeHandshakedCallback(final NewNodeCallback newNodeCallback) {
-        _onNewNode = newNodeCallback;
+        _newNodeCallback = newNodeCallback;
     }
 
     public void enableTransactionRelay(final Boolean transactionRelayIsEnabled) {
         _transactionRelayIsEnabled = transactionRelayIsEnabled;
 
-        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (final BitcoinNode bitcoinNode : allNodes.values()) {
             bitcoinNode.enableTransactionRelay(transactionRelayIsEnabled);
         }
     }
@@ -849,7 +1088,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public void enableNewBlockViaHeaders(final Boolean newBlocksViaHeadersIsEnabled) {
         _newBlocksViaHeadersIsEnabled = newBlocksViaHeadersIsEnabled;
         if (newBlocksViaHeadersIsEnabled) {
-            for (final BitcoinNode bitcoinNode : _nodes.values()) {
+            final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+            for (final BitcoinNode bitcoinNode : allNodes.values()) {
                 bitcoinNode.enableNewBlockViaHeaders();
             }
         }
@@ -857,17 +1097,5 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public void defineDnsSeeds(final List<String> dnsSeeds) {
         _dnsSeeds.addAll(dnsSeeds);
-    }
-
-    @Override
-    public void shutdown() {
-        super.shutdown();
-
-        final Thread pollForReconnectionThread = _pollForReconnectionThread;
-        if (pollForReconnectionThread != null) {
-            pollForReconnectionThread.interrupt();
-
-            try { pollForReconnectionThread.join(5000L); } catch (final Exception exception) { }
-        }
     }
 }

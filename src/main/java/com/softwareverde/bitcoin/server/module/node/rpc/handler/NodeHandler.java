@@ -1,19 +1,19 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.network.ip.Ip;
 
 public class NodeHandler implements NodeRpcHandler.NodeHandler {
     protected final BitcoinNodeManager _nodeManager;
-    protected final NodeInitializer _nodeInitializer;
+    protected final BitcoinNodeFactory _bitcoinNodeFactory;
 
-    public NodeHandler(final BitcoinNodeManager nodeNodeManager, final NodeInitializer nodeInitializer) {
+    public NodeHandler(final BitcoinNodeManager nodeNodeManager, final BitcoinNodeFactory bitcoinNodeFactory) {
         _nodeManager = nodeNodeManager;
-        _nodeInitializer = nodeInitializer;
+        _bitcoinNodeFactory = bitcoinNodeFactory;
     }
 
     @Override
@@ -23,7 +23,7 @@ public class NodeHandler implements NodeRpcHandler.NodeHandler {
 
         final String ipString = ip.toString();
 
-        final BitcoinNode bitcoinNode = _nodeInitializer.initializeNode(ipString, port);
+        final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(ipString, port);
         _nodeManager.addNode(bitcoinNode);
     }
 

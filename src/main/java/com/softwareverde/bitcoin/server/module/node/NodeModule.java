@@ -156,7 +156,7 @@ public class NodeModule {
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final List<SleepyService> _allServices;
 
-    protected final NodeInitializer _nodeInitializer;
+    protected final BitcoinNodeFactory _bitcoinNodeFactory;
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
 
@@ -212,8 +212,8 @@ public class NodeModule {
                 if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
 
                 Logger.info("Connecting to former peer: " + host + ":" + port);
-                final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
-                _bitcoinNodeManager.addNode(node);
+                final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(host, port);
+                _bitcoinNodeManager.addNode(bitcoinNode);
                 connectedNodeCount += 1;
 
                 Thread.sleep(500L);
@@ -231,8 +231,8 @@ public class NodeModule {
                         if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
 
                         Logger.info("Connecting to peer via DNS: " + host + ":" + port + " (" + seedHost + ")");
-                        final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
-                        _bitcoinNodeManager.addNode(node);
+                        final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(host, port);
+                        _bitcoinNodeManager.addNode(bitcoinNode);
                         connectedNodeCount += 1;
 
                         if (connectedNodeCount >= maxPeerCount) { return; } // Done.
@@ -467,6 +467,7 @@ public class NodeModule {
             }
         }
 
+        final NodeInitializer nodeInitializer;
         { // Initialize NodeInitializer...
             final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler = new SpvUnconfirmedTransactionsHandler(databaseManagerFactory);
 
@@ -513,17 +514,20 @@ public class NodeModule {
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(nodeInitializerContext);
+            nodeInitializer = new NodeInitializer(nodeInitializerContext);
         }
+
+        _bitcoinNodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
 
         { // Initialize NodeManager...
             final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
+                context.systemTime = _systemTime;
                 context.databaseManagerFactory = databaseManagerFactory;
-                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
+                context.nodeFactory = _bitcoinNodeFactory;
                 context.maxNodeCount = maxPeerCount;
                 context.networkTime = _mutableNetworkTime;
-                context.nodeInitializer = _nodeInitializer;
+                context.nodeInitializer = nodeInitializer;
                 context.banFilter = _banFilter;
                 context.memoryPoolEnquirer = memoryPoolEnquirer;
                 context.synchronizationStatusHandler = synchronizationStatusHandler;
@@ -678,7 +682,12 @@ public class NodeModule {
                                     final BitcoinNode bitcoinNode = bitcoinNodeMap.get(nodeId);
                                     if (bitcoinNode == null) { continue; }
 
-                                    _bitcoinNodeManager.transmitBlockHash(bitcoinNode, block);
+                                    if (bitcoinNode.isNewBlocksViaHeadersEnabled()) {
+                                        bitcoinNode.transmitBlockHeader(block);
+                                    }
+                                    else {
+                                        bitcoinNode.transmitBlockHashes(new ImmutableList<Sha256Hash>(blockHash));
+                                    }
                                 }
                             }
                         }
@@ -794,8 +803,9 @@ public class NodeModule {
 
                 Logger.debug("New Connection: " + binarySocket.toString());
                 _banFilter.onNodeConnected(ip);
-                final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
-                _bitcoinNodeManager.addNode(node);
+
+                final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(binarySocket);
+                _bitcoinNodeManager.addNode(bitcoinNode);
             }
         });
 
@@ -822,7 +832,7 @@ public class NodeModule {
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, synchronizationStatusHandler);
                 final UtxoCacheHandler utxoCacheHandler = new UtxoCacheHandler(databaseManagerFactory);
-                final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
+                final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _bitcoinNodeFactory);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
@@ -1116,7 +1126,7 @@ public class NodeModule {
 
                     _bitcoinNodeManager.defineSeedNode(new NodeIpAddress(ip, port));
 
-                    final BitcoinNode node = _nodeInitializer.initializeNode(ipAddressString, port);
+                    final BitcoinNode node = _bitcoinNodeFactory.newNode(ipAddressString, port);
                     _bitcoinNodeManager.addNode(node);
                 }
                 catch (final Exception exception) {

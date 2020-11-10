@@ -1,6 +1,9 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -10,21 +13,20 @@ import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
 import com.softwareverde.network.p2p.message.type.PingMessage;
 import com.softwareverde.network.p2p.message.type.PongMessage;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
-import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
-import com.softwareverde.util.type.time.SystemTime;
 
-public class FakeNode extends Node {
+public class FakeNode extends BitcoinNode {
     protected static long _nextNonce = 0L;
 
     protected Long _lastMessageReceivedTimestamp = 0L;
 
     public FakeNode(final String host, final ThreadPool threadPool) {
-        super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
-    }
-
-    public FakeNode(final String host, final SystemTime systemTime, final ThreadPool threadPool) {
-        super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, systemTime, threadPool);
+        super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, new LocalNodeFeatures() {
+            @Override
+            public NodeFeatures getNodeFeatures() {
+                return new NodeFeatures();
+            }
+        });
     }
 
     @Override
