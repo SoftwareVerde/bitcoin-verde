@@ -23,8 +23,8 @@ import org.junit.Test;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BitcoinNodeTests extends UnitTest {
-    protected static final Integer PORT = 9999;
-    protected static final Integer UNUSED_PORT = (PORT + 1); // Used to ensure there is no socket server actually running on the host.
+    protected static final Integer FAKE_PORT = 9999;
+    protected static final Integer UNUSED_PORT = (FAKE_PORT + 1); // Used to ensure there is no socket server actually running on the host.
 
     public static class ExposedBitcoinNode extends BitcoinNode {
         protected final AtomicBoolean _wasDisconnectCalled = new AtomicBoolean(false);
@@ -80,7 +80,7 @@ public class BitcoinNodeTests extends UnitTest {
         };
 
         final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<ExposedBitcoinNode>();
-        final BinarySocketServer socketServer = new BinarySocketServer(PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
@@ -111,7 +111,7 @@ public class BitcoinNodeTests extends UnitTest {
         final MilliTimer timeoutTimer = new MilliTimer();
         final Pin pin = new Pin();
 
-        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", PORT, mainThreadPool, nodeFeatures) {
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
             @Override
             protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                 synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -229,5 +229,59 @@ public class BitcoinNodeTests extends UnitTest {
 
         bitcoinNode.disconnect(); // Not necessary, but used in case an actual connection occurred.
         mainThreadPool.stop();
+    }
+
+    @Test
+    public void should_not_timeout_after_successful_response() throws Exception {
+        final MainThreadPool mainThreadPool = new MainThreadPool(32, 1000L);
+
+        final LocalNodeFeatures nodeFeatures = new LocalNodeFeatures() {
+            @Override
+            public NodeFeatures getNodeFeatures() {
+                final NodeFeatures nodeFeatures = new NodeFeatures();
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                return nodeFeatures;
+            }
+        };
+
+        final Pin pin = new Pin();
+
+        final BitcoinNode bitcoinNode = new BitcoinNode("bitcoinverde.org", 8333, mainThreadPool, nodeFeatures) {
+
+            @Override
+            protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
+                return 15000L;
+            }
+        };
+        bitcoinNode.handshake();
+        bitcoinNode.setNodeHandshakeCompleteCallback(new Node.NodeHandshakeCompleteCallback() {
+            @Override
+            public void onHandshakeComplete() {
+                bitcoinNode.requestBlock(Sha256Hash.fromHexString("000000000000000001144C8D401CC4A83833FD7A8D63D78B17CAB4E038A13C3A"), new BitcoinNode.DownloadBlockCallback() {
+                    @Override
+                    public void onResult(final Block result) {
+                        System.out.println("Block downloaded: " + result.getHash());
+                        pin.release();
+                    }
+
+                    @Override
+                    public void onFailure(final Sha256Hash blockHash) {
+                        System.out.println("Block downloaded failed: " + blockHash);
+                        pin.release();
+                    }
+                });
+            }
+        });
+        bitcoinNode.connect();
+
+        pin.waitForRelease();
+
+        for (int i = 0; i < 300; ++i) {
+            Thread.sleep(1000L);
+        }
+
+        bitcoinNode.disconnect();
+
     }
 }
