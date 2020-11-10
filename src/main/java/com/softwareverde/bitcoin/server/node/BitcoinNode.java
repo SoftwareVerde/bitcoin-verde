@@ -66,7 +66,11 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -76,7 +80,11 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -350,18 +358,14 @@ public class BitcoinNode extends Node {
 
         super._disconnect();
 
-        BitcoinNodeUtil.failPendingRequests(_downloadBlockRequests, _failableRequests, this);
-        BitcoinNodeUtil.failPendingRequests(_downloadMerkleBlockRequests, _failableRequests, this);
-        BitcoinNodeUtil.failPendingRequests(_downloadTransactionRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadMerkleBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadTransactionRequests, _failableRequests, this);
 
-        BitcoinNodeUtil.failPendingVoidRequests(_downloadBlockHeadersRequests, _failableRequests, this);
-        BitcoinNodeUtil.failPendingRequests(_downloadThinBlockRequests, _failableRequests, this);
-        BitcoinNodeUtil.failPendingRequests(_downloadExtraThinBlockRequests, _failableRequests, this);
-        BitcoinNodeUtil.failPendingVoidRequests(_downloadThinTransactionsRequests, _failableRequests, this);
-//        synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
-//        synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
-//        synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
-//        synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
+        BitcoinNodeUtil.failPendingVoidRequests(_threadPool, _downloadBlockHeadersRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadThinBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadExtraThinBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingVoidRequests(_threadPool, _downloadThinTransactionsRequests, _failableRequests, this);
 
         _failableRequests.clear();
     }
