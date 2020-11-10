@@ -14,12 +14,12 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 
-public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
+public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryAnnouncementHandler {
     public interface NewInventoryReceivedCallback {
         default void onNewBlockHashesReceived(List<Sha256Hash> blockHashes) { }
         default void onNewBlockHeadersReceived(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders) { }
     }
-    public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
+    public static final BitcoinNode.BlockInventoryAnnouncementHandler IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryAnnouncementHandler() {
         @Override
         public void onNewInventory(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) { }
 

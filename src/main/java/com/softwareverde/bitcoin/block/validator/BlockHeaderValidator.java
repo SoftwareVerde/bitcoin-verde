@@ -5,11 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.context.BlockHeaderContext;
-import com.softwareverde.bitcoin.context.ChainWorkContext;
-import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
-import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
-import com.softwareverde.bitcoin.context.NetworkTimeContext;
+import com.softwareverde.bitcoin.context.*;
 import com.softwareverde.bitcoin.util.Util;
 import com.softwareverde.network.time.NetworkTime;
 

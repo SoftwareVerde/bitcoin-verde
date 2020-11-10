@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -15,7 +14,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
-public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
+public abstract class AbstractRequestBlocksHandler {
     protected static class StartingBlock {
         public final BlockchainSegmentId selectedBlockchainSegmentId;
         public final BlockId startingBlockId;

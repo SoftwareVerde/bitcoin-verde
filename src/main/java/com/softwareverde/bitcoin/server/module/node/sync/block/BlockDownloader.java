@@ -5,12 +5,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
-import com.softwareverde.bitcoin.context.NodeManagerContext;
-import com.softwareverde.bitcoin.context.PendingBlockStoreContext;
-import com.softwareverde.bitcoin.context.SynchronizationStatusContext;
-import com.softwareverde.bitcoin.context.SystemTimeContext;
-import com.softwareverde.bitcoin.context.ThreadPoolContext;
+import com.softwareverde.bitcoin.context.*;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
@@ -22,6 +17,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
@@ -209,7 +205,7 @@ public class BlockDownloader extends GracefulSleepyService {
         final String nodeName = (bitcoinNode != null ? bitcoinNode.getConnectionString() : "best peer");
         final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
-            public void onResult(final Block block) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
                 if (_shouldAbort()) { return; }
 
                 final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
@@ -257,14 +253,14 @@ public class BlockDownloader extends GracefulSleepyService {
             }
 
             @Override
-            public void onFailure(final Sha256Hash blockHash) {
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
                 if (_shouldAbort()) { return; }
 
                 final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
                 pin.release();
 
                 if (bitcoinNode != null) {
-                    bitcoinNode.removeCallback(this);
+                    bitcoinNode.removeCallback(requestId);
                 }
 
                 final boolean callbackExistedInSet = (_currentBlockDownloadSet.remove(blockHash) != null);
@@ -286,6 +282,8 @@ public class BlockDownloader extends GracefulSleepyService {
             }
         };
 
+        final RequestId requestId = bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
+
         final ThreadPool threadPool = _context.getThreadPool();
         threadPool.execute(new Runnable() {
             @Override
@@ -296,12 +294,11 @@ public class BlockDownloader extends GracefulSleepyService {
                 catch (final Exception exception) { }
 
                 if (! didRespond.get()) {
-                    downloadBlockCallback.onFailure(blockHash);
+                    downloadBlockCallback.onFailure(requestId, bitcoinNode, blockHash);
                 }
             }
         });
 
-        bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
     }
 
     @Override

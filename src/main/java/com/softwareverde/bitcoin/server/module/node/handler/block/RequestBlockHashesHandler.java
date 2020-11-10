@@ -15,20 +15,20 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlocksCallback {
-    public static final BitcoinNode.QueryBlocksCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.QueryBlocksCallback() {
+public class RequestBlockHashesHandler extends AbstractRequestBlocksHandler implements BitcoinNode.RequestBlockHashesHandler {
+    public static final BitcoinNode.RequestBlockHashesHandler IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestBlockHashesHandler() {
         @Override
-        public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final BitcoinNode bitcoinNode) { }
+        public void run(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) { }
     };
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
 
-    public QueryBlocksHandler(final DatabaseManagerFactory databaseManagerFactory) {
+    public RequestBlockHashesHandler(final DatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
-    public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final BitcoinNode bitcoinNode) {
+    public void run(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, true, desiredBlockHash, databaseManager);
 

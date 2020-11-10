@@ -1,19 +1,28 @@
 package com.softwareverde.network.p2p.node;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
+import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.MilliTimer;
 import org.junit.After;
 import org.junit.Assert;
@@ -23,8 +32,8 @@ import org.junit.Test;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BitcoinNodeTests extends UnitTest {
-    protected static final Integer PORT = 9999;
-    protected static final Integer UNUSED_PORT = (PORT + 1); // Used to ensure there is no socket server actually running on the host.
+    protected static final Integer FAKE_PORT = 9999;
+    protected static final Integer UNUSED_PORT = (FAKE_PORT + 1); // Used to ensure there is no socket server actually running on the host.
 
     public static class ExposedBitcoinNode extends BitcoinNode {
         protected final AtomicBoolean _wasDisconnectCalled = new AtomicBoolean(false);
@@ -80,7 +89,7 @@ public class BitcoinNodeTests extends UnitTest {
         };
 
         final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<ExposedBitcoinNode>();
-        final BinarySocketServer socketServer = new BinarySocketServer(PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
         socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
@@ -111,7 +120,7 @@ public class BitcoinNodeTests extends UnitTest {
         final MilliTimer timeoutTimer = new MilliTimer();
         final Pin pin = new Pin();
 
-        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", PORT, mainThreadPool, nodeFeatures) {
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
             @Override
             protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
                 synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
@@ -135,13 +144,13 @@ public class BitcoinNodeTests extends UnitTest {
         });
         bitcoinNode.requestBlock(Sha256Hash.EMPTY_HASH, new BitcoinNode.DownloadBlockCallback() {
             @Override
-            public void onResult(final Block result) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block result) {
                 blockDownloaded.set(true);
                 pin.release();
             }
 
             @Override
-            public void onFailure(final Sha256Hash blockHash) {
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
                 blockDownloadFailed.set(true);
                 timeoutTimer.stop();
                 pin.release();
@@ -229,5 +238,108 @@ public class BitcoinNodeTests extends UnitTest {
 
         bitcoinNode.disconnect(); // Not necessary, but used in case an actual connection occurred.
         mainThreadPool.stop();
+    }
+
+    @Test
+    public void should_not_timeout_after_successful_response() throws Exception {
+        // Setup
+        final MainThreadPool mainThreadPool = new MainThreadPool(32, 1000L);
+
+        final long REQUEST_TIMEOUT_MS = 3000L;
+
+        final LocalNodeFeatures nodeFeatures = new LocalNodeFeatures() {
+            @Override
+            public NodeFeatures getNodeFeatures() {
+                final NodeFeatures nodeFeatures = new NodeFeatures();
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                return nodeFeatures;
+            }
+        };
+
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
+            @Override
+            public void run(final BinarySocket binarySocket) {
+                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, mainThreadPool, nodeFeatures) {
+                    @Override
+                    protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+                        synchronized (LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
+                            LOCAL_SYNCHRONIZATION_NONCES.clear();
+                        }
+
+                        super._onSynchronizeVersion(synchronizeVersionMessage);
+                    }
+                };
+                bitcoinNode.setRequestDataHandler(new BitcoinNode.RequestDataHandler() {
+                    @Override
+                    public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
+                        final byte[] genesisBlockData = HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK);
+                        final CoreInflater inflaters = new CoreInflater();
+                        final Block block = inflaters.getBlockInflater().fromBytes(genesisBlockData);
+
+                        final BlockMessage blockMessage = new BlockMessage(inflaters);
+                        blockMessage.setBlock(block);
+
+                        bitcoinNode._connection._writeOrQueueMessage(blockMessage);
+                    }
+                });
+                bitcoinNode.handshake();
+                bitcoinNode.connect();
+            }
+        });
+        socketServer.start();
+
+        final Pin pin = new Pin();
+        final Container<Boolean> onResultCalled = new Container<>(false);
+        final Container<Boolean> onFailureCalled = new Container<>(false);
+
+        // Action
+        final BitcoinNode bitcoinNode = new BitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
+            @Override
+            protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+                synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
+                    BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES.clear();
+                }
+
+                super._onSynchronizeVersion(synchronizeVersionMessage);
+            }
+
+            @Override
+            protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
+                return REQUEST_TIMEOUT_MS;
+            }
+        };
+        bitcoinNode.handshake();
+        bitcoinNode.setNodeHandshakeCompleteCallback(new Node.NodeHandshakeCompleteCallback() {
+            @Override
+            public void onHandshakeComplete() {
+                bitcoinNode.requestBlock(Sha256Hash.fromHexString(BitcoinConstants.getGenesisBlockHash()), new BitcoinNode.DownloadBlockCallback() {
+                    @Override
+                    public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block result) {
+                        onResultCalled.value = true;
+                        pin.release();
+                    }
+
+                    @Override
+                    public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+                        onFailureCalled.value = true;
+                        pin.release();
+                    }
+                });
+            }
+        });
+        bitcoinNode.connect();
+
+        pin.waitForRelease();
+
+        Thread.sleep((long) (REQUEST_TIMEOUT_MS * 1.5));
+
+        // Assert
+        Assert.assertTrue(onResultCalled.value);
+        Assert.assertFalse(onFailureCalled.value);
+
+        bitcoinNode.disconnect();
+        socketServer.stop();
     }
 }

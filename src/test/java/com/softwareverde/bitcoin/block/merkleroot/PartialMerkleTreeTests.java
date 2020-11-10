@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransact
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.MerkleBlockParameters;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -206,7 +208,7 @@ public class PartialMerkleTreeTests {
         Thread.sleep(1000L);
         bitcoinNode.requestMerkleBlock(block.getHash(), new BitcoinNode.DownloadMerkleBlockCallback() {
             @Override
-            public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final MerkleBlockParameters merkleBlockParameters) {
                 merkleBlockContainer.value = merkleBlockParameters.getMerkleBlock();
             }
         });

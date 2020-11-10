@@ -5,11 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.context.MultiConnectionDatabaseContext;
-import com.softwareverde.bitcoin.context.NetworkTimeContext;
-import com.softwareverde.bitcoin.context.NodeManagerContext;
-import com.softwareverde.bitcoin.context.SystemTimeContext;
-import com.softwareverde.bitcoin.context.ThreadPoolContext;
+import com.softwareverde.bitcoin.context.*;
 import com.softwareverde.bitcoin.context.core.BlockHeaderValidatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -19,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -112,7 +109,7 @@ public class BlockHeaderDownloader extends SleepyService {
         for (final BitcoinNode bitcoinNode : bitcoinNodes) {
             bitcoinNode.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
                 @Override
-                public void onResult(final Block block) {
+                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
                     if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
 
                     final Sha256Hash blockHash = block.getHash();
@@ -141,7 +138,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 }
 
                 @Override
-                public void onFailure(final Sha256Hash blockHash) {
+                public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
                     threadPool.execute(retryGenesisBlockDownload);
                 }
             });
@@ -377,7 +374,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
         _downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
             @Override
-            public void onResult(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
                 if (! _isProcessingHeaders.compareAndSet(false, true)) { return; }
                 if (_shouldAbort()) { return; }
 

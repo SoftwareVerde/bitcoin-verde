@@ -7,83 +7,83 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 
 public class NodeInitializer {
-    public interface TransactionsAnnouncementCallbackFactory {
-        BitcoinNode.TransactionInventoryMessageCallback createTransactionsAnnouncementCallback(BitcoinNode bitcoinNode);
+    public interface TransactionsAnnouncementHandlerFactory {
+        BitcoinNode.TransactionInventoryAnnouncementHandler createTransactionsAnnouncementHandler(BitcoinNode bitcoinNode);
     }
 
     public static class Context {
         public SynchronizationStatus synchronizationStatus;
-        public BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler;
-        public TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory;
-        public BitcoinNode.QueryBlocksCallback queryBlocksCallback;
-        public BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback;
-        public BitcoinNode.RequestDataCallback requestDataCallback;
-        public BitcoinNode.RequestSpvBlocksCallback requestSpvBlocksCallback;
-        public BitcoinNode.RequestSlpTransactionsCallback requestSlpTransactionsCallback;
+        public BitcoinNode.BlockInventoryAnnouncementHandler blockInventoryMessageHandler;
+        public TransactionsAnnouncementHandlerFactory _transactionsAnnouncementHandlerFactory;
+        public BitcoinNode.RequestBlockHashesHandler requestBlockHashesHandler;
+        public BitcoinNode.RequestBlockHeadersHandler requestBlockHeadersHandler;
+        public BitcoinNode.RequestDataHandler requestDataHandler;
+        public BitcoinNode.RequestSpvBlocksHandler requestSpvBlocksHandler;
+        public BitcoinNode.RequestSlpTransactionsHandler requestSlpTransactionsHandler;
         public ThreadPoolFactory threadPoolFactory;
         public LocalNodeFeatures localNodeFeatures;
         public BitcoinNode.RequestPeersHandler requestPeersHandler;
-        public BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback;
-        public BitcoinNode.SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback;
+        public BitcoinNode.RequestUnconfirmedTransactionsHandler requestUnconfirmedTransactionsHandler;
+        public BitcoinNode.SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler;
         public BitcoinBinaryPacketFormat binaryPacketFormat;
-        public BitcoinNode.OnNewBloomFilterCallback onNewBloomFilterCallback;
+        public BitcoinNode.NewBloomFilterHandler newBloomFilterHandler;
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
-    protected final BitcoinNode.BlockInventoryMessageCallback _blockInventoryMessageHandler;
-    protected final TransactionsAnnouncementCallbackFactory _transactionsAnnouncementCallbackFactory;
-    protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
-    protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
-    protected final BitcoinNode.RequestDataCallback _requestDataCallback;
-    protected final BitcoinNode.RequestSpvBlocksCallback _requestSpvBlocksCallback;
-    protected final BitcoinNode.RequestSlpTransactionsCallback _requestSlpTransactionsCallback;
+    protected final BitcoinNode.BlockInventoryAnnouncementHandler blockInventoryAnnouncementHandler;
+    protected final TransactionsAnnouncementHandlerFactory _transactionsAnnouncementHandlerFactory;
+    protected final BitcoinNode.RequestBlockHashesHandler _requestBlockHashesHandler;
+    protected final BitcoinNode.RequestBlockHeadersHandler _requestBlockHeadersHandler;
+    protected final BitcoinNode.RequestDataHandler _requestDataHandler;
+    protected final BitcoinNode.RequestSpvBlocksHandler _requestSpvBlocksHandler;
+    protected final BitcoinNode.RequestSlpTransactionsHandler _requestSlpTransactionsHandler;
     protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
     protected final BitcoinNode.RequestPeersHandler _requestPeersHandler;
-    protected final BitcoinNode.QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback;
-    protected final BitcoinNode.SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback;
+    protected final BitcoinNode.RequestUnconfirmedTransactionsHandler _requestUnconfirmedTransactionsHandler;
+    protected final BitcoinNode.SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementHandler;
     protected final BitcoinBinaryPacketFormat _binaryPacketFormat;
-    protected final BitcoinNode.OnNewBloomFilterCallback _onNewBloomFilterCallback;
+    protected final BitcoinNode.NewBloomFilterHandler _newBloomFilterHandler;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
 
-        bitcoinNode.setQueryBlocksCallback(_queryBlocksCallback);
-        bitcoinNode.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
-        bitcoinNode.setRequestDataCallback(_requestDataCallback);
-        bitcoinNode.setRequestSpvBlocksCallback(_requestSpvBlocksCallback);
-        bitcoinNode.setRequestSlpTransactionsCallback(_requestSlpTransactionsCallback);
-        bitcoinNode.setSpvBlockInventoryMessageCallback(_spvBlockInventoryMessageCallback);
+        bitcoinNode.setRequestBlockHashesHandler(_requestBlockHashesHandler);
+        bitcoinNode.setRequestBlockHeadersHandler(_requestBlockHeadersHandler);
+        bitcoinNode.setRequestDataHandler(_requestDataHandler);
+        bitcoinNode.setRequestSpvBlocksHandler(_requestSpvBlocksHandler);
+        bitcoinNode.setRequestSlpTransactionsHandler(_requestSlpTransactionsHandler);
+        bitcoinNode.setSpvBlockInventoryAnnouncementHandler(_spvBlockInventoryAnnouncementHandler);
 
-        bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryMessageHandler);
-        bitcoinNode.setQueryUnconfirmedTransactionsCallback(_queryUnconfirmedTransactionsCallback);
+        bitcoinNode.setBlockInventoryMessageHandler(blockInventoryAnnouncementHandler);
+        bitcoinNode.setRequestUnconfirmedTransactionsHandler(_requestUnconfirmedTransactionsHandler);
 
-        final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory = _transactionsAnnouncementCallbackFactory;
-        if (transactionsAnnouncementCallbackFactory != null) {
-            final BitcoinNode.TransactionInventoryMessageCallback transactionsAnnouncementCallback = transactionsAnnouncementCallbackFactory.createTransactionsAnnouncementCallback(bitcoinNode);
-            bitcoinNode.setTransactionsAnnouncementCallback(transactionsAnnouncementCallback);
+        final TransactionsAnnouncementHandlerFactory transactionsAnnouncementHandlerFactory = _transactionsAnnouncementHandlerFactory;
+        if (transactionsAnnouncementHandlerFactory != null) {
+            final BitcoinNode.TransactionInventoryAnnouncementHandler transactionInventoryAnnouncementHandler = transactionsAnnouncementHandlerFactory.createTransactionsAnnouncementHandler(bitcoinNode);
+            bitcoinNode.setTransactionsAnnouncementCallback(transactionInventoryAnnouncementHandler);
         }
 
         bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
-        bitcoinNode.setOnNewBloomFilterCallback(_onNewBloomFilterCallback);
+        bitcoinNode.setNewBloomFilterHandler(_newBloomFilterHandler);
     }
 
     public NodeInitializer(final Context properties) {
         _synchronizationStatus = properties.synchronizationStatus;
-        _blockInventoryMessageHandler = properties.blockInventoryMessageHandler;
-        _transactionsAnnouncementCallbackFactory = properties.transactionsAnnouncementCallbackFactory;
-        _queryBlocksCallback = properties.queryBlocksCallback;
-        _queryBlockHeadersCallback = properties.queryBlockHeadersCallback;
-        _requestDataCallback = properties.requestDataCallback;
-        _requestSpvBlocksCallback = properties.requestSpvBlocksCallback;
-        _requestSlpTransactionsCallback = properties.requestSlpTransactionsCallback;
+        blockInventoryAnnouncementHandler = properties.blockInventoryMessageHandler;
+        _transactionsAnnouncementHandlerFactory = properties._transactionsAnnouncementHandlerFactory;
+        _requestBlockHashesHandler = properties.requestBlockHashesHandler;
+        _requestBlockHeadersHandler = properties.requestBlockHeadersHandler;
+        _requestDataHandler = properties.requestDataHandler;
+        _requestSpvBlocksHandler = properties.requestSpvBlocksHandler;
+        _requestSlpTransactionsHandler = properties.requestSlpTransactionsHandler;
         _threadPoolFactory = properties.threadPoolFactory;
         _localNodeFeatures = properties.localNodeFeatures;
         _requestPeersHandler = properties.requestPeersHandler;
-        _queryUnconfirmedTransactionsCallback = properties.queryUnconfirmedTransactionsCallback;
-        _spvBlockInventoryMessageCallback = properties.spvBlockInventoryMessageCallback;
+        _requestUnconfirmedTransactionsHandler = properties.requestUnconfirmedTransactionsHandler;
+        _spvBlockInventoryAnnouncementHandler = properties.spvBlockInventoryAnnouncementHandler;
         _binaryPacketFormat = properties.binaryPacketFormat;
-        _onNewBloomFilterCallback = properties.onNewBloomFilterCallback;
+        _newBloomFilterHandler = properties.newBloomFilterHandler;
     }
 
     public void initializeNode(final BitcoinNode bitcoinNode) {

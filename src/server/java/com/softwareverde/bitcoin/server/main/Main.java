@@ -1,21 +1,11 @@
 package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
-import com.softwareverde.bitcoin.server.configuration.Configuration;
-import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
-import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
-import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
-import com.softwareverde.bitcoin.server.configuration.StratumProperties;
-import com.softwareverde.bitcoin.server.configuration.WalletProperties;
+import com.softwareverde.bitcoin.server.configuration.*;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.module.AddressModule;
-import com.softwareverde.bitcoin.server.module.ChainValidationModule;
-import com.softwareverde.bitcoin.server.module.DatabaseModule;
-import com.softwareverde.bitcoin.server.module.MinerModule;
-import com.softwareverde.bitcoin.server.module.SignatureModule;
+import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.pending
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -16,6 +17,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
@@ -34,6 +36,8 @@ public class TransactionDownloader extends SleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNode.DownloadTransactionCallback _transactionDownloadedCallback;
+
+    protected final ConcurrentHashMap<Sha256Hash, Tuple<RequestId, BitcoinNode>> _pendingRequestInformation = new ConcurrentHashMap<>();
 
     protected Runnable _newTransactionAvailableCallback = null;
 
@@ -84,7 +88,11 @@ public class TransactionDownloader extends SleepyService {
             for (final Sha256Hash stalledTransactionHash : stalledTransactionHashes) {
                 Logger.warn("Stalled Transaction Detected: " + stalledTransactionHash);
                 _currentTransactionDownloadSet.remove(stalledTransactionHash);
-                _transactionDownloadedCallback.onFailure(stalledTransactionHash);
+
+                final Tuple<RequestId, BitcoinNode> requestInformation = _pendingRequestInformation.remove(stalledTransactionHash);
+                if (requestInformation != null) {
+                    _transactionDownloadedCallback.onFailure(requestInformation.first, requestInformation.second, stalledTransactionHash);
+                }
             }
         }
     }
@@ -164,7 +172,12 @@ public class TransactionDownloader extends SleepyService {
                 }
 
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
-                bitcoinNode.requestTransactions(pendingTransactionHashes, _transactionDownloadedCallback);
+                final RequestId requestId = bitcoinNode.requestTransactions(pendingTransactionHashes, _transactionDownloadedCallback);
+
+                final Tuple<RequestId, BitcoinNode> requestInformation = new Tuple<>(requestId, bitcoinNode);
+                for (final Sha256Hash transactionHash : pendingTransactionHashes) {
+                    _pendingRequestInformation.put(transactionHash, requestInformation);
+                }
             }
         }
         catch (final DatabaseException exception) {
@@ -184,7 +197,9 @@ public class TransactionDownloader extends SleepyService {
 
         _transactionDownloadedCallback = new BitcoinNode.DownloadTransactionCallback() {
             @Override
-            public void onResult(final Transaction transaction) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Transaction transaction) {
+                _pendingRequestInformation.remove(transaction.getHash());
+
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                     _onTransactionDownloaded(transaction, databaseManager);
                 }
@@ -215,7 +230,9 @@ public class TransactionDownloader extends SleepyService {
             }
 
             @Override
-            public void onFailure(final Sha256Hash transactionHash) {
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash transactionHash) {
+                _pendingRequestInformation.remove(transactionHash);
+
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                     final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
