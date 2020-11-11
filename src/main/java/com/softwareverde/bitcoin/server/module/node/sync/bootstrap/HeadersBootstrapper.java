@@ -37,19 +37,37 @@ public class HeadersBootstrapper {
         return blockIds;
     }
 
+    protected Boolean _shouldRun(final DatabaseManager databaseManager) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+        final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+
+        final long maxDatFileHeight = (BOOTSTRAP_BLOCK_COUNT - 1L);
+        final long startingHeight = (headBlockHeaderId == null ? 0L : blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId));
+        return (startingHeight < maxDatFileHeight);
+    }
+
     public HeadersBootstrapper(final DatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
+    }
+
+    public Boolean shouldRun() {
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            return _shouldRun(databaseManager);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
     }
 
     public void run() {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-
-            final long maxDatFileHeight = (BOOTSTRAP_BLOCK_COUNT - 1L);
             final long startingHeight = (headBlockHeaderId == null ? 0L : blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId));
-            if (startingHeight < maxDatFileHeight) {
+            final Boolean shouldRun = _shouldRun(databaseManager);
+            if (shouldRun) {
                 long currentBlockHeight = startingHeight;
 
                 final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();

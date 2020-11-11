@@ -1,6 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.*;
+import com.softwareverde.bitcoin.bip.Bip66;
+import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.bip.HF20200515;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;

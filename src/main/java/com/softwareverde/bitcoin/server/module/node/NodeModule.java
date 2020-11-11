@@ -7,7 +7,11 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.context.core.*;
+import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
+import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
+import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
+import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
+import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
@@ -41,21 +45,43 @@ import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullN
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.handler.*;
+import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHashesHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
-import com.softwareverde.bitcoin.server.module.node.manager.*;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
+import com.softwareverde.bitcoin.server.module.node.manager.RequestDataHandlerMonitor;
+import com.softwareverde.bitcoin.server.module.node.manager.TransactionRelay;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.DisabledBanFilter;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.NodeHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryAddressHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryBlockchainHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcDataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ServiceInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
-import com.softwareverde.bitcoin.server.module.node.sync.*;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequesterCore;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
+import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndexer;
+import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -973,9 +999,11 @@ public class NodeModule {
         );
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
-            Logger.info("[Bootstrapping Headers]");
             final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory, true);
-            headersBootstrapper.run();
+            if (headersBootstrapper.shouldRun()) {
+                Logger.info("[Bootstrapping Headers]");
+                headersBootstrapper.run();
+            }
         }
 
         final boolean reIndexPendingBlocks;
