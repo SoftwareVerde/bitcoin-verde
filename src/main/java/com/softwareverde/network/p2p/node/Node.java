@@ -27,8 +27,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
     public interface NodeConnectedCallback { void onNodeConnected();}
-    public interface NodeHandshakeCompleteCallback { void onHandshakeComplete(); }
-    public interface NodeDisconnectedCallback { void onNodeDisconnected(); }
+    public interface HandshakeCompleteCallback { void onHandshakeComplete(); }
+    public interface DisconnectedCallback { void onNodeDisconnected(); }
     public interface PingCallback { void onResult(Long latency); }
 
     protected static class PingRequest {
@@ -66,8 +66,8 @@ public abstract class Node {
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
-    protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
-    protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
+    protected HandshakeCompleteCallback _handshakeCompleteCallback = null;
+    protected DisconnectedCallback _nodeDisconnectedCallback = null;
 
     protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
 
@@ -137,11 +137,11 @@ public abstract class Node {
 
         Logger.debug("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
-        final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
+        final DisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
         _nodeAddressesReceivedCallback = null;
         _nodeConnectedCallback = null;
-        _nodeHandshakeCompleteCallback = null;
+        _handshakeCompleteCallback = null;
         _nodeDisconnectedCallback = null;
 
         _handshakeIsComplete = false;
@@ -319,7 +319,7 @@ public abstract class Node {
         _threadPool.execute(new Runnable() {
             @Override
             public void run() {
-                final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
+                final HandshakeCompleteCallback callback = _handshakeCompleteCallback;
                 if (callback != null) {
                     callback.onHandshakeComplete();
                 }
@@ -505,11 +505,11 @@ public abstract class Node {
         }
     }
 
-    public void setNodeHandshakeCompleteCallback(final NodeHandshakeCompleteCallback nodeHandshakeCompleteCallback) {
-        _nodeHandshakeCompleteCallback = nodeHandshakeCompleteCallback;
+    public void setHandshakeCompleteCallback(final HandshakeCompleteCallback handshakeCompleteCallback) {
+        _handshakeCompleteCallback = handshakeCompleteCallback;
     }
 
-    public void setNodeDisconnectedCallback(final NodeDisconnectedCallback nodeDisconnectedCallback) {
+    public void setDisconnectedCallback(final DisconnectedCallback nodeDisconnectedCallback) {
         _nodeDisconnectedCallback = nodeDisconnectedCallback;
     }
 

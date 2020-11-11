@@ -1,12 +1,12 @@
-package com.softwareverde.bitcoin.server.module.node.database.node.spv;
+package com.softwareverde.bitcoin.server.module.node.database.node;
 
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -17,7 +17,7 @@ import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager {
+public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManager {
 
     protected final DatabaseManager _databaseManager;
     protected final SystemTime _systemTime = new SystemTime();
@@ -58,8 +58,8 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         return NodeId.wrap(row.getLong("id"));
     }
 
-    public SpvBitcoinNodeDatabaseManager(final DatabaseManager databaseConnection) {
-        _databaseManager = databaseConnection;
+    public BitcoinNodeDatabaseManagerCore(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
     }
 
     @Override
@@ -76,7 +76,7 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
 
         final Ip ip = node.getIp();
         if (ip == null) {
-            Logger.warn("Unable to store node: " + node.getConnectionString());
+            Logger.debug("Unable to store node: " + node.getConnectionString());
             return;
         }
 
@@ -113,12 +113,14 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
 
             if (rows.isEmpty()) {
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent) VALUES (?, ?, ?, ?, ?)")
+                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
                         .setParameter(hostId)
                         .setParameter(port)
                         .setParameter(now)
                         .setParameter(now)
                         .setParameter(userAgent)
+                        .setParameter(0L)
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
             else {
@@ -152,20 +154,19 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
     }
 
     @Override
-    public void updateNodeFeatures(final BitcoinNode node) throws DatabaseException {
+    public void updateNodeFeatures(final BitcoinNode bitcoinNode) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Ip ip = node.getIp();
-        final Integer port = node.getPort();
+        final Ip ip = bitcoinNode.getIp();
+        final Integer port = bitcoinNode.getPort();
 
-        final BitcoinNodeIpAddress nodeIpAddress = node.getLocalNodeIpAddress();
+        final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
 
-        if (nodeIpAddress != null) {
+        if (nodeFeatures != null) {
             final NodeId nodeId = _getNodeId(ip, port);
             if (nodeId == null) { return; }
 
             final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
-            final NodeFeatures nodeFeatures = nodeIpAddress.getNodeFeatures();
             for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
                 if (nodeFeatures.hasFeatureFlagEnabled(feature)) {
                     databaseConnection.executeSql(
@@ -316,6 +317,10 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         }
         else {
             // Prevent the node from immediately being re-banned...
+            databaseConnection.executeSql(
+                new Query("DELETE node_features FROM node_features INNER JOIN nodes ON nodes.id = node_features.node_id INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
+                    .setParameter(ip)
+            );
             databaseConnection.executeSql(
                 new Query("DELETE nodes FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
                     .setParameter(ip)

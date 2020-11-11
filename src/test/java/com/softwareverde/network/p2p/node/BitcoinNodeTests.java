@@ -136,7 +136,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
         bitcoinNode.handshake();
-        bitcoinNode.setNodeHandshakeCompleteCallback(new Node.NodeHandshakeCompleteCallback() {
+        bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
                 handshakeCompleted.set(true);
@@ -218,7 +218,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
         bitcoinNode.handshake();
-        bitcoinNode.setNodeHandshakeCompleteCallback(new Node.NodeHandshakeCompleteCallback() {
+        bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
                 handshakeCompleted.set(true);
@@ -311,7 +311,7 @@ public class BitcoinNodeTests extends UnitTest {
             }
         };
         bitcoinNode.handshake();
-        bitcoinNode.setNodeHandshakeCompleteCallback(new Node.NodeHandshakeCompleteCallback() {
+        bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
                 bitcoinNode.requestBlock(Sha256Hash.fromHexString(BitcoinConstants.getGenesisBlockHash()), new BitcoinNode.DownloadBlockCallback() {

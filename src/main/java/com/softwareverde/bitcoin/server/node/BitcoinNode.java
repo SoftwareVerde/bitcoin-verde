@@ -1301,7 +1301,6 @@ public class BitcoinNode extends Node {
     public RequestId requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
         final RequestId requestId = _newRequestId();
         BitcoinNodeUtil.storeInMapSet(_downloadMerkleBlockRequests, blockHash, new PendingRequest<>(requestId, downloadMerkleBlockCallback));
-
         _failableRequests.put(requestId, new FailableRequest(downloadMerkleBlockCallback, new Runnable() {
             @Override
             public void run() {
@@ -1678,9 +1677,14 @@ public class BitcoinNode extends Node {
 
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
-        if (_localNodeIpAddress == null) { return null; }
-        if (! (_localNodeIpAddress instanceof BitcoinNodeIpAddress)) { return null; }
-        return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
+        final NodeIpAddress nodeIpAddress = super.getLocalNodeIpAddress();
+        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
+        if (_localNodeFeatures != null) {
+            final NodeFeatures localNodeFeatures = _localNodeFeatures.getNodeFeatures();
+            bitcoinNodeIpAddress.setNodeFeatures(localNodeFeatures);
+        }
+
+        return bitcoinNodeIpAddress;
     }
 
     @Override

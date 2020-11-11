@@ -25,6 +25,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -456,8 +457,8 @@ public class BitcoinNodeManager {
             _connectedNodeAddresses.remove(nodeIpAddress);
         }
 
-        node.setNodeDisconnectedCallback(null);
-        node.setNodeHandshakeCompleteCallback(null);
+        node.setDisconnectedCallback(null);
+        node.setHandshakeCompleteCallback(null);
         node.setNodeConnectedCallback(null);
         node.setNodeAddressesReceivedCallback(null);
 
@@ -667,7 +668,7 @@ public class BitcoinNodeManager {
             }
         });
 
-        bitcoinNode.setNodeHandshakeCompleteCallback(new BitcoinNode.NodeHandshakeCompleteCallback() {
+        bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
                 Logger.debug("HandshakeComplete: " + bitcoinNode.getConnectionString());
@@ -685,7 +686,7 @@ public class BitcoinNodeManager {
             }
         });
 
-        bitcoinNode.setNodeDisconnectedCallback(new BitcoinNode.NodeDisconnectedCallback() {
+        bitcoinNode.setDisconnectedCallback(new Node.DisconnectedCallback() {
             @Override
             public void onNodeDisconnected() {
                 _onNodeDisconnected(bitcoinNode);
