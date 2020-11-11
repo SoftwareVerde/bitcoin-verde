@@ -70,9 +70,9 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         }
 
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
-        final MutableByteArray byteArray = blockDeflater.toBytes(block);
+        final ByteArray byteArray = blockDeflater.toBytes(block);
 
-        return IoUtil.putFileContents(blockPath, byteArray.unwrap());
+        return IoUtil.putFileContents(blockPath, byteArray);
     }
 
     @Override

@@ -29,4 +29,13 @@ public class MerkleBlockParameters {
     protected void addTransaction(final Transaction transaction) {
         _transactions.add(transaction.asConst());
     }
+
+    public Integer getByteCount() {
+        int byteCount = 0;
+        byteCount += _merkleBlock.getByteCount();
+        for (final Transaction transaction : _transactions) {
+            byteCount += transaction.getByteCount();
+        }
+        return byteCount;
+    }
 }

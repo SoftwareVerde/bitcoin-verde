@@ -249,10 +249,10 @@ public abstract class Node {
         _queueMessage(pongMessage);
     }
 
-    protected void _onPongReceived(final PongMessage pongMessage) {
+    protected Long _onPongReceived(final PongMessage pongMessage) {
         final Long nonce = pongMessage.getNonce();
         final PingRequest pingRequest = _pingRequests.remove(nonce);
-        if (pingRequest == null) { return; }
+        if (pingRequest == null) { return null; }
 
         final PingCallback pingCallback = pingRequest.pingCallback;
 
@@ -269,6 +269,8 @@ public abstract class Node {
                 }
             });
         }
+
+        return msElapsed;
     }
 
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {

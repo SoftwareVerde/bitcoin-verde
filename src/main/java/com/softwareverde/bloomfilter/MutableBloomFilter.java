@@ -11,7 +11,7 @@ public class MutableBloomFilter implements BloomFilter {
     protected static final Integer MAX_LOCK_SEGMENT_COUNT = 256;
 
     protected static Integer _calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
-        final Integer byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
+        final int byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
         if (byteCount < 1) { return 1; }
 
         return Math.min(byteCount, ByteArray.MAX_BYTE_COUNT);
@@ -112,17 +112,27 @@ public class MutableBloomFilter implements BloomFilter {
         _nonce = _makeUnsignedInt((long) (Math.random() * Integer.MAX_VALUE));
     }
 
+    @Override
     public Long getNonce() { return _nonce; }
+
+    @Override
     public Integer getHashFunctionCount() { return _hashFunctionCount; }
+
+    @Override
     public ByteArray getBytes() { return _bytes; }
 
+    @Override
+    public Integer getByteCount() {
+        return _bytes.getByteCount();
+    }
+
     public void addItem(final ByteArray item) {
-        final Integer byteCount = _bytes.getByteCount();
-        final Long bitCount = (byteCount * 8L);
+        final int byteCount = _bytes.getByteCount();
+        final long bitCount = (byteCount * 8L);
 
         for (int i = 0; i < _hashFunctionCount; ++i) {
             final Long hash = HashUtil.murmurHash(_nonce, i, item);
-            final Long index = (hash % bitCount);
+            final long index = (hash % bitCount);
 
             final int byteIndex = _getByteIndex(index);
             final int lockIndex = (byteIndex % _indexLockSegmentCount);
@@ -172,10 +182,12 @@ public class MutableBloomFilter implements BloomFilter {
     /**
      * Calculates the theoretical false positive rate, if were to contain the elementCount elements...
      */
+    @Override
     public Float getFalsePositiveRate(final Long elementCount) {
         return BloomFilterCore.getFalsePositiveRate(_bytes, _hashFunctionCount, elementCount);
     }
 
+    @Override
     public Float getFalsePositiveRate() {
         return BloomFilterCore.getFalsePositiveRate(_bytes, _hashFunctionCount);
     }

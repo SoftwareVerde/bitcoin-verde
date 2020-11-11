@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.constable.list.List;
@@ -36,4 +37,10 @@ public class MerkleBlock extends ImmutableBlockHeader {
 
     @Override
     public MerkleBlock asConst() { return this; }
+
+    public Integer getByteCount() {
+        final int partialMerkleTreeByteCount = (_partialMerkleTree.getItemCount() * Sha256Hash.BYTE_COUNT);
+        return (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + partialMerkleTreeByteCount);
+
+    }
 }

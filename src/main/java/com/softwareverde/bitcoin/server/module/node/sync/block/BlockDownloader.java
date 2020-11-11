@@ -198,7 +198,7 @@ public class BlockDownloader extends GracefulSleepyService {
     }
 
     protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
-        Logger.trace("Downloading " + blockHash + " from " + (bitcoinNode != null ? bitcoinNode.getConnectionString() : null));
+        Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString());
 
         final BitcoinNodeManager nodeManager = _context.getBitcoinNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -207,7 +207,7 @@ public class BlockDownloader extends GracefulSleepyService {
         final AtomicBoolean didRespond = new AtomicBoolean(false);
         final Pin pin = new Pin();
 
-        final String nodeName = (bitcoinNode != null ? bitcoinNode.getConnectionString() : "best peer");
+        final String nodeName = bitcoinNode.getConnectionString();
         final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
@@ -332,7 +332,8 @@ public class BlockDownloader extends GracefulSleepyService {
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             if (! _hasGenesisBlock) { // Since nodes do not advertise inventory of the genesis block, specifically add it if it is required...
-                final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
+                final Sha256Hash blockHash = BlockHeader.GENESIS_BLOCK_HASH;
+                final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                 if ( (genesisBlockId == null) || (! blockDatabaseManager.hasTransactions(genesisBlockId)) ) {
                     final PendingBlockId genesisPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(BlockHeader.GENESIS_BLOCK_HASH);
                     if ( (genesisPendingBlockId == null) || (! pendingBlockDatabaseManager.hasBlockData(genesisPendingBlockId)) ) {
@@ -341,7 +342,16 @@ public class BlockDownloader extends GracefulSleepyService {
 
                         if (secondsSinceLastDownloadAttempt > 5) {
                             _lastGenesisDownloadTimestamp = systemTime.getCurrentTimeInSeconds();
-                            _downloadBlock(BlockHeader.GENESIS_BLOCK_HASH, null, null);
+                            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getPreferredNodes();
+                            for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+                                final NodeId nodeId = bitcoinNode.getId();
+
+                                final MilliTimer timer = new MilliTimer();
+                                final CurrentDownload currentDownload = new CurrentDownload(nodeId, timer);
+
+                                _currentBlockDownloadSet.put(blockHash, currentDownload);
+                                _downloadBlock(blockHash, bitcoinNode, currentDownload);
+                            }
                         }
                     }
                 }

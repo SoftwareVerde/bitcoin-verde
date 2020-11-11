@@ -15,6 +15,7 @@ public class BitcoinProperties {
     protected List<String> _dnsSeeds;
     protected List<SeedNodeProperties> _whitelistedNodes;
     protected Boolean _banFilterIsEnabled;
+    protected Integer _minPeerCount;
     protected Integer _maxPeerCount;
     protected Integer _maxThreadCount;
     protected Long _trustedBlockHeight;
@@ -38,6 +39,7 @@ public class BitcoinProperties {
     public List<String> getDnsSeeds() { return _dnsSeeds; }
     public List<SeedNodeProperties> getWhitelistedNodes() { return _whitelistedNodes; }
     public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
+    public Integer getMinPeerCount() { return _minPeerCount; }
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }

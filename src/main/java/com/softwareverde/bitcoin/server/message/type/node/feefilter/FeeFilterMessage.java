@@ -25,11 +25,15 @@ public class FeeFilterMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-
         final byte[] feeFilterBytes = ByteUtil.longToBytes(_minimumSatoshisPerByte);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(feeFilterBytes, Endian.LITTLE);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        return 4;
     }
 }

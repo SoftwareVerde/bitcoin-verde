@@ -52,13 +52,27 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
         }
 
         { // Transactions...
-            final Integer transactionCount = _transactions.getCount();
+            final int transactionCount = _transactions.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
             for (final Transaction transaction : _transactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));
             }
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final TransactionDeflater transactionDeflater = _transactionInflaters.getTransactionDeflater();
+
+        int totalTransactionByteCount = 0;
+        for (final Transaction transaction : _transactions) {
+            totalTransactionByteCount += transactionDeflater.getByteCount(transaction);
+        }
+
+        final int transactionCount = _transactions.getCount();
+        final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
+        return (Sha256Hash.BYTE_COUNT + transactionCountBytes.length + totalTransactionByteCount);
     }
 }

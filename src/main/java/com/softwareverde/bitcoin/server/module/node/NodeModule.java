@@ -292,7 +292,6 @@ public class NodeModule {
 
         Logger.info("[Stopping Node Manager]");
         _bitcoinNodeManager.shutdown();
-        _bitcoinNodeManager.stopNodeMaintenanceThread();
 
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
@@ -372,6 +371,7 @@ public class NodeModule {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
+        final int minPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.max(32 + (maxPeerCount * 8), 256), 5000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
@@ -525,6 +525,7 @@ public class NodeModule {
                 context.systemTime = _systemTime;
                 context.databaseManagerFactory = databaseManagerFactory;
                 context.nodeFactory = _bitcoinNodeFactory;
+                context.minNodeCount = minPeerCount;
                 context.maxNodeCount = maxPeerCount;
                 context.networkTime = _mutableNetworkTime;
                 context.nodeInitializer = nodeInitializer;
@@ -1094,7 +1095,7 @@ public class NodeModule {
 
         if (! _bitcoinProperties.skipNetworking()) {
             Logger.info("[Starting Node Manager]");
-            _bitcoinNodeManager.startNodeMaintenanceThread();
+            _bitcoinNodeManager.start();
 
             final List<SeedNodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
             for (final SeedNodeProperties whiteListedNode : whitelistedNodes) {

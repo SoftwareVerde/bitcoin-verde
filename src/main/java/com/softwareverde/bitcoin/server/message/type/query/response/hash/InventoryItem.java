@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.hash;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -23,16 +24,13 @@ public class InventoryItem {
         return _objectHash;
     }
 
-    public byte[] getBytes() {
+    public ByteArray getBytes() {
+        final byte[] inventoryTypeBytes = ByteUtil.integerToBytes(_inventoryItemType.getValue());
+
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-
-        final byte[] inventoryTypeBytes = new byte[4];
-        ByteUtil.setBytes(inventoryTypeBytes, ByteUtil.integerToBytes(_inventoryItemType.getValue()));
-
         byteArrayBuilder.appendBytes(inventoryTypeBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_objectHash.getBytes(), Endian.LITTLE);
-
-        return byteArrayBuilder.build();
+        byteArrayBuilder.appendBytes(_objectHash, Endian.LITTLE);
+        return byteArrayBuilder;
     }
 
     @Override

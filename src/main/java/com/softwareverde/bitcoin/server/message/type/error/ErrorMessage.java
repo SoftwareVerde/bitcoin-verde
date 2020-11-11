@@ -4,13 +4,10 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class ErrorMessage extends BitcoinProtocolMessage {
-    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000;
-
     public enum RejectMessageType {
         NULL(""),
         TRANSACTION("tx"),
@@ -113,6 +110,16 @@ public class ErrorMessage extends BitcoinProtocolMessage {
         byteArrayBuilder.appendBytes(rejectMessageCodeBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(rejectDescriptionBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(extraDataBytes, Endian.LITTLE);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final RejectMessageType rejectMessageType = _rejectCode.getRejectMessageType();
+        final byte[] rejectedMessageTypeBytes = ByteUtil.variableLengthStringToBytes(rejectMessageType.getValue());
+
+        final int stringLength = _rejectDescription.length();
+        final byte[] rejectDescriptionBytes = ByteUtil.variableLengthIntegerToBytes(stringLength);
+        return (rejectedMessageTypeBytes.length + 1 + rejectDescriptionBytes.length + stringLength + _extraData.length);
     }
 }

@@ -245,7 +245,6 @@ public class SpvModule {
         if (_bitcoinNodeManager != null) {
             Logger.info("[Stopping Node Manager]");
             _bitcoinNodeManager.shutdown();
-            _bitcoinNodeManager.stopNodeMaintenanceThread();
         }
 
         Logger.info("[Shutting Down Thread Server]");
@@ -769,7 +768,7 @@ public class SpvModule {
         }
 
         Logger.info("[Starting Node Manager]");
-        _bitcoinNodeManager.startNodeMaintenanceThread();
+        _bitcoinNodeManager.start();
 
         _connectToSeedNodes();
 

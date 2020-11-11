@@ -68,12 +68,12 @@ public class BitcoinNodeDatabaseManagerTests extends IntegrationTest {
         }
 
         // Assert
-        Assert.assertTrue(storedFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED));
-        Assert.assertTrue(storedFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED));
-        Assert.assertTrue(storedFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED));
-        Assert.assertTrue(storedFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED));
-        Assert.assertTrue(storedFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
-        Assert.assertTrue(storedFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED));
+        Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED));
+        Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED));
+        Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED));
+        Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED));
+        Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED));
+        Assert.assertTrue(storedFeatures.isFeatureEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED));
     }
 
     @Test

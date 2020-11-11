@@ -39,7 +39,7 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
     }
 
     public static byte[] variableLengthStringToBytes(final String variableLengthString) {
-        final Integer stringLength = variableLengthString.length();
+        final int stringLength = variableLengthString.length();
         final byte[] variableLengthIntegerBytes = ByteUtil.variableLengthIntegerToBytes(stringLength);
         final byte[] bytes = new byte[variableLengthString.length() + variableLengthIntegerBytes.length];
         ByteUtil.setBytes(bytes, variableLengthIntegerBytes);

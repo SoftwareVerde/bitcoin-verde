@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -16,7 +15,7 @@ public class BlockDeflater {
     protected final BlockHeaderDeflater _blockHeaderDeflater = new BlockHeaderDeflater();
     protected final TransactionDeflater _transactionDeflater = new TransactionDeflater();
 
-    public MutableByteArray toBytes(final Block block) {
+    public ByteArray toBytes(final Block block) {
         final List<Transaction> transactions = block.getTransactions();
 
         final int transactionCount = transactions.getCount();
@@ -29,7 +28,7 @@ public class BlockDeflater {
             byteArrayBuilder.appendBytes(transactionBytes, Endian.BIG);
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
     }
 
     public Integer getByteCount(final Block block) {

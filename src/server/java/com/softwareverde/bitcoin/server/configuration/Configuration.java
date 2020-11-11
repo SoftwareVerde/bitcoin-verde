@@ -113,6 +113,7 @@ public class Configuration {
         }
 
         _bitcoinProperties._banFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBanFilter", "1"));
+        _bitcoinProperties._minPeerCount = Util.parseInt(_properties.getProperty("bitcoin.minPeerCount", "8"));
         _bitcoinProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _bitcoinProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _bitcoinProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));

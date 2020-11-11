@@ -74,7 +74,8 @@ public class Address extends ImmutableByteArray {
     }
 
     public String toBase58CheckEncoded() {
-        return BitcoinUtil.toBase58String(_calculateAddressWithChecksum());
+        final byte[] addressWithChecksum = _calculateAddressWithChecksum();
+        return BitcoinUtil.toBase58String(addressWithChecksum);
     }
 
     public String toBase32CheckEncoded() {
@@ -96,6 +97,7 @@ public class Address extends ImmutableByteArray {
 
     @Override
     public String toString() {
-        return BitcoinUtil.toBase58String(_bytes);
+        final byte[] addressWithChecksum = _calculateAddressWithChecksum();
+        return BitcoinUtil.toBase58String(addressWithChecksum);
     }
 }
