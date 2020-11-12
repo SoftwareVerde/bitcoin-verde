@@ -8,11 +8,11 @@ import java.util.HashMap;
 
 public class MessageRouter {
     public interface MessageHandler {
-        void run(ProtocolMessage message);
+        void run(ProtocolMessage message, BitcoinNode bitcoinNode);
     }
 
     public interface UnknownRouteHandler {
-        void run(MessageType messageType, ProtocolMessage message);
+        void run(MessageType messageType, ProtocolMessage message, BitcoinNode bitcoinNode);
     }
 
     protected final HashMap<MessageType, MessageHandler> _routingTable = new HashMap<MessageType, MessageHandler>();
@@ -26,15 +26,15 @@ public class MessageRouter {
         _routingTable.remove(messageType);
     }
 
-    public void route(final MessageType messageType, final ProtocolMessage message) {
+    public void route(final MessageType messageType, final ProtocolMessage message, final BitcoinNode bitcoinNode) {
         final MessageHandler messageHandler = _routingTable.get(messageType);
         if (messageHandler == null) {
-            if (_unknownRouteHandler != null) { _unknownRouteHandler.run(messageType, message); }
+            if (_unknownRouteHandler != null) { _unknownRouteHandler.run(messageType, message, bitcoinNode); }
             return;
         }
 
         try {
-            messageHandler.run(message);
+            messageHandler.run(message, bitcoinNode);
         }
         catch (final Exception exception) {
             Logger.warn(exception);

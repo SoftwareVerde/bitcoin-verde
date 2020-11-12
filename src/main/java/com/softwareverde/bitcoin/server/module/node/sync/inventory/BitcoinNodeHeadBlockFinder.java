@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
@@ -64,9 +65,9 @@ public class BitcoinNodeHeadBlockFinder {
 
         Logger.trace("Finding Head Block for " + bitcoinNode + ", sending: " + blockHashes.get(0));
 
-        bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
+        bitcoinNode.requestBlockHeadersAfter(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
             @Override
-            public void onResult(final List<BlockHeader> blockHeaders) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
                 didRespond.set(true);
                 pin.release();
 

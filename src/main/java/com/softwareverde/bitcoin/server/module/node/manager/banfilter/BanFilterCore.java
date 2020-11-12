@@ -14,6 +14,8 @@ import com.softwareverde.network.ip.Ip;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class BanFilterCore implements BanFilter {
     public static class BanCriteria {
@@ -30,7 +32,8 @@ public class BanFilterCore implements BanFilter {
 
     protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManagerFactory _databaseManagerFactory;
-    protected final HashSet<Ip> _whitelist = new HashSet<Ip>();
+    protected final HashSet<Ip> _whitelist = new HashSet<>();
+    protected final HashSet<Pattern> _blacklist = new HashSet<>();
     protected Long _banDurationInSeconds = DEFAULT_BAN_DURATION;
 
     protected void _unbanIp(final Ip ip, final DatabaseManager databaseManager) throws DatabaseException {
@@ -109,15 +112,24 @@ public class BanFilterCore implements BanFilter {
 
     @Override
     public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
-        // NOTE: The BitcoinNodeManager updates the handshake before the banFilter is invoked, therefore this code is disabled in order to avoid duplicate unnecessary updates.
-        // try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-        //     final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-        //
-        //     nodeDatabaseManager.updateLastHandshake(bitcoinNode);
-        // }
-        // catch (final DatabaseException databaseException) {
-        //     Logger.warn(databaseException);
-        // }
+        final String userAgent = bitcoinNode.getUserAgent();
+        if (userAgent == null) { return; }
+
+        for (final Pattern pattern : _blacklist) {
+            final Matcher matcher = pattern.matcher(userAgent);
+            if (matcher.find()) {
+
+                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final Ip ip = bitcoinNode.getIp();
+                    _banIp(ip, databaseManager);
+                }
+                catch (final DatabaseException exception) {
+                    Logger.warn(exception);
+                }
+
+                bitcoinNode.disconnect();
+            }
+        }
     }
 
     @Override
@@ -176,7 +188,7 @@ public class BanFilterCore implements BanFilter {
     }
 
     @Override
-    public void addIpToWhitelist(final Ip ip) {
+    public void addToWhitelist(final Ip ip) {
         _whitelist.add(ip);
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -194,6 +206,16 @@ public class BanFilterCore implements BanFilter {
         _whitelist.remove(ip);
 
         Logger.debug("Removed ip from Whitelist: " + ip);
+    }
+
+    @Override
+    public void addToUserAgentBlacklist(final Pattern pattern) {
+        _blacklist.add(pattern);
+    }
+
+    @Override
+    public void removePatternFromUserAgentBlacklist(final Pattern pattern) {
+        _blacklist.remove(pattern);
     }
 
     public void setBanDuration(final Long banDurationInSeconds) {

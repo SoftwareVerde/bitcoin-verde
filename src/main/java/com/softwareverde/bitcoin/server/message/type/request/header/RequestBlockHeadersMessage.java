@@ -75,6 +75,14 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(blockHashesBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(_stopBeforeBlockHash, Endian.LITTLE);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int blockHeaderCount = _blockHashes.getCount();
+
+        final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
+        return (4 + blockHeaderCountBytes.length + (Sha256Hash.BYTE_COUNT * (blockHeaderCount + 1)));
     }
 }

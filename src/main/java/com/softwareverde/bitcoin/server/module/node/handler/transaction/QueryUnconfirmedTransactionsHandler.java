@@ -12,8 +12,8 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
-public class QueryUnconfirmedTransactionsHandler implements BitcoinNode.QueryUnconfirmedTransactionsCallback {
-    public static final BitcoinNode.QueryUnconfirmedTransactionsCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.QueryUnconfirmedTransactionsCallback() {
+public class QueryUnconfirmedTransactionsHandler implements BitcoinNode.RequestUnconfirmedTransactionsHandler {
+    public static final BitcoinNode.RequestUnconfirmedTransactionsHandler IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestUnconfirmedTransactionsHandler() {
         @Override
         public void run(final BitcoinNode bitcoinNode) { }
     };

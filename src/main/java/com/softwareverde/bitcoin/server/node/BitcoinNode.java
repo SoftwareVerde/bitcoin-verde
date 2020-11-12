@@ -11,7 +11,6 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactio
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
-import com.softwareverde.bitcoin.callback.Callback;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
@@ -34,6 +33,7 @@ import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessag
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
@@ -86,193 +86,102 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinNode extends Node {
     public static final Long MIN_MEGABYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mpbs, slower than 3G.
 
     protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
-    public interface BitcoinNodeCallback { }
+    private static final AtomicLong NEXT_REQUEST_ID = new AtomicLong(0L);
 
-    public interface RequestPeersHandler {
+    public interface BitcoinNodeCallback { }
+    public interface BitcoinNodeHandler { }
+
+    public interface BitcoinNodeRequestCallback<T> extends BitcoinNodeCallback {
+        void onResult(RequestId requestId, BitcoinNode bitcoinNode, T response);
+    }
+
+    public interface FailableBitcoinNodeRequestCallback<T, S> extends BitcoinNodeRequestCallback<T> {
+        default void onFailure(RequestId requestId, BitcoinNode bitcoinNode, S response) { }
+    }
+
+    public interface DownloadBlockCallback extends FailableBitcoinNodeRequestCallback<Block, Sha256Hash> { }
+
+    public interface DownloadMerkleBlockCallback extends FailableBitcoinNodeRequestCallback<MerkleBlockParameters, Sha256Hash> { }
+
+    public interface DownloadBlockHeadersCallback extends FailableBitcoinNodeRequestCallback<List<BlockHeader>, Sha256Hash> { }
+
+    public interface DownloadTransactionCallback extends FailableBitcoinNodeRequestCallback<Transaction, Sha256Hash> { }
+
+    public interface DownloadThinBlockCallback extends FailableBitcoinNodeRequestCallback<ThinBlockParameters, Sha256Hash> { }
+
+    public interface DownloadExtraThinBlockCallback extends FailableBitcoinNodeRequestCallback<ExtraThinBlockParameters, Sha256Hash> { }
+
+    public interface DownloadThinTransactionsCallback extends FailableBitcoinNodeRequestCallback<List<Transaction>, Sha256Hash> { }
+
+    public interface RequestPeersHandler extends BitcoinNodeHandler {
         List<BitcoinNodeIpAddress> getConnectedPeers();
     }
 
-    public interface BlockInventoryMessageCallback extends BitcoinNodeCallback {
+    public interface BlockInventoryAnnouncementHandler extends BitcoinNodeHandler {
         void onNewInventory(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
         void onNewHeaders(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders);
     }
 
-    public interface DownloadBlockCallback extends Callback<Block>, BitcoinNodeCallback {
-        default void onFailure(Sha256Hash blockHash) { }
+    public interface SpvBlockInventoryAnnouncementHandler extends BitcoinNodeHandler {
+        void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
     }
 
-    public interface DownloadMerkleBlockCallback extends Callback<MerkleBlockParameters>, BitcoinNodeCallback {
-        default void onFailure(Sha256Hash blockHash) { }
-    }
+    public interface TransactionInventoryAnnouncementHandler extends BitcoinNodeHandler {
+        void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> transactionHashes);
 
-    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeader>>, BitcoinNodeCallback { }
-
-    public interface DownloadTransactionCallback extends Callback<Transaction>, BitcoinNodeCallback {
-        default void onFailure(Sha256Hash transactionHash) { }
-    }
-
-    public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters>, BitcoinNodeCallback { }
-
-    public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters>, BitcoinNodeCallback { }
-
-    public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>>, BitcoinNodeCallback { }
-
-    public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>>, BitcoinNodeCallback {
-        default void onResult(final List<Sha256Hash> transactionHashes, final Boolean isValid) {
-            this.onResult(transactionHashes);
+        default void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> transactionHashes, Boolean isSlpValid) {
+            this.onResult(bitcoinNode, transactionHashes);
         }
     }
 
-    public interface SpvBlockInventoryMessageCallback extends Callback<List<Sha256Hash>>, BitcoinNodeCallback { }
-
-    public interface QueryBlocksCallback {
-        void run(List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, BitcoinNode bitcoinNode);
+    public interface RequestBlockHashesHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash);
     }
 
-    public interface QueryBlockHeadersCallback {
-        void run(List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, BitcoinNode bitcoinNode);
+    public interface RequestBlockHeadersHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash);
     }
 
-    public interface QueryUnconfirmedTransactionsCallback {
+    public interface RequestUnconfirmedTransactionsHandler extends BitcoinNodeHandler {
         void run(BitcoinNode bitcoinNode);
     }
 
-    public interface RequestDataCallback {
-        void run(List<InventoryItem> dataHashes, BitcoinNode bitcoinNode);
+    public interface RequestDataHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, List<InventoryItem> dataHashes);
     }
 
-    public interface RequestSpvBlocksCallback {
-        void run(List<Address> addresses, BitcoinNode bitcoinNode);
+    public interface RequestSpvBlocksHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, List<Address> addresses);
     }
 
-    public interface RequestSlpTransactionsCallback {
-        void run(List<Sha256Hash> transactionHashes, BitcoinNode bitcoinNode);
+    public interface RequestSlpTransactionsHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, List<Sha256Hash> transactionHashes);
         Boolean getSlpStatus(Sha256Hash transactionHash);
     }
 
-    public interface RequestExtraThinBlockCallback {
-        void run(Sha256Hash blockHash, BloomFilter bloomFilter, BitcoinNode bitcoinNode);
+    public interface RequestExtraThinBlockHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, Sha256Hash blockHash, BloomFilter bloomFilter);
     }
 
-    public interface RequestExtraThinTransactionCallback {
-        void run(Sha256Hash blockHash, List<ByteArray> transactionShortHashes, BitcoinNode bitcoinNode);
+    public interface RequestExtraThinTransactionHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode, Sha256Hash blockHash, List<ByteArray> transactionShortHashes);
     }
 
-    public interface OnNewBloomFilterCallback {
+    public interface NewBloomFilterHandler extends BitcoinNodeHandler {
         void run(BitcoinNode bitcoinNode);
     }
 
-    public static class ThinBlockParameters {
-        public final BlockHeader blockHeader;
-        public final List<Sha256Hash> transactionHashes;
-        public final List<Transaction> transactions;
-
-        public ThinBlockParameters(final BlockHeader blockHeader, final List<Sha256Hash> transactionHashes, final List<Transaction> transactions) {
-            this.blockHeader = blockHeader;
-            this.transactionHashes = transactionHashes;
-            this.transactions = transactions;
-        }
-    }
-
-    public static class ExtraThinBlockParameters {
-        public final BlockHeader blockHeader;
-        public final List<ByteArray> transactionHashes;
-        public final List<Transaction> transactions;
-
-        public ExtraThinBlockParameters(final BlockHeader blockHeader, final List<ByteArray> transactionHashes, final List<Transaction> transactions) {
-            this.blockHeader = blockHeader;
-            this.transactionHashes = transactionHashes;
-            this.transactions = transactions;
-        }
-    }
-
-    public static class MerkleBlockParameters {
-        protected final MerkleBlock _merkleBlock;
-        protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
-
-        public MerkleBlock getMerkleBlock() {
-            return _merkleBlock;
-        }
-
-        public List<Transaction> getTransactions() {
-            return _transactions;
-        }
-
-        public MerkleBlockParameters(final MerkleBlock merkleBlock) {
-            _merkleBlock = merkleBlock.asConst();
-        }
-
-        protected Boolean hasAllTransactions() {
-            return Util.areEqual(_merkleBlock.getTransactionCount(), _transactions.getCount());
-        }
-
-        protected void addTransaction(final Transaction transaction) {
-            _transactions.add(transaction.asConst());
-        }
-    }
-
-    /**
-     * Returns true iff a callback was executed.
-     */
-    protected static <U, T, S extends Callback<U>> Boolean _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value, final ThreadPool threadPool) {
-        synchronized (callbackMap) {
-            final Set<S> callbackSet = callbackMap.remove(key);
-            if ((callbackSet == null) || (callbackSet.isEmpty())) { return false; }
-
-            for (final S callback : callbackSet) {
-                threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        callback.onResult(value);
-                    }
-                });
-            }
-            return true;
-        }
-    }
-
-    protected static <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
-        synchronized (destinationMap) {
-            Set<S> destinationSet = destinationMap.get(key);
-            if (destinationSet == null) {
-                destinationSet = new HashSet<S>();
-                destinationMap.put(key, destinationSet);
-            }
-            destinationSet.add(value);
-        }
-    }
-
-    protected static <T, S> void _storeInMapList(final Map<T, MutableList<S>> destinationList, final T key, final S value) {
-        synchronized (destinationList) {
-            MutableList<S> destinationSet = destinationList.get(key);
-            if (destinationSet == null) {
-                destinationSet = new MutableList<S>();
-                destinationList.put(key, destinationSet);
-            }
-            destinationSet.add(value);
-        }
-    }
-
-    protected static <T, S extends Callback<?>> void _removeValueFromMapSet(final Map<T, Set<S>> sourceMap, final BitcoinNodeCallback callback) {
-        synchronized (sourceMap) {
-            final Iterator<Map.Entry<T, Set<S>>> iterator = sourceMap.entrySet().iterator();
-            while (iterator.hasNext()) {
-                final Map.Entry<T, Set<S>> entry = iterator.next();
-                final Set<S> set = entry.getValue();
-                set.remove(callback);
-
-                if (set.isEmpty()) {
-                    iterator.remove();
-                }
-            }
-        }
+    protected interface CallbackExecutor<S extends BitcoinNodeCallback> {
+        void onResult(PendingRequest<S> pendingRequest);
     }
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
@@ -292,50 +201,77 @@ public class BitcoinNode extends Node {
         public Long getCurrentBlockHeight() { return 0L; }
     };
 
+    protected static class PendingRequest<T extends BitcoinNodeCallback> {
+        public final RequestId requestId;
+        public final T callback;
+
+        public PendingRequest(final RequestId requestId, final T callback) {
+            this.requestId = requestId;
+            this.callback = callback;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.requestId.hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (! (object instanceof PendingRequest)) { return false; }
+            return Util.areEqual(this.requestId, ((PendingRequest) object).requestId);
+        }
+    }
+
+    protected RequestId _newRequestId() {
+        return RequestId.wrap(NEXT_REQUEST_ID.incrementAndGet());
+    }
+
     protected final Runnable _requestMonitor;
     protected Thread _requestMonitorThread;
+
+    protected ConcurrentLinkedQueue<BitcoinNodeObserver> _observers = new ConcurrentLinkedQueue<>();
 
     protected final AddressInflater _addressInflater;
     protected final MessageRouter _messageRouter = new MessageRouter();
 
     // Requests Maps
-    protected final ConcurrentLinkedQueue<FailableRequest> _requestTimers = new ConcurrentLinkedQueue<FailableRequest>();
-    protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
-    protected final Set<BlockInventoryMessageCallback> _downloadAddressBlocksRequests = new HashSet<BlockInventoryMessageCallback>();
+    protected final ConcurrentHashMap<RequestId, FailableRequest> _failableRequests = new ConcurrentHashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadBlockCallback>>> _downloadBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadMerkleBlockCallback>>> _downloadMerkleBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadBlockHeadersCallback>>> _downloadBlockHeadersRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadTransactionCallback>>> _downloadTransactionRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadThinBlockCallback>>> _downloadThinBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadExtraThinBlockCallback>>> _downloadExtraThinBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadThinTransactionsCallback>>> _downloadThinTransactionsRequests = new HashMap<>();
+    protected final Set<BlockInventoryAnnouncementHandler> _downloadAddressBlocksRequests = new HashSet<>();
 
     protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
 
     protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
-    protected QueryBlocksCallback _queryBlocksCallback = null;
-    protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
-    protected RequestDataCallback _requestDataMessageCallback = null;
-    protected BlockInventoryMessageCallback _blockInventoryMessageHandler = null;
+    protected RequestBlockHashesHandler _queryBlocksCallback = null;
+    protected RequestBlockHeadersHandler _queryBlockHeadersCallback = null;
+    protected RequestDataHandler _requestDataHandler = null;
+    protected BlockInventoryAnnouncementHandler _blockInventoryMessageHandler = null;
     protected RequestPeersHandler _requestPeersHandler = null;
-    protected QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback = null;
-    protected RequestSpvBlocksCallback _requestSpvBlocksCallback = null;
-    protected RequestSlpTransactionsCallback _requestSlpTransactionsCallback = null;
+    protected RequestUnconfirmedTransactionsHandler _queryUnconfirmedTransactionsCallback = null;
+    protected RequestSpvBlocksHandler _requestSpvBlocksHandler = null;
+    protected RequestSlpTransactionsHandler _requestSlpTransactionsHandler = null;
 
-    protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
-    protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
+    protected RequestExtraThinBlockHandler _requestExtraThinBlockCallback = null;
+    protected RequestExtraThinTransactionHandler _requestExtraThinTransactionCallback = null;
 
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
-    protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback = null;
-    protected SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback = null;
+    protected TransactionInventoryAnnouncementHandler _transactionsAnnouncementCallback = null;
+    protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementHandler = null;
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
     protected Boolean _slpTransactionsIsEnabled = false;
 
-    protected OnNewBloomFilterCallback _onNewBloomFilterCallback = null;
+    protected NewBloomFilterHandler _onNewBloomFilterCallback = null;
     protected Boolean _transactionRelayIsEnabled = true;
     protected Boolean _slpValidityCheckingIsEnabled = false;
 
@@ -346,16 +282,47 @@ public class BitcoinNode extends Node {
 
     protected Long _blockHeight = null; // TODO: Update blockHeight as new blocks are advertised by the Node...
 
-    protected void _removeCallback(final BitcoinNodeCallback callback) {
-        _removeValueFromMapSet(_downloadBlockRequests, callback);
-        _removeValueFromMapSet(_downloadMerkleBlockRequests, callback);
-        _removeValueFromMapSet(_downloadBlockHeadersRequests, callback);
-        _removeValueFromMapSet(_downloadTransactionRequests, callback);
-        _removeValueFromMapSet(_downloadThinBlockRequests, callback);
-        _removeValueFromMapSet(_downloadExtraThinBlockRequests, callback);
-        _removeValueFromMapSet(_downloadThinTransactionsRequests, callback);
+    protected void _removeCallback(final RequestId requestId) {
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadBlockRequests, requestId);
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadMerkleBlockRequests, requestId);
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadBlockHeadersRequests, requestId);
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadTransactionRequests, requestId);
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadThinBlockRequests, requestId);
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadExtraThinBlockRequests, requestId);
+        BitcoinNodeUtil.removeValueFromMapSet(_downloadThinTransactionsRequests, requestId);
+        _failableRequests.remove(requestId);
 
-        synchronized (_downloadAddressBlocksRequests) { _downloadAddressBlocksRequests.remove(callback); }
+        synchronized (_downloadAddressBlocksRequests) { _downloadAddressBlocksRequests.remove(requestId); }
+    }
+
+    @Override
+    protected void _queueMessage(final ProtocolMessage message) {
+        super._queueMessage(message);
+
+        if (message instanceof BitcoinProtocolMessage) {
+            final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
+            final MessageType messageType = bitcoinProtocolMessage.getCommand();
+            final Integer byteCount = bitcoinProtocolMessage.getByteCount();
+            for (final BitcoinNodeObserver observer : _observers) {
+                observer.onDataSent(BitcoinNode.this, messageType, byteCount);
+            }
+        }
+    }
+
+    @Override
+    protected void _queueMessages(final List<? extends ProtocolMessage> messages) {
+        super._queueMessages(messages);
+
+        for (final ProtocolMessage message : messages) {
+            if (message instanceof BitcoinProtocolMessage) {
+                final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
+                final MessageType messageType = bitcoinProtocolMessage.getCommand();
+                final Integer byteCount = bitcoinProtocolMessage.getByteCount();
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onDataSent(BitcoinNode.this, messageType, byteCount);
+                }
+            }
+        }
     }
 
     protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
@@ -373,6 +340,12 @@ public class BitcoinNode extends Node {
             queryAddressBlocksMessage.addAddress(address);
         }
         _queueMessage(queryAddressBlocksMessage);
+
+
+        final MessageType messageType = queryAddressBlocksMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     @Override
@@ -412,51 +385,28 @@ public class BitcoinNode extends Node {
         { // Unset all callback and handlers...
             _queryBlocksCallback = null;
             _queryBlockHeadersCallback = null;
-            _requestDataMessageCallback = null;
-            _requestSpvBlocksCallback = null;
-            _requestSlpTransactionsCallback = null;
+            _requestDataHandler = null;
+            _requestSpvBlocksHandler = null;
+            _requestSlpTransactionsHandler = null;
             _blockInventoryMessageHandler = null;
             _requestExtraThinBlockCallback = null;
             _requestExtraThinTransactionCallback = null;
             _transactionsAnnouncementCallback = null;
-            _spvBlockInventoryMessageCallback = null;
+            _spvBlockInventoryAnnouncementHandler = null;
         }
 
         super._disconnect();
 
-        synchronized (_downloadBlockRequests) {
-            for (final Sha256Hash sha256Hash : _downloadBlockRequests.keySet()) {
-                for (final DownloadBlockCallback callback : _downloadBlockRequests.get(sha256Hash)) {
-                    callback.onFailure(sha256Hash);
-                }
-            }
-            _downloadBlockRequests.clear();
-        }
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadMerkleBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadTransactionRequests, _failableRequests, this);
 
-        synchronized (_downloadMerkleBlockRequests) {
-            for (final Sha256Hash sha256Hash : _downloadMerkleBlockRequests.keySet()) {
-                for (final DownloadMerkleBlockCallback callback : _downloadMerkleBlockRequests.get(sha256Hash)) {
-                    callback.onFailure(sha256Hash);
-                }
-            }
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadBlockHeadersRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadThinBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadExtraThinBlockRequests, _failableRequests, this);
+        BitcoinNodeUtil.failPendingRequests(_threadPool, _downloadThinTransactionsRequests, _failableRequests, this);
 
-            _downloadMerkleBlockRequests.clear();
-        }
-
-        synchronized (_downloadTransactionRequests) {
-            for (final Sha256Hash transactionHash : _downloadTransactionRequests.keySet()) {
-                for (final DownloadTransactionCallback callback : _downloadTransactionRequests.get(transactionHash)) {
-                    callback.onFailure(transactionHash);
-                }
-            }
-
-            _downloadTransactionRequests.clear();
-        }
-
-        synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
-        synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
-        synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
-        synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
+        _failableRequests.clear();
     }
 
     @Override
@@ -517,16 +467,19 @@ public class BitcoinNode extends Node {
     protected void _checkForFailedRequests() {
         final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
 
-        final Iterator<FailableRequest> iterator = _requestTimers.iterator();
+        final Iterator<Map.Entry<RequestId, FailableRequest>> iterator = _failableRequests.entrySet().iterator();
         while (iterator.hasNext()) {
-            final FailableRequest failableRequest = iterator.next();
+            final Map.Entry<RequestId, FailableRequest> entry = iterator.next();
+            final RequestId requestId = entry.getKey();
+            final FailableRequest failableRequest = entry.getValue();
+
             final Long maxRequestAgeMs = _getMaximumTimeoutMs(failableRequest.callback);
             final long requestAgeMs = (nowMs - failableRequest.requestStartTimeMs);
 
             if (requestAgeMs > maxRequestAgeMs) {
                 iterator.remove();
 
-                _removeCallback(failableRequest.callback);
+                _removeCallback(requestId);
                 _threadPool.execute(failableRequest.onFailure);
             }
         }
@@ -583,11 +536,17 @@ public class BitcoinNode extends Node {
                     if (merkleBlockParameters != null) {
                         final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
                         final Sha256Hash blockHash = merkleBlock.getHash();
-                        _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, merkleBlockParameters, _threadPool);
+                        BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadMerkleBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadMerkleBlockCallback>() {
+                            @Override
+                            public void onResult(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
+                                final DownloadMerkleBlockCallback callback = pendingRequest.callback;
+                                callback.onResult(pendingRequest.requestId, BitcoinNode.this, merkleBlockParameters);
+                            }
+                        });
                     }
                 }
 
-                _messageRouter.route(message.getCommand(), message);
+                _messageRouter.route(message.getCommand(), message, BitcoinNode.this);
             }
         });
 
@@ -613,50 +572,61 @@ public class BitcoinNode extends Node {
         });
     }
 
+    @Override
+    protected Long _onPongReceived(final PongMessage pongMessage) {
+        final Long msElapsed = super._onPongReceived(pongMessage);
+
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onPongReceived(BitcoinNode.this, msElapsed);
+        }
+
+        return msElapsed;
+    }
+
     protected void _defineRoutes() {
-        _messageRouter.addRoute(MessageType.PING,                           (final ProtocolMessage message) -> { _onPingReceived((BitcoinPingMessage) message); });
-        _messageRouter.addRoute(MessageType.PONG,                           (final ProtocolMessage message) -> { _onPongReceived((BitcoinPongMessage) message); });
-        _messageRouter.addRoute(MessageType.SYNCHRONIZE_VERSION,            (final ProtocolMessage message) -> { _onSynchronizeVersion((SynchronizeVersionMessage) message); });
-        _messageRouter.addRoute(MessageType.ACKNOWLEDGE_VERSION,            (final ProtocolMessage message) -> { _onAcknowledgeVersionMessageReceived((BitcoinAcknowledgeVersionMessage) message); });
-        _messageRouter.addRoute(MessageType.NODE_ADDRESSES,                 (final ProtocolMessage message) -> { _onNodeAddressesReceived((BitcoinNodeIpAddressMessage) message); });
-        _messageRouter.addRoute(MessageType.ERROR,                          (final ProtocolMessage message) -> { _onErrorMessageReceived((ErrorMessage) message); });
-        _messageRouter.addRoute(MessageType.INVENTORY,                      (final ProtocolMessage message) -> { _onInventoryMessageReceived((InventoryMessage) message); });
-        _messageRouter.addRoute(MessageType.REQUEST_DATA,                   (final ProtocolMessage message) -> { _onRequestDataMessageReceived((RequestDataMessage) message); });
-        _messageRouter.addRoute(MessageType.BLOCK,                          (final ProtocolMessage message) -> { _onBlockMessageReceived((BlockMessage) message); });
-        _messageRouter.addRoute(MessageType.TRANSACTION,                    (final ProtocolMessage message) -> { _onTransactionMessageReceived((TransactionMessage) message); });
-        _messageRouter.addRoute(MessageType.MERKLE_BLOCK,                   (final ProtocolMessage message) -> { _onMerkleBlockReceived((MerkleBlockMessage) message); });
-        _messageRouter.addRoute(MessageType.BLOCK_HEADERS,                  (final ProtocolMessage message) -> { _onBlockHeadersMessageReceived((BlockHeadersMessage) message); });
-        _messageRouter.addRoute(MessageType.QUERY_BLOCKS,                   (final ProtocolMessage message) -> { _onQueryBlocksMessageReceived((QueryBlocksMessage) message); });
-        _messageRouter.addRoute(MessageType.QUERY_UNCONFIRMED_TRANSACTIONS, (final ProtocolMessage message) -> { _onQueryUnconfirmedTransactionsReceived(); });
-        _messageRouter.addRoute(MessageType.REQUEST_BLOCK_HEADERS,          (final ProtocolMessage message) -> { _onQueryBlockHeadersMessageReceived((RequestBlockHeadersMessage) message); });
-        _messageRouter.addRoute(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS,  (final ProtocolMessage message) -> { _announceNewBlocksViaHeadersIsEnabled = true; });
-        _messageRouter.addRoute(MessageType.ENABLE_COMPACT_BLOCKS,          (final ProtocolMessage message) -> {
+        _messageRouter.addRoute(MessageType.PING,                           (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onPingReceived((BitcoinPingMessage) message); });
+        _messageRouter.addRoute(MessageType.PONG,                           (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onPongReceived((BitcoinPongMessage) message); });
+        _messageRouter.addRoute(MessageType.SYNCHRONIZE_VERSION,            (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onSynchronizeVersion((SynchronizeVersionMessage) message); });
+        _messageRouter.addRoute(MessageType.ACKNOWLEDGE_VERSION,            (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onAcknowledgeVersionMessageReceived((BitcoinAcknowledgeVersionMessage) message); });
+        _messageRouter.addRoute(MessageType.NODE_ADDRESSES,                 (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onNodeAddressesReceived((BitcoinNodeIpAddressMessage) message); });
+        _messageRouter.addRoute(MessageType.ERROR,                          (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onErrorMessageReceived((ErrorMessage) message); });
+        _messageRouter.addRoute(MessageType.INVENTORY,                      (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onInventoryMessageReceived((InventoryMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_DATA,                   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onRequestDataMessageReceived((RequestDataMessage) message); });
+        _messageRouter.addRoute(MessageType.BLOCK,                          (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onBlockMessageReceived((BlockMessage) message); });
+        _messageRouter.addRoute(MessageType.TRANSACTION,                    (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onTransactionMessageReceived((TransactionMessage) message); });
+        _messageRouter.addRoute(MessageType.MERKLE_BLOCK,                   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onMerkleBlockReceived((MerkleBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.BLOCK_HEADERS,                  (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onBlockHeadersMessageReceived((BlockHeadersMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_BLOCKS,                   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryBlocksMessageReceived((QueryBlocksMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_UNCONFIRMED_TRANSACTIONS, (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryUnconfirmedTransactionsReceived((QueryUnconfirmedTransactionsMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_BLOCK_HEADERS,          (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryBlockHeadersMessageReceived((RequestBlockHeadersMessage) message); });
+        _messageRouter.addRoute(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS,  (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _announceNewBlocksViaHeadersIsEnabled = true; });
+        _messageRouter.addRoute(MessageType.ENABLE_COMPACT_BLOCKS,          (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> {
             final EnableCompactBlocksMessage enableCompactBlocksMessage = (EnableCompactBlocksMessage) message;
             _compactBlocksVersion = (enableCompactBlocksMessage.isEnabled() ? enableCompactBlocksMessage.getVersion() : null);
         });
-        _messageRouter.addRoute(MessageType.REQUEST_EXTRA_THIN_BLOCK,       (final ProtocolMessage message) -> { _onRequestExtraThinBlockMessageReceived((RequestExtraThinBlockMessage) message); });
-        _messageRouter.addRoute(MessageType.EXTRA_THIN_BLOCK,               (final ProtocolMessage message) -> { _onExtraThinBlockMessageReceived((ExtraThinBlockMessage) message); });
-        _messageRouter.addRoute(MessageType.THIN_BLOCK,                     (final ProtocolMessage message) -> { _onThinBlockMessageReceived((ThinBlockMessage) message); });
-        _messageRouter.addRoute(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS,(final ProtocolMessage message) -> { _onRequestExtraThinTransactionsMessageReceived((RequestExtraThinTransactionsMessage) message); });
-        _messageRouter.addRoute(MessageType.THIN_TRANSACTIONS,              (final ProtocolMessage message) -> { _onThinTransactionsMessageReceived((ThinTransactionsMessage) message); });
-        _messageRouter.addRoute(MessageType.NOT_FOUND,                      (final ProtocolMessage message) -> { _onNotFoundMessageReceived((NotFoundResponseMessage) message); });
-        _messageRouter.addRoute(MessageType.FEE_FILTER,                     (final ProtocolMessage message) -> { _onFeeFilterMessageReceived((FeeFilterMessage) message); });
-        _messageRouter.addRoute(MessageType.REQUEST_PEERS,                  (final ProtocolMessage message) -> { _onRequestPeersMessageReceived((RequestPeersMessage) message); });
-        _messageRouter.addRoute(MessageType.SET_TRANSACTION_BLOOM_FILTER,   (final ProtocolMessage message) -> { _onSetTransactionBloomFilterMessageReceived((SetTransactionBloomFilterMessage) message); });
-        _messageRouter.addRoute(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER,(final ProtocolMessage message) -> { _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message); });
-        _messageRouter.addRoute(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, (final ProtocolMessage message) -> { _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message); });
-        _messageRouter.addRoute(MessageType.QUERY_ADDRESS_BLOCKS,           (final ProtocolMessage message) -> { _onQueryAddressBlocks((QueryAddressBlocksMessage) message); });
-        _messageRouter.addRoute(MessageType.ENABLE_SLP_TRANSACTIONS,        (final ProtocolMessage message) -> {
+        _messageRouter.addRoute(MessageType.REQUEST_EXTRA_THIN_BLOCK,       (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onRequestExtraThinBlockMessageReceived((RequestExtraThinBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.EXTRA_THIN_BLOCK,               (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onExtraThinBlockMessageReceived((ExtraThinBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.THIN_BLOCK,                     (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onThinBlockMessageReceived((ThinBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS,(final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onRequestExtraThinTransactionsMessageReceived((RequestExtraThinTransactionsMessage) message); });
+        _messageRouter.addRoute(MessageType.THIN_TRANSACTIONS,              (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onThinTransactionsMessageReceived((ThinTransactionsMessage) message); });
+        _messageRouter.addRoute(MessageType.NOT_FOUND,                      (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onNotFoundMessageReceived((NotFoundResponseMessage) message); });
+        _messageRouter.addRoute(MessageType.FEE_FILTER,                     (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onFeeFilterMessageReceived((FeeFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_PEERS,                  (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onRequestPeersMessageReceived((RequestPeersMessage) message); });
+        _messageRouter.addRoute(MessageType.SET_TRANSACTION_BLOOM_FILTER,   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onSetTransactionBloomFilterMessageReceived((SetTransactionBloomFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER,(final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_ADDRESS_BLOCKS,           (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryAddressBlocks((QueryAddressBlocksMessage) message); });
+        _messageRouter.addRoute(MessageType.ENABLE_SLP_TRANSACTIONS,        (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> {
             final EnableSlpTransactionsMessage enableSlpTransactionsMessage = (EnableSlpTransactionsMessage) message;
             _slpTransactionsIsEnabled = enableSlpTransactionsMessage.isEnabled();
         });
-        _messageRouter.addRoute(MessageType.QUERY_SLP_STATUS,               (final ProtocolMessage message) -> { _onQuerySlpStatus((QuerySlpStatusMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_SLP_STATUS,               (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQuerySlpStatusReceived((QuerySlpStatusMessage) message); });
 
         _messageRouter.setUnknownRouteHandler(new MessageRouter.UnknownRouteHandler() {
             @Override
-            public void run(final MessageType messageType, final ProtocolMessage message) {
+            public void run(final MessageType messageType, final ProtocolMessage message, final BitcoinNode bitcoinNode) {
                 final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
-                Logger.warn("Unhandled Message Command: "+ messageType +": 0x"+ HexUtil.toHexString(bitcoinProtocolMessage.getHeaderBytes()));
+                Logger.warn("Unhandled Message Command: " + messageType + ": 0x" + HexUtil.toHexString(bitcoinProtocolMessage.getHeaderBytes()) + " from " + bitcoinNode);
             }
         });
     }
@@ -667,19 +637,24 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onRequestDataMessageReceived(final RequestDataMessage requestDataMessage) {
-        final RequestDataCallback requestDataCallback = _requestDataMessageCallback;
+        final RequestDataHandler requestDataHandler = _requestDataHandler;
 
-        if (requestDataCallback != null) {
+        if (requestDataHandler != null) {
             final List<InventoryItem> dataHashes = new ImmutableList<InventoryItem>(requestDataMessage.getInventoryItems());
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    requestDataCallback.run(dataHashes, BitcoinNode.this);
+                    requestDataHandler.run(BitcoinNode.this, dataHashes);
                 }
             });
         }
         else {
             Logger.debug("No handler set for RequestData message.");
+        }
+
+        final MessageType messageType = requestDataMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
         }
     }
 
@@ -689,7 +664,7 @@ public class BitcoinNode extends Node {
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
             final InventoryItemType inventoryItemType = inventoryItem.getItemType();
-            _storeInMapList(dataHashesMap, inventoryItemType, inventoryItem.getItemHash());
+            BitcoinNodeUtil.storeInMapList(dataHashesMap, inventoryItemType, inventoryItem.getItemHash());
         }
 
         for (final InventoryItemType inventoryItemType : dataHashesMap.keySet()) {
@@ -699,7 +674,7 @@ public class BitcoinNode extends Node {
 
             switch (inventoryItemType) {
                 case BLOCK: {
-                    final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
+                    final BlockInventoryAnnouncementHandler blockInventoryMessageHandler = _blockInventoryMessageHandler;
                     if (blockInventoryMessageHandler != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
@@ -718,23 +693,23 @@ public class BitcoinNode extends Node {
                 case TRANSACTION: {
                     final boolean isSlp = (inventoryItemType != InventoryItemType.TRANSACTION);
 
-                    final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
+                    final TransactionInventoryAnnouncementHandler transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
                     if (transactionsAnnouncementCallback != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
                                 if (isSlp) {
                                     final boolean isValid = (inventoryItemType == InventoryItemType.VALID_SLP_TRANSACTION);
-                                    transactionsAnnouncementCallback.onResult(objectHashes, isValid);
+                                    transactionsAnnouncementCallback.onResult(BitcoinNode.this, objectHashes, isValid);
                                 }
                                 else {
-                                    transactionsAnnouncementCallback.onResult(objectHashes);
+                                    transactionsAnnouncementCallback.onResult(BitcoinNode.this, objectHashes);
                                 }
                             }
                         });
                     }
                     else {
-                        Logger.debug("No handler set for TransactionInventoryMessageCallback.");
+                        Logger.debug("No handler set for TransactionInventoryAnnouncementHandler.");
                     }
                 } break;
 
@@ -745,30 +720,36 @@ public class BitcoinNode extends Node {
                         }
                     }
 
-                    final Set<BlockInventoryMessageCallback> addressBlocksCallbacks;
+                    final Set<BlockInventoryAnnouncementHandler> addressBlocksCallbacks;
                     synchronized (_downloadAddressBlocksRequests) {
-                        addressBlocksCallbacks = new HashSet<BlockInventoryMessageCallback>(_downloadAddressBlocksRequests);
+                        addressBlocksCallbacks = new HashSet<BlockInventoryAnnouncementHandler>(_downloadAddressBlocksRequests);
                         _downloadAddressBlocksRequests.clear();
                     }
 
-                    final SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback = _spvBlockInventoryMessageCallback;
-                    if (spvBlockInventoryMessageCallback != null) {
+                    final SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler = _spvBlockInventoryAnnouncementHandler;
+                    if (spvBlockInventoryAnnouncementHandler != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                for (final BlockInventoryMessageCallback blockInventoryMessageCallback : addressBlocksCallbacks) {
+                                for (final BlockInventoryAnnouncementHandler blockInventoryMessageCallback : addressBlocksCallbacks) {
                                     blockInventoryMessageCallback.onNewInventory(BitcoinNode.this, objectHashes);
                                 }
 
-                                spvBlockInventoryMessageCallback.onResult(objectHashes);
+                                spvBlockInventoryAnnouncementHandler.onResult(BitcoinNode.this, objectHashes);
                             }
                         });
                     }
                     else {
-                        Logger.debug("No handler set for SpvBlockInventoryMessageCallback.");
+                        Logger.debug("No handler set for SpvBlockInventoryAnnouncementHandler.");
                     }
                 } break;
             }
+        }
+
+        final MessageType messageType = inventoryMessage.getCommand();
+        final Integer byteCount = inventoryMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataReceived(BitcoinNode.this, messageType, byteCount, false);
         }
     }
 
@@ -782,14 +763,33 @@ public class BitcoinNode extends Node {
         final Boolean blockHeaderIsValid = block.isValid();
 
         final Sha256Hash blockHash = block.getHash();
-        _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null), _threadPool);
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadBlockCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadBlockCallback> pendingRequest) {
+                final DownloadBlockCallback callback = pendingRequest.callback;
+                final Block blockOrNull = (blockHeaderIsValid ? block : null);
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, blockOrNull);
+            }
+        });
+
+        final MessageType messageType = blockMessage.getCommand();
+        final Integer byteCount = blockMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+        }
     }
 
     protected void _onTransactionMessageReceived(final TransactionMessage transactionMessage) {
         final Transaction transaction = transactionMessage.getTransaction();
 
         final Sha256Hash transactionHash = transaction.getHash();
-        _executeAndClearCallbacks(_downloadTransactionRequests, transactionHash, transaction, _threadPool);
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadTransactionRequests, _failableRequests, transactionHash, new CallbackExecutor<DownloadTransactionCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadTransactionCallback> pendingRequest) {
+                final DownloadTransactionCallback callback = pendingRequest.callback;
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, transaction);
+            }
+        });
 
         final MerkleBlockParameters merkleBlockParameters = _currentMerkleBlockBeingTransmitted;
         if (merkleBlockParameters != null) {
@@ -800,7 +800,20 @@ public class BitcoinNode extends Node {
 
             if (merkleBlockParameters.hasAllTransactions()) {
                 _currentMerkleBlockBeingTransmitted = null;
-                _executeAndClearCallbacks(_downloadMerkleBlockRequests, merkleBlock.getHash(), merkleBlockParameters, _threadPool);
+                BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadMerkleBlockRequests, _failableRequests, merkleBlock.getHash(), new CallbackExecutor<DownloadMerkleBlockCallback>() {
+                    @Override
+                    public void onResult(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
+                        final DownloadMerkleBlockCallback callback = pendingRequest.callback;
+                        callback.onResult(pendingRequest.requestId, BitcoinNode.this, merkleBlockParameters);
+                    }
+                });
+            }
+        }
+        else { // Prevent double-accounting for Transactions sent as part of a MerkleBlock.
+            final MessageType messageType = transactionMessage.getCommand();
+            final Integer byteCount = transactionMessage.getByteCount();
+            for (final BitcoinNodeObserver observer : _observers) {
+                observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
             }
         }
     }
@@ -812,13 +825,18 @@ public class BitcoinNode extends Node {
         final Sha256Hash blockHash = merkleBlock.getHash();
 
         if (! merkleBlockIsValid) {
-            final Set<DownloadMerkleBlockCallback> callbacks;
+            final Set<PendingRequest<DownloadMerkleBlockCallback>> pendingRequests;
             synchronized (_downloadMerkleBlockRequests) {
-                callbacks = _downloadMerkleBlockRequests.remove(blockHash);
+                pendingRequests = _downloadMerkleBlockRequests.remove(blockHash);
             }
-            if (callbacks != null) {
-                for (final DownloadMerkleBlockCallback callback : callbacks) {
-                    callback.onFailure(blockHash);
+            if (pendingRequests != null) {
+                for (final PendingRequest<DownloadMerkleBlockCallback> pendingRequest : pendingRequests) {
+                    final DownloadMerkleBlockCallback callback = pendingRequest.callback;
+                    callback.onFailure(pendingRequest.requestId, BitcoinNode.this, blockHash);
+
+                    for (final BitcoinNodeObserver observer : _observers) {
+                        observer.onFailedRequest(BitcoinNode.this, MessageType.MERKLE_BLOCK);
+                    }
                 }
             }
             return;
@@ -828,15 +846,28 @@ public class BitcoinNode extends Node {
         final List<Sha256Hash> merkleTreeTransactionHashes = partialMerkleTree.getTransactionHashes();
         final int transactionCount = merkleTreeTransactionHashes.getCount();
 
+        final MerkleBlockParameters merkleBlockParameters = new MerkleBlockParameters(merkleBlock);
         if (transactionCount == 0) {
             // No Transactions should be transmitted alongside this MerkleBlock, so execute any callbacks and return early.
-            _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, new MerkleBlockParameters(merkleBlock), _threadPool);
+            final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadMerkleBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadMerkleBlockCallback>() {
+                @Override
+                public void onResult(final PendingRequest<DownloadMerkleBlockCallback> pendingRequest) {
+                    final DownloadMerkleBlockCallback callback = pendingRequest.callback;
+                    callback.onResult(pendingRequest.requestId, BitcoinNode.this, merkleBlockParameters);
+                }
+            });
+
+            final Integer byteCount = merkleBlockParameters.getByteCount();
+            for (final BitcoinNodeObserver observer : _observers) {
+                observer.onDataReceived(BitcoinNode.this, MessageType.MERKLE_BLOCK, byteCount, wasRequested);
+            }
+
             return;
         }
 
         // Wait for additional Transactions to be transmitted.
         //  NOTE: Not all Transactions listed within the MerkleTree will be broadcast, so receiving non-Transaction message will also trigger the completion of the MerkleBlock.
-        _currentMerkleBlockBeingTransmitted = new MerkleBlockParameters(merkleBlock);
+        _currentMerkleBlockBeingTransmitted = merkleBlockParameters;
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
@@ -859,11 +890,18 @@ public class BitcoinNode extends Node {
         if (blockHeaders.isEmpty()) { return; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        final Boolean wasRequested = _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null), _threadPool);
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadBlockHeadersRequests, _failableRequests, firstBlockHeader.getPreviousBlockHash(), new CallbackExecutor<DownloadBlockHeadersCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadBlockHeadersCallback> pendingRequest) {
+                final DownloadBlockHeadersCallback callback = pendingRequest.callback;
+                final List<BlockHeader> blockHeadersOrNull = (allBlockHeadersAreValid ? blockHeaders : null);
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, blockHeadersOrNull);
+            }
+        });
 
-        Logger.trace(firstBlockHeader.getHash() + " was announced: " + (! wasRequested));
         if ( (! wasRequested) && announceNewBlocksViaHeadersIsEnabled ) {
-            final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
+            Logger.trace(firstBlockHeader.getHash() + " was announced by " + BitcoinNode.this + ".");
+            final BlockInventoryAnnouncementHandler blockInventoryMessageHandler = _blockInventoryMessageHandler;
             if (blockInventoryMessageHandler != null) {
                 _threadPool.execute(new Runnable() {
                     @Override
@@ -873,10 +911,16 @@ public class BitcoinNode extends Node {
                 });
             }
         }
+
+        final MessageType messageType = blockHeadersMessage.getCommand();
+        final Integer byteCount = blockHeadersMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+        }
     }
 
     protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage) {
-        final QueryBlocksCallback queryBlocksCallback = _queryBlocksCallback;
+        final RequestBlockHashesHandler queryBlocksCallback = _queryBlocksCallback;
 
         if (queryBlocksCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHashes());
@@ -884,32 +928,42 @@ public class BitcoinNode extends Node {
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, BitcoinNode.this);
+                    queryBlocksCallback.run(BitcoinNode.this, blockHeaderHashes, desiredBlockHeaderHash);
                 }
             });
         }
         else {
             Logger.debug("No handler set for QueryBlocks message.");
         }
+
+        final MessageType messageType = queryBlocksMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
-    protected void _onQueryUnconfirmedTransactionsReceived() {
-        final QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback = _queryUnconfirmedTransactionsCallback;
-        if (queryUnconfirmedTransactionsCallback == null) {
-            Logger.debug("No handler set for QueryUnconfirmedTransactions (Mempool) message.");
-            return;
+    protected void _onQueryUnconfirmedTransactionsReceived(final QueryUnconfirmedTransactionsMessage queryUnconfirmedTransactionsMessage) {
+        final RequestUnconfirmedTransactionsHandler queryUnconfirmedTransactionsCallback = _queryUnconfirmedTransactionsCallback;
+        if (queryUnconfirmedTransactionsCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    queryUnconfirmedTransactionsCallback.run(BitcoinNode.this);
+                }
+            });
+        }
+        else {
+            Logger.debug("No handler set for QueryUnconfirmedTransactions message.");
         }
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                queryUnconfirmedTransactionsCallback.run(BitcoinNode.this);
-            }
-        });
+        final MessageType messageType = queryUnconfirmedTransactionsMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _onQueryBlockHeadersMessageReceived(final RequestBlockHeadersMessage requestBlockHeadersMessage) {
-        final QueryBlockHeadersCallback queryBlockHeadersCallback = _queryBlockHeadersCallback;
+        final RequestBlockHeadersHandler queryBlockHeadersCallback = _queryBlockHeadersCallback;
 
         if (queryBlockHeadersCallback != null) {
             final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHashes();
@@ -917,17 +971,22 @@ public class BitcoinNode extends Node {
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, BitcoinNode.this);
+                    queryBlockHeadersCallback.run(BitcoinNode.this, blockHeaderHashes, desiredBlockHeaderHash);
                 }
             });
         }
         else {
             Logger.debug("No handler set for QueryBlockHeaders message.");
         }
+
+        final MessageType messageType = requestBlockHeadersMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _onRequestExtraThinBlockMessageReceived(final RequestExtraThinBlockMessage requestExtraThinBlockMessage) {
-        final RequestExtraThinBlockCallback requestExtraThinBlockCallback = _requestExtraThinBlockCallback;
+        final RequestExtraThinBlockHandler requestExtraThinBlockCallback = _requestExtraThinBlockCallback;
 
         if (requestExtraThinBlockCallback != null) {
             final InventoryItem inventoryItem = requestExtraThinBlockMessage.getInventoryItem();
@@ -938,17 +997,22 @@ public class BitcoinNode extends Node {
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    requestExtraThinBlockCallback.run(blockHash, bloomFilter, BitcoinNode.this);
+                    requestExtraThinBlockCallback.run(BitcoinNode.this, blockHash, bloomFilter);
                 }
             });
         }
         else {
             Logger.debug("No handler set for RequestExtraThinBlock message.");
         }
+
+        final MessageType messageType = requestExtraThinBlockMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _onRequestExtraThinTransactionsMessageReceived(final RequestExtraThinTransactionsMessage requestExtraThinTransactionsMessage) {
-        final RequestExtraThinTransactionCallback requestExtraThinTransactionCallback = _requestExtraThinTransactionCallback;
+        final RequestExtraThinTransactionHandler requestExtraThinTransactionCallback = _requestExtraThinTransactionCallback;
 
         if (requestExtraThinTransactionCallback != null) {
             final Sha256Hash blockHash = requestExtraThinTransactionsMessage.getBlockHash();
@@ -957,12 +1021,17 @@ public class BitcoinNode extends Node {
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    requestExtraThinTransactionCallback.run(blockHash, transactionShortHashes, BitcoinNode.this);
+                    requestExtraThinTransactionCallback.run(BitcoinNode.this, blockHash, transactionShortHashes);
                 }
             });
         }
         else {
             Logger.debug("No handler set for RequestExtraThinBlock message.");
+        }
+
+        final MessageType messageType = requestExtraThinTransactionsMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
         }
     }
 
@@ -975,7 +1044,20 @@ public class BitcoinNode extends Node {
         final ThinBlockParameters thinBlockParameters = new ThinBlockParameters(blockHeader, transactionHashes, transactions);
 
         final Sha256Hash blockHash = blockHeader.getHash();
-        _executeAndClearCallbacks(_downloadThinBlockRequests, blockHash, (blockHeaderIsValid ? thinBlockParameters : null), _threadPool);
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadThinBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadThinBlockCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadThinBlockCallback> pendingRequest) {
+                final DownloadThinBlockCallback callback = pendingRequest.callback;
+                final ThinBlockParameters thinBlockParametersOrNull = (blockHeaderIsValid ? thinBlockParameters : null);
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, thinBlockParametersOrNull);
+            }
+        });
+
+        final MessageType messageType = blockMessage.getCommand();
+        final Integer byteCount = blockMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+        }
     }
 
     protected void _onExtraThinBlockMessageReceived(final ExtraThinBlockMessage blockMessage) {
@@ -987,14 +1069,39 @@ public class BitcoinNode extends Node {
         final ExtraThinBlockParameters extraThinBlockParameters = new ExtraThinBlockParameters(blockHeader, transactionHashes, transactions);
 
         final Sha256Hash blockHash = blockHeader.getHash();
-        _executeAndClearCallbacks(_downloadExtraThinBlockRequests, blockHash, (blockHeaderIsValid ? extraThinBlockParameters : null), _threadPool);
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadExtraThinBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadExtraThinBlockCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadExtraThinBlockCallback> pendingRequest) {
+                final DownloadExtraThinBlockCallback callback = pendingRequest.callback;
+                final ExtraThinBlockParameters extraThinBlockParametersOrNull = (blockHeaderIsValid ? extraThinBlockParameters : null);
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, extraThinBlockParametersOrNull);
+            }
+        });
+
+        final MessageType messageType = blockMessage.getCommand();
+        final Integer byteCount = blockMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+        }
     }
 
     protected void _onThinTransactionsMessageReceived(final ThinTransactionsMessage transactionsMessage) {
         final Sha256Hash blockHash = transactionsMessage.getBlockHash();
         final List<Transaction> transactions = transactionsMessage.getTransactions();
 
-        _executeAndClearCallbacks(_downloadThinTransactionsRequests, blockHash, transactions, _threadPool);
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadThinTransactionsRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadThinTransactionsCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadThinTransactionsCallback> pendingRequest) {
+                final DownloadThinTransactionsCallback callback = pendingRequest.callback;
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, transactions);
+            }
+        });
+
+        final MessageType messageType = transactionsMessage.getCommand();
+        final Integer byteCount = transactionsMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+        }
     }
 
     protected void _onNotFoundMessageReceived(final NotFoundResponseMessage notFoundResponseMessage) {
@@ -1003,14 +1110,19 @@ public class BitcoinNode extends Node {
             switch (inventoryItem.getItemType()) {
                 case BLOCK: {
                     synchronized (_downloadBlockRequests) {
-                        final Set<DownloadBlockCallback> downloadBlockCallbacks = _downloadBlockRequests.remove(itemHash);
+                        final Set<PendingRequest<DownloadBlockCallback>> downloadBlockCallbacks = _downloadBlockRequests.remove(itemHash);
                         if (downloadBlockCallbacks == null) { return; }
 
-                        for (final DownloadBlockCallback downloadBlockCallback : downloadBlockCallbacks) {
+                        for (final PendingRequest<DownloadBlockCallback> pendingRequest : downloadBlockCallbacks) {
+                            _failableRequests.remove(pendingRequest.requestId);
                             _threadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    downloadBlockCallback.onFailure(itemHash);
+                                    pendingRequest.callback.onFailure(pendingRequest.requestId, BitcoinNode.this, itemHash);
+
+                                    for (final BitcoinNodeObserver observer : _observers) {
+                                        observer.onBlockNotFound(BitcoinNode.this, itemHash);
+                                    }
                                 }
                             });
                         }
@@ -1019,14 +1131,18 @@ public class BitcoinNode extends Node {
 
                 case TRANSACTION: {
                     synchronized (_downloadTransactionRequests) {
-                        final Set<DownloadTransactionCallback> downloadTransactionCallbacks = _downloadTransactionRequests.remove(itemHash);
-                        if (downloadTransactionCallbacks == null) { return; }
+                        final Set<PendingRequest<DownloadTransactionCallback>> downloadTransactionPendingRequests = _downloadTransactionRequests.remove(itemHash);
+                        if (downloadTransactionPendingRequests == null) { return; }
 
-                        for (final DownloadTransactionCallback downloadTransactionCallback : downloadTransactionCallbacks) {
+                        for (final PendingRequest<DownloadTransactionCallback> pendingRequest : downloadTransactionPendingRequests) {
                             _threadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    downloadTransactionCallback.onFailure(itemHash);
+                                    pendingRequest.callback.onFailure(pendingRequest.requestId, BitcoinNode.this, itemHash);
+
+                                    for (final BitcoinNodeObserver observer : _observers) {
+                                        observer.onTransactionNotFound(BitcoinNode.this, itemHash);
+                                    }
                                 }
                             });
                         }
@@ -1035,14 +1151,18 @@ public class BitcoinNode extends Node {
 
                 case MERKLE_BLOCK: {
                     synchronized (_downloadMerkleBlockRequests) {
-                        final Set<DownloadMerkleBlockCallback> downloadMerkleBlockCallbacks = _downloadMerkleBlockRequests.remove(itemHash);
-                        if (downloadMerkleBlockCallbacks == null) { return; }
+                        final Set<PendingRequest<DownloadMerkleBlockCallback>> downloadMerkleBlockPendingRequests = _downloadMerkleBlockRequests.remove(itemHash);
+                        if (downloadMerkleBlockPendingRequests == null) { return; }
 
-                        for (final DownloadMerkleBlockCallback downloadMerkleBlockCallback : downloadMerkleBlockCallbacks) {
+                        for (final PendingRequest<DownloadMerkleBlockCallback> pendingRequest : downloadMerkleBlockPendingRequests) {
                             _threadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    downloadMerkleBlockCallback.onFailure(itemHash);
+                                    pendingRequest.callback.onFailure(pendingRequest.requestId, BitcoinNode.this, itemHash);
+
+                                    for (final BitcoinNodeObserver observer : _observers) {
+                                        observer.onBlockNotFound(BitcoinNode.this, itemHash);
+                                    }
                                 }
                             });
                         }
@@ -1070,13 +1190,18 @@ public class BitcoinNode extends Node {
             nodeIpAddressMessage.addAddress(nodeIpAddress);
         }
         _queueMessage(nodeIpAddressMessage);
+
+        final MessageType messageType = requestPeersMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _onSetTransactionBloomFilterMessageReceived(final SetTransactionBloomFilterMessage setTransactionBloomFilterMessage) {
         _bloomFilter = MutableBloomFilter.copyOf(setTransactionBloomFilterMessage.getBloomFilter());
         _transactionRelayIsEnabled = true;
 
-        final OnNewBloomFilterCallback onNewBloomFilterCallback = _onNewBloomFilterCallback;
+        final NewBloomFilterHandler onNewBloomFilterCallback = _onNewBloomFilterCallback;
         if (onNewBloomFilterCallback != null) {
             onNewBloomFilterCallback.run(this);
         }
@@ -1095,13 +1220,13 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onQueryAddressBlocks(final QueryAddressBlocksMessage queryAddressBlocksMessage) {
-        final RequestSpvBlocksCallback requestDataCallback = _requestSpvBlocksCallback;
-        if (requestDataCallback != null) {
+        final RequestSpvBlocksHandler requestDataHandler = _requestSpvBlocksHandler;
+        if (requestDataHandler != null) {
             final List<Address> addresses = queryAddressBlocksMessage.getAddresses().asConst();
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    requestDataCallback.run(addresses, BitcoinNode.this);
+                    requestDataHandler.run(BitcoinNode.this, addresses);
                 }
             });
         }
@@ -1110,15 +1235,15 @@ public class BitcoinNode extends Node {
         }
     }
 
-    private void _onQuerySlpStatus(final QuerySlpStatusMessage querySlpStatusMessage) {
+    private void _onQuerySlpStatusReceived(final QuerySlpStatusMessage querySlpStatusMessage) {
         if (_slpTransactionsIsEnabled) {
-            final RequestSlpTransactionsCallback requestDataCallback = _requestSlpTransactionsCallback;
-            if (requestDataCallback != null) {
+            final RequestSlpTransactionsHandler requestDataHandler = _requestSlpTransactionsHandler;
+            if (requestDataHandler != null) {
                 final List<Sha256Hash> transactionHashes = querySlpStatusMessage.getHashes().asConst();
                 _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        requestDataCallback.run(transactionHashes, BitcoinNode.this);
+                        requestDataHandler.run(BitcoinNode.this, transactionHashes);
                     }
                 });
             }
@@ -1126,18 +1251,33 @@ public class BitcoinNode extends Node {
                 Logger.debug("No handler set for RequestSlpTransactions message.");
             }
         }
+
+        final MessageType messageType = querySlpStatusMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = _protocolMessageFactory.newQueryBlocksMessage();
         queryBlocksMessage.addBlockHash(blockHash);
         _queueMessage(queryBlocksMessage);
+
+        final MessageType messageType = queryBlocksMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestBlock(final Sha256Hash blockHash) {
         final RequestDataMessage requestDataMessage = _protocolMessageFactory.newRequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, blockHash));
         _queueMessage(requestDataMessage);
+
+        final MessageType messageType = requestDataMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestMerkleBlock(final Sha256Hash blockHash) {
@@ -1148,6 +1288,11 @@ public class BitcoinNode extends Node {
         messages.add(requestDataMessage);
         messages.add(_protocolMessageFactory.newPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message (Pong) to close out the MerkleBlockMessage transmission.
         _queueMessages(messages);
+
+        final MessageType messageType = requestDataMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
@@ -1158,6 +1303,11 @@ public class BitcoinNode extends Node {
         requestExtraThinBlockMessage.setBloomFilter(knownTransactionsFilter);
 
         _queueMessage(requestExtraThinBlockMessage);
+
+        final MessageType messageType = requestExtraThinBlockMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
@@ -1168,6 +1318,11 @@ public class BitcoinNode extends Node {
         requestExtraThinBlockMessage.setBloomFilter(knownTransactionsFilter);
 
         _queueMessage(requestExtraThinBlockMessage);
+
+        final MessageType messageType = requestExtraThinBlockMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestThinTransactions(final Sha256Hash blockHash, final List<ByteArray> transactionShortHashes) {
@@ -1176,6 +1331,11 @@ public class BitcoinNode extends Node {
         requestThinTransactionsMessage.setTransactionShortHashes(transactionShortHashes);
 
         _queueMessage(requestThinTransactionsMessage);
+
+        final MessageType messageType = requestThinTransactionsMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes) {
@@ -1184,6 +1344,11 @@ public class BitcoinNode extends Node {
             requestBlockHeadersMessage.addBlockHash(blockHash);
         }
         _queueMessage(requestBlockHeadersMessage);
+
+        final MessageType messageType = requestBlockHeadersMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestTransactions(final List<Sha256Hash> transactionHashes) {
@@ -1192,18 +1357,28 @@ public class BitcoinNode extends Node {
             requestTransactionMessage.addInventoryItem(new InventoryItem(InventoryItemType.TRANSACTION, transactionHash));
         }
         _queueMessage(requestTransactionMessage);
+
+        final MessageType messageType = requestTransactionMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
     }
 
     protected void _requestSlpStatus(final List<Sha256Hash> transactionHashes) {
         if (! _slpValidityCheckingIsEnabled) {
             Logger.warn("Attempting to Request SLP Status for " + transactionHashes.getCount() + " transactions when SLP validity checking has not been enabled.");
+            return;
         }
-        else {
-            final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
-            for (final Sha256Hash transactionHash : transactionHashes) {
-                querySlpStatusMessage.addHash(transactionHash);
-            }
-            _queueMessage(querySlpStatusMessage);
+
+        final QuerySlpStatusMessage querySlpStatusMessage = _protocolMessageFactory.newQuerySlpStatusMessage();
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            querySlpStatusMessage.addHash(transactionHash);
+        }
+        _queueMessage(querySlpStatusMessage);
+
+        final MessageType messageType = querySlpStatusMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
         }
     }
 
@@ -1219,7 +1394,7 @@ public class BitcoinNode extends Node {
             return;
         }
 
-        if (remoteNodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
+        if (remoteNodeFeatures.isFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED)) {
             Logger.debug("Enabling SLP Validity checking for node " + this.getRemoteNodeIpAddress());
             final EnableSlpTransactionsMessage enableSlpTransactionsMessage = new EnableSlpTransactionsMessage();
             enableSlpTransactionsMessage.setIsEnabled(shouldEnableSlpValidityChecking);
@@ -1227,6 +1402,11 @@ public class BitcoinNode extends Node {
             _queueMessage(enableSlpTransactionsMessage);
 
             _slpValidityCheckingIsEnabled = shouldEnableSlpValidityChecking;
+
+            final MessageType messageType = enableSlpTransactionsMessage.getCommand();
+            for (final BitcoinNodeObserver observer : _observers) {
+                observer.onDataRequested(BitcoinNode.this, messageType);
+            }
         }
     }
 
@@ -1298,45 +1478,79 @@ public class BitcoinNode extends Node {
         _queryForBlockHashesAfter(blockHash);
     }
 
-    public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
-        _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
-
-        _requestTimers.add(new FailableRequest(downloadBlockCallback, new Runnable() {
+    public RequestId requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
+        final RequestId requestId = _newRequestId();
+        BitcoinNodeUtil.storeInMapSet(_downloadBlockRequests, blockHash, new PendingRequest<DownloadBlockCallback>(requestId, downloadBlockCallback));
+        _failableRequests.put(requestId, new FailableRequest(downloadBlockCallback, new Runnable() {
             @Override
             public void run() {
-                downloadBlockCallback.onFailure(blockHash);
+                downloadBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK);
+                }
             }
         }));
 
         _requestBlock(blockHash);
+
+        return requestId;
     }
 
-    public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
-        _storeInMapSet(_downloadMerkleBlockRequests, blockHash, downloadMerkleBlockCallback);
-
-        _requestTimers.add(new FailableRequest(downloadMerkleBlockCallback, new Runnable() {
+    public RequestId requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
+        final RequestId requestId = _newRequestId();
+        BitcoinNodeUtil.storeInMapSet(_downloadMerkleBlockRequests, blockHash, new PendingRequest<>(requestId, downloadMerkleBlockCallback));
+        _failableRequests.put(requestId, new FailableRequest(downloadMerkleBlockCallback, new Runnable() {
             @Override
             public void run() {
-                downloadMerkleBlockCallback.onFailure(blockHash);
+                downloadMerkleBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.MERKLE_BLOCK);
+                }
             }
         }));
 
         _requestMerkleBlock(blockHash);
+        return requestId;
     }
 
-    public void requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
-        _storeInMapSet(_downloadThinBlockRequests, blockHash, downloadThinBlockCallback);
-        _requestTimers.add(new FailableRequest(downloadThinBlockCallback));
+    public RequestId requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
+        final RequestId requestId = _newRequestId();
+        BitcoinNodeUtil.storeInMapSet(_downloadThinBlockRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback));
+        _failableRequests.put(requestId, new FailableRequest(downloadThinBlockCallback, new Runnable() {
+            @Override
+            public void run() {
+                downloadThinBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.THIN_BLOCK);
+                }
+            }
+        }));
         _requestThinBlock(blockHash, knownTransactionsFilter);
+        return requestId;
     }
 
-    public void requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadExtraThinBlockCallback downloadThinBlockCallback) {
-        _storeInMapSet(_downloadExtraThinBlockRequests, blockHash, downloadThinBlockCallback);
-        _requestTimers.add(new FailableRequest(downloadThinBlockCallback));
+    public RequestId requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadExtraThinBlockCallback downloadThinBlockCallback) {
+        final RequestId requestId = _newRequestId();
+        BitcoinNodeUtil.storeInMapSet(_downloadExtraThinBlockRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback));
+        _failableRequests.put(requestId, new FailableRequest(downloadThinBlockCallback, new Runnable() {
+            @Override
+            public void run() {
+                downloadThinBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.EXTRA_THIN_BLOCK);
+                }
+            }
+        }));
         _requestExtraThinBlock(blockHash, knownTransactionsFilter);
+        return requestId;
     }
 
-    public void requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
+    public RequestId requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
+        final RequestId requestId = _newRequestId();
         final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getCount());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
@@ -1344,37 +1558,68 @@ public class BitcoinNode extends Node {
         }
         final List<ByteArray> shortTransactionHashes = shortTransactionHashesBuilder.build();
 
-        _storeInMapSet(_downloadThinTransactionsRequests, blockHash, downloadThinBlockCallback);
-        _requestTimers.add(new FailableRequest(downloadThinBlockCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadThinTransactionsRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback));
+        _failableRequests.put(requestId, new FailableRequest(downloadThinBlockCallback, new Runnable() {
+            @Override
+            public void run() {
+                downloadThinBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.THIN_TRANSACTIONS);
+                }
+            }
+        }));
         _requestThinTransactions(blockHash, shortTransactionHashes);
+        return requestId;
     }
 
-    public void requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
-        if (blockHashes.isEmpty()) { return; }
-
-        final Sha256Hash firstBlockHash = blockHashes.get(0);
-        _storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, downloadBlockHeaderCallback);
-        _requestTimers.add(new FailableRequest(downloadBlockHeaderCallback));
-        _requestBlockHeaders(blockHashes);
+    public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
+        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback);
     }
 
-    public void requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
-        if (transactionHashes.isEmpty()) { return; }
+    public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
+        if (blockFinder.isEmpty()) { return null; }
 
+        final RequestId requestId = _newRequestId();
+        final Sha256Hash firstBlockHash = blockFinder.get(0);
+        BitcoinNodeUtil.storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, new PendingRequest<>(requestId, downloadBlockHeaderCallback));
+        _failableRequests.put(requestId, new FailableRequest(downloadBlockHeaderCallback, new Runnable() {
+            @Override
+            public void run() {
+                downloadBlockHeaderCallback.onFailure(requestId, BitcoinNode.this, firstBlockHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK_HEADERS);
+                }
+            }
+        }));
+        _requestBlockHeaders(blockFinder);
+        return requestId;
+    }
+
+    public RequestId requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
+        if (transactionHashes.isEmpty()) { return null; }
+
+        final RequestId requestId = _newRequestId();
         for (final Sha256Hash transactionHash : transactionHashes) {
-            _storeInMapSet(_downloadTransactionRequests, transactionHash, downloadTransactionCallback);
-            _requestTimers.add(new FailableRequest(downloadTransactionCallback, new Runnable() {
+            BitcoinNodeUtil.storeInMapSet(_downloadTransactionRequests, transactionHash, new PendingRequest<>(requestId, downloadTransactionCallback));
+            _failableRequests.put(requestId, new FailableRequest(downloadTransactionCallback, new Runnable() {
                 @Override
                 public void run() {
-                    downloadTransactionCallback.onFailure(transactionHash);
+                    downloadTransactionCallback.onFailure(requestId, BitcoinNode.this, transactionHash);
+
+                    for (final BitcoinNodeObserver observer : _observers) {
+                        observer.onFailedRequest(BitcoinNode.this, MessageType.TRANSACTION);
+                    }
                 }
             }));
         }
         _requestTransactions(transactionHashes);
+        return requestId;
     }
 
     public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
-        final RequestSlpTransactionsCallback requestSlpTransactionsCallback = _requestSlpTransactionsCallback;
+        final RequestSlpTransactionsHandler requestSlpTransactionsCallback = _requestSlpTransactionsHandler;
 
         final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
@@ -1443,7 +1688,7 @@ public class BitcoinNode extends Node {
      * Sets a callback for when the remote node defines a new BloomFilter.
      *  NOTE: This is the remote BloomFilter, not the local filter defined by ::setBloomFilter.
      */
-    public void setOnNewBloomFilterCallback(final OnNewBloomFilterCallback onNewBloomFilterCallback) {
+    public void setNewBloomFilterHandler(final NewBloomFilterHandler onNewBloomFilterCallback) {
         _onNewBloomFilterCallback = onNewBloomFilterCallback;
     }
 
@@ -1511,27 +1756,27 @@ public class BitcoinNode extends Node {
         _synchronizationStatus = synchronizationStatus;
     }
 
-    public void setQueryBlocksCallback(final QueryBlocksCallback queryBlocksCallback) {
+    public void setRequestBlockHashesHandler(final RequestBlockHashesHandler queryBlocksCallback) {
         _queryBlocksCallback = queryBlocksCallback;
     }
 
-    public void setQueryBlockHeadersCallback(final QueryBlockHeadersCallback queryBlockHeadersCallback) {
+    public void setRequestBlockHeadersHandler(final RequestBlockHeadersHandler queryBlockHeadersCallback) {
         _queryBlockHeadersCallback = queryBlockHeadersCallback;
     }
 
-    public void setRequestDataCallback(final RequestDataCallback requestDataCallback) {
-        _requestDataMessageCallback = requestDataCallback;
+    public void setRequestDataHandler(final RequestDataHandler requestDataCallback) {
+        _requestDataHandler = requestDataCallback;
     }
 
-    public void setRequestSpvBlocksCallback(final RequestSpvBlocksCallback requestSpvBlocksCallback) {
-        _requestSpvBlocksCallback = requestSpvBlocksCallback;
+    public void setRequestSpvBlocksHandler(final RequestSpvBlocksHandler requestSpvBlocksCallback) {
+        _requestSpvBlocksHandler = requestSpvBlocksCallback;
     }
 
-    public void setRequestSlpTransactionsCallback(final RequestSlpTransactionsCallback requestSlpTransactionsCallback) {
-        _requestSlpTransactionsCallback = requestSlpTransactionsCallback;
+    public void setRequestSlpTransactionsHandler(final RequestSlpTransactionsHandler requestSlpTransactionsCallback) {
+        _requestSlpTransactionsHandler = requestSlpTransactionsCallback;
     }
 
-    public void setBlockInventoryMessageHandler(final BlockInventoryMessageCallback blockInventoryMessageHandler) {
+    public void setBlockInventoryMessageHandler(final BlockInventoryAnnouncementHandler blockInventoryMessageHandler) {
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
     }
 
@@ -1539,20 +1784,20 @@ public class BitcoinNode extends Node {
         _requestPeersHandler = requestPeersHandler;
     }
 
-    public void setQueryUnconfirmedTransactionsCallback(final QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback) {
+    public void setRequestUnconfirmedTransactionsHandler(final RequestUnconfirmedTransactionsHandler queryUnconfirmedTransactionsCallback) {
         _queryUnconfirmedTransactionsCallback = queryUnconfirmedTransactionsCallback;
     }
 
-    public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {
+    public void setRequestExtraThinBlockHandler(final RequestExtraThinBlockHandler requestExtraThinBlockCallback) {
         _requestExtraThinBlockCallback = requestExtraThinBlockCallback;
     }
 
-    public void setTransactionsAnnouncementCallback(final TransactionInventoryMessageCallback transactionsAnnouncementCallback) {
+    public void setTransactionsAnnouncementCallback(final TransactionInventoryAnnouncementHandler transactionsAnnouncementCallback) {
         _transactionsAnnouncementCallback = transactionsAnnouncementCallback;
     }
 
-    public void setSpvBlockInventoryMessageCallback(final SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback) {
-        _spvBlockInventoryMessageCallback = spvBlockInventoryMessageCallback;
+    public void setSpvBlockInventoryAnnouncementHandler(final SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler) {
+        _spvBlockInventoryAnnouncementHandler = spvBlockInventoryAnnouncementHandler;
     }
 
     public Boolean isNewBlocksViaHeadersEnabled() {
@@ -1563,7 +1808,7 @@ public class BitcoinNode extends Node {
         if (_synchronizeVersionMessage == null) { return false; }
 
         final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-        return nodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
+        return nodeFeatures.isFeatureEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
     }
 
     public String getUserAgent() {
@@ -1575,7 +1820,7 @@ public class BitcoinNode extends Node {
         if (_synchronizeVersionMessage == null) { return null; }
 
         final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-        return nodeFeatures.hasFeatureFlagEnabled(feature);
+        return nodeFeatures.isFeatureEnabled(feature);
     }
 
     /**
@@ -1659,7 +1904,7 @@ public class BitcoinNode extends Node {
         _requestAddressBlocks(addresses);
     }
 
-    public void getAddressBlocks(final List<Address> addresses, final BlockInventoryMessageCallback addressBlocksCallback) {
+    public void getAddressBlocks(final List<Address> addresses, final BlockInventoryAnnouncementHandler addressBlocksCallback) {
         if (addressBlocksCallback != null) {
             synchronized (_downloadAddressBlocksRequests) {
                 _downloadAddressBlocksRequests.add(addressBlocksCallback);
@@ -1675,9 +1920,14 @@ public class BitcoinNode extends Node {
 
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
-        if (_localNodeIpAddress == null) { return null; }
-        if (! (_localNodeIpAddress instanceof BitcoinNodeIpAddress)) { return null; }
-        return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
+        final NodeIpAddress nodeIpAddress = super.getLocalNodeIpAddress();
+        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
+        if (_localNodeFeatures != null) {
+            final NodeFeatures localNodeFeatures = _localNodeFeatures.getNodeFeatures();
+            bitcoinNodeIpAddress.setNodeFeatures(localNodeFeatures);
+        }
+
+        return bitcoinNodeIpAddress;
     }
 
     @Override
@@ -1696,8 +1946,8 @@ public class BitcoinNode extends Node {
         return _synchronizeVersionMessage.getNodeFeatures();
     }
 
-    public void removeCallback(final BitcoinNodeCallback callback) {
-        _removeCallback(callback);
+    public void removeCallback(final RequestId requestId) {
+        _removeCallback(requestId);
     }
 
     public void clearRequests() {
@@ -1709,6 +1959,8 @@ public class BitcoinNode extends Node {
         synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
         synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
         synchronized (_downloadAddressBlocksRequests) { _downloadAddressBlocksRequests.clear(); }
+
+        _failableRequests.clear();
     }
 
     /**
@@ -1716,5 +1968,13 @@ public class BitcoinNode extends Node {
      */
     public Long getBlockHeight() {
         return _blockHeight;
+    }
+
+    public void addObserver(final BitcoinNodeObserver observer) {
+        _observers.add(observer);
+    }
+
+    public void removeObserver(final BitcoinNodeObserver observer) {
+        _observers.remove(observer);
     }
 }

@@ -50,9 +50,9 @@ import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHa
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlockHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHashesHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHeadersHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
@@ -129,6 +129,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 public class NodeModule {
     protected final Boolean _rebuildUtxoSet = false;
@@ -156,7 +157,7 @@ public class NodeModule {
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final List<SleepyService> _allServices;
 
-    protected final NodeInitializer _nodeInitializer;
+    protected final BitcoinNodeFactory _bitcoinNodeFactory;
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
 
@@ -212,8 +213,8 @@ public class NodeModule {
                 if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
 
                 Logger.info("Connecting to former peer: " + host + ":" + port);
-                final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
-                _bitcoinNodeManager.addNode(node);
+                final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(host, port);
+                _bitcoinNodeManager.addNode(bitcoinNode);
                 connectedNodeCount += 1;
 
                 Thread.sleep(500L);
@@ -231,8 +232,8 @@ public class NodeModule {
                         if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
 
                         Logger.info("Connecting to peer via DNS: " + host + ":" + port + " (" + seedHost + ")");
-                        final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
-                        _bitcoinNodeManager.addNode(node);
+                        final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(host, port);
+                        _bitcoinNodeManager.addNode(bitcoinNode);
                         connectedNodeCount += 1;
 
                         if (connectedNodeCount >= maxPeerCount) { return; } // Done.
@@ -292,7 +293,6 @@ public class NodeModule {
 
         Logger.info("[Stopping Node Manager]");
         _bitcoinNodeManager.shutdown();
-        _bitcoinNodeManager.stopNodeMaintenanceThread();
 
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
@@ -372,6 +372,7 @@ public class NodeModule {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
+        final int minPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.max(32 + (maxPeerCount * 8), 256), 5000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
@@ -467,6 +468,7 @@ public class NodeModule {
             }
         }
 
+        final NodeInitializer nodeInitializer;
         { // Initialize NodeInitializer...
             final SpvUnconfirmedTransactionsHandler spvUnconfirmedTransactionsHandler = new SpvUnconfirmedTransactionsHandler(databaseManagerFactory);
 
@@ -483,13 +485,13 @@ public class NodeModule {
             nodeInitializerContext.blockInventoryMessageHandler = blockInventoryMessageHandler;
             nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
-            nodeInitializerContext.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
-            nodeInitializerContext.queryBlocksCallback = new QueryBlocksHandler(databaseManagerFactory);
-            nodeInitializerContext.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseManagerFactory);
-            nodeInitializerContext.requestDataCallback = _transactionWhitelist;
-            nodeInitializerContext.requestSpvBlocksCallback = new RequestSpvBlockHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
-            nodeInitializerContext.requestSlpTransactionsCallback = new RequestSlpTransactionsHandler(databaseManagerFactory);
-            nodeInitializerContext.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
+            nodeInitializerContext._transactionsAnnouncementHandlerFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
+            nodeInitializerContext.requestBlockHashesHandler = new RequestBlockHashesHandler(databaseManagerFactory);
+            nodeInitializerContext.requestBlockHeadersHandler = new RequestBlockHeadersHandler(databaseManagerFactory);
+            nodeInitializerContext.requestDataHandler = _transactionWhitelist;
+            nodeInitializerContext.requestSpvBlocksHandler = new RequestSpvBlocksHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
+            nodeInitializerContext.requestSlpTransactionsHandler = new RequestSlpTransactionsHandler(databaseManagerFactory);
+            nodeInitializerContext.requestUnconfirmedTransactionsHandler = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
             nodeInitializerContext.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
@@ -506,24 +508,28 @@ public class NodeModule {
 
             nodeInitializerContext.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
-            nodeInitializerContext.onNewBloomFilterCallback = new BitcoinNode.OnNewBloomFilterCallback() {
+            nodeInitializerContext.newBloomFilterHandler = new BitcoinNode.NewBloomFilterHandler() {
                 @Override
                 public void run(final BitcoinNode bitcoinNode) {
                     spvUnconfirmedTransactionsHandler.broadcastUnconfirmedTransactions(bitcoinNode);
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(nodeInitializerContext);
+            nodeInitializer = new NodeInitializer(nodeInitializerContext);
         }
+
+        _bitcoinNodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
 
         { // Initialize NodeManager...
             final BitcoinNodeManager.Context context = new BitcoinNodeManager.Context();
             {
+                context.systemTime = _systemTime;
                 context.databaseManagerFactory = databaseManagerFactory;
-                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
+                context.nodeFactory = _bitcoinNodeFactory;
+                context.minNodeCount = minPeerCount;
                 context.maxNodeCount = maxPeerCount;
                 context.networkTime = _mutableNetworkTime;
-                context.nodeInitializer = _nodeInitializer;
+                context.nodeInitializer = nodeInitializer;
                 context.banFilter = _banFilter;
                 context.memoryPoolEnquirer = memoryPoolEnquirer;
                 context.synchronizationStatusHandler = synchronizationStatusHandler;
@@ -678,7 +684,12 @@ public class NodeModule {
                                     final BitcoinNode bitcoinNode = bitcoinNodeMap.get(nodeId);
                                     if (bitcoinNode == null) { continue; }
 
-                                    _bitcoinNodeManager.transmitBlockHash(bitcoinNode, block);
+                                    if (bitcoinNode.isNewBlocksViaHeadersEnabled()) {
+                                        bitcoinNode.transmitBlockHeader(block);
+                                    }
+                                    else {
+                                        bitcoinNode.transmitBlockHashes(new ImmutableList<Sha256Hash>(blockHash));
+                                    }
                                 }
                             }
                         }
@@ -794,8 +805,9 @@ public class NodeModule {
 
                 Logger.debug("New Connection: " + binarySocket.toString());
                 _banFilter.onNodeConnected(ip);
-                final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
-                _bitcoinNodeManager.addNode(node);
+
+                final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(binarySocket);
+                _bitcoinNodeManager.addNode(bitcoinNode);
             }
         });
 
@@ -822,7 +834,7 @@ public class NodeModule {
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, synchronizationStatusHandler);
                 final UtxoCacheHandler utxoCacheHandler = new UtxoCacheHandler(databaseManagerFactory);
-                final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
+                final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _bitcoinNodeFactory);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
@@ -989,9 +1001,11 @@ public class NodeModule {
         );
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
-            Logger.info("[Bootstrapping Headers]");
             final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory, true);
-            headersBootstrapper.run();
+            if (headersBootstrapper.shouldRun()) {
+                Logger.info("[Bootstrapping Headers]");
+                headersBootstrapper.run();
+            }
         }
 
         final boolean reIndexPendingBlocks;
@@ -1082,10 +1096,21 @@ public class NodeModule {
 
         if (! _bitcoinProperties.skipNetworking()) {
             Logger.info("[Starting Node Manager]");
-            _bitcoinNodeManager.startNodeMaintenanceThread();
+            _bitcoinNodeManager.start();
 
-            final List<SeedNodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
-            for (final SeedNodeProperties whiteListedNode : whitelistedNodes) {
+            final List<String> userAgentBlacklist = _bitcoinProperties.getUserAgentBlacklist();
+            for (final String stringMatcher : userAgentBlacklist) {
+                try {
+                    final Pattern pattern = Pattern.compile(stringMatcher);
+                    _bitcoinNodeManager.addToUserAgentBlacklist(pattern);
+                }
+                catch (final Exception exception) {
+                    Logger.info("Ignoring invalid user agent blacklist pattern: " + stringMatcher);
+                }
+            }
+
+            final List<SeedNodeProperties> nodeWhitelist = _bitcoinProperties.getNodeWhitelist();
+            for (final SeedNodeProperties whiteListedNode : nodeWhitelist) {
                 final String host = whiteListedNode.getAddress();
                 try {
                     final Ip ip = Ip.fromStringOrHost(host);
@@ -1094,7 +1119,7 @@ public class NodeModule {
                         continue;
                     }
 
-                    _bitcoinNodeManager.addIpToWhitelist(ip);
+                    _bitcoinNodeManager.addToWhitelist(ip);
                 }
                 catch (final Exception exception) {
                     Logger.debug("Unable to determine host: " + host);
@@ -1116,7 +1141,7 @@ public class NodeModule {
 
                     _bitcoinNodeManager.defineSeedNode(new NodeIpAddress(ip, port));
 
-                    final BitcoinNode node = _nodeInitializer.initializeNode(ipAddressString, port);
+                    final BitcoinNode node = _bitcoinNodeFactory.newNode(ipAddressString, port);
                     _bitcoinNodeManager.addNode(node);
                 }
                 catch (final Exception exception) {

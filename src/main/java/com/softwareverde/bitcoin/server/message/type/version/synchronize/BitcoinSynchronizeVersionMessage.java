@@ -7,12 +7,27 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage implements SynchronizeVersionMessage {
+    protected static class Struct {
+        final byte[] version                    = new byte[4];
+        final byte[] nodeFeatures               = new byte[8];
+        final byte[] timestamp                  = new byte[8];
+        final byte[] remoteAddress              = new byte[26];
+        final byte[] localAddress               = new byte[26];
+        final byte[] nonce                      = new byte[8];
+        final byte[] userAgent;
+        final byte[] currentBlockHeight         = new byte[4];
+        final byte[] shouldRelayTransactions    = new byte[1];
+
+        public Struct(final int userAgentByteCount) {
+            this.userAgent = new byte[userAgentByteCount];
+        }
+    }
+
     protected Integer _version;
     protected String _userAgent;
     protected final NodeFeatures _nodeFeatures = new NodeFeatures();
@@ -22,6 +37,16 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     protected Long _nonce;
     protected Long _currentBlockHeight;
     protected Boolean _transactionRelayIsEnabled = false;
+
+    protected byte[] _getUserAgentBytes() {
+        final byte[] userAgentBytes = _userAgent.getBytes();
+        final byte[] userAgentBytesEncodedLength = ByteUtil.variableLengthIntegerToBytes(userAgentBytes.length);
+
+        final byte[] bytes = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
+        ByteUtil.setBytes(bytes, userAgentBytesEncodedLength);
+        ByteUtil.setBytes(bytes, userAgentBytes, userAgentBytesEncodedLength.length);
+        return bytes;
+    }
 
     public BitcoinSynchronizeVersionMessage() {
         super(MessageType.SYNCHRONIZE_VERSION);
@@ -86,45 +111,48 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
     @Override
     protected ByteArray _getPayload() {
-        final byte[] version                    = new byte[4];
-        final byte[] nodeFeatures               = new byte[8];
-        final byte[] timestamp                  = new byte[8];
-        final byte[] remoteAddress              = new byte[26];
-        final byte[] localAddress               = new byte[26];
-        final byte[] nonce                      = new byte[8];
-        final byte[] userAgent;
-        final byte[] currentBlockHeight         = new byte[4];
-        final byte[] shouldRelayTransactions    = new byte[1];
+        final byte[] userAgentBytes = _getUserAgentBytes();
+        final Struct struct = new Struct(userAgentBytes.length);
 
-        ByteUtil.setBytes(version, ByteUtil.integerToBytes(_version));
-        ByteUtil.setBytes(nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
-        ByteUtil.setBytes(timestamp, ByteUtil.longToBytes(_timestampInSeconds));
-        ByteUtil.setBytes(remoteAddress, _remoteNodeIpAddress.getBytesWithoutTimestamp());
-        ByteUtil.setBytes(localAddress, _localNodeIpAddress.getBytesWithoutTimestamp());
-        ByteUtil.setBytes(nonce, ByteUtil.longToBytes(_nonce));
+        ByteUtil.setBytes(struct.version, ByteUtil.integerToBytes(_version));
+        ByteUtil.setBytes(struct.nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
+        ByteUtil.setBytes(struct.timestamp, ByteUtil.longToBytes(_timestampInSeconds));
+        ByteUtil.setBytes(struct.remoteAddress, _remoteNodeIpAddress.getBytesWithoutTimestamp());
+        ByteUtil.setBytes(struct.localAddress, _localNodeIpAddress.getBytesWithoutTimestamp());
+        ByteUtil.setBytes(struct.nonce, ByteUtil.longToBytes(_nonce));
+        ByteUtil.setBytes(struct.userAgent, userAgentBytes);
+        ByteUtil.setBytes(struct.currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
 
-        { // Construct User-Agent bytes...
-            final byte[] userAgentBytes = _userAgent.getBytes();
-            final byte[] userAgentBytesEncodedLength = ByteUtil.variableLengthIntegerToBytes((long) userAgentBytes.length);
-            userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
-            ByteUtil.setBytes(userAgent, userAgentBytesEncodedLength);
-            ByteUtil.setBytes(userAgent, userAgentBytes, userAgentBytesEncodedLength.length);
-        }
-
-        ByteUtil.setBytes(currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
-
-        shouldRelayTransactions[0] = (byte) (_transactionRelayIsEnabled ? 0x01 : 0x00);
+        struct.shouldRelayTransactions[0] = (byte) (_transactionRelayIsEnabled ? 0x01 : 0x00);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(version, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(nodeFeatures, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(timestamp, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(remoteAddress, Endian.BIG);
-        byteArrayBuilder.appendBytes(localAddress, Endian.BIG);
-        byteArrayBuilder.appendBytes(nonce, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(userAgent, Endian.BIG);
-        byteArrayBuilder.appendBytes(currentBlockHeight, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(shouldRelayTransactions, Endian.LITTLE);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        byteArrayBuilder.appendBytes(struct.version, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(struct.nodeFeatures, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(struct.timestamp, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(struct.remoteAddress, Endian.BIG);
+        byteArrayBuilder.appendBytes(struct.localAddress, Endian.BIG);
+        byteArrayBuilder.appendBytes(struct.nonce, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(struct.userAgent, Endian.BIG);
+        byteArrayBuilder.appendBytes(struct.currentBlockHeight, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(struct.shouldRelayTransactions, Endian.LITTLE);
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final byte[] userAgentBytes = _getUserAgentBytes();
+        final Struct struct = new Struct(userAgentBytes.length);
+
+        return (
+            struct.version.length +
+            struct.nodeFeatures.length +
+            struct.timestamp.length +
+            struct.remoteAddress.length +
+            struct.localAddress.length +
+            struct.nonce.length +
+            struct.userAgent.length +
+            struct.currentBlockHeight.length +
+            struct.shouldRelayTransactions.length
+        );
     }
 }

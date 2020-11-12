@@ -41,7 +41,7 @@ public class FakeBitcoinNode extends BitcoinNode {
     }
 
     public List<ProtocolMessage> getSentMessages() {
-        try { Thread.sleep(500L); } catch (final Exception e) { } // Required to wait for messageQueue...
+        try { Thread.sleep(500L); } catch (final Exception exception) { } // Required to wait for messageQueue...
         return _outboundMessageQueue;
     }
 }

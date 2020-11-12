@@ -5,9 +5,9 @@ import com.softwareverde.bitcoin.inflater.BloomFilterInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemInflater;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class RequestExtraThinBlockMessage extends BitcoinProtocolMessage {
@@ -43,6 +43,12 @@ public class RequestExtraThinBlockMessage extends BitcoinProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(_inventoryItem.getBytes());
         byteArrayBuilder.appendBytes(bloomFilterDeflater.toBytes(_bloomFilter));
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final BloomFilterDeflater bloomFilterDeflater = _bloomFilterInflaters.getBloomFilterDeflater();
+        return (InventoryItemInflater.BYTE_COUNT + bloomFilterDeflater.getByteCount(_bloomFilter));
     }
 }

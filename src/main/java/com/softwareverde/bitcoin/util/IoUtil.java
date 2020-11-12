@@ -1,8 +1,13 @@
 package com.softwareverde.bitcoin.util;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.logging.Logger;
+
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 public class IoUtil extends com.softwareverde.util.IoUtil {
     protected IoUtil() { }
@@ -24,8 +29,6 @@ public class IoUtil extends com.softwareverde.util.IoUtil {
                 skipReturnValue = inputStream.skip(byteCount - skippedByteCount);
             }
             catch (final IOException exception) { break; }
-
-            if (skipReturnValue < 0) { break; } // Should not happen...
 
             skippedByteCount += skipReturnValue;
 
@@ -54,5 +57,31 @@ public class IoUtil extends com.softwareverde.util.IoUtil {
         if (! file.isFile()) { return true; }
 
         return (file.length() < 1);
+    }
+
+    public static Boolean putFileContents(final String filename, final ByteArray bytes) {
+        final File file = new File(filename);
+        return IoUtil.putFileContents(file, bytes);
+    }
+
+    public static Boolean putFileContents(final File file, final ByteArray bytes) {
+        final int pageSize = (16 * 1024);
+
+        int bytesWritten = 0;
+        int bytesRemaining = bytes.getByteCount();
+        try (final OutputStream outputStream = new FileOutputStream(file)) {
+            while (bytesRemaining > 0) {
+                final byte[] buffer = bytes.getBytes(bytesWritten, Math.min(pageSize, bytesRemaining));
+                outputStream.write(buffer);
+                bytesWritten += buffer.length;
+                bytesRemaining -= buffer.length;
+            }
+            outputStream.flush();
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.warn("Unable to write file contents.", exception);
+            return false;
+        }
     }
 }

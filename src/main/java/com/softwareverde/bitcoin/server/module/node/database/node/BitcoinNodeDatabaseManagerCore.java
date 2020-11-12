@@ -1,12 +1,12 @@
-package com.softwareverde.bitcoin.server.module.node.database.node.spv;
+package com.softwareverde.bitcoin.server.module.node.database.node;
 
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -15,9 +15,10 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager {
+public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManager {
 
     protected final DatabaseManager _databaseManager;
     protected final SystemTime _systemTime = new SystemTime();
@@ -58,8 +59,27 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         return NodeId.wrap(row.getLong("id"));
     }
 
-    public SpvBitcoinNodeDatabaseManager(final DatabaseManager databaseConnection) {
-        _databaseManager = databaseConnection;
+    protected Long _storeHost(final Ip ip) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM hosts WHERE host = ?")
+                .setParameter(ip)
+        );
+
+        if (! rows.isEmpty()) {
+            final Row row = rows.get(0);
+            return row.getLong("id");
+        }
+
+        return databaseConnection.executeSql(
+            new Query("INSERT INTO hosts (host) VALUES (?)")
+                .setParameter(ip)
+        );
+    }
+
+    public BitcoinNodeDatabaseManagerCore(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
     }
 
     @Override
@@ -76,7 +96,7 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
 
         final Ip ip = node.getIp();
         if (ip == null) {
-            Logger.warn("Unable to store node: " + node.getConnectionString());
+            Logger.debug("Unable to store node: " + node.getConnectionString());
             return;
         }
 
@@ -84,24 +104,7 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         final String userAgent = node.getUserAgent(); // May be null...
 
         synchronized (MUTEX) {
-            final Long hostId;
-            {
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id FROM hosts WHERE host = ?")
-                        .setParameter(ip)
-                );
-
-                if (! rows.isEmpty()) {
-                    final Row row = rows.get(0);
-                    hostId = row.getLong("id");
-                }
-                else {
-                    hostId = databaseConnection.executeSql(
-                        new Query("INSERT INTO hosts (host) VALUES (?)")
-                            .setParameter(ip)
-                    );
-                }
-            }
+            final Long hostId = _storeHost(ip);
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT id FROM nodes WHERE host_id = ? AND port = ?")
@@ -113,12 +116,14 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
 
             if (rows.isEmpty()) {
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent) VALUES (?, ?, ?, ?, ?)")
+                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")
                         .setParameter(hostId)
                         .setParameter(port)
                         .setParameter(now)
                         .setParameter(now)
                         .setParameter(userAgent)
+                        .setParameter(0L)
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
             else {
@@ -132,6 +137,26 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
                 );
             }
         }
+    }
+
+    @Override
+    public void storeAddress(final NodeIpAddress nodeIpAddress) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final Long now = _systemTime.getCurrentTimeInSeconds();
+
+        final Ip ip = nodeIpAddress.getIp();
+        final Integer port = nodeIpAddress.getPort();
+
+        final Long hostId = _storeHost(ip);
+        databaseConnection.executeSql(
+            new Query("INSERT IGNORE INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, NULL, ?, ?) ON DUPLICATE KEY UPDATE last_seen_timestamp = VALUES (last_seen_timestamp)")
+                .setParameter(hostId)
+                .setParameter(port)
+                .setParameter(now)
+                .setParameter(now)
+                .setParameter(0L)
+                .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+        );
     }
 
     @Override
@@ -152,22 +177,21 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
     }
 
     @Override
-    public void updateNodeFeatures(final BitcoinNode node) throws DatabaseException {
+    public void updateNodeFeatures(final BitcoinNode bitcoinNode) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final Ip ip = node.getIp();
-        final Integer port = node.getPort();
+        final Ip ip = bitcoinNode.getIp();
+        final Integer port = bitcoinNode.getPort();
 
-        final BitcoinNodeIpAddress nodeIpAddress = node.getLocalNodeIpAddress();
+        final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
 
-        if (nodeIpAddress != null) {
+        if (nodeFeatures != null) {
             final NodeId nodeId = _getNodeId(ip, port);
             if (nodeId == null) { return; }
 
             final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
-            final NodeFeatures nodeFeatures = nodeIpAddress.getNodeFeatures();
             for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
-                if (nodeFeatures.hasFeatureFlagEnabled(feature)) {
+                if (nodeFeatures.isFeatureEnabled(feature)) {
                     databaseConnection.executeSql(
                         new Query("INSERT IGNORE INTO node_features (node_id, feature) VALUES (?, ?)")
                             .setParameter(nodeId)
@@ -211,9 +235,13 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
     public List<BitcoinNodeIpAddress> findNodes(final List<NodeFeatures.Feature> requiredFeatures, final Integer maxCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        // NOTE: Limiting the port to be the default port is not necessary since the query sorts by connection_count, which is only be incremented on
+        //  the off-chance the OS uses the same port for the same node more than once (possible, but unlikely).  Choosing to not filter on the port
+        //  allows the connection to nodes that use non-conventional (but still public) ports.
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE nodes.last_handshake_timestamp IS NOT NULL AND hosts.is_banned = 0 AND node_features.feature IN (?) ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
+            new Query("SELECT nodes.id, hosts.host, nodes.port, COUNT(*) AS feature_count FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE nodes.last_handshake_timestamp IS NOT NULL AND hosts.is_banned = 0 AND node_features.feature IN (?) GROUP BY nodes.id HAVING feature_count = ? ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
                 .setInClauseParameters(requiredFeatures, ValueExtractor.NODE_FEATURE)
+                .setParameter(requiredFeatures.getCount())
         );
 
         final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());
@@ -244,7 +272,7 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.is_banned = 0 WHERE nodes.last_handshake_timestamp IS NOT NULL ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
+            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.is_banned = 0 ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
         );
 
         final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());
@@ -316,6 +344,10 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         }
         else {
             // Prevent the node from immediately being re-banned...
+            databaseConnection.executeSql(
+                new Query("DELETE node_features FROM node_features INNER JOIN nodes ON nodes.id = node_features.node_id INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
+                    .setParameter(ip)
+            );
             databaseConnection.executeSql(
                 new Query("DELETE nodes FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
                     .setParameter(ip)

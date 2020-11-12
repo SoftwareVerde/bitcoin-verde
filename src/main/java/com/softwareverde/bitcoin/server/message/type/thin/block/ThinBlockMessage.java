@@ -2,13 +2,13 @@ package com.softwareverde.bitcoin.server.message.type.thin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -61,7 +61,7 @@ public class ThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Transaction (Short) Hashes...
-            final Integer transactionCount = _transactionHashes.getCount();
+            final int transactionCount = _transactionHashes.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
             for (final Sha256Hash transactionHash : _transactionHashes) {
                 byteArrayBuilder.appendBytes(transactionHash, Endian.LITTLE);
@@ -69,13 +69,30 @@ public class ThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Known Missing Transactions...
-            final Integer missingTransactionCount = _missingTransactions.getCount();
+            final int missingTransactionCount = _missingTransactions.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(missingTransactionCount));
             for (final Transaction transaction : _missingTransactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));
             }
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int transactionCount = _transactionHashes.getCount();
+        final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
+
+        final int missingTransactionCount = _missingTransactions.getCount();
+        final byte[] missingTransactionCountBytes = ByteUtil.variableLengthIntegerToBytes(missingTransactionCount);
+
+        return (
+            BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT +
+            transactionCountBytes.length +
+            (transactionCount * Sha256Hash.BYTE_COUNT) +
+            missingTransactionCountBytes.length +
+            (missingTransactionCount * Sha256Hash.BYTE_COUNT)
+        );
     }
 }

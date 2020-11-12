@@ -6,14 +6,19 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.ip.Ip;
 
+import java.util.regex.Pattern;
+
 public interface BanFilter {
     Boolean isIpBanned(Ip ip);
 
     void banIp(Ip ip);
     void unbanIp(Ip ip);
 
-    void addIpToWhitelist(Ip ip);
+    void addToWhitelist(Ip ip);
     void removeIpFromWhitelist(Ip ip);
+
+    void addToUserAgentBlacklist(Pattern pattern);
+    void removePatternFromUserAgentBlacklist(Pattern pattern);
 
     void onNodeConnected(Ip ip);
     void onNodeHandshakeComplete(BitcoinNode bitcoinNode);

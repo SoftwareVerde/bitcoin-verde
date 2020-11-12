@@ -31,4 +31,12 @@ public class SetTransactionBloomFilterMessage extends BitcoinProtocolMessage {
         final BloomFilterDeflater bloomFilterDeflater = _bloomFilterInflaters.getBloomFilterDeflater();
         return bloomFilterDeflater.toBytes(_bloomFilter);
     }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        if (_bloomFilter == null) { return 0; }
+
+        final BloomFilterDeflater bloomFilterDeflater = _bloomFilterInflaters.getBloomFilterDeflater();
+        return bloomFilterDeflater.getByteCount(_bloomFilter);
+    }
 }

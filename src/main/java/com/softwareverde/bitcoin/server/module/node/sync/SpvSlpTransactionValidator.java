@@ -7,13 +7,13 @@ import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseMana
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SlpValidity;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.TimeUnit;
@@ -51,7 +51,7 @@ public class SpvSlpTransactionValidator extends SleepyService {
                 return false;
             }
 
-            final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(new NodeManager.NodeFilter<BitcoinNode>() {
+            final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(new NodeFilter() {
                 @Override
                 public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
                     final Boolean isSlpIndexer = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED);

@@ -13,6 +13,8 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class AddressInflater {
+    public static final Integer BYTE_COUNT = Address.BYTE_COUNT;
+
     protected byte[] _hashPublicKey(final PublicKey publicKey) {
         return HashUtil.ripemd160(HashUtil.sha256(publicKey.getBytes()));
     }

@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
@@ -61,6 +60,15 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(addressCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(networkAddressesBytes, Endian.BIG);
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
+        final int networkAddressCount = _nodeIpAddresses.getCount();
+
+        final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(networkAddressCount);
+        return (addressCountBytes.length + (networkAddressCount * networkAddressByteCount));
     }
 }

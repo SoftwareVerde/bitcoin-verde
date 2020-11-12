@@ -41,5 +41,8 @@ public interface FakeDatabaseManager extends DatabaseManager {
     }
 
     @Override
+    default Integer getMaxQueryBatchSize() { return 1024; }
+
+    @Override
     default void close() throws DatabaseException { }
 }

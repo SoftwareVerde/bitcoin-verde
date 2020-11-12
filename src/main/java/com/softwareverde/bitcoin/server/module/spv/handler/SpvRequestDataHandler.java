@@ -8,11 +8,11 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-public class SpvRequestDataHandler implements BitcoinNode.RequestDataCallback {
+public class SpvRequestDataHandler implements BitcoinNode.RequestDataHandler {
     protected ConcurrentHashMap<Sha256Hash, Transaction> _spvTransactions = new ConcurrentHashMap<Sha256Hash, Transaction>();
 
     @Override
-    public void run(final List<InventoryItem> inventoryItems, final BitcoinNode bitcoinNode) {
+    public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> inventoryItems) {
         for (final InventoryItem inventoryItem : inventoryItems) {
             switch (inventoryItem.getItemType()) {
                 case TRANSACTION: {

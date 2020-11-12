@@ -6,7 +6,8 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
-import com.softwareverde.bitcoin.server.module.node.database.node.spv.SpvBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 
@@ -15,7 +16,7 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected final Integer _maxQueryBatchSize;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
-    protected SpvBitcoinNodeDatabaseManager _nodeDatabaseManager;
+    protected BitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected SpvBlockDatabaseManager _blockDatabaseManager;
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
@@ -33,9 +34,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public SpvBitcoinNodeDatabaseManager getNodeDatabaseManager() {
+    public BitcoinNodeDatabaseManager getNodeDatabaseManager() {
         if (_nodeDatabaseManager == null) {
-            _nodeDatabaseManager = new SpvBitcoinNodeDatabaseManager(this);
+            _nodeDatabaseManager = new BitcoinNodeDatabaseManagerCore(this);
         }
 
         return _nodeDatabaseManager;

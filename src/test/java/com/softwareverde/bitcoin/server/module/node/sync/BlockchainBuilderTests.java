@@ -124,12 +124,6 @@ public class BlockchainBuilderTests extends IntegrationTest {
         public List<BitcoinNode> getNodes() {
             return new MutableList<BitcoinNode>(0);
         }
-
-        @Override
-        public void broadcastBlockFinder(final List<Sha256Hash> blockFinderHashes) { }
-
-        @Override
-        public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) { }
     }
 
     @Override @Before

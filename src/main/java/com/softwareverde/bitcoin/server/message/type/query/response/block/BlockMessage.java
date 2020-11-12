@@ -36,4 +36,11 @@ public class BlockMessage extends BitcoinProtocolMessage {
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         return blockDeflater.toBytes(_block);
     }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        if (_block == null) { return 0; }
+
+        return _block.getByteCount();
+    }
 }

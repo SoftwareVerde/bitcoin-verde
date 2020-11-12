@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.thin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -13,6 +14,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -68,7 +70,7 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Transaction (Short) Hashes...
-            final Integer transactionCount = _transactionShortHashes.getCount();
+            final int transactionCount = _transactionShortHashes.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount));
             for (final ByteArray byteArray : _transactionShortHashes) {
                 byteArrayBuilder.appendBytes(byteArray, Endian.LITTLE);
@@ -76,7 +78,7 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         { // Known Missing Transactions...
-            final Integer missingTransactionCount = _missingTransactions.getCount();
+            final int missingTransactionCount = _missingTransactions.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(missingTransactionCount));
             for (final Transaction transaction : _missingTransactions) {
                 byteArrayBuilder.appendBytes(transactionDeflater.toBytes(transaction));
@@ -84,5 +86,22 @@ public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
         }
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int transactionCount = _transactionShortHashes.getCount();
+        final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
+
+        final int missingTransactionCount = _missingTransactions.getCount();
+        final byte[] missingTransactionCountBytes = ByteUtil.variableLengthIntegerToBytes(missingTransactionCount);
+
+        return (
+            BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT +
+            transactionCountBytes.length +
+            (transactionCount * 4) +
+            missingTransactionCountBytes.length +
+            (missingTransactionCount * Sha256Hash.BYTE_COUNT)
+        );
     }
 }

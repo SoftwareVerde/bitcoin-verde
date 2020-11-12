@@ -66,7 +66,7 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     }
 
     @Override
-    public BitcoinNodeManager getNodeManager() {
+    public BitcoinNodeManager getBitcoinNodeManager() {
         return _nodeManager;
     }
 
