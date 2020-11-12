@@ -44,7 +44,7 @@ public class NodeHandler implements NodeRpcHandler.NodeHandler {
 
     @Override
     public void addIpToWhitelist(final Ip ip) {
-        _nodeManager.addIpToWhitelist(ip);
+        _nodeManager.addToWhitelist(ip);
     }
 
     @Override

@@ -129,6 +129,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 public class NodeModule {
     protected final Boolean _rebuildUtxoSet = false;
@@ -1097,8 +1098,20 @@ public class NodeModule {
             Logger.info("[Starting Node Manager]");
             _bitcoinNodeManager.start();
 
-            final List<SeedNodeProperties> whitelistedNodes = _bitcoinProperties.getWhitelistedNodes();
-            for (final SeedNodeProperties whiteListedNode : whitelistedNodes) {
+            final List<String> userAgentBlacklist = _bitcoinProperties.getUserAgentBlacklist();
+            for (final String stringMatcher : userAgentBlacklist) {
+                try {
+                    final Pattern pattern = Pattern.compile(stringMatcher);
+                    _bitcoinNodeManager.addToUserAgentBlacklist(pattern);
+                    Logger.info("Added user agent to blacklist: " + stringMatcher);
+                }
+                catch (final Exception exception) {
+                    Logger.info("Ignoring invalid user agent blacklist pattern: " + stringMatcher);
+                }
+            }
+
+            final List<SeedNodeProperties> nodeWhitelist = _bitcoinProperties.getNodeWhitelist();
+            for (final SeedNodeProperties whiteListedNode : nodeWhitelist) {
                 final String host = whiteListedNode.getAddress();
                 try {
                     final Ip ip = Ip.fromStringOrHost(host);
@@ -1107,7 +1120,7 @@ public class NodeModule {
                         continue;
                     }
 
-                    _bitcoinNodeManager.addIpToWhitelist(ip);
+                    _bitcoinNodeManager.addToWhitelist(ip);
                 }
                 catch (final Exception exception) {
                     Logger.debug("Unable to determine host: " + host);

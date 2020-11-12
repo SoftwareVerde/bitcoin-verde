@@ -13,7 +13,8 @@ public class BitcoinProperties {
     protected Integer _bitcoinRpcPort;
     protected List<SeedNodeProperties> _seedNodeProperties;
     protected List<String> _dnsSeeds;
-    protected List<SeedNodeProperties> _whitelistedNodes;
+    protected List<String> _userAgentBlacklist;
+    protected List<SeedNodeProperties> _nodesWhitelist;
     protected Boolean _banFilterIsEnabled;
     protected Integer _minPeerCount;
     protected Integer _maxPeerCount;
@@ -37,7 +38,8 @@ public class BitcoinProperties {
     public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
     public List<SeedNodeProperties> getSeedNodeProperties() { return _seedNodeProperties; }
     public List<String> getDnsSeeds() { return _dnsSeeds; }
-    public List<SeedNodeProperties> getWhitelistedNodes() { return _whitelistedNodes; }
+    public List<String> getUserAgentBlacklist() { return _userAgentBlacklist; }
+    public List<SeedNodeProperties> getNodeWhitelist() { return _nodesWhitelist; }
     public Boolean isBanFilterEnabled() { return _banFilterIsEnabled; }
     public Integer getMinPeerCount() { return _minPeerCount; }
     public Integer getMaxPeerCount() { return _maxPeerCount; }

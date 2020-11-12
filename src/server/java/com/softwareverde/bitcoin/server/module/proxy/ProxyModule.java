@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
 import com.softwareverde.http.server.servlet.ProxyServlet;
@@ -36,17 +37,17 @@ public class ProxyModule {
         _stratumProperties = stratumProperties;
         _explorerProperties = explorerProperties;
 
-        final String[] tlsKeyFiles = proxyProperties.getTlsKeyFiles();
-        final String[] tlsCertificateFiles = proxyProperties.getTlsCertificateFiles();
-        if (tlsKeyFiles.length != tlsCertificateFiles.length) {
+        final List<String> tlsKeyFiles = proxyProperties.getTlsKeyFiles();
+        final List<String> tlsCertificateFiles = proxyProperties.getTlsCertificateFiles();
+        if (tlsKeyFiles.getCount() != tlsCertificateFiles.getCount()) {
             _printError("TLS Key/Certificate count mismatch.");
             BitcoinUtil.exitFailure();
         }
 
         boolean certificateWasAdded = false;
-        for (int i = 0; i < tlsKeyFiles.length; ++i) {
-            final String tlsKeyFile = tlsKeyFiles[i];
-            final String tlsCertificateFile = tlsCertificateFiles[i];
+        for (int i = 0; i < tlsKeyFiles.getCount(); ++i) {
+            final String tlsKeyFile = tlsKeyFiles.get(i);
+            final String tlsCertificateFile = tlsCertificateFiles.get(i);
             certificateWasAdded |= _addCertificate(tlsCertificateFile, tlsKeyFile);
         }
 

@@ -6,6 +6,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.ip.Ip;
 
+import java.util.regex.Pattern;
+
 public class DisabledBanFilter implements BanFilter {
 
     @Override
@@ -24,12 +26,22 @@ public class DisabledBanFilter implements BanFilter {
     }
 
     @Override
-    public void addIpToWhitelist(final Ip ip) {
+    public void addToWhitelist(final Ip ip) {
         // Nothing.
     }
 
     @Override
     public void removeIpFromWhitelist(final Ip ip) {
+        // Nothing.
+    }
+
+    @Override
+    public void addToUserAgentBlacklist(final Pattern pattern) {
+        // Nothing.
+    }
+
+    @Override
+    public void removePatternFromUserAgentBlacklist(final Pattern pattern) {
         // Nothing.
     }
 

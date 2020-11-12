@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
 public class BitcoinNodeManager {
     public static final Long PING_AFTER_MS_IDLE = (5L * 60000L); // 5 Minutes
@@ -821,16 +822,6 @@ public class BitcoinNodeManager {
     }
 
     protected void _onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
-        if (_slpValidityCheckingIsEnabled) {
-            if (Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED), false)) {
-                bitcoinNode.enableSlpValidityChecking(true);
-            }
-        }
-
-        if (_newBlocksViaHeadersIsEnabled) {
-            bitcoinNode.enableNewBlockViaHeaders();
-        }
-
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
@@ -842,6 +833,19 @@ public class BitcoinNodeManager {
             Logger.debug(databaseException);
         }
 
+        _banFilter.onNodeHandshakeComplete(bitcoinNode);
+        if (! bitcoinNode.isConnected()) { return; } // Node was banned.
+
+        if (_slpValidityCheckingIsEnabled) {
+            if (Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.SLP_INDEX_ENABLED), false)) {
+                bitcoinNode.enableSlpValidityChecking(true);
+            }
+        }
+
+        if (_newBlocksViaHeadersIsEnabled) {
+            bitcoinNode.enableNewBlockViaHeaders();
+        }
+
         final NewNodeCallback newNodeCallback = _newNodeCallback;
         if (newNodeCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -851,8 +855,6 @@ public class BitcoinNodeManager {
                 }
             });
         }
-
-        _banFilter.onNodeHandshakeComplete(bitcoinNode);
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
@@ -1110,12 +1112,20 @@ public class BitcoinNodeManager {
         _banFilter.unbanIp(ip);
     }
 
-    public void addIpToWhitelist(final Ip ip) {
-        _banFilter.addIpToWhitelist(ip);
+    public void addToWhitelist(final Ip ip) {
+        _banFilter.addToWhitelist(ip);
     }
 
     public void removeIpFromWhitelist(final Ip ip) {
         _banFilter.removeIpFromWhitelist(ip);
+    }
+
+    public void addToUserAgentBlacklist(final Pattern pattern) {
+        _banFilter.addToUserAgentBlacklist(pattern);
+    }
+
+    public void removeUserAgentFromBlacklist(final Pattern pattern) {
+        _banFilter.removePatternFromUserAgentBlacklist(pattern);
     }
 
     public void setNodeListChangedCallback(final Runnable callback) {
