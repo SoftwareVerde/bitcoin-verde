@@ -23,6 +23,17 @@ public class NodeHandler implements NodeRpcHandler.NodeHandler {
 
         final String ipString = ip.toString();
 
+        final List<BitcoinNode> bitcoinNodes = _nodeManager.getNodes();
+        final int nodeCount = bitcoinNodes.getCount();
+        final int maxNodeCount = _nodeManager.getMaxNodeCount();
+        if (nodeCount >= maxNodeCount) {
+            final List<BitcoinNode> unpreferredNodes = _nodeManager.getUnpreferredNodes();
+            if (! unpreferredNodes.isEmpty()) {
+                final BitcoinNode bitcoinNode = unpreferredNodes.get(0);
+                _nodeManager.removeNode(bitcoinNode);
+            }
+        }
+
         final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(ipString, port);
         _nodeManager.addNode(bitcoinNode);
     }

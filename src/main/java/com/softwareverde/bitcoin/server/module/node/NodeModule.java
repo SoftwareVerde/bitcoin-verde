@@ -1103,7 +1103,6 @@ public class NodeModule {
                 try {
                     final Pattern pattern = Pattern.compile(stringMatcher);
                     _bitcoinNodeManager.addToUserAgentBlacklist(pattern);
-                    Logger.info("Added user agent to blacklist: " + stringMatcher);
                 }
                 catch (final Exception exception) {
                     Logger.info("Ignoring invalid user agent blacklist pattern: " + stringMatcher);

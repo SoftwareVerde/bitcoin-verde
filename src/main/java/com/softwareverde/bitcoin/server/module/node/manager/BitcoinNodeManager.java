@@ -70,30 +70,6 @@ public class BitcoinNodeManager {
         };
     }
 
-    // protected final Object _mutex = new Object();
-    protected final SystemTime _systemTime;
-    protected final BitcoinNodeFactory _nodeFactory;
-    protected final ThreadPool _threadPool;
-
-    protected final ConcurrentHashMap<NodeId, BitcoinNode> _preferredNodes;
-    protected final ConcurrentHashMap<NodeId, BitcoinNode> _otherNodes;
-    protected ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(); // Nodes that have been added but have not yet completed their handshake.
-
-    // _connectedNodeAddresses contains NodeIpAddresses that are either currently-connected, are pending handshake, or are about to be connected to.
-    // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.
-    protected final ConcurrentHashSet<NodeIpAddress> _connectedNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
-
-    protected final ConcurrentHashSet<NodeIpAddress> _seedNodes = new ConcurrentHashSet<NodeIpAddress>();
-    protected final MutableNetworkTime _networkTime;
-    protected final BitcoinNodeObserver _bitcoinNodeObserver;
-    protected Integer _minNodeCount;
-    protected Integer _maxNodeCount;
-    protected Boolean _shouldOnlyConnectToSeedNodes = false;
-    protected volatile Boolean _isShuttingDown = false;
-
-    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
-    protected NodeIpAddress _localNodeIpAddress = null;
-
     public static class Context {
         public Integer minNodeCount;
         public Integer maxNodeCount;
@@ -107,6 +83,43 @@ public class BitcoinNodeManager {
         public ThreadPool threadPool;
         public SystemTime systemTime;
     }
+
+    protected static class NodePerformance {
+        public final Long connectionTimestampMs;
+        public final AtomicLong byteCountReceived = new AtomicLong(0L);
+        public final AtomicLong byteCountSent = new AtomicLong(0L);
+        public final AtomicLong requestsReceivedCount = new AtomicLong(0L);
+        public final AtomicLong requestsFilledCount = new AtomicLong(0L);
+        public final AtomicLong failedRequestCount = new AtomicLong(0L);
+
+        public NodePerformance(final Long now) {
+            this.connectionTimestampMs = now;
+        }
+    }
+
+    protected final SystemTime _systemTime;
+    protected final BitcoinNodeFactory _nodeFactory;
+    protected final ThreadPool _threadPool;
+
+    protected final ConcurrentHashMap<NodeId, BitcoinNode> _preferredNodes;
+    protected final ConcurrentHashMap<NodeId, BitcoinNode> _otherNodes;
+    protected ConcurrentHashMap<NodeId, BitcoinNode> _pendingNodes = new ConcurrentHashMap<>(); // Nodes that have been added but have not yet completed their handshake.
+
+    // _connectedNodeAddresses contains NodeIpAddresses that are either currently-connected, are pending handshake, or are about to be connected to.
+    // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.
+    protected final ConcurrentHashSet<NodeIpAddress> _connectedNodeAddresses = new ConcurrentHashSet<>();
+    protected final Map<BitcoinNode, NodePerformance> _performanceStatistics = new WeakHashMap<>();
+
+    protected final ConcurrentHashSet<NodeIpAddress> _seedNodes = new ConcurrentHashSet<>();
+    protected final MutableNetworkTime _networkTime;
+    protected final BitcoinNodeObserver _bitcoinNodeObserver;
+    protected Integer _minNodeCount;
+    protected Integer _maxNodeCount;
+    protected Boolean _shouldOnlyConnectToSeedNodes = false;
+    protected volatile Boolean _isShuttingDown = false;
+
+    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
+    protected NodeIpAddress _localNodeIpAddress = null;
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final NodeInitializer _nodeInitializer;
@@ -137,7 +150,31 @@ public class BitcoinNodeManager {
                 while (! Thread.interrupted()) {
                     if (_isShuttingDown) { return; }
 
-                    Logger.trace("PeerMonitor: _preferredNodes=" + _preferredNodes.size() + ", _otherNodes=" + _otherNodes.size() + ", _pendingNodes=" + _pendingNodes.size());
+                    if (Logger.isTraceEnabled()) {
+                        Logger.trace("PeerMonitor: _preferredNodes=" + _preferredNodes.size() + ", _otherNodes=" + _otherNodes.size() + ", _pendingNodes=" + _pendingNodes.size());
+                    }
+
+                    synchronized (_performanceStatistics) {
+                        for (final Map.Entry<BitcoinNode, NodePerformance> entry : _performanceStatistics.entrySet()) {
+                            final BitcoinNode bitcoinNode = entry.getKey();
+                            final NodePerformance nodePerformance = entry.getValue();
+                            if ( (bitcoinNode == null) || (nodePerformance == null) ) { continue; }
+
+                            if (Logger.isTraceEnabled()) {
+                                Logger.trace(bitcoinNode + " - failedRequestCount=" + nodePerformance.failedRequestCount + ", requestsFilledCount=" + nodePerformance.requestsFilledCount + ", requestsReceivedCount=" + nodePerformance.requestsReceivedCount + ", byteCountReceived=" + nodePerformance.byteCountReceived + ", byteCountSent=" + nodePerformance.byteCountSent);
+                            }
+
+                            final long failedRequestCount = nodePerformance.failedRequestCount.get();
+                            final long fulfilledRequestCount = nodePerformance.requestsFilledCount.get();
+                            if ( (failedRequestCount > 0) && (failedRequestCount >= (fulfilledRequestCount * 0.15D)) ) {
+                                final NodeId nodeId = bitcoinNode.getId();
+                                _preferredNodes.remove(nodeId);
+                                _otherNodes.put(nodeId, bitcoinNode);
+
+                                Logger.debug("Demoting node: " + bitcoinNode);
+                            }
+                        }
+                    }
 
                     final int peerCount = (_preferredNodes.size() + _otherNodes.size() + _pendingNodes.size());
                     if (peerCount == 0) {
@@ -507,12 +544,12 @@ public class BitcoinNodeManager {
         _pendingNodes.put(nodeId, bitcoinNode);
     }
 
-    protected void _removeNode(final BitcoinNode node) {
-        final NodeId nodeId = node.getId();
+    protected void _removeNode(final BitcoinNode bitcoinNode) {
+        final NodeId nodeId = bitcoinNode.getId();
 
-        Logger.info("Dropped Node: " + node.getConnectionString());
+        Logger.info("Dropped Node: " + bitcoinNode.getConnectionString());
 
-        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
 
         _preferredNodes.remove(nodeId);
         _otherNodes.remove(nodeId);
@@ -521,27 +558,17 @@ public class BitcoinNodeManager {
             _connectedNodeAddresses.remove(nodeIpAddress);
         }
 
-        node.setDisconnectedCallback(null);
-        node.setHandshakeCompleteCallback(null);
-        node.setNodeConnectedCallback(null);
-        node.setNodeAddressesReceivedCallback(null);
+        bitcoinNode.setDisconnectedCallback(null);
+        bitcoinNode.setHandshakeCompleteCallback(null);
+        bitcoinNode.setNodeConnectedCallback(null);
+        bitcoinNode.setNodeAddressesReceivedCallback(null);
 
-        node.disconnect();
+        bitcoinNode.disconnect();
 
         final Runnable onNodeListChangedCallback = _onNodeListChanged;
         if (onNodeListChangedCallback != null) {
             _threadPool.execute(onNodeListChangedCallback);
         }
-    }
-
-    /**
-     * Returns a list of BitcoinNodes that provide no utility to the NodeManager.
-     *  Returns an empty list if there are no nodes that provide zero utility.
-     *  Nodes that provide no utility may include non-relaying observer-nodes,
-     *  nodes from different chains that have the same network-magic, etc.
-     */
-    protected List<BitcoinNode> _getUndesirableNodes() {
-        return new MutableList<BitcoinNode>(0);
     }
 
     protected void _onNodeDisconnected(final BitcoinNode bitcoinNode) {
@@ -874,6 +901,10 @@ public class BitcoinNodeManager {
         _addNode(node);
     }
 
+    public void removeNode(final BitcoinNode node) {
+        _removeNode(node);
+    }
+
     public NetworkTime getNetworkTime() {
         return _networkTime;
     }
@@ -937,6 +968,10 @@ public class BitcoinNodeManager {
         return new ImmutableList<BitcoinNode>(_preferredNodes.values());
     }
 
+    public List<BitcoinNode> getUnpreferredNodes() {
+        return new ImmutableList<BitcoinNode>(_otherNodes.values());
+    }
+
     public List<BitcoinNode> getPreferredNodes(final NodeFilter nodeFilter) {
         return _filterNodes(_preferredNodes, nodeFilter);
     }
@@ -968,8 +1003,16 @@ public class BitcoinNodeManager {
         _minNodeCount = minNodeCount;
     }
 
+    public Integer getMinNodeCount() {
+        return _minNodeCount;
+    }
+
     public void setMaxNodeCount(final Integer maxNodeCount) {
         _maxNodeCount = maxNodeCount;
+    }
+
+    public Integer getMaxNodeCount() {
+        return _maxNodeCount;
     }
 
     public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
@@ -1000,20 +1043,6 @@ public class BitcoinNodeManager {
         }
     }
 
-    protected static class NodePerformance {
-        public final Long connectionTimestampMs;
-        public final AtomicLong byteCountReceived = new AtomicLong(0L);
-        public final AtomicLong byteCountSent = new AtomicLong(0L);
-        public final AtomicLong requestsReceivedCount = new AtomicLong(0L);
-        public final AtomicLong requestsFilledCount = new AtomicLong(0L);
-        public final AtomicLong failedRequestCount = new AtomicLong(0L);
-
-        public NodePerformance(final Long now) {
-            this.connectionTimestampMs = now;
-        }
-    }
-    protected final Map<BitcoinNode, NodePerformance> _performanceStatistics = new WeakHashMap<>();
-
     public BitcoinNodeManager(final Context context) {
         _systemTime = context.systemTime;
         _preferredNodes = new ConcurrentHashMap<NodeId, BitcoinNode>(context.maxNodeCount);
@@ -1026,32 +1055,41 @@ public class BitcoinNodeManager {
         _threadPool = context.threadPool;
 
         _bitcoinNodeObserver = new BitcoinNodeObserver() {
+
+            protected NodePerformance _getNodePerformance(final BitcoinNode bitcoinNode) {
+                synchronized (_performanceStatistics) {
+                    NodePerformance nodePerformance = _performanceStatistics.get(bitcoinNode);
+                    if (nodePerformance != null) { return nodePerformance; }
+
+                    final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
+                    nodePerformance = new NodePerformance(nowMs);
+                    _performanceStatistics.put(bitcoinNode, nodePerformance);
+                    return nodePerformance;
+                }
+            }
+
             @Override
             public void onDataRequested(final BitcoinNode bitcoinNode, final MessageType messageType) {
-                final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
-                final NodePerformance nodePerformance = _performanceStatistics.getOrDefault(bitcoinNode, new NodePerformance(nowMs));
+                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
                 nodePerformance.requestsReceivedCount.incrementAndGet();
             }
 
             @Override
             public void onDataReceived(final BitcoinNode bitcoinNode, final MessageType messageType, final Integer byteCount, final Boolean wasRequested) {
-                final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
-                final NodePerformance nodePerformance = _performanceStatistics.getOrDefault(bitcoinNode, new NodePerformance(nowMs));
+                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
                 nodePerformance.requestsFilledCount.incrementAndGet();
                 nodePerformance.byteCountReceived.addAndGet(byteCount);
             }
 
             @Override
             public void onDataSent(final BitcoinNode bitcoinNode, final MessageType messageType, final Integer byteCount) {
-                final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
-                final NodePerformance nodePerformance = _performanceStatistics.getOrDefault(bitcoinNode, new NodePerformance(nowMs));
+                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
                 nodePerformance.byteCountSent.addAndGet(byteCount);
             }
 
             @Override
             public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
-                final Long nowMs = _systemTime.getCurrentTimeInMilliSeconds();
-                final NodePerformance nodePerformance = _performanceStatistics.getOrDefault(bitcoinNode, new NodePerformance(nowMs));
+                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
                 nodePerformance.failedRequestCount.incrementAndGet();
             }
         };
