@@ -32,7 +32,6 @@ public class ConfigurationTests {
             fileWriter.append("two_values_with_brackets = [value one, value two]\n");
             fileWriter.append("value_with_brackets = [value one]\n");
             fileWriter.append("some_missing_values_with_brackets = [1, 3, 4, , 6]\n");
-            fileWriter.append("quoted_values = [\"value0\", \"\\\"value1\\\"\"]\n");
             fileWriter.flush();
         }
 
@@ -48,6 +47,5 @@ public class ConfigurationTests {
         Assert.assertEquals(new ImmutableList<String>( "value one", "value two" ),      configuration._getArrayStringProperty("two_values_with_brackets", ""));
         Assert.assertEquals(new ImmutableList<String>( "value one" ),                   configuration._getArrayStringProperty("value_with_brackets", ""));
         Assert.assertEquals(new ImmutableList<String>( "1", "3", "4", "", "6" ),        configuration._getArrayStringProperty("some_missing_values_with_brackets", ""));
-        Assert.assertEquals(new ImmutableList<String>( "value0", "\"value1\"" ),        configuration._getArrayStringProperty("quoted_values", ""));
     }
 }

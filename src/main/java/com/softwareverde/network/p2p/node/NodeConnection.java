@@ -395,11 +395,17 @@ public class NodeConnection {
     }
 
     public Long getTotalBytesReceivedCount() {
-        return _binarySocket.getTotalBytesReceivedCount();
+        final BinarySocket binarySocket = _binarySocket;
+        if (binarySocket == null) { return 0L; }
+
+        return binarySocket.getTotalBytesReceivedCount();
     }
 
     public Long getTotalBytesSentCount() {
-        return _binarySocket.getTotalBytesSentCount();
+        final BinarySocket binarySocket = _binarySocket;
+        if (binarySocket == null) { return 0L; }
+
+        return binarySocket.getTotalBytesSentCount();
     }
 
     @Override

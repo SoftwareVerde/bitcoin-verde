@@ -171,7 +171,7 @@ public class BitcoinNodeTests extends UnitTest {
         Assert.assertEquals(receivedNodeConnections.getCount(), 1);
         Assert.assertTrue(blockDownloadFailed.get());
         Assert.assertFalse(blockDownloaded.get());
-        Assert.assertTrue(timeoutTimer.getMillisecondsElapsed() > REQUEST_TIMEOUT_MS);
+        // Assert.assertTrue(timeoutTimer.getMillisecondsElapsed() > REQUEST_TIMEOUT_MS); // Assert disabled due to BitcoinNode early-timeout detection due to no network progress.
         Assert.assertTrue(timeoutTimer.getMillisecondsElapsed() < (REQUEST_TIMEOUT_MS * 2L));
         Assert.assertFalse(bitcoinNode.isMonitorThreadRunning());
         Assert.assertTrue(bitcoinNode.wasDisconnectCalled());
