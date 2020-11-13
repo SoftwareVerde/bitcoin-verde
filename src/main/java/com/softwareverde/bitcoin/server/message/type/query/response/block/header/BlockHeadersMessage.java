@@ -9,10 +9,8 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BlockHeadersMessage extends BitcoinProtocolMessage {

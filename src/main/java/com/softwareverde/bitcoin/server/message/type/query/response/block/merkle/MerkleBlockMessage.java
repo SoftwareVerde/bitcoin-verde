@@ -11,7 +11,6 @@ import com.softwareverde.bitcoin.inflater.MerkleTreeInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class MerkleBlockMessage extends BitcoinProtocolMessage {
