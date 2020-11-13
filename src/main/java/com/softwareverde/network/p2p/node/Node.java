@@ -593,4 +593,12 @@ public abstract class Node {
     public Boolean isOutboundConnection() {
         return _isOutboundConnection;
     }
+
+    public Long getTotalBytesReceivedCount() {
+        return _connection.getTotalBytesReceivedCount();
+    }
+
+    public Long getTotalBytesSentCount() {
+        return _connection.getTotalBytesSentCount();
+    }
 }

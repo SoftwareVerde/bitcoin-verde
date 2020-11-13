@@ -200,7 +200,6 @@ public class BlockDownloader extends GracefulSleepyService {
     protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
         Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString());
 
-        final BitcoinNodeManager nodeManager = _context.getBitcoinNodeManager();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         final long maxTimeoutMs = _calculateTimeout();
@@ -287,14 +286,40 @@ public class BlockDownloader extends GracefulSleepyService {
             }
         };
 
+        final Long startingByteCountReceived = bitcoinNode.getTotalBytesReceivedCount();
         final RequestId requestId = bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
 
         final ThreadPool threadPool = _context.getThreadPool();
         threadPool.execute(new Runnable() {
             @Override
             public void run() {
+                final Thread thread = Thread.currentThread();
+
                 try {
-                    pin.waitForRelease(maxTimeoutMs);
+                    final long sleepInterval = 500L;
+                    int msWaited = 0;
+                    while ( (! thread.isInterrupted()) && (! pin.wasReleased()) ) {
+                        pin.waitForRelease(sleepInterval);
+                        if (pin.wasReleased()) { break; }
+
+                        msWaited += sleepInterval;
+                        if (msWaited >= maxTimeoutMs) { break; }
+
+                        // Check for stalled download (i.e. less MB/s than minimum)
+                        // TODO: Move this logic into BitcoinNode.
+                        final Long ping = bitcoinNode.getAveragePing();
+                        if (msWaited >= (ping * 2L)) {
+                            final Long newByteCountReceived = bitcoinNode.getTotalBytesReceivedCount();
+                            final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
+                            final long bytesPerMs = (bytesReceiveSinceRequested / msWaited);
+                            final double megabytesPerSecond = (bytesPerMs * 1000L / 1024D / 1024D);
+                            Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", msWaited=" + msWaited + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + BitcoinNode.MIN_MEGABYTES_PER_SECOND + " - " + bitcoinNode);
+                            if (megabytesPerSecond < BitcoinNode.MIN_MEGABYTES_PER_SECOND) {
+                                Logger.info("Detected stalled download from " + bitcoinNode + ". (" + megabytesPerSecond + "MB/s)");
+                                break;
+                            }
+                        }
+                    }
                 }
                 catch (final Exception exception) { }
 

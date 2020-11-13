@@ -35,7 +35,7 @@ public interface Ip extends Const {
         if (string == null) { return null; }
         if (string.matches("[^0-9:.]")) { return null; }
 
-        final Boolean isIpv4 = string.matches("^[0-9]+.[0-9]+.[0-9]+.[0-9]+$");
+        final boolean isIpv4 = string.matches("^[0-9]+.[0-9]+.[0-9]+.[0-9]+$");
         if (isIpv4) {
             return Ipv4.parse(string);
         }

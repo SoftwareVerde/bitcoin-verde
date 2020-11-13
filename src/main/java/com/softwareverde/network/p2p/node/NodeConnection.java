@@ -394,6 +394,14 @@ public class NodeConnection {
         return _binaryPacketFormat;
     }
 
+    public Long getTotalBytesReceivedCount() {
+        return _binarySocket.getTotalBytesReceivedCount();
+    }
+
+    public Long getTotalBytesSentCount() {
+        return _binarySocket.getTotalBytesSentCount();
+    }
+
     @Override
     public String toString() {
         return _toString();
