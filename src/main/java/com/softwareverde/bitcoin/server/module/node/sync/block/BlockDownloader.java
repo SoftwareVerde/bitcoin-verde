@@ -304,21 +304,6 @@ public class BlockDownloader extends GracefulSleepyService {
 
                         msWaited += sleepInterval;
                         if (msWaited >= maxTimeoutMs) { break; }
-
-                        // Check for stalled download (i.e. less MB/s than minimum)
-                        // TODO: Move this logic into BitcoinNode.
-                        final Long ping = bitcoinNode.getAveragePing();
-                        if (msWaited >= (ping * 2L)) {
-                            final Long newByteCountReceived = bitcoinNode.getTotalBytesReceivedCount();
-                            final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
-                            final long bytesPerMs = (bytesReceiveSinceRequested / msWaited);
-                            final double megabytesPerSecond = (bytesPerMs * 1000L / 1024D / 1024D);
-                            Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", msWaited=" + msWaited + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + BitcoinNode.MIN_MEGABYTES_PER_SECOND + " - " + bitcoinNode);
-                            if (megabytesPerSecond < BitcoinNode.MIN_MEGABYTES_PER_SECOND) {
-                                Logger.info("Detected stalled download from " + bitcoinNode + ". (" + megabytesPerSecond + "MB/s)");
-                                break;
-                            }
-                        }
                     }
                 }
                 catch (final Exception exception) { }
