@@ -491,7 +491,11 @@ public class BitcoinNode extends Node {
                     final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
                     final long bytesPerMs = (bytesReceiveSinceRequested / requestAgeMs);
                     final double megabytesPerSecond = (bytesPerMs * 1000L / 1024D / 1024D);
-                    Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + BitcoinNode.MIN_MEGABYTES_PER_SECOND + " - " + this.getConnectionString());
+
+                    if (Logger.isTraceEnabled()) {
+                        Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + BitcoinNode.MIN_MEGABYTES_PER_SECOND + " - " + this.getConnectionString());
+                    }
+
                     if (megabytesPerSecond < BitcoinNode.MIN_MEGABYTES_PER_SECOND) {
                         Logger.info("Detected stalled download from " + this.getConnectionString() + ". (" + megabytesPerSecond + "MB/s)");
 
@@ -1702,12 +1706,10 @@ public class BitcoinNode extends Node {
         bloomFilterMessage.setBloomFilter(bloomFilter);
         _queueMessage(bloomFilterMessage);
 
-        if (Logger.isDebugEnabled()) {
-            Logger.debug("Setting Bloom Filter for Peer: " + _connection);
-            if (Logger.isTraceEnabled()) {
-                final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
-                Logger.debug(bloomFilterDeflater.toBytes(bloomFilter));
-            }
+        Logger.debug("Setting Bloom Filter for Peer: " + _connection);
+        if (Logger.isTraceEnabled()) {
+            final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
+            Logger.trace(bloomFilterDeflater.toBytes(bloomFilter));
         }
     }
 
