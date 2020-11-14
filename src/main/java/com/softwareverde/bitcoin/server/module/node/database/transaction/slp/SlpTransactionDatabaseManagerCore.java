@@ -14,10 +14,27 @@ import com.softwareverde.util.Util;
 import java.util.LinkedHashMap;
 
 public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabaseManager {
+    protected static final String LAST_SLP_VALIDATED_BLOCK_ID_KEY = "last_slp_validated_block_id";
+
     protected final FullNodeDatabaseManager _databaseManager;
 
     protected LinkedHashMap<BlockId, List<TransactionId>> _getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final BlockId lastIndexedBlockId;
+        {
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT value FROM properties WHERE `key` = ?")
+                    .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+            );
+            if (rows.isEmpty()) {
+                lastIndexedBlockId = BlockId.wrap(0L);
+            }
+            else {
+                final Row row = rows.get(0);
+                lastIndexedBlockId = BlockId.wrap(row.getLong("value"));
+            }
+        }
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
@@ -28,14 +45,15 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
                     "INNER JOIN block_transactions " +
                         "ON (block_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                     "INNER JOIN blocks " +
-                        "ON (blocks.id = block_transactions.block_id) " +
+                        "ON (blocks.id = block_transactions.block_id AND blocks.id > ?) " +
                 "WHERE " +
-                    "NOT EXISTS (SELECT * FROM validated_slp_transactions AS t WHERE t.transaction_id = indexed_transaction_outputs.transaction_id) " +
+                    "NOT EXISTS (SELECT * FROM validated_slp_transactions WHERE validated_slp_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                     "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL " +
                 "GROUP BY blocks.id, indexed_transaction_outputs.transaction_id " +
                 "ORDER BY blocks.block_height ASC " +
                 "LIMIT "+ maxCount
             )
+            .setParameter(lastIndexedBlockId)
         );
 
         final LinkedHashMap<BlockId, List<TransactionId>> result = new LinkedHashMap<BlockId, List<TransactionId>>();
@@ -144,6 +162,17 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
     @Override
     public LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
         return _getConfirmedPendingValidationSlpTransactions(maxCount);
+    }
+
+    @Override
+    public void setLastSlpValidatedBlockId(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(VALUES(value), value)")
+                .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+                .setParameter(blockId)
+        );
     }
 
     /**

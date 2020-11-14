@@ -22,6 +22,8 @@ public interface SlpTransactionDatabaseManager {
      */
     LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(Integer maxCount) throws DatabaseException;
 
+    void setLastSlpValidatedBlockId(BlockId blockId) throws DatabaseException;
+
     /**
      * Returns a list of (SLP) TransactionIds that have not been validated yet that reside in the mempool.
      */

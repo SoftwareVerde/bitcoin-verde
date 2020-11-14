@@ -155,6 +155,7 @@ public class SlpTransactionProcessor extends SleepyService {
                     milliTimer.stop();
                     Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
                 }
+                slpTransactionDatabaseManager.setLastSlpValidatedBlockId(blockId);
             }
 
             // Validate Unconfirmed SLP Transactions...
