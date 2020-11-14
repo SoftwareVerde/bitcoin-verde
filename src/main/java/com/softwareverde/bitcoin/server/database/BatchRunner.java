@@ -1,0 +1,143 @@
+package com.softwareverde.bitcoin.server.database;
+
+import com.softwareverde.concurrent.Pin;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.Util;
+
+public class BatchRunner<T> {
+    public interface Batch<T> {
+        void run(List<T> batchItems) throws Exception;
+    }
+
+    protected final Boolean _asynchronousExecutionIsEnabled;
+    protected final Integer _maxItemCountPerBatch;
+    protected final Integer _maxConcurrentThreadCount;
+
+    protected void _executeAsynchronously(final Runnable[] runnables, final Container<Exception> exceptionContainer) throws DatabaseException {
+        final int batchCount = runnables.length;
+        final int threadCount = Math.min(runnables.length, _maxConcurrentThreadCount);
+        final MainThreadPool threadPool = new MainThreadPool(threadCount, 0L);
+
+        try {
+            final Pin[] pins = new Pin[batchCount];
+            for (int i = 0; i < batchCount; ++i) {
+                final Runnable runnable = runnables[i];
+                final Pin pin = new Pin();
+                pins[i] = pin;
+
+                threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            runnable.run();
+                        }
+                        catch (final Exception exception) {
+                            exceptionContainer.value = exception;
+                        }
+                        finally {
+                            pin.release();
+                        }
+                    }
+                });
+            }
+
+            for (int i = 0; i < batchCount; ++i) {
+                final Pin pin = pins[i];
+                pin.waitForRelease(Long.MAX_VALUE);
+            }
+        }
+        catch (final InterruptedException exception) {
+            throw new DatabaseException(exception);
+        }
+        finally {
+            threadPool.stop();
+        }
+    }
+
+    public BatchRunner(final Integer maxItemCountPerBatch) {
+        this(maxItemCountPerBatch, false);
+    }
+
+    public BatchRunner(final Integer maxItemCountPerBatch, final Boolean executeAsynchronously) {
+        this(maxItemCountPerBatch, executeAsynchronously, null);
+    }
+    public BatchRunner(final Integer maxItemCountPerBatch, final Boolean executeAsynchronously, final Integer maxConcurrentThreadCount) {
+        _maxItemCountPerBatch = maxItemCountPerBatch;
+        _asynchronousExecutionIsEnabled = executeAsynchronously;
+        _maxConcurrentThreadCount = Util.coalesce(maxConcurrentThreadCount, Integer.MAX_VALUE);
+    }
+
+    public void run(final List<T> totalCollection, final Batch<T> batch) throws DatabaseException {
+        final int totalItemCount = totalCollection.getCount();
+
+        final int itemCountPerBatch;
+        final int batchCount;
+        if (totalItemCount <= _maxItemCountPerBatch) {
+            itemCountPerBatch = totalItemCount;
+            batchCount = 1;
+        }
+        else {
+            itemCountPerBatch = _maxItemCountPerBatch;
+            batchCount = (int) Math.ceil(totalItemCount / (double) itemCountPerBatch);
+        }
+
+        final Runnable[] runnables = new Runnable[batchCount];
+        final Container<Exception> exceptionContainer = new Container<Exception>();
+        for (int i = 0; i < batchCount; ++i) {
+            final int batchId = i;
+            final Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    final MutableList<T> bathedItems = new MutableList<T>(itemCountPerBatch);
+                    for (int j = 0; j < itemCountPerBatch; ++j) {
+                        final int index = ((batchId * itemCountPerBatch) + j);
+                        if (index >= totalItemCount) { break; }
+                        final T item = totalCollection.get(index);
+                        bathedItems.add(item);
+                    }
+                    if (bathedItems.isEmpty()) { return; }
+
+                    try {
+                        batch.run(bathedItems);
+                    }
+                    catch (final Exception exception) {
+                        exceptionContainer.value = exception;
+                    }
+                }
+            };
+            runnables[i] = runnable;
+        }
+
+        if (_asynchronousExecutionIsEnabled) {
+            _executeAsynchronously(runnables, exceptionContainer);
+        }
+        else {
+            for (final Runnable runnable : runnables) {
+                if (exceptionContainer.value != null) { break; }
+
+                runnable.run();
+            }
+        }
+
+        if (exceptionContainer.value != null) {
+            if (exceptionContainer.value instanceof DatabaseException) {
+                throw ((DatabaseException) exceptionContainer.value);
+            }
+            else {
+                throw new DatabaseException(exceptionContainer.value);
+            }
+        }
+    }
+
+    public Integer getItemCountPerBatch() {
+        return _maxItemCountPerBatch;
+    }
+
+    public Boolean asynchronousExecutionIsEnabled() {
+        return _asynchronousExecutionIsEnabled;
+    }
+}

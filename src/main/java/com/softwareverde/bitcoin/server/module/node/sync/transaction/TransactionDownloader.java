@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.pending
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -16,6 +17,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
@@ -33,7 +35,9 @@ public class TransactionDownloader extends SleepyService {
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
-    protected final BitcoinNodeManager.DownloadTransactionCallback _transactionDownloadedCallback;
+    protected final BitcoinNode.DownloadTransactionCallback _transactionDownloadedCallback;
+
+    protected final ConcurrentHashMap<Sha256Hash, Tuple<RequestId, BitcoinNode>> _pendingRequestInformation = new ConcurrentHashMap<>();
 
     protected Runnable _newTransactionAvailableCallback = null;
 
@@ -84,8 +88,12 @@ public class TransactionDownloader extends SleepyService {
             for (final Sha256Hash stalledTransactionHash : stalledTransactionHashes) {
                 Logger.warn("Stalled Transaction Detected: " + stalledTransactionHash);
                 _currentTransactionDownloadSet.remove(stalledTransactionHash);
+
+                final Tuple<RequestId, BitcoinNode> requestInformation = _pendingRequestInformation.remove(stalledTransactionHash);
+                if (requestInformation != null) {
+                    _transactionDownloadedCallback.onFailure(requestInformation.first, requestInformation.second, stalledTransactionHash);
+                }
             }
-            _transactionDownloadedCallback.onFailure(stalledTransactionHashes);
         }
     }
 
@@ -94,12 +102,12 @@ public class TransactionDownloader extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        final Integer maximumConcurrentDownloadCount = Math.max(1, _bitcoinNodeManager.getActiveNodeCount());
+        final int maximumConcurrentDownloadCount = Math.max(1, _bitcoinNodeManager.getActiveNodeCount());
 
         _checkForStalledDownloads();
 
         { // Determine if routine should wait for a request to complete...
-            Integer currentDownloadCount = _currentTransactionDownloadSet.size();
+            int currentDownloadCount = _currentTransactionDownloadSet.size();
             while (currentDownloadCount >= maximumConcurrentDownloadCount) {
                 synchronized (_downloadCallbackPin) {
                     final MilliTimer waitTimer = new MilliTimer();
@@ -164,7 +172,12 @@ public class TransactionDownloader extends SleepyService {
                 }
 
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
-                _bitcoinNodeManager.requestTransactions(bitcoinNode, pendingTransactionHashes, _transactionDownloadedCallback);
+                final RequestId requestId = bitcoinNode.requestTransactions(pendingTransactionHashes, _transactionDownloadedCallback);
+
+                final Tuple<RequestId, BitcoinNode> requestInformation = new Tuple<>(requestId, bitcoinNode);
+                for (final Sha256Hash transactionHash : pendingTransactionHashes) {
+                    _pendingRequestInformation.put(transactionHash, requestInformation);
+                }
             }
         }
         catch (final DatabaseException exception) {
@@ -182,9 +195,11 @@ public class TransactionDownloader extends SleepyService {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseManagerFactory = databaseManagerFactory;
 
-        _transactionDownloadedCallback = new BitcoinNodeManager.DownloadTransactionCallback() {
+        _transactionDownloadedCallback = new BitcoinNode.DownloadTransactionCallback() {
             @Override
-            public void onResult(final Transaction transaction) {
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Transaction transaction) {
+                _pendingRequestInformation.remove(transaction.getHash());
+
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                     _onTransactionDownloaded(transaction, databaseManager);
                 }
@@ -215,31 +230,27 @@ public class TransactionDownloader extends SleepyService {
             }
 
             @Override
-            public void onFailure(final List<Sha256Hash> transactionHashes) {
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash transactionHash) {
+                _pendingRequestInformation.remove(transactionHash);
+
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                     final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
 
-                    for (final Sha256Hash transactionHash : transactionHashes) {
-                        final PendingTransactionId pendingTransactionId = pendingTransactionDatabaseManager.getPendingTransactionId(transactionHash);
-                        if (pendingTransactionId == null) {
-                            Logger.warn("Unable to increment download failure count for transaction: " + transactionHash);
-                            return;
-                        }
-
-                        pendingTransactionDatabaseManager.incrementFailedDownloadCount(pendingTransactionId);
+                    final PendingTransactionId pendingTransactionId = pendingTransactionDatabaseManager.getPendingTransactionId(transactionHash);
+                    if (pendingTransactionId == null) {
+                        Logger.debug("Unable to increment download failure count for transaction: " + transactionHash);
+                        return;
                     }
+
+                    pendingTransactionDatabaseManager.incrementFailedDownloadCount(pendingTransactionId);
 
                     pendingTransactionDatabaseManager.purgeFailedPendingTransactions(MAX_DOWNLOAD_FAILURE_COUNT);
                 }
                 catch (final DatabaseException exception) {
-                    Logger.warn(exception);
-                    Logger.warn("Unable to increment download failure count for transactions...");
+                    Logger.warn("Unable to increment download failure count for " + transactionHash + " transactions.", exception);
                 }
                 finally {
-                    for (final Sha256Hash transactionHash : transactionHashes) {
-                        _currentTransactionDownloadSet.remove(transactionHash);
-                    }
-
+                    _currentTransactionDownloadSet.remove(transactionHash);
                     synchronized (_downloadCallbackPin) {
                         _downloadCallbackPin.notifyAll();
                     }

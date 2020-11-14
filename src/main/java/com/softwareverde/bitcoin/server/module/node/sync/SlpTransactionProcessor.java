@@ -1,10 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -30,22 +26,7 @@ import java.util.Map;
 public class SlpTransactionProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
-    protected static Boolean _isConnected(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-        final List<BlockId> blockIds = transactionDatabaseManager.getBlockIds(transactionId);
-        for (final BlockId blockId : blockIds) {
-            final Boolean isConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
-            if (isConnected) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public static TransactionAccumulator createTransactionAccumulator(final Container<BlockchainSegmentId> blockchainSegmentId, final FullNodeDatabaseManager databaseManager, final Container<Integer> nullableTransactionLookupCount) {
+    public static TransactionAccumulator createTransactionAccumulator(final FullNodeDatabaseManager databaseManager, final Container<Integer> nullableTransactionLookupCount) {
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
         return new TransactionAccumulator() {
@@ -59,9 +40,9 @@ public class SlpTransactionProcessor extends SleepyService {
                             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                             if (transactionId == null) { continue; }
 
-                            final Boolean transactionIsConnectedToBlockchainSegment = _isConnected(blockchainSegmentId.value, transactionId, databaseManager);
-                            if (! transactionIsConnectedToBlockchainSegment) {
-                                if (! (allowUnconfirmedTransactions && transactionDatabaseManager.isUnconfirmedTransaction(transactionId))) {
+                            if (! allowUnconfirmedTransactions) {
+                                final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                                if (isUnconfirmedTransaction) {
                                     continue;
                                 }
                             }
@@ -84,7 +65,7 @@ public class SlpTransactionProcessor extends SleepyService {
             };
     }
 
-    public static SlpTransactionValidationCache createSlpTransactionValidationCache(final Container<BlockchainSegmentId> blockchainSegmentId, final FullNodeDatabaseManager databaseManager) {
+    public static SlpTransactionValidationCache createSlpTransactionValidationCache(final FullNodeDatabaseManager databaseManager) {
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
@@ -97,7 +78,7 @@ public class SlpTransactionProcessor extends SleepyService {
 
                     final MilliTimer milliTimer = new MilliTimer();
                     milliTimer.start();
-                    final Boolean result = slpTransactionDatabaseManager.getSlpTransactionValidationResult(blockchainSegmentId.value, transactionId);
+                    final Boolean result = slpTransactionDatabaseManager.getSlpTransactionValidationResult(transactionId);
                     milliTimer.stop();
                     Logger.trace("Loaded Cached Validity: " + transactionHash + " in " + milliTimer.getMillisecondsElapsed() + "ms. (" + result + ")");
                     return result;
@@ -114,7 +95,7 @@ public class SlpTransactionProcessor extends SleepyService {
                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                     if (transactionId == null) { return; }
 
-                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(blockchainSegmentId.value, transactionId, isValid);
+                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
                 }
                 catch (final DatabaseException exception) {
                     Logger.warn(exception);
@@ -134,16 +115,13 @@ public class SlpTransactionProcessor extends SleepyService {
     protected Boolean _run() {
         Logger.trace("SlpTransactionProcessor Running.");
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
-            final Container<BlockchainSegmentId> blockchainSegmentId = new Container<BlockchainSegmentId>();
             final Container<Integer> transactionLookupCount = new Container<Integer>(0);
 
-            final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(blockchainSegmentId, databaseManager, transactionLookupCount);
-            final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(blockchainSegmentId, databaseManager);
+            final TransactionAccumulator transactionAccumulator = SlpTransactionProcessor.createTransactionAccumulator(databaseManager, transactionLookupCount);
+            final SlpTransactionValidationCache slpTransactionValidationCache = SlpTransactionProcessor.createSlpTransactionValidationCache(databaseManager);
 
             // 1. Iterate through blocks for SLP transactions.
             // 2. Validate any SLP transactions for that block's blockchain segment.
@@ -156,7 +134,6 @@ public class SlpTransactionProcessor extends SleepyService {
             if (pendingSlpTransactionIds.isEmpty()) { // Only validate unconfirmed SLP Transactions if the history is up to date in order to reduce the validation depth.
                 unconfirmedPendingSlpTransactionIds = slpTransactionDatabaseManager.getUnconfirmedPendingValidationSlpTransactions(BATCH_SIZE);
                 if (unconfirmedPendingSlpTransactionIds.isEmpty()) { return false; }
-                blockchainSegmentId.value = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             }
             else {
                 unconfirmedPendingSlpTransactionIds = new MutableList<TransactionId>(0);
@@ -166,8 +143,6 @@ public class SlpTransactionProcessor extends SleepyService {
 
             // Validate Confirmed SLP Transactions...
             for (final BlockId blockId : pendingSlpTransactionIds.keySet()) {
-                blockchainSegmentId.value = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
                 final List<TransactionId> transactionIds = pendingSlpTransactionIds.get(blockId);
                 for (final TransactionId transactionId : transactionIds) {
                     transactionLookupCount.value = 0;
@@ -175,11 +150,12 @@ public class SlpTransactionProcessor extends SleepyService {
 
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                     final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(blockchainSegmentId.value, transactionId, isValid);
+                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
 
                     milliTimer.stop();
                     Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
                 }
+                slpTransactionDatabaseManager.setLastSlpValidatedBlockId(blockId);
             }
 
             // Validate Unconfirmed SLP Transactions...
@@ -189,7 +165,7 @@ public class SlpTransactionProcessor extends SleepyService {
 
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                slpTransactionDatabaseManager.setSlpTransactionValidationResult(blockchainSegmentId.value, transactionId, isValid);
+                slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
 
                 milliTimer.stop();
                 Logger.trace("Validated Unconfirmed Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");

@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
-import com.softwareverde.bitcoin.address.CompressedAddress;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
@@ -80,8 +80,8 @@ public class ScriptPatternMatcher {
         if (pushOperation instanceof PushOperation) {
             final int pushedByteCount = ((PushOperation) pushOperation).getValue().getByteCount();
 
-            final Boolean isPublicKeyLength = (pushedByteCount == 65);
-            final Boolean isCompressedPublicKeyLength = (pushedByteCount == 33);
+            final boolean isPublicKeyLength = (pushedByteCount == 65);
+            final boolean isCompressedPublicKeyLength = (pushedByteCount == 33);
             if ( (! isPublicKeyLength) && (! isCompressedPublicKeyLength) ) { return false; }
         }
         else { return false; }
@@ -131,8 +131,7 @@ public class ScriptPatternMatcher {
 
         final PushOperation pushOperation = (PushOperation) operation;
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
-        final PublicKey publicKey = PublicKey.fromBytes(bytes);
-        return publicKey;
+        return PublicKey.fromBytes(bytes);
     }
 
 
@@ -141,31 +140,10 @@ public class ScriptPatternMatcher {
         if (publicKey == null) { return null; }
 
         final AddressInflater addressInflater = new AddressInflater();
-        if (publicKey.isCompressed()) {
-            return addressInflater.compressedFromPublicKey(publicKey);
-        }
-        else {
-            return addressInflater.uncompressedFromPublicKey(publicKey);
-        }
+        return addressInflater.fromPublicKey(publicKey);
     }
 
-    protected Address _extractDecompressedAddressFromPayToPublicKey(final Script lockingScript) {
-        final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
-        if (publicKey == null) { return null; }
-
-        final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.uncompressedFromPublicKey(publicKey.decompress());
-    }
-
-    protected CompressedAddress _extractCompressedAddressFromPayToPublicKey(final Script lockingScript) {
-        final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
-        if (publicKey == null) { return null; }
-
-        final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.compressedFromPublicKey(publicKey);
-    }
-
-    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript) {
+    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript, final Boolean isCompressed) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getCount() != PAY_TO_PUBLIC_KEY_HASH_PATTERN.getCount()) { return null; }
@@ -179,10 +157,10 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(bytes);
+        return addressInflater.fromBytes(bytes, isCompressed);
     }
 
-    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript) {
+    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript, final Boolean isCompressed) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getCount() != PAY_TO_SCRIPT_HASH_PATTERN.getCount()) { return null; }
@@ -196,14 +174,14 @@ public class ScriptPatternMatcher {
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
 
         final AddressInflater addressInflater = new AddressInflater();
-        return addressInflater.fromBytes(bytes);
+        return addressInflater.fromBytes(bytes, isCompressed);
     }
 
     /**
      * Returns true if the provided script matches the Pay-To-Public-Key (P2PK) script format.
      *  The P2PK format is: <20-byte public-key-hash> OP_CHECKSIG
      */
-    public Boolean matchesPayToPublicKeyFormat(final Script lockingScript) {
+    public Boolean matchesPayToPublicKeyFormat(final LockingScript lockingScript) {
         return _matchesPayToPublicKeyFormat(lockingScript);
     }
 
@@ -211,11 +189,11 @@ public class ScriptPatternMatcher {
      * Returns true if the provided script matches the Pay-To-Public-Key-Hash (P2PKH) script format.
      *  The P2PKH format is: OP_DUP OP_HASH160 <20-byte public-key-hash> OP_EQUALVERIFY OP_CHECKSIG
      */
-    public Boolean matchesPayToPublicKeyHashFormat(final Script lockingScript) {
+    public Boolean matchesPayToPublicKeyHashFormat(final LockingScript lockingScript) {
         return _matchesPayToPublicKeyHashFormat(lockingScript);
     }
 
-    public Address extractAddress(final ScriptType scriptType, final Script lockingScript) {
+    public Address extractAddress(final ScriptType scriptType, final LockingScript lockingScript) {
         final Address address;
         {
             switch (scriptType) {
@@ -224,11 +202,11 @@ public class ScriptPatternMatcher {
                 } break;
 
                 case PAY_TO_PUBLIC_KEY_HASH: {
-                    address = _extractAddressFromPayToPublicKeyHash(lockingScript);
+                    address = _extractAddressFromPayToPublicKeyHash(lockingScript, false);
                 } break;
 
                 case PAY_TO_SCRIPT_HASH: {
-                    address = _extractAddressFromPayToScriptHash(lockingScript);
+                    address = _extractAddressFromPayToScriptHash(lockingScript, false);
                 } break;
 
                 default: {
@@ -243,21 +221,16 @@ public class ScriptPatternMatcher {
         return _extractAddressFromPayToPublicKey(lockingScript);
     }
 
-    public Address extractDecompressedAddressFromPayToPublicKey(final LockingScript lockingScript) {
-        return _extractDecompressedAddressFromPayToPublicKey(lockingScript);
-    }
-
-    public CompressedAddress extractCompressedAddressFromPayToPublicKey(final LockingScript lockingScript) {
-        return _extractCompressedAddressFromPayToPublicKey(lockingScript);
-    }
-
     public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToPublicKeyHash(lockingScript);
+        return _extractAddressFromPayToPublicKeyHash(lockingScript, false);
     }
 
+    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript, final Boolean isCompressed) {
+        return _extractAddressFromPayToPublicKeyHash(lockingScript, isCompressed);
+    }
 
     public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {
-        return _extractAddressFromPayToScriptHash(lockingScript);
+        return _extractAddressFromPayToScriptHash(lockingScript, false);
     }
 
     /**
@@ -331,7 +304,7 @@ public class ScriptPatternMatcher {
         final Value value = pushOperation.getValue();
 
         // Total script length must be between 4 and 42, inclusive, in order to be a segwit program...
-        final Integer valueByteCount = value.getByteCount();
+        final int valueByteCount = value.getByteCount();
         if ( (valueByteCount < 4 || valueByteCount > 42) ) { return false; }
 
         // First byte must push a static value to the stack in order to be a segwit program...
@@ -345,5 +318,34 @@ public class ScriptPatternMatcher {
         final byte secondByte = value.getByte(1);
         final int secondByteIntegerValue = ByteUtil.byteToInteger(secondByte);
         return ((value.getByteCount() - 2) == secondByteIntegerValue);
+    }
+
+    public Boolean isProvablyUnspendable(final LockingScript lockingScript) {
+        // Using reflection on a Constable class can invalidate its immutability guarantees,
+        //  however, both branches use only immutable operations and yield significant performance
+        //  benefits dependant upon the implementation (~50x more performant).
+        // Rudimentary tests yielded:
+        //  With reflection, a 50/50 split of an uncached ImmutableLockingScript and MutableLockingScript rendered 56,452 operations per ms.
+        //  Without this optimization, an uncached ImmutableLockingScript via ::getOperations rendered 1,071 per ms.
+        //  Without this optimization, a MutableLockingScript via ::getBytes rendered 1,033 per ms.
+        // Since this function is used repeatedly during UTXO caching to determine eligibility, this optimization
+        //  warrants the code complexity.
+        if (lockingScript instanceof ImmutableScript) {
+            final ByteArray byteArray = lockingScript.getBytes();
+            if (byteArray.isEmpty()) { return false; }
+
+            final byte firstByte = byteArray.getByte(0);
+            return Opcode.RETURN.matchesByte(firstByte);
+        }
+        else {
+            final List<Operation> operations = lockingScript.getOperations();
+            if (operations.isEmpty()) { return false; }
+
+            final Operation operation = operations.get(0);
+            if (operation.getType() != Operation.Type.OP_CONTROL) { return false; }
+
+            final ControlOperation controlOperation = (ControlOperation) operation;
+            return Opcode.RETURN.matchesByte(controlOperation.getOpcodeByte());
+        }
     }
 }

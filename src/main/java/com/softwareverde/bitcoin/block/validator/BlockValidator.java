@@ -1,61 +1,68 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.bip.Bip34;
+import com.softwareverde.bitcoin.bip.HF20200515;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
-import com.softwareverde.bitcoin.block.validator.thread.*;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.block.validator.thread.ParalleledTaskSpawner;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
+import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
+import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class BlockValidator {
-    public static final Long DO_NOT_TRUST_BLOCKS = -1L;
+    public interface Context extends BlockHeaderValidator.Context, TransactionValidator.Context, TransactionValidatorFactory { }
 
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final BlockValidatorFactory _blockValidatorFactory;
-    protected final TransactionValidatorFactory _transactionValidatorFactory;
+    public static final Long DO_NOT_TRUST_BLOCKS = -1L;
+    public static final Integer MIN_BYTES_PER_SIGNATURE_OPERATION = 141;
+
+    protected final Context _context;
+
     protected final SystemTime _systemTime = new SystemTime();
-    protected final MedianBlockTimeWithBlocks _medianBlockTime;
-    protected final NetworkTime _networkTime;
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = DO_NOT_TRUST_BLOCKS;
 
-    protected BlockValidationResult _validateTransactions(final Block block, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
+    protected BlockValidationResult _validateTransactions(final Block block, final Long blockHeight) {
         final Thread currentThread = Thread.currentThread();
 
+        { // Enforce max byte count...
+            final Integer blockByteCount = block.getByteCount();
+            if (blockByteCount > BlockInflater.MAX_BYTE_COUNT) {
+                return BlockValidationResult.invalid("Block exceeded maximum size.");
+            }
+        }
+
         final List<Transaction> transactions;
-        final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
             final List<Transaction> fullTransactionList = block.getTransactions();
             final int transactionCount = (fullTransactionList.getCount() - 1);
@@ -66,31 +73,14 @@ public class BlockValidator {
                     listBuilder.add(transaction);
                 }
 
-                queuedTransactionOutputs.put(transaction.getHash(), transaction);
-
                 transactionIndex += 1;
             }
             transactions = listBuilder.build();
         }
 
+        final BlockOutputs blockOutputs = BlockOutputs.fromBlock(block);
         final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
         threadPool.setThreadPriority(currentThread.getPriority());
-
-        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool, _databaseManagerFactory);
-        totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
-            @Override
-            public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
-                return new TotalExpenditureTaskHandler(queuedTransactionOutputs);
-            }
-        });
-
-        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool, _databaseManagerFactory);
-        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
-            @Override
-            public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
-            }
-        });
 
         final int threadCount;
         final boolean executeBothTasksAsynchronously;
@@ -106,6 +96,24 @@ public class BlockValidator {
             }
         }
 
+        final SpentOutputsTracker spentOutputsTracker = new SpentOutputsTracker(blockOutputs.getOutputCount(), threadCount);
+        final ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool);
+        totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
+            @Override
+            public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
+                return new TotalExpenditureTaskHandler(_context, blockOutputs, spentOutputsTracker);
+            }
+        });
+
+        final TransactionValidator transactionValidator = _context.getTransactionValidator(blockOutputs, _context);
+        final ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> transactionValidationTaskSpawner = new ParalleledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult>("Validation", threadPool);
+        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult>() {
+            @Override
+            public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationTaskResult> newInstance() {
+                return new TransactionValidationTaskHandler(blockHeight, transactionValidator);
+            }
+        });
+
         if (executeBothTasksAsynchronously) {
             transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
             totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
@@ -119,11 +127,6 @@ public class BlockValidator {
             totalExpenditureValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
-
-        // TODO: Validate block size...
-        // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
-        // TODO: Validate transaction does not appear twice within the same Block and Blockchain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
-        // TODO: Create test for PreviousTransactionOutput being EmptyHash/-1 when not coinbase.
 
         { // Validate coinbase contains block height...
             if (Bip34.isEnabled(blockHeight)) {
@@ -170,9 +173,9 @@ public class BlockValidator {
                 final TransactionInput transactionInput = transactionInputs.get(0);
                 final Sha256Hash previousTransactionOutputHash = transactionInput.getPreviousOutputTransactionHash();
                 final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
-                final Boolean previousTransactionOutputHashIsValid = Util.areEqual(Sha256Hash.EMPTY_HASH, previousTransactionOutputHash);
-                final Boolean previousTransactionOutputIndexIsValid = (previousTransactionOutputIndex == -1);
-                if ( (! previousTransactionOutputHashIsValid) || (! previousTransactionOutputIndexIsValid) ) {
+                final Boolean previousTransactionOutputHashIsValid = Util.areEqual(previousTransactionOutputHash, TransactionOutputIdentifier.COINBASE.getTransactionHash());
+                final Boolean previousTransactionOutputIndexIsValid = Util.areEqual(previousTransactionOutputIndex, TransactionOutputIdentifier.COINBASE.getOutputIndex());
+                if (! (previousTransactionOutputHashIsValid && previousTransactionOutputIndexIsValid)) {
                     totalExpenditureValidationTaskSpawner.abort();
                     transactionValidationTaskSpawner.abort();
                     return BlockValidationResult.invalid("Invalid coinbase transaction input. " + previousTransactionOutputHash + ":" + previousTransactionOutputIndex + "; " + "Block: " + block.getHash(), coinbaseTransaction);
@@ -188,15 +191,15 @@ public class BlockValidator {
         }
         if (expenditureResults == null) { return BlockValidationResult.invalid("An internal error occurred during ExpenditureValidatorTask."); }
 
-        final List<TransactionValidationTaskHandler.TransactionValidationResult> unlockedInputsResults = transactionValidationTaskSpawner.waitForResults();
+        final List<TransactionValidationTaskHandler.TransactionValidationTaskResult> transactionValidationTaskResults = transactionValidationTaskSpawner.waitForResults();
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
-        if (unlockedInputsResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
+        if (transactionValidationTaskResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
 
         threadPool.stop();
 
         final MutableList<Sha256Hash> invalidTransactions = new MutableList<Sha256Hash>();
 
-        final Long totalTransactionFees;
+        final long totalTransactionFees;
         {
             long totalFees = 0L;
             for (final TotalExpenditureTaskHandler.ExpenditureResult expenditureResult : expenditureResults) {
@@ -211,20 +214,45 @@ public class BlockValidator {
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Invalid transactions expenditures.", invalidTransactions); }
 
-        for (final TransactionValidationTaskHandler.TransactionValidationResult transactionValidationResult : unlockedInputsResults) {
-            if (! transactionValidationResult.isValid) {
-                invalidTransactions.addAll(transactionValidationResult.invalidTransactions);
+        final StringBuilder errorMessage = new StringBuilder("Transactions failed to unlock inputs.");
+        final int totalSignatureOperationCount;
+        {
+            int signatureOperationCount = 0;
+            for (final TransactionValidationTaskHandler.TransactionValidationTaskResult transactionValidationTaskResult : transactionValidationTaskResults) {
+                if (transactionValidationTaskResult.isValid()) {
+                    signatureOperationCount += transactionValidationTaskResult.getSignatureOperationCount();
+                }
+                else {
+                    for (final Sha256Hash invalidTransactionHash : transactionValidationTaskResult.getInvalidTransactions()) {
+                        invalidTransactions.add(invalidTransactionHash);
+
+                        final TransactionValidationResult transactionValidationResult = transactionValidationTaskResult.getTransactionValidationResult(invalidTransactionHash);
+                        errorMessage.append("\n");
+                        errorMessage.append(invalidTransactionHash);
+                        errorMessage.append(": ");
+                        errorMessage.append(transactionValidationResult.errorMessage);
+                    }
+                }
+            }
+            totalSignatureOperationCount = signatureOperationCount;
+        }
+        if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid(errorMessage.toString(), invalidTransactions); }
+
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
+        if (HF20200515.isEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
+            final int maximumSignatureOperationCount = (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
+            if (totalSignatureOperationCount > maximumSignatureOperationCount) {
+                return BlockValidationResult.invalid("Too many signature operations.");
             }
         }
-        if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Transactions failed to unlock inputs.", invalidTransactions); }
 
         { // Validate coinbase amount...
             final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
             final Long maximumCreatedCoinsAmount = BlockHeader.calculateBlockReward(blockHeight);
 
-            final Long maximumCoinbaseValue = (maximumCreatedCoinsAmount + totalTransactionFees);
+            final long maximumCoinbaseValue = (maximumCreatedCoinsAmount + totalTransactionFees);
 
-            final Long coinbaseTransactionAmount;
+            final long coinbaseTransactionAmount;
             {
                 long totalAmount = 0L;
                 for (final TransactionOutput transactionOutput : coinbaseTransaction.getTransactionOutputs()) {
@@ -233,7 +261,7 @@ public class BlockValidator {
                 coinbaseTransactionAmount = totalAmount;
             }
 
-            final Boolean coinbaseTransactionAmountIsValid = (coinbaseTransactionAmount <= maximumCoinbaseValue);
+            final boolean coinbaseTransactionAmountIsValid = (coinbaseTransactionAmount <= maximumCoinbaseValue);
             if (! coinbaseTransactionAmountIsValid) {
                 return BlockValidationResult.invalid("Invalid coinbase transaction amount. Amount: " + coinbaseTransactionAmount + "; " + "Block: "+ block.getHash(), coinbaseTransaction);
             }
@@ -242,64 +270,31 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidationResult _validateBlock(final BlockId blockId, final Block nullableBlock) {
-        if (blockId == null) { return BlockValidationResult.invalid("Invalid blockId."); }
-
-        final Block block;
-        final Long blockHeight;
-        final BlockchainSegmentId blockchainSegmentId;
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-            if (nullableBlock != null) {
-                block = nullableBlock;
-                { // Validate BlockId...
-                    final Sha256Hash blockHash = block.getHash();
-                    Logger.info(blockHash);
-                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                    if (! Util.areEqual(actualBlockId, blockId)) {
-                        return BlockValidationResult.invalid("BlockId mismatch. " + blockId + " vs " + actualBlockId);
-                    }
-                }
-            }
-            else {
-                block = blockDatabaseManager.getBlock(blockId);
-                if (block == null) {
-                    return BlockValidationResult.invalid("Could not inflate Block. BlockId: " + blockId);
-                }
-            }
-
-            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-
-            final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
-            final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block, blockHeight);
-            if (! blockHeaderValidationResponse.isValid) {
-                return BlockValidationResult.invalid(blockHeaderValidationResponse.errorMessage);
-            }
-
-            blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.info("Error encountered validating block:");
-            Logger.info(databaseException);
-            return BlockValidationResult.invalid("An internal error occurred.");
+    protected BlockValidationResult _validateBlock(final Block block, final Long blockHeight) {
+        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_context);
+        final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(block, blockHeight);
+        if (! blockHeaderValidationResult.isValid) {
+            return BlockValidationResult.invalid(blockHeaderValidationResult.errorMessage);
         }
 
-        return _validateBlock(blockchainSegmentId, block, blockHeight);
-    }
-
-    protected BlockValidationResult _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight) {
         if (! block.isValid()) {
             return BlockValidationResult.invalid("Block header is invalid.");
         }
 
-        final Boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
+        { // Ensure the Coinbase Transaction is valid.
+            final CoinbaseTransaction coinbaseTransaction = block.getCoinbaseTransaction();
+            final Boolean isValidCoinbase = Transaction.isCoinbaseTransaction(coinbaseTransaction);
+            if (! isValidCoinbase) {
+                return BlockValidationResult.invalid("Coinbase Transaction is invalid.");
+            }
+        }
+
+        final boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
         if (shouldValidateInputs) {
             final NanoTimer validateBlockTimer = new NanoTimer();
             validateBlockTimer.start();
 
-            final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockchainSegmentId, blockHeight);
+            final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockHeight);
             if (! transactionsValidationResult.isValid) { return transactionsValidationResult; }
 
             validateBlockTimer.stop();
@@ -315,22 +310,8 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-        this(
-            databaseManagerFactory,
-            new BlockValidatorFactoryCore(),
-            transactionValidatorFactory,
-            networkTime,
-            medianBlockTime
-        );
-    }
-
-    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-        _databaseManagerFactory = databaseManagerFactory;
-        _blockValidatorFactory = blockValidatorFactory;
-        _transactionValidatorFactory = transactionValidatorFactory;
-        _networkTime = networkTime;
-        _medianBlockTime = medianBlockTime;
+    public BlockValidator(final Context context) {
+        _context = context;
     }
 
     /**
@@ -344,58 +325,24 @@ public class BlockValidator {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
+    public BlockValidationResult validateBlock(final Block block, final Long blockHeight) {
+        return _validateBlock(block, blockHeight);
+    }
+
     /**
      * Validates the provided block for mining.
      *  PrototypeBlock's are valid blocks, with the sole exception of their hash is not required to be valid.
      */
-    public BlockValidationResult validatePrototypeBlock(final BlockId blockId, final Block prototypeBlock) {
+    public BlockValidationResult validatePrototypeBlock(final Block prototypeBlock, final Long blockHeight) {
         final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
         final Difficulty difficulty = prototypeBlock.getDifficulty();
         final PrototypeDifficulty prototypeDifficulty = new PrototypeDifficulty(difficulty);
         mutableBlock.setDifficulty(prototypeDifficulty);
-        return _validateBlock(blockId, mutableBlock);
+        return _validateBlock(mutableBlock, blockHeight);
     }
 
-    public BlockValidationResult validateBlock(final BlockId blockId, final Block nullableBlock) {
-        return _validateBlock(blockId, nullableBlock);
-    }
-
-    public BlockValidationResult validateBlockTransactions(final BlockId blockId, final Block nullableBlock) {
-        final Block block;
-        final Long blockHeight;
-        final BlockchainSegmentId blockchainSegmentId;
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
-            if (nullableBlock != null) {
-                block = nullableBlock;
-
-                { // Validate BlockId...
-                    final Sha256Hash blockHash = block.getHash();
-                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                    if (! Util.areEqual(actualBlockId, blockId)) {
-                        return BlockValidationResult.invalid("BlockId mismatch. " + blockId + " vs " + actualBlockId);
-                    }
-                }
-            }
-            else {
-                block = blockDatabaseManager.getBlock(blockId);
-                if (block == null) {
-                    return BlockValidationResult.invalid("No transactions for block id: " + blockId);
-                }
-            }
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.info("Error encountered validating block:");
-            Logger.info(databaseException);
-            return BlockValidationResult.invalid("An internal error occurred.");
-        }
-
-        return _validateBlock(blockchainSegmentId, block, blockHeight);
+    public BlockValidationResult validateBlockTransactions(final Block block, final Long blockHeight) {
+        return _validateBlock(block, blockHeight);
     }
 
     public void setShouldLogValidBlocks(final Boolean shouldLogValidBlocks) {

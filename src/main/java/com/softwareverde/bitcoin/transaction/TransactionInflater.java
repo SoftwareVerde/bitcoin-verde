@@ -10,16 +10,23 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInflater {
+    public static final Integer MIN_BYTE_COUNT = 100;
+    public static final Integer MAX_BYTE_COUNT = (int) (2L * ByteUtil.Unit.Si.MEGABYTES);
+
     protected MutableTransaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+        // NOTE: The min Transaction size rule was activated on HF20181115 and therefore cannot be enforced here.
+
+        final Integer startPosition = byteArrayReader.getPosition();
         final MutableTransaction transaction = new MutableTransaction();
         transaction._version = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
-        final Integer transactionInputCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Long transactionInputCount = byteArrayReader.readVariableSizedInteger();
         for (int i = 0; i < transactionInputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionInput transactionInput = transactionInputInflater.fromBytes(byteArrayReader);
@@ -28,7 +35,7 @@ public class TransactionInflater {
         }
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final Integer transactionOutputCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Long transactionOutputCount = byteArrayReader.readVariableSizedInteger();
         for (int i = 0; i < transactionOutputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
@@ -36,12 +43,22 @@ public class TransactionInflater {
             transaction._transactionOutputs.add(transactionOutput);
         }
 
-        {
+        { // Read Transaction LockTime...
             final Long lockTimeValue = byteArrayReader.readLong(4, Endian.LITTLE);
             transaction._lockTime = new ImmutableLockTime(lockTimeValue);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
+
+        final int totalByteCount;
+        { // Enforce maximum transaction size...
+            // NOTE: At this point, the bytes are already in memory and limited by the PacketBuffer max size, so incremental checks are not performed.
+            final Integer endPosition = byteArrayReader.getPosition();
+            totalByteCount = (endPosition - startPosition);
+            if (totalByteCount > TransactionInflater.MAX_BYTE_COUNT) { return null; }
+        }
+
+        transaction.cacheByteCount(totalByteCount);
 
         return transaction;
     }

@@ -10,8 +10,8 @@ import com.softwareverde.util.bytearray.Endian;
 public class BloomFilterDeflater {
     public ByteArray toBytes(final BloomFilter bloomFilter) {
         final ByteArray bloomFilterBytes = bloomFilter.getBytes();
-        final Integer bloomFilterByteCount = bloomFilterBytes.getByteCount();
-        final Integer bloomFilterBitCount = (bloomFilterByteCount * 8);
+        final int bloomFilterByteCount = bloomFilterBytes.getByteCount();
+        final int bloomFilterBitCount = (bloomFilterByteCount * 8);
         final Long nonce = bloomFilter.getNonce();
         final Integer hashFunctionCount = bloomFilter.getHashFunctionCount();
         final byte updateMode = bloomFilter.getUpdateMode();
@@ -36,5 +36,12 @@ public class BloomFilterDeflater {
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(nonce), Endian.LITTLE);
         byteArrayBuilder.appendByte(updateMode);
         return MutableByteArray.wrap(byteArrayBuilder.build());
+    }
+
+    public Integer getByteCount(final BloomFilter bloomFilter) {
+        final int bloomFilterByteCount = bloomFilter.getByteCount();
+        final byte[] bloomFilterByteCountBytes = ByteUtil.variableLengthIntegerToBytes(bloomFilterByteCount);
+
+        return (bloomFilterByteCountBytes.length + 4 + 4 + 1 + bloomFilterByteCount);
     }
 }

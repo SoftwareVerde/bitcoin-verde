@@ -30,4 +30,10 @@ public class TransactionMessage extends BitcoinProtocolMessage {
         final TransactionDeflater transactionDeflater = _transactionInflaters.getTransactionDeflater();
         return transactionDeflater.toBytes(_transaction);
     }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        if (_transaction == null) { return 0; }
+        return _transaction.getByteCount();
+    }
 }

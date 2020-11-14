@@ -3,7 +3,11 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.*;
+import com.softwareverde.bitcoin.transaction.script.opcode.ComparisonOperation;
+import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -36,7 +40,7 @@ public class ScriptBuilder {
     // NOTE: Also known as payToPublicKeyHash (or P2PKH)...
     public static LockingScript payToAddress(final String base58Address) {
         final AddressInflater addressInflater = new AddressInflater();
-        return _createPayToAddressScript(addressInflater.uncompressedFromBase58Check(base58Address));
+        return _createPayToAddressScript(addressInflater.fromBase58Check(base58Address));
     }
     public static LockingScript payToAddress(final Address base58Address) {
         return _createPayToAddressScript(base58Address);

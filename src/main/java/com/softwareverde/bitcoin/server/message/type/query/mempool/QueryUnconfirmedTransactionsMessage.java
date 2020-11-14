@@ -15,4 +15,9 @@ public class QueryUnconfirmedTransactionsMessage extends BitcoinProtocolMessage 
     protected ByteArray _getPayload() {
         return new MutableByteArray(0);
     }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        return 0;
+    }
 }

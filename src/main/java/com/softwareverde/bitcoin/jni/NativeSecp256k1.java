@@ -19,6 +19,7 @@
 
 package com.softwareverde.bitcoin.jni;
 
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
@@ -74,8 +75,8 @@ public class NativeSecp256k1 {
             NativeUtil.loadLibraryFromJar("/lib/libsecp256k1." + extension);
             contextRef = secp256k1_init_context();
         }
-        catch (final Exception exception) {
-            Logger.warn("NOTICE: libsecp256k1 failed to load.");
+        catch (final Throwable exception) {
+            Logger.debug("NOTICE: libsecp256k1 failed to load.", exception);
             isEnabled = false;
         }
         _libraryLoadedCorrectly = isEnabled;
@@ -104,27 +105,49 @@ public class NativeSecp256k1 {
      * Verifies the given secp256k1 signature in native code.
      *
      * @param data The data which was signed, must be exactly 32 bytes
-     * @param signature The signature
-     * @param pub The public key which did the signing
+     * @param signatureBytes The signature
+     * @param publicKeyBytes The public key which did the signing
      */
-    public static boolean verify(byte[] data, byte[] signature, byte[] pub) {
-        if (data.length != 32) { throw new RuntimeException("Invalid data length. Required 32 bytes; found "+ data.length + " bytes."); }
+    public static boolean verifySignature(final ByteArray data, final ByteArray signatureBytes, final ByteArray publicKeyBytes) {
+        final int dataByteCount = data.getByteCount();
+        final int signatureByteCount = signatureBytes.getByteCount();
+        final int publicKeyByteCount = publicKeyBytes.getByteCount();
+
+        if (dataByteCount != 32) { throw new RuntimeException("Invalid data length. Required 32 bytes; found "+ dataByteCount + " bytes."); }
         if (! _libraryLoadedCorrectly) { throw new RuntimeException("Cannot run NativeSecp256k1. Library failed to load."); }
 
-        final ByteBuffer byteBuff = _getByteBuffer();
+        final ByteBuffer byteBuffer = _getByteBuffer();
 
-        byteBuff.rewind();
-        byteBuff.put(data);
-        byteBuff.put(signature);
-        byteBuff.put(pub);
+        byteBuffer.rewind();
+
+        int writeIndex = 0;
+
+        for (int i = 0; i < dataByteCount; ++i) {
+            byteBuffer.put(writeIndex, data.getByte(i));
+            writeIndex += 1;
+        }
+
+        for (int i = 0; i < signatureByteCount; ++i) {
+            byteBuffer.put(writeIndex, signatureBytes.getByte(i));
+            writeIndex += 1;
+        }
+
+        for (int i = 0; i < publicKeyByteCount; ++i) {
+            byteBuffer.put(writeIndex, publicKeyBytes.getByte(i));
+            writeIndex += 1;
+        }
 
         _readLock.lock();
         try {
-            return (secp256k1_ecdsa_verify(byteBuff, _context, signature.length, pub.length) == 1);
+            return (secp256k1_ecdsa_verify(byteBuffer, _context, signatureByteCount, publicKeyByteCount) == 1);
         }
         finally {
             _readLock.unlock();
         }
+    }
+
+    public static boolean verifySignature(final byte[] data, final byte[] signature, final byte[] publicKey) {
+        return NativeSecp256k1.verifySignature(ByteArray.wrap(data), ByteArray.wrap(signature), ByteArray.wrap(publicKey));
     }
 
     /**

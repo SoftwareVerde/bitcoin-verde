@@ -51,7 +51,7 @@ public class DifficultyTests {
     public void should_not_be_satisfied_by_larger_hash() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(ByteArray.fromHexString("00FFFF"), (0x1D - 0x03));
-        Assert.assertEquals(ByteArray.fromHexString(           "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        Assert.assertEquals(ByteArray.fromHexString(           "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure the test's decoding is sane...
         final Sha256Hash sha256Hash = Sha256Hash.fromHexString("00000001FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
@@ -65,7 +65,7 @@ public class DifficultyTests {
     public void should_be_satisfied_by_equal_hash() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(ByteArray.fromHexString("00FFFF"), (0x1D - 0x03));
-        Assert.assertEquals(ByteArray.fromHexString(       "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        Assert.assertEquals(ByteArray.fromHexString(       "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure the test's decoding is sane...
         final Sha256Hash sha256Hash = Sha256Hash.fromHexString("00000000FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
@@ -79,7 +79,7 @@ public class DifficultyTests {
     public void should_be_satisfied_by_smaller_hash_0() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(ByteArray.fromHexString("00FFFF"), (0x1D - 0x03));
-        Assert.assertEquals(ByteArray.fromHexString(           "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        Assert.assertEquals(ByteArray.fromHexString(           "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure the test's decoding is sane...
         final Sha256Hash sha256Hash = Sha256Hash.fromHexString("00000000FFFE0000000000000000000000000000000000000000000000000000");
 
         // Action
@@ -93,7 +93,7 @@ public class DifficultyTests {
     public void should_be_satisfied_by_smaller_hash_1() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(ByteArray.fromHexString("00FFFF"), (0x1D - 0x03));
-        Assert.assertEquals(ByteArray.fromHexString(           "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        Assert.assertEquals(ByteArray.fromHexString(           "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure the test's decoding is sane...
         final Sha256Hash sha256Hash = Sha256Hash.fromHexString("000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
         // Action

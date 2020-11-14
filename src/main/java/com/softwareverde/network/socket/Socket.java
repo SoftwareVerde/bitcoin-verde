@@ -28,6 +28,8 @@ public abstract class Socket {
         void join() throws InterruptedException;
         void join(long timeout) throws InterruptedException;
         void start();
+
+        Long getTotalBytesReceived();
     }
 
     protected final Long _id;
@@ -39,6 +41,8 @@ public abstract class Socket {
     protected Runnable _socketClosedCallback;
     protected Boolean _isListening = false;
     protected final ReadThread _readThread;
+    protected Long _totalBytesSent = 0L;
+    protected String _cachedHost = null;
 
     protected final OutputStream _rawOutputStream;
     protected final InputStream _rawInputStream;
@@ -48,9 +52,13 @@ public abstract class Socket {
     protected final Object _rawOutputStreamWriteMutex = new Object();
 
     protected String _getHost() {
-        Logger.info("INFO: Performing reverse lookup for: " + _socket.getRemoteSocketAddress());
-        final InetAddress inetAddress = _socket.getInetAddress();
-        return (inetAddress != null ? inetAddress.getHostName() : null);
+        if (_cachedHost == null) {
+            Logger.info("INFO: Performing ip lookup for: " + _socket.getRemoteSocketAddress());
+            final InetAddress inetAddress = _socket.getInetAddress();
+            _cachedHost = (inetAddress != null ? inetAddress.getHostName() : null);
+        }
+
+        return _cachedHost;
     }
 
     protected Integer _getPort() {
@@ -176,6 +184,7 @@ public abstract class Socket {
 
     public Boolean write(final ProtocolMessage outboundMessage) {
         final ByteArray bytes = outboundMessage.getBytes();
+        _totalBytesSent += bytes.getByteCount();
 
         try {
             synchronized (_rawOutputStreamWriteMutex) {
@@ -229,6 +238,14 @@ public abstract class Socket {
      */
     public Boolean isConnected() {
         return ( (! _isClosed) && (! _socket.isClosed()) );
+    }
+
+    public Long getTotalBytesSentCount() {
+        return _totalBytesSent;
+    }
+
+    public Long getTotalBytesReceivedCount() {
+        return _readThread.getTotalBytesReceived();
     }
 
     @Override

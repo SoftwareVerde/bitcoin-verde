@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.message.header;
 
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.MessageTypeInflater;
@@ -7,12 +8,13 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.network.p2p.message.ProtocolMessageHeader;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHeaderInflater {
-    public static final Integer MAX_PACKET_SIZE = 268435456; // 33554432
+    public static final Integer MAX_PACKET_SIZE = (int) (2L * ByteUtil.Unit.Binary.MEBIBYTES); // Except Block Messages...
     public static final Integer HEADER_BYTE_COUNT = 24;
 
     protected final MessageTypeInflater _messageTypeInflater;
@@ -29,7 +31,7 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
 
         final ByteArray commandBytes = MutableByteArray.wrap(byteArrayReader.readBytes(12, Endian.BIG));
         final MessageType command = _messageTypeInflater.fromBytes(commandBytes);
-        if (command == null) { return null; }
+        // if (command == null) { return null; } // NOTE: unknown/unsupported commands are allowed but then discarded.
 
         final Integer payloadByteCount = byteArrayReader.readInteger(4, Endian.LITTLE);
         final byte[] payloadChecksum = byteArrayReader.readBytes(4, Endian.BIG);
@@ -51,7 +53,16 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
     }
 
     @Override
-    public Integer getMaxPacketByteCount() {
+    public Integer getMaxPacketByteCount(final ProtocolMessageHeader protocolMessageHeader) {
+        if (protocolMessageHeader instanceof BitcoinProtocolMessageHeader) {
+            final BitcoinProtocolMessageHeader bitcoinProtocolMessageHeader = (BitcoinProtocolMessageHeader) protocolMessageHeader;
+
+            final MessageType messageType = bitcoinProtocolMessageHeader.command;
+            if ( (messageType != null) && messageType.isLargeMessage() ) {
+                return (2 * BlockInflater.MAX_BYTE_COUNT);
+            }
+        }
+
         return MAX_PACKET_SIZE;
     }
 

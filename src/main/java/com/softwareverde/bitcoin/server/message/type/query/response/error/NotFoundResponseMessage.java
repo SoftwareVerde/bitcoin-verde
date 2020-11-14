@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.server.message.type.query.response.error;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -38,6 +38,13 @@ public class NotFoundResponseMessage extends BitcoinProtocolMessage {
         for (final InventoryItem inventoryItem : _inventoryItems) {
             byteArrayBuilder.appendBytes(inventoryItem.getBytes(), Endian.BIG);
         }
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int inventoryItemCount = _inventoryItems.getCount();
+        final byte[] itemCountBytes = ByteUtil.variableLengthIntegerToBytes(inventoryItemCount);
+        return (itemCountBytes.length + (inventoryItemCount * InventoryItemInflater.BYTE_COUNT));
     }
 }

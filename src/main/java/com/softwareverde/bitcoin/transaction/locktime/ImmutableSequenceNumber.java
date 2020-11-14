@@ -53,7 +53,7 @@ public class ImmutableSequenceNumber implements SequenceNumber, Const {
     }
 
     @Override
-    public Boolean isDisabled() {
+    public Boolean isRelativeLockTimeDisabled() {
         return ((_value & 0x80000000L) != 0L);
     }
 
@@ -74,7 +74,7 @@ public class ImmutableSequenceNumber implements SequenceNumber, Const {
 
         final Json json = new Json();
         json.put("type", type);
-        json.put("isDisabled", (this.isDisabled() ? 1 : 0));
+        json.put("isDisabled", (this.isRelativeLockTimeDisabled() ? 1 : 0));
         json.put("value", (type == SequenceNumberType.SECONDS_ELAPSED ?  this.asSecondsElapsed() : this.asBlockCount()));
         json.put("bytes", this.getBytes());
         return json;

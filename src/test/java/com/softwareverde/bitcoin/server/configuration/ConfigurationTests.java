@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -35,16 +36,16 @@ public class ConfigurationTests {
         }
 
         final Configuration configuration = new Configuration(tempFile);
-        stringArrayEquals(new String[]{ },                              configuration._getArrayStringProperty("empty"));
-        stringArrayEquals(new String[]{ },                              configuration._getArrayStringProperty("empty_array"));
-        stringArrayEquals(new String[]{ "value" },                      configuration._getArrayStringProperty("single_value"));
-        stringArrayEquals(new String[]{ "va[ue" },                      configuration._getArrayStringProperty("value_with_bracket"));
-        stringArrayEquals(new String[]{ "" },                           configuration._getArrayStringProperty("empty_comma"));
-        stringArrayEquals(new String[]{ "", "" },                       configuration._getArrayStringProperty("empty_two_commas"));
-        stringArrayEquals(new String[]{ "single value with spaces" },   configuration._getArrayStringProperty("single_value_with_spaces"));
-        stringArrayEquals(new String[]{ "value one", "value two" },     configuration._getArrayStringProperty("two_values"));
-        stringArrayEquals(new String[]{ "value one", "value two" },     configuration._getArrayStringProperty("two_values_with_brackets"));
-        stringArrayEquals(new String[]{ "value one" },                  configuration._getArrayStringProperty("value_with_brackets"));
-        stringArrayEquals(new String[]{ "1", "3", "4", "", "6" },       configuration._getArrayStringProperty("some_missing_values_with_brackets"));
+        Assert.assertEquals(new ImmutableList<String>(),                                configuration._getArrayStringProperty("empty", ""));
+        Assert.assertEquals(new ImmutableList<String>(),                                configuration._getArrayStringProperty("empty_array", ""));
+        Assert.assertEquals(new ImmutableList<String>( "value" ),                       configuration._getArrayStringProperty("single_value", ""));
+        Assert.assertEquals(new ImmutableList<String>( "va[ue" ),                       configuration._getArrayStringProperty("value_with_bracket", ""));
+        Assert.assertEquals(new ImmutableList<String>( "" ),                            configuration._getArrayStringProperty("empty_comma", ""));
+        Assert.assertEquals(new ImmutableList<String>( "", "" ),                        configuration._getArrayStringProperty("empty_two_commas", ""));
+        Assert.assertEquals(new ImmutableList<String>( "single value with spaces" ),    configuration._getArrayStringProperty("single_value_with_spaces", ""));
+        Assert.assertEquals(new ImmutableList<String>( "value one", "value two" ),      configuration._getArrayStringProperty("two_values", ""));
+        Assert.assertEquals(new ImmutableList<String>( "value one", "value two" ),      configuration._getArrayStringProperty("two_values_with_brackets", ""));
+        Assert.assertEquals(new ImmutableList<String>( "value one" ),                   configuration._getArrayStringProperty("value_with_brackets", ""));
+        Assert.assertEquals(new ImmutableList<String>( "1", "3", "4", "", "6" ),        configuration._getArrayStringProperty("some_missing_values_with_brackets", ""));
     }
 }

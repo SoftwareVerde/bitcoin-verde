@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -11,25 +12,45 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.cryptography.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
 public class ImmutableTransaction implements ConstTransaction {
+    protected static final TransactionDeflater DEFAULT_TRANSACTION_DEFLATER = new TransactionDeflater();
+    protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
+
+    protected final TransactionDeflater _transactionDeflater;
+    protected final AddressInflater _addressInflater;
+
     protected final ImmutableSha256Hash _hash;
     protected final Long _version;
     protected final List<ImmutableTransactionInput> _transactionInputs;
     protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
 
-    protected Integer _cachedHashCode;
+    protected Integer _cachedByteCount = null;
+    protected Integer _cachedHashCode = null;
 
-    public ImmutableTransaction(final Transaction transaction) {
-        _hash = transaction.getHash().asConst();
+    protected Integer _calculateByteCount() {
+        return _transactionDeflater.getByteCount(this);
+    }
+
+    protected ImmutableTransaction(final TransactionDeflater transactionDeflater, final AddressInflater addressInflater, final Transaction transaction) {
+        _transactionDeflater = transactionDeflater;
+        _addressInflater = addressInflater;
+
+        final Sha256Hash hash = transaction.getHash();
+        _hash = hash.asConst();
         _version = transaction.getVersion();
         _lockTime = transaction.getLockTime().asConst();
 
         _transactionInputs = ImmutableListBuilder.newConstListOfConstItems(transaction.getTransactionInputs());
         _transactionOutputs = ImmutableListBuilder.newConstListOfConstItems(transaction.getTransactionOutputs());
+    }
+
+    public ImmutableTransaction(final Transaction transaction) {
+        this(DEFAULT_TRANSACTION_DEFLATER, DEFAULT_ADDRESS_INFLATER, transaction);
     }
 
     @Override
@@ -66,7 +87,7 @@ public class ImmutableTransaction implements ConstTransaction {
 
     @Override
     public Boolean matches(final BloomFilter bloomFilter) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _addressInflater);
         return transactionBloomFilterMatcher.shouldInclude(this);
     }
 
@@ -75,6 +96,16 @@ public class ImmutableTransaction implements ConstTransaction {
         if (! Transaction.isCoinbaseTransaction(this)) { return null; }
 
         return new ImmutableCoinbaseTransaction(this);
+    }
+
+    @Override
+    public Integer getByteCount() {
+        final Integer cachedByteCount = _cachedByteCount;
+        if (cachedByteCount != null) { return cachedByteCount; }
+
+        final Integer byteCount = _calculateByteCount();
+        _cachedByteCount = byteCount;
+        return byteCount;
     }
 
     @Override
@@ -93,8 +124,9 @@ public class ImmutableTransaction implements ConstTransaction {
         final Integer cachedHashCode = _cachedHashCode;
         if (cachedHashCode != null) { return cachedHashCode; }
 
-        _cachedHashCode = _hash.hashCode();
-        return _cachedHashCode;
+        final int hashCode = _hash.hashCode();
+        _cachedHashCode = hashCode;
+        return hashCode;
     }
 
     @Override

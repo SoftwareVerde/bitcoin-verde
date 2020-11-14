@@ -4,21 +4,23 @@ import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20190515;
 import com.softwareverde.bitcoin.bip.HF20191115;
-import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -30,6 +32,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.BitcoinReflectionUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -41,30 +44,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.HashSet;
 
-public class AbcScriptRunnerTests {
-    public static class FakeMedianBlockTime implements MedianBlockTime {
-        protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
-
-        @Override
-        public ImmutableMedianBlockTime asConst() {
-            return ImmutableMedianBlockTime.fromSeconds(_medianBlockTime);
-        }
-
-        @Override
-        public Long getCurrentTimeInSeconds() {
-            return _medianBlockTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInMilliSeconds() {
-            return (_medianBlockTime * 1000L);
-        }
-
-        public void setMedianBlockTime(final Long medianBlockTime) {
-            _medianBlockTime = medianBlockTime;
-        }
-    }
-
+public class AbcScriptRunnerTests extends UnitTest {
     public static class TestVector {
         public static TestVector fromJson(final Json testVectorJson) {
             // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
@@ -251,7 +231,7 @@ public class AbcScriptRunnerTests {
         if (opCodeString.matches("\'.*\'")) {
             final String content = opCodeString.substring(1, (opCodeString.length() - 1));
             final ByteArray contentBytes = MutableByteArray.wrap(StringUtil.stringToBytes(content));
-            final Integer contentByteCount = contentBytes.getByteCount();
+            final int contentByteCount = contentBytes.getByteCount();
 
             if (contentByteCount <= PushOperation.VALUE_MAX_BYTE_COUNT) {
                 return MutableByteArray.wrap(PushOperation.pushBytes(contentBytes).getBytes());
@@ -260,7 +240,7 @@ public class AbcScriptRunnerTests {
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
             byteArrayBuilder.appendByte((byte) 0x4E); // PUSH_DATA_INTEGER
             byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
-            byteArrayBuilder.appendBytes(contentBytes);;
+            byteArrayBuilder.appendBytes(contentBytes);
             return MutableByteArray.wrap(byteArrayBuilder.build());
         }
 
@@ -438,25 +418,36 @@ public class AbcScriptRunnerTests {
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
     }
 
-    @Before
-    public void setup() {
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+
         if (AbcScriptRunnerTests.originalNativeSecp256k1Value == null) {
             AbcScriptRunnerTests.originalNativeSecp256k1Value = NativeSecp256k1.isEnabled();
         }
 
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
-        BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
+        try {
+            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
+            BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
+        }
+        catch (final Exception exception) {
+            // Can happen as of Java 11, but ReflectionUtil also removes the need for
+            //  setting volatile due to its usage of sun.misc.Unsafe when using Java 11...
+            Logger.debug("Unable to set volatile modifier.", exception);
+        }
 
         _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
     }
 
     @After
-    public void teardown() {
+    public void after() throws Exception {
         _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
+
+        super.after();
     }
 
     @Test
@@ -483,8 +474,8 @@ public class AbcScriptRunnerTests {
         { // TransactionInput...
             final MutableTransactionInput transactionInput = new MutableTransactionInput();
             transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-            transactionInput.setPreviousOutputIndex(-1);
-            transactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
+            transactionInput.setPreviousOutputTransactionHash(TransactionOutputIdentifier.COINBASE.getTransactionHash());
+            transactionInput.setPreviousOutputIndex(TransactionOutputIdentifier.COINBASE.getOutputIndex());
             { // Unlocking Script...
                 final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
                 mutableUnlockingScript.addOperation(PushOperation.PUSH_ZERO);
@@ -550,7 +541,7 @@ public class AbcScriptRunnerTests {
                 // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
             }
 
-            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
+            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
             final ScriptRunner scriptRunner = new ScriptRunner();
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);
@@ -564,7 +555,7 @@ public class AbcScriptRunnerTests {
             transactionInput.setPreviousOutputTransactionHash(transactionBeingSpent.getHash());
             transaction.setTransactionInput(0, transactionInput);
 
-            final MutableContext context = new MutableContext();
+            final MutableTransactionContext context = new MutableTransactionContext();
             context.setTransaction(transaction); // Set the LockTime to zero...
             context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
             context.setTransactionInput(transactionInput);

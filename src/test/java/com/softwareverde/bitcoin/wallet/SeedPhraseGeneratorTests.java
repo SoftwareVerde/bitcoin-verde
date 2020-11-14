@@ -1,16 +1,19 @@
 package com.softwareverde.bitcoin.wallet;
 
+import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.util.IoUtil;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
 
-public class SeedPhraseGeneratorTests {
+public class SeedPhraseGeneratorTests extends UnitTest {
 
     protected static SeedPhraseGenerator _seedPhraseGenerator;
 
@@ -25,6 +28,16 @@ public class SeedPhraseGeneratorTests {
         Assert.assertEquals(2048, seedWordsBuilder.getCount());
 
         _seedPhraseGenerator = new SeedPhraseGenerator(seedWordsBuilder.build());
+    }
+
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+    }
+
+    @Override @After
+    public void after() throws Exception {
+        super.after();
     }
 
     /**

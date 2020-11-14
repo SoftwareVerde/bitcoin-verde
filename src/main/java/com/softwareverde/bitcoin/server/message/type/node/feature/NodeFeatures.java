@@ -57,7 +57,7 @@ public class NodeFeatures {
         _value = (_value | feature.value);
     }
 
-    public Boolean hasFeatureFlagEnabled(final Feature feature) {
+    public Boolean isFeatureEnabled(final Feature feature) {
         if (Util.areEqual(Feature.NONE.value, feature.value)) {
             return (Util.areEqual(_value, Feature.NONE.value));
         }

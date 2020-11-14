@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -45,6 +44,11 @@ public class RequestExtraThinTransactionsMessage extends BitcoinProtocolMessage 
             byteArrayBuilder.appendBytes(transactionShortHash, Endian.LITTLE);
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        return null;
     }
 }

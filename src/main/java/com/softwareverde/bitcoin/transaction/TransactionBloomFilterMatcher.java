@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -9,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
@@ -16,8 +19,13 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 
 public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transaction> {
+    protected final AddressInflater _addressInflater;
+    protected final BloomFilter _bloomFilter;
+    protected final UpdateBloomFilterMode _updateBloomFilterMode;
+
     /**
      * Returns null if no parts of the transaction matched the BloomFilter.
      * Otherwise, returns the list of ByteArrays that matched the BloomFilter.
@@ -83,23 +91,37 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
             for (final Operation operation : unlockingScript.getOperations()) {
                 if (operation.getType() != PushOperation.TYPE) { continue; }
 
-                final ByteArray value = ((PushOperation) operation).getValue();
-                if (bloomFilter.containsItem(value)) { didMatch = true; }
+                final Value value = ((PushOperation) operation).getValue();
+                if (bloomFilter.containsItem(value)) {
+                    didMatch = true;
+                    break; // Prevout matches do not add to the matchedItems set...
+                }
+
+                if (_addressInflater != null) { // If the value could be a public-key, then check if its Address-form matches the value... (Verde-Specific Behavior)
+                    final PublicKey publicKey = value.asPublicKey();
+                    if (publicKey == null) { continue; }
+                    if (! publicKey.isValid()) { continue; }
+
+                    final Address address = _addressInflater.fromPublicKey(publicKey);
+                    if ( (address != null) && bloomFilter.containsItem(publicKey) ) {
+                        didMatch = true;
+                        break; // Prevout matches do not add to the matchedItems set...
+                    }
+                }
             }
         }
 
         return (didMatch ? matchedItems : null);
     }
 
-    protected final BloomFilter _bloomFilter;
-    protected final UpdateBloomFilterMode _updateBloomFilterMode;
-
-    public TransactionBloomFilterMatcher(final BloomFilter bloomFilter) {
+    public TransactionBloomFilterMatcher(final BloomFilter bloomFilter, final AddressInflater addressInflater) {
+        _addressInflater = addressInflater;
         _bloomFilter = bloomFilter.asConst();
         _updateBloomFilterMode = UpdateBloomFilterMode.READ_ONLY;
     }
 
-    public TransactionBloomFilterMatcher(final MutableBloomFilter mutableBloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
+    public TransactionBloomFilterMatcher(final MutableBloomFilter mutableBloomFilter, final UpdateBloomFilterMode updateBloomFilterMode, final AddressInflater addressInflater) {
+        _addressInflater = addressInflater;
         _bloomFilter = mutableBloomFilter;
         _updateBloomFilterMode = updateBloomFilterMode;
     }

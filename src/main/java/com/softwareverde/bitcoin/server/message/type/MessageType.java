@@ -23,9 +23,9 @@ public class MessageType {
     public static final MessageType REQUEST_BLOCK_HEADERS = new MessageType("getheaders");
     public static final MessageType BLOCK_HEADERS = new MessageType("headers");
     public static final MessageType REQUEST_DATA = new MessageType("getdata");
-    public static final MessageType BLOCK = new MessageType("block");
+    public static final MessageType BLOCK = new MessageType("block", true);
     public static final MessageType TRANSACTION = new MessageType("tx");
-    public static final MessageType MERKLE_BLOCK = new MessageType("merkleblock");
+    public static final MessageType MERKLE_BLOCK = new MessageType("merkleblock", true);
 
     public static final MessageType NOT_FOUND = new MessageType("notfound");
     public static final MessageType ERROR = new MessageType("reject");
@@ -34,10 +34,10 @@ public class MessageType {
     public static final MessageType ENABLE_COMPACT_BLOCKS = new MessageType("sendcmpct");
 
     public static final MessageType REQUEST_EXTRA_THIN_BLOCK = new MessageType("get_xthin");
-    public static final MessageType EXTRA_THIN_BLOCK = new MessageType("xthinblock");
-    public static final MessageType THIN_BLOCK = new MessageType("thinblock");
+    public static final MessageType EXTRA_THIN_BLOCK = new MessageType("xthinblock", true);
+    public static final MessageType THIN_BLOCK = new MessageType("thinblock", true);
     public static final MessageType REQUEST_EXTRA_THIN_TRANSACTIONS = new MessageType("get_xblocktx");
-    public static final MessageType THIN_TRANSACTIONS = new MessageType("xblocktx");
+    public static final MessageType THIN_TRANSACTIONS = new MessageType("xblocktx", true);
 
     public static final MessageType FEE_FILTER = new MessageType("feefilter");
     public static final MessageType REQUEST_PEERS = new MessageType("getaddr");
@@ -47,15 +47,21 @@ public class MessageType {
     public static final MessageType CLEAR_TRANSACTION_BLOOM_FILTER = new MessageType("filterclear");
 
     // BitcoinVerde Messages
-    public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks");
-    public static final MessageType ENABLE_SLP_TRANSACTIONS = new MessageType("sendslp");
-    public static final MessageType QUERY_SLP_STATUS = new MessageType("getslpstatus");
+    public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks", true);
+    public static final MessageType ENABLE_SLP_TRANSACTIONS = new MessageType("sendslp", true);
+    public static final MessageType QUERY_SLP_STATUS = new MessageType("getslpstatus", true);
 
     protected final ByteArray _bytes;
     protected final String _value;
+    protected final Boolean _isLargeMessage;
 
     protected MessageType(final String value) {
+        this(value, false);
+    }
+
+    protected MessageType(final String value, final Boolean isLargeMessage) {
         _value = value;
+        _isLargeMessage = isLargeMessage;
 
         final MutableByteArray mutableByteArray = new MutableByteArray(BYTE_COUNT);
         final byte[] valueBytes = value.getBytes();
@@ -70,6 +76,10 @@ public class MessageType {
 
     public String getValue() {
         return _value;
+    }
+
+    public Boolean isLargeMessage() {
+        return _isLargeMessage;
     }
 
 

@@ -49,7 +49,7 @@ public class MurmurHashUtil {
 
             h1 ^= k1;
             h1 = _rotateLeft32(h1, 13);
-            h1 = ( (h1 * 5) + 0xe6546b64 );
+            h1 = ( (h1 * 5) + 0xE6546B64 );
         }
 
         int k1 = 0;

@@ -13,12 +13,14 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
 public class ImmutableScript implements Script, Const {
+    protected static final ScriptInflater SCRIPT_INFLATER = new ScriptInflater();
+
     protected List<Operation> _cachedOperations;
     protected final ByteArray _bytes;
 
     protected void _requireCachedOperations() {
         if (_cachedOperations == null) {
-            final ScriptInflater scriptInflater = new ScriptInflater();
+            final ScriptInflater scriptInflater = ImmutableScript.SCRIPT_INFLATER;
             _cachedOperations = scriptInflater.getOperationList(_bytes);
         }
     }

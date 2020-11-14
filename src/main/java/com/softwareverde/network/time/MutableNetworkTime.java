@@ -7,17 +7,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MutableNetworkTime implements NetworkTime {
+public class MutableNetworkTime implements NetworkTime, VolatileNetworkTime {
+    public static MutableNetworkTime fromSystemTime(final SystemTime systemTime) {
+        return new MutableNetworkTime(systemTime);
+    }
+
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
 
-    protected final SystemTime _systemTime = new SystemTime();
-    protected final List<Long> _networkTimeOffsets = new ArrayList<Long>();
+    protected final SystemTime _systemTime;
+    protected final List<Long> _networkTimeOffsets;
 
     public MutableNetworkTime() {
+        this(new SystemTime());
+    }
+
+    public MutableNetworkTime(final SystemTime systemTime) {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _readLock = readWriteLock.readLock();
         _writeLock = readWriteLock.writeLock();
+
+        _systemTime = systemTime;
+        _networkTimeOffsets  = new ArrayList<Long>(16);
 
         _networkTimeOffsets.add(0L);
     }

@@ -47,6 +47,11 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
     }
 
     @Override
+    public Integer getByteCount() {
+        return _bytes.getByteCount();
+    }
+
+    @Override
     public Boolean containsItem(final ByteArray item) {
         return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, _nonce, item);
     }

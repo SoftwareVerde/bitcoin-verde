@@ -23,4 +23,9 @@ public class UpdateTransactionBloomFilterMessage extends BitcoinProtocolMessage 
     protected ByteArray _getPayload() {
         return _item;
     }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        return _item.getByteCount();
+    }
 }

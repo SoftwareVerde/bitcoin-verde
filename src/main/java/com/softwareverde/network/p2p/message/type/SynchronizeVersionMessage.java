@@ -6,6 +6,7 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 public interface SynchronizeVersionMessage extends ProtocolMessage {
     Long getNonce();
     NodeIpAddress getLocalNodeIpAddress();
+    NodeIpAddress getRemoteNodeIpAddress();
     Long getTimestamp();
     String getUserAgent();
 }

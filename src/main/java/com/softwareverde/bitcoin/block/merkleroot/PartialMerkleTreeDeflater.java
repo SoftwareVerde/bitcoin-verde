@@ -29,4 +29,15 @@ public class PartialMerkleTreeDeflater {
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
+
+    public Integer getByteCount(final PartialMerkleTree partialMerkleTree) {
+        final int blockHeaderTransactionCountByteCount = 4;
+
+        final List<Sha256Hash> hashes = partialMerkleTree.getHashes();
+        final int itemCount = hashes.getCount();
+        final byte[] itemCountBytes = ByteUtil.variableLengthIntegerToBytes(itemCount);
+        final ByteArray flags = partialMerkleTree.getFlags();
+
+        return (blockHeaderTransactionCountByteCount + itemCountBytes.length + (itemCount * Sha256Hash.BYTE_COUNT) + flags.getByteCount());
+    }
 }

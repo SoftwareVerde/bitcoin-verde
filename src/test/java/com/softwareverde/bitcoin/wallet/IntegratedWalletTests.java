@@ -1,33 +1,35 @@
 package com.softwareverde.bitcoin.wallet;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.test.TransactionTestUtil;
+import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
+import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
+import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
+import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class IntegratedWalletTests extends IntegrationTest {
-    @Before
-    public void setup() {
-        _resetDatabase();
+public class IntegratedWalletTests extends UnitTest {
+    @Override @Before
+    public void before() throws Exception {
+        super.before();
+    }
+
+    @Override @After
+    public void after() throws Exception {
+        super.after();
     }
 
     @Test
@@ -44,40 +46,23 @@ public class IntegratedWalletTests extends IntegrationTest {
             "0200000001B407DD18E98019D7711AB87A51F340B4B8570390651E86F7F15111E04B4C41BA860000006A47304402204AEA02984644FE5E0333709E7089C95A5BDC0C8DF77DD03B04F72139B60573F202203E935E7A835E2D0ED1C42EC215E3B389CE6535B10CB80BAA3F60672C8569484E412103AAAC352016376B9BE4ECA4D303BCEBAD9F773872E7A1584E0A3DCF259BBAADF7FFFFFFFF02F5D61A00000000001976A914AEAFC2F4A4026827BB66F1EA3C475ECAB670D28C88AC68420000000000001976A9142297636D6AF0116B6467DCF7C22DC2CAFBC3B3F188AC00000000"
         };
 
-        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+        final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
 
-            final BlockInflater blockInflater = new BlockInflater();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-
-            final BlockId blockId;
-            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockId = blockDatabaseManager.storeBlock(genesisBlock);
-            }
-
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionInflater transactionInflater = new TransactionInflater();
-            for (final String transactionString : transactionHexStrings) {
-                final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionString));
-                TransactionTestUtil.createRequiredTransactionInputs(databaseManager, blockchainSegmentId, transaction);
-                final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
-                transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
-            }
-
-            // final ByteArray transactionBytes = ByteArray.fromHexString("0200000002F55A14FAD3E33B798A99EA78994905089C816CC40334CA8AA884CF87ADDEC0A0010000008B483045022100B813F07EC58E653B7FFB792DC2AB208ECFF79C4240E4B064D1E32E4DDD2ED82702201BF96C329E8CC200CC57AE7206976AF09053A6F53A00F6758D32C9CB7E92642E4141040802CA060816C5596860EEB2C3237DBABFFC5A5EBD58F1B6EB48CE08E213DBA7069B638863C81EFF15FCE23183AD337D12E4D29A794652FC74436CDC09E92C17FFFFFFFFBA9424ACD93EA5BCC22383EAD06AE88908C44A98F769237BBAA0616A1D70E2A0010000006A47304402201CE39A917A031DA3247CFD70875644700111D6451C24579A7DB4B2BB9AFCFC6B02201AD02693A70568F8914C9F7C82AA18B873DB815A07DF1B52CD77E3B140DB140E4121029602CA68608F9AB02DC2DA445C97F2D3980F75A5C620742C309BDD8B7E5A5B64FFFFFFFF0230750000000000001976A914B3BE4593503F84E2BE61EB33670B31CC7F4FC0AE88AC260E0000000000001976A91455CE63AE0472184AE53B26BB117D6843C667BA3388AC00000000");
-            final ByteArray transactionBytes = ByteArray.fromHexString("0200000002F55A14FAD3E33B798A99EA78994905089C816CC40334CA8AA884CF87ADDEC0A0010000008B4830450221008CE5C85400EE7874AFC774676037DCDFE87BA2206F1E65E6D09B55E4A76D9DAF02204896A623C37A36D21C83AF6FEC60954F2A7A0E05B4E64A3A8AC564C97047FDCE4141040802CA060816C5596860EEB2C3237DBABFFC5A5EBD58F1B6EB48CE08E213DBA7069B638863C81EFF15FCE23183AD337D12E4D29A794652FC74436CDC09E92C17FFFFFFFFBA9424ACD93EA5BCC22383EAD06AE88908C44A98F769237BBAA0616A1D70E2A0010000006A47304402205FEF4DB272809711CA1549849688E048628229E5FD6DA4967A4E1890D1E34F000220525B57268FC76B58345C207331B9824093590D61BE59E1FA8C41B4B64FC6BA324121029602CA68608F9AB02DC2DA445C97F2D3980F75A5C620742C309BDD8B7E5A5B64FFFFFFFF02606D0000000000001976A914B3BE4593503F84E2BE61EB33670B31CC7F4FC0AE88AC7C140000000000001976A91455CE63AE0472184AE53B26BB117D6843C667BA3388AC00000000");
-            final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
-            transactionDatabaseManager.storeTransaction(transaction);
-
-            final MutableNetworkTime networkTime = new MutableNetworkTime();
-            final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
-
-            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, networkTime, medianBlockTime);
-            transactionValidator.setLoggingEnabled(true);
-
-            final Boolean transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, 581678L, transaction, true);
-            Assert.assertTrue(transactionIsValid);
+        final MasterInflater masterInflater = new CoreInflater();
+        final TransactionInflater transactionInflater = masterInflater.getTransactionInflater();
+        for (final String transactionString : transactionHexStrings) {
+            final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionString));
+            unspentTransactionOutputContext.addTransaction(transaction, null, null, false);
         }
+
+        final ByteArray transactionBytes = ByteArray.fromHexString("0200000002F55A14FAD3E33B798A99EA78994905089C816CC40334CA8AA884CF87ADDEC0A0010000008B4830450221008CE5C85400EE7874AFC774676037DCDFE87BA2206F1E65E6D09B55E4A76D9DAF02204896A623C37A36D21C83AF6FEC60954F2A7A0E05B4E64A3A8AC564C97047FDCE4141040802CA060816C5596860EEB2C3237DBABFFC5A5EBD58F1B6EB48CE08E213DBA7069B638863C81EFF15FCE23183AD337D12E4D29A794652FC74436CDC09E92C17FFFFFFFFBA9424ACD93EA5BCC22383EAD06AE88908C44A98F769237BBAA0616A1D70E2A0010000006A47304402205FEF4DB272809711CA1549849688E048628229E5FD6DA4967A4E1890D1E34F000220525B57268FC76B58345C207331B9824093590D61BE59E1FA8C41B4B64FC6BA324121029602CA68608F9AB02DC2DA445C97F2D3980F75A5C620742C309BDD8B7E5A5B64FFFFFFFF02606D0000000000001976A914B3BE4593503F84E2BE61EB33670B31CC7F4FC0AE88AC7C140000000000001976A91455CE63AE0472184AE53B26BB117D6843C667BA3388AC00000000");
+        final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
+
+        final MedianBlockTimeContext medianBlockTimeContext = new FakeStaticMedianBlockTimeContext(ImmutableMedianBlockTime.fromSeconds(1557325160L));
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, new MutableNetworkTime(), medianBlockTimeContext, unspentTransactionOutputContext);
+        final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
+
+        final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(581678L, transaction);
+        Assert.assertTrue(transactionValidationResult.isValid);
     }
 }

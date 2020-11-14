@@ -6,7 +6,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
@@ -23,8 +27,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
     public interface NodeConnectedCallback { void onNodeConnected();}
-    public interface NodeHandshakeCompleteCallback { void onHandshakeComplete(); }
-    public interface NodeDisconnectedCallback { void onNodeDisconnected(); }
+    public interface HandshakeCompleteCallback { void onHandshakeComplete(); }
+    public interface DisconnectedCallback { void onNodeDisconnected(); }
     public interface PingCallback { void onResult(Long latency); }
 
     protected static class PingRequest {
@@ -45,6 +49,7 @@ public abstract class Node {
     protected final NodeId _id;
     protected final NodeConnection _connection;
     protected final Long _initializationTime;
+    protected final Boolean _isOutboundConnection;
 
     protected final SystemTime _systemTime;
 
@@ -61,14 +66,17 @@ public abstract class Node {
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
-    protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
-    protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
+    protected HandshakeCompleteCallback _handshakeCompleteCallback = null;
+    protected DisconnectedCallback _nodeDisconnectedCallback = null;
 
     protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
 
     protected final ThreadPool _threadPool;
 
-    protected final CircleBuffer<Long> _latencies = new CircleBuffer<Long>(32);
+    /**
+     * Latencies in milliseconds...
+     */
+    protected final CircleBuffer<Long> _latenciesMs = new CircleBuffer<Long>(32);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -129,11 +137,11 @@ public abstract class Node {
 
         Logger.debug("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
-        final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
+        final DisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
         _nodeAddressesReceivedCallback = null;
         _nodeConnectedCallback = null;
-        _nodeHandshakeCompleteCallback = null;
+        _handshakeCompleteCallback = null;
         _nodeDisconnectedCallback = null;
 
         _handshakeIsComplete = false;
@@ -241,17 +249,17 @@ public abstract class Node {
         _queueMessage(pongMessage);
     }
 
-    protected void _onPongReceived(final PongMessage pongMessage) {
+    protected Long _onPongReceived(final PongMessage pongMessage) {
         final Long nonce = pongMessage.getNonce();
         final PingRequest pingRequest = _pingRequests.remove(nonce);
-        if (pingRequest == null) { return; }
+        if (pingRequest == null) { return null; }
 
         final PingCallback pingCallback = pingRequest.pingCallback;
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
         final Long msElapsed = (now - pingRequest.timestamp);
 
-        _latencies.push(msElapsed);
+        _latenciesMs.push(msElapsed);
 
         if (pingCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -261,6 +269,8 @@ public abstract class Node {
                 }
             });
         }
+
+        return msElapsed;
     }
 
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
@@ -285,7 +295,7 @@ public abstract class Node {
             _networkTimeOffset = ((nodeTime - currentTime) * 1000L);
         }
 
-        _localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
+        _localNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
 
         { // Ensure that this node sends its SynchronizeVersion message before the AcknowledgeVersionMessage is transmitted...
             // NOTE: Since  Node::handshake may have been invoked already, it's possible for a race condition between responding to
@@ -311,7 +321,7 @@ public abstract class Node {
         _threadPool.execute(new Runnable() {
             @Override
             public void run() {
-                final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
+                final HandshakeCompleteCallback callback = _handshakeCompleteCallback;
                 if (callback != null) {
                     callback.onHandshakeComplete();
                 }
@@ -355,22 +365,24 @@ public abstract class Node {
         });
     }
 
-    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
-        synchronized (NODE_ID_MUTEX) {
-            _id = NodeId.wrap(_nextId);
-            _nextId += 1;
+    protected Long _calculateAveragePingMs() {
+        final int itemCount = _latenciesMs.getCount();
+        long sum = 0L;
+        long count = 0L;
+        for (int i = 0; i < itemCount; ++i) {
+            final Long value = _latenciesMs.get(i);
+            if (value == null) { continue; }
+
+            sum += value;
+            count += 1L;
         }
+        if (count == 0L) { return Long.MAX_VALUE; }
 
-        _systemTime = new SystemTime();
-        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
-        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
-        _threadPool = threadPool;
+        return (sum / count);
+    }
 
-        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
-        _sendSingleMessageLock = queueMessageLock.readLock();
-        _sendMultiMessageLock = queueMessageLock.writeLock();
-
-        _initConnection();
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
+        this(host, port, binaryPacketFormat, new SystemTime(), threadPool);
     }
 
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime, final ThreadPool threadPool) {
@@ -383,6 +395,7 @@ public abstract class Node {
         _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+        _isOutboundConnection = true;
 
         final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
         _sendSingleMessageLock = queueMessageLock.readLock();
@@ -392,6 +405,10 @@ public abstract class Node {
     }
 
     public Node(final BinarySocket binarySocket, final ThreadPool threadPool) {
+        this(binarySocket, threadPool, false);
+    }
+
+    public Node(final BinarySocket binarySocket, final ThreadPool threadPool, final Boolean isOutboundConnection) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
@@ -401,6 +418,7 @@ public abstract class Node {
         _connection = new NodeConnection(binarySocket, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+        _isOutboundConnection = isOutboundConnection;
 
         final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
         _sendSingleMessageLock = queueMessageLock.readLock();
@@ -489,12 +507,16 @@ public abstract class Node {
         }
     }
 
-    public void setNodeHandshakeCompleteCallback(final NodeHandshakeCompleteCallback nodeHandshakeCompleteCallback) {
-        _nodeHandshakeCompleteCallback = nodeHandshakeCompleteCallback;
+    public void setHandshakeCompleteCallback(final HandshakeCompleteCallback handshakeCompleteCallback) {
+        _handshakeCompleteCallback = handshakeCompleteCallback;
     }
 
-    public void setNodeDisconnectedCallback(final NodeDisconnectedCallback nodeDisconnectedCallback) {
+    public void setDisconnectedCallback(final DisconnectedCallback nodeDisconnectedCallback) {
         _nodeDisconnectedCallback = nodeDisconnectedCallback;
+    }
+
+    public void setLocalNodeIpAddress(final NodeIpAddress nodeIpAddress) {
+        _localNodeIpAddress = nodeIpAddress;
     }
 
     public void ping(final PingCallback pingCallback) {
@@ -561,19 +583,22 @@ public abstract class Node {
         return Util.areEqual(_id, ((Node) object)._id);
     }
 
+    /**
+     * Returns the average ping (in milliseconds) for the node over the course of the last 32 pings.
+     */
     public Long getAveragePing() {
-        final int itemCount = _latencies.getCount();
-        long sum = 0L;
-        long count = 0L;
-        for (int i = 0; i < itemCount; ++i) {
-            final Long value = _latencies.get(i);
-            if (value == null) { continue; }
+        return _calculateAveragePingMs();
+    }
 
-            sum += value;
-            count += 1L;
-        }
-        if (count == 0L) { return Long.MAX_VALUE; }
+    public Boolean isOutboundConnection() {
+        return _isOutboundConnection;
+    }
 
-        return (sum / count);
+    public Long getTotalBytesReceivedCount() {
+        return _connection.getTotalBytesReceivedCount();
+    }
+
+    public Long getTotalBytesSentCount() {
+        return _connection.getTotalBytesSentCount();
     }
 }

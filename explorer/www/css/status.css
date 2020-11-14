@@ -124,7 +124,8 @@
 }
 
 .statistics .server-memory .server-memory-bar,
-.statistics .server-load .server-load-bar {
+.statistics .server-load .server-load-bar,
+.statistics .utxo-cache .utxo-cache-bar {
     width: 100%;
     margin: auto;
     height: 1em;
@@ -136,7 +137,8 @@
 }
 
 .statistics .server-memory .server-memory-fill,
-.statistics .server-load .server-load-fill {
+.statistics .server-load .server-load-fill,
+.statistics .utxo-cache .utxo-cache-fill {
     background: #F99300;
     border: none;
     height: 100%;
@@ -197,8 +199,16 @@
     margin-bottom: 0.5em;
 }
 
+.utxo-cache::before {
+    content: "Utxo Cache";
+    display: block;
+    text-align: center;
+    margin-bottom: 0.5em;
+}
+
 .statistics .server-memory .server-memory-text,
-.statistics .server-load .server-load-text {
+.statistics .server-load .server-load-text,
+.statistics .utxo-cache .utxo-cache-text {
     position: absolute;
     border: none;
     left: 50%;
@@ -253,11 +263,15 @@
 }
 
 .node .user-agent {
-    background-color: #F0F0F0;
+    height: 1em;
+    overflow-x: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     padding: 0.15em;
-    font-weight: bold;
     margin-bottom: 0.5em;
     border-bottom: solid 1px #D0D0D0;
+    background-color: #F0F0F0;
+    font-weight: bold;
 }
 
 .node .host,
@@ -319,6 +333,18 @@
 
 .node > div:nth-child(2n+5) {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+.node .block-height::before {
+    content: 'Block Height:';
+    margin-right: 1em;
+    text-align: left;
+}
+
+.node .ping::before {
+    content: 'Ping:';
+    margin-right: 1em;
+    text-align: left;
 }
 
 .node .network-offset::before {

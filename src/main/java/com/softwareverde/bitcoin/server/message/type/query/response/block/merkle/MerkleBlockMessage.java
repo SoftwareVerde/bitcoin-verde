@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.query.response.block.merkl
 
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeDeflater;
@@ -10,7 +11,6 @@ import com.softwareverde.bitcoin.inflater.MerkleTreeInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class MerkleBlockMessage extends BitcoinProtocolMessage {
@@ -60,6 +60,13 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
         final ByteArray partialMerkleTreeBytes = partialMerkleTreeDeflater.toBytes(_partialMerkleTree);
         byteArrayBuilder.appendBytes(partialMerkleTreeBytes);
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final PartialMerkleTreeDeflater partialMerkleTreeDeflater = _merkleTreeInflaters.getPartialMerkleTreeDeflater();
+        final Integer partialMerkleTreeByteCount = partialMerkleTreeDeflater.getByteCount(_partialMerkleTree);
+        return (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + partialMerkleTreeByteCount);
     }
 }

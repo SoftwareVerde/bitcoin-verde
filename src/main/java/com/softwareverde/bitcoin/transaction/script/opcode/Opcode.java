@@ -178,7 +178,7 @@ public enum Opcode {
     public int getMaxValue() { return _maxValue; }
     public boolean failIfPresent() { return _failIfPresent; }
 
-    public boolean matchesByte(byte b) {
+    public boolean matchesByte(final byte b) {
         final int bValue = ByteUtil.byteToInteger(b);
         return (_minValue <= bValue && bValue <= _maxValue);
     }

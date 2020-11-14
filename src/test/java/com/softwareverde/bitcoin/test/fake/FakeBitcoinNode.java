@@ -12,6 +12,11 @@ import com.softwareverde.network.socket.BinarySocket;
 public class FakeBitcoinNode extends BitcoinNode {
     protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
 
+    @Override
+    protected void _initConnection() {
+        // Nothing.
+    }
+
     public FakeBitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(host, port, threadPool, localNodeFeatures);
     }
@@ -21,12 +26,22 @@ public class FakeBitcoinNode extends BitcoinNode {
     }
 
     @Override
+    public void connect() {
+        // Nothing.
+    }
+
+    @Override
+    public void disconnect() {
+        // Nothing.
+    }
+
+    @Override
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {
         _outboundMessageQueue.add(protocolMessage);
     }
 
     public List<ProtocolMessage> getSentMessages() {
-        try { Thread.sleep(500L); } catch (final Exception e) { } // Required to wait for messageQueue...
+        try { Thread.sleep(500L); } catch (final Exception exception) { } // Required to wait for messageQueue...
         return _outboundMessageQueue;
     }
 }

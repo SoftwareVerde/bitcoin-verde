@@ -11,6 +11,7 @@ public class JsonSocket extends Socket {
     protected static class ReadThread extends Thread implements Socket.ReadThread {
         private BufferedReader _bufferedReader;
         private Callback _callback;
+        private Long _totalBytesReceived = 0L;
 
         @Override
         public void run() {
@@ -18,6 +19,8 @@ public class JsonSocket extends Socket {
                 try {
                     final String string = _bufferedReader.readLine();
                     if (string == null) { break; }
+
+                    _totalBytesReceived += string.length(); // Not technically accurate.
 
                     if (Json.isJson(string)) {
                         final Json json = Json.parse(string);
@@ -54,6 +57,11 @@ public class JsonSocket extends Socket {
         @Override
         public void setCallback(final Callback callback) {
             _callback = callback;
+        }
+
+        @Override
+        public Long getTotalBytesReceived() {
+            return _totalBytesReceived;
         }
     }
 

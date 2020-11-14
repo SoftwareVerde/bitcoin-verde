@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeReferenceBlockLoaderContext;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -15,8 +16,6 @@ import org.junit.Test;
 
 import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static com.softwareverde.bitcoin.block.validator.difficulty.AsertDifficultyCalculator.AsertReferenceBlockLoader;
 
 public class AsertReferenceBlockLoaderTests extends UnitTest {
 

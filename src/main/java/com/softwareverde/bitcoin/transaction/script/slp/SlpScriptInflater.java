@@ -101,11 +101,11 @@ public class SlpScriptInflater {
 
         final Value tokenDocumentHashValue = ((PushOperation) operations.get(7)).getValue();
         if ( (tokenDocumentHashValue.getByteCount() != 0) && (tokenDocumentHashValue.getByteCount() != Sha256Hash.BYTE_COUNT) ) { return null; }
-        slpGenesisScript.setDocumentHash(Sha256Hash.copyOf(tokenDocumentHashValue.getBytes()));
+        slpGenesisScript.setDocumentHash((! tokenDocumentHashValue.isEmpty()) ? Sha256Hash.copyOf(tokenDocumentHashValue.getBytes()) : null);
 
         final Value tokenDecimalValue = ((PushOperation) operations.get(8)).getValue();
         if (tokenDecimalValue.getByteCount() != 1) { return null; } // The "decimal" value must be 1 byte according to the specification.
-        final Integer decimalCount = ByteUtil.bytesToInteger(tokenDecimalValue.getBytes());
+        final int decimalCount = ByteUtil.bytesToInteger(tokenDecimalValue.getBytes());
         if ( (decimalCount < 0) || (decimalCount > 9) ) { return null; }
         slpGenesisScript.setDecimalCount(decimalCount);
 

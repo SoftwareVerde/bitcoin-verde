@@ -12,8 +12,3 @@ mkdir -p out/stratum/www
 cp -R stratum/www/* out/stratum/www/.
 cp -R www-shared/* out/stratum/www/.
 
-# Copy Wallet Static Web Data
-rm -rf out/wallet/www
-mkdir -p out/wallet/www
-cp -R wallet/www/* out/wallet/www/.
-cp -R www-shared/* out/wallet/www/.

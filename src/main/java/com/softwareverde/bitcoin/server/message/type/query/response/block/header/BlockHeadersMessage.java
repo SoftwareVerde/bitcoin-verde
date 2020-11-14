@@ -2,13 +2,13 @@ package com.softwareverde.bitcoin.server.message.type.query.response.block.heade
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -49,11 +49,19 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
             final BlockHeader blockHeader = _blockHeaders.get(i);
             byteArrayBuilder.appendBytes(blockHeaderDeflater.toBytes(blockHeader));
 
-            final Integer transactionCount = 0; // blockHeader.getTransactionCount();
+            final int transactionCount = 0; // blockHeader.getTransactionCount();
             final byte[] transactionCountBytes = ByteUtil.variableLengthIntegerToBytes(transactionCount);
             byteArrayBuilder.appendBytes(transactionCountBytes);
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int blockHeaderCount = _blockHeaders.getCount();
+        final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
+
+        return (blockHeaderCountBytes.length + (blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1)));
     }
 }

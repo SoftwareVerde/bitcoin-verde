@@ -1,37 +1,31 @@
 package com.softwareverde.bitcoin.server.module.node.database.spv;
 
+import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.spv.SpvPendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
-import com.softwareverde.bitcoin.server.module.node.database.node.spv.SpvBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.util.Util;
 
 public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final Integer _maxQueryBatchSize;
+    protected final CheckpointConfiguration _checkpointConfiguration;
 
-    protected SpvBitcoinNodeDatabaseManager _nodeDatabaseManager;
+    protected BitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected SpvBlockDatabaseManager _blockDatabaseManager;
     protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
-    protected SpvPendingBlockDatabaseManager _pendingBlockDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
-    public SpvDatabaseManager(final DatabaseConnection databaseConnection) {
+    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final CheckpointConfiguration checkpointConfiguration) {
         _databaseConnection = databaseConnection;
-        _databaseManagerCache = new DisabledDatabaseManagerCache();
-    }
-
-    public SpvDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = Util.coalesce(databaseManagerCache, new DisabledDatabaseManagerCache());
+        _maxQueryBatchSize = maxQueryBatchSize;
+        _checkpointConfiguration = checkpointConfiguration;
     }
 
     @Override
@@ -40,14 +34,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public DatabaseManagerCache getDatabaseManagerCache() {
-        return _databaseManagerCache;
-    }
-
-    @Override
-    public SpvBitcoinNodeDatabaseManager getNodeDatabaseManager() {
+    public BitcoinNodeDatabaseManager getNodeDatabaseManager() {
         if (_nodeDatabaseManager == null) {
-            _nodeDatabaseManager = new SpvBitcoinNodeDatabaseManager(this);
+            _nodeDatabaseManager = new BitcoinNodeDatabaseManagerCore(this);
         }
 
         return _nodeDatabaseManager;
@@ -74,19 +63,10 @@ public class SpvDatabaseManager implements DatabaseManager {
     @Override
     public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this);
+            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this, _checkpointConfiguration);
         }
 
         return _blockHeaderDatabaseManager;
-    }
-
-    @Override
-    public SpvPendingBlockDatabaseManager getPendingBlockDatabaseManager() {
-        if (_pendingBlockDatabaseManager == null) {
-            _pendingBlockDatabaseManager = new SpvPendingBlockDatabaseManager();
-        }
-
-        return _pendingBlockDatabaseManager;
     }
 
     @Override
@@ -96,6 +76,11 @@ public class SpvDatabaseManager implements DatabaseManager {
         }
 
         return _transactionDatabaseManager;
+    }
+
+    @Override
+    public Integer getMaxQueryBatchSize() {
+        return _maxQueryBatchSize;
     }
 
     @Override

@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class NewBlocksViaHeadersMessage extends BitcoinProtocolMessage {
 
@@ -14,7 +13,11 @@ public class NewBlocksViaHeadersMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return new MutableByteArray(0);
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        return 0;
     }
 }

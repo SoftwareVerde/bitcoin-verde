@@ -36,7 +36,7 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected final ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
     protected Boolean _isShuttingDown = false;
-    protected JsonSocket _socketConnection = null;
+    protected JsonSocket _socketConnection = null; // TODO: Maintain reference to NodeJsonRpcConnection instead.
 
     protected final NodeJsonRpcConnection.AnnouncementHookCallback _announcementHookCallback = new NodeJsonRpcConnection.AnnouncementHookCallback() {
         @Override
@@ -77,6 +77,10 @@ public class AnnouncementsApi implements WebSocketServlet {
                 final JsonSocket jsonSocket = _socketConnection;
                 if ((jsonSocket != null) && (jsonSocket.isConnected())) {
                     return;
+                }
+
+                if (jsonSocket != null) {
+                    jsonSocket.close();
                 }
             }
 

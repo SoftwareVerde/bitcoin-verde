@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class MutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, MedianBlockTimeWithBlocks {
+public class MutableMedianBlockTime extends MedianBlockTimeCore implements MedianBlockTime, MedianBlockTimeWithBlocks, VolatileMedianBlockTime {
     protected final Integer _requiredBlockCount;
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
@@ -17,10 +17,14 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     protected Long _getMedianBlockTimeInMilliseconds() {
         final int blockCount = _previousBlocks.size();
 
-        if (blockCount < _requiredBlockCount) {
-            // Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
-            return MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
+        // NOTE: Bitcoin Core allows the MTP calculation to proceed with less than the required number of blocks.
+        if (blockCount == 0) {
+            return (MedianBlockTime.GENESIS_BLOCK_TIMESTAMP * 1000L);
         }
+
+        // if (blockCount < _requiredBlockCount) {
+        //     Logger.warn("NOTICE: Attempted to retrieve MedianBlockTime without setting at least " + _requiredBlockCount + " blocks.");
+        // }
 
         final List<Long> blockTimestamps = new ArrayList<Long>(blockCount);
         for (final BlockHeader block : _previousBlocks) {
@@ -46,13 +50,13 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         _readLock = readWriteLock.readLock();
         _writeLock = readWriteLock.writeLock();
 
-        _requiredBlockCount = MedianBlockTime.BLOCK_COUNT;
+        _requiredBlockCount = BLOCK_COUNT;
         _previousBlocks = new RotatingQueue<BlockHeader>(_requiredBlockCount);
     }
 
     public void addBlock(final BlockHeader blockHeader) {
+        _writeLock.lock();
         try {
-            _writeLock.lock();
             _previousBlocks.add(blockHeader);
         }
         finally {
@@ -61,9 +65,9 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     }
 
     public Boolean hasRequiredBlockCount() {
-        final Boolean hasRequiredBlockCount;
+        final boolean hasRequiredBlockCount;
+        _readLock.lock();
         try {
-            _readLock.lock();
             hasRequiredBlockCount = (_previousBlocks.size() >= _requiredBlockCount);
         }
         finally {
@@ -71,6 +75,37 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
         }
 
         return hasRequiredBlockCount;
+    }
+
+    public void clear() {
+        _writeLock.lock();
+
+        try {
+            _previousBlocks.clear();
+        }
+        finally {
+            _writeLock.unlock();
+        }
+    }
+
+    public void setTo(final MedianBlockTimeWithBlocks medianBlockTime) {
+        _writeLock.lock();
+
+        try {
+            _previousBlocks.clear();
+
+            if (medianBlockTime == null) { return; }
+            for (int i = 0; i < _requiredBlockCount; ++i) {
+                final int index = (_requiredBlockCount - i - 1);
+                final BlockHeader blockHeader = medianBlockTime.getBlockHeader(index);
+                if (blockHeader == null) { break; }
+
+                _previousBlocks.add(blockHeader);
+            }
+        }
+        finally {
+            _writeLock.unlock();
+        }
     }
 
     @Override
@@ -99,8 +134,8 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     @Override
     public Long getCurrentTimeInSeconds() {
         final Long medianBlockTime;
+        _readLock.lock();
         try {
-            _readLock.lock();
             medianBlockTime = _getMedianBlockTimeInMilliseconds();
         }
         finally {
@@ -113,8 +148,8 @@ public class MutableMedianBlockTime extends MedianBlockTimeCore implements Media
     @Override
     public Long getCurrentTimeInMilliSeconds() {
         final Long medianBlockTime;
+        _readLock.lock();
         try {
-            _readLock.lock();
             medianBlockTime = _getMedianBlockTimeInMilliseconds();
         }
         finally {

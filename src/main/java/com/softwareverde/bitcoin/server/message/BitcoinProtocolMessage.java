@@ -60,6 +60,7 @@ public abstract class BitcoinProtocolMessage implements ProtocolMessage {
     }
 
     protected abstract ByteArray _getPayload();
+    protected abstract Integer _getPayloadByteCount();
 
     public ByteArray getMagicNumber() {
         return _magicNumber;
@@ -76,5 +77,9 @@ public abstract class BitcoinProtocolMessage implements ProtocolMessage {
     @Override
     public ByteArray getBytes() {
         return _getBytes();
+    }
+
+    public Integer getByteCount() {
+        return (BitcoinProtocolMessageHeaderInflater.HEADER_BYTE_COUNT + _getPayloadByteCount());
     }
 }

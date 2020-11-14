@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.Hash;
+import com.softwareverde.database.query.ValueExtractor;
+import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.util.type.identifier.Identifier;
@@ -82,7 +84,7 @@ public class Query extends com.softwareverde.database.query.Query {
     }
 
     public Query setParameter(final Hash value) {
-        super.setParameter(value != null ? value.toString() : null);
+        super.setParameter(value != null ? value.getBytes() : null);
         return this;
     }
 
@@ -103,12 +105,42 @@ public class Query extends com.softwareverde.database.query.Query {
 
     public Query setParameter(final Difficulty value) {
         final ByteArray byteArray = (value != null ? value.encode() : null);
-        super.setParameter(byteArray != null ? byteArray.toString() : null);
+        super.setParameter(byteArray != null ? byteArray.getBytes() : null);
         return this;
     }
 
     public Query setParameter(final Work value) {
-        super.setParameter(value != null ? value.toString() : null);
+        super.setParameter(value != null ? value.getBytes() : null);
+        return this;
+    }
+
+    @Override
+    public Query setNullParameter() {
+        super.setNullParameter();
+        return this;
+    }
+
+    @Override
+    public Query setInClauseParameters(final InClauseParameter inClauseParameter, final InClauseParameter... extraInClauseParameters) {
+        super.setInClauseParameters(inClauseParameter, extraInClauseParameters);
+        return this;
+    }
+
+    @Override
+    public <T> Query setInClauseParameters(final Iterable<? extends T> values, final ValueExtractor<T> valueExtractor) {
+        super.setInClauseParameters(values, valueExtractor);
+        return this;
+    }
+
+    @Override
+    public <T> Query setExpandedInClauseParameters(final InClauseParameter inClauseParameter, final InClauseParameter... extraInClauseParameters) {
+        super.setExpandedInClauseParameters(inClauseParameter, extraInClauseParameters);
+        return this;
+    }
+
+    @Override
+    public <T> Query setExpandedInClauseParameters(final Iterable<? extends T> values, final ValueExtractor<T> valueExtractor) {
+        super.setExpandedInClauseParameters(values, valueExtractor);
         return this;
     }
 }

@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
@@ -8,8 +12,6 @@ import com.softwareverde.util.Util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 
 public class Configuration {
@@ -36,11 +38,11 @@ public class Configuration {
         final Integer port = Util.parseInt(_properties.getProperty(propertyPrefix + "database.port", "8336"));
         final String dataDirectory = _properties.getProperty(propertyPrefix + "database.dataDirectory", "data");
         final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty(propertyPrefix + "database.useEmbeddedDatabase", "1"));
-        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.Binary.GIBIBYTES)));
 
         // According to https://www.percona.com/blog/2008/11/21/how-to-calculate-a-good-innodb-log-file-size/, and running the calculation on a trimming node syncing yr 2015, the GB/hr was about 6.5gb.
         // In lieu of this, the default value was decided to be set to 8GB to better accommodate slightly higher loads.
-        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(8 * ByteUtil.Unit.GIGABYTES)));
+        final Long logFileByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(512 * ByteUtil.Unit.Binary.MEBIBYTES)));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
@@ -56,10 +58,11 @@ public class Configuration {
         return databaseProperties;
     }
 
-    protected SeedNodeProperties[] _parseSeedNodeProperties(final String propertyName, final String defaultValue) {
+    protected List<SeedNodeProperties> _parseSeedNodeProperties(final String propertyName, final String defaultValue) {
         final Json seedNodesJson = Json.parse(_properties.getProperty(propertyName, defaultValue));
-        final SeedNodeProperties[] seedNodePropertiesArray = new SeedNodeProperties[seedNodesJson.length()];
-        for (int i = 0; i < seedNodesJson.length(); ++i) {
+        final int itemCount = seedNodesJson.length();
+        final MutableList<SeedNodeProperties> seedNodePropertiesArray = new MutableList<SeedNodeProperties>(itemCount);
+        for (int i = 0; i < itemCount; ++i) {
             final String propertiesString = seedNodesJson.getString(i);
 
             final SeedNodeProperties seedNodeProperties;
@@ -73,7 +76,7 @@ public class Configuration {
                 seedNodeProperties = new SeedNodeProperties(address, port);
             }
 
-            seedNodePropertiesArray[i] = seedNodeProperties;
+            seedNodePropertiesArray.add(seedNodeProperties);
         }
         return seedNodePropertiesArray;
     }
@@ -84,23 +87,73 @@ public class Configuration {
         _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BitcoinProperties.RPC_PORT.toString()));
 
         { // Parse Seed Nodes...
-            _bitcoinProperties._seedNodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]");
+            final List<SeedNodeProperties> seedNodeProperties = _parseSeedNodeProperties("bitcoin.seedNodes", "[\"btc.softwareverde.com\", \"bitcoinverde.org\"]");
+            _bitcoinProperties._seedNodeProperties = seedNodeProperties;
         }
 
         { // Parse Whitelisted Nodes...
-            _bitcoinProperties._whitelistedNodes = _parseSeedNodeProperties("bitcoin.whitelistedNodes", "[]");
+            final String defaultSeedsString = "[\"seed.flowee.cash\", \"seed-bch.bitcoinforks.org\", \"btccash-seeder.bitcoinunlimited.info\", \"seed.bchd.cash\"]";
+            final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.dnsSeeds", defaultSeedsString));
+
+            final int itemCount = seedNodesJson.length();;
+            final MutableList<String> dnsSeeds = new MutableList<String>(itemCount);
+            for (int i = 0; i < itemCount; ++i) {
+                final String seedHost = seedNodesJson.getString(i);
+                if (seedHost != null) {
+                    dnsSeeds.add(seedHost);
+                }
+            }
+
+            _bitcoinProperties._dnsSeeds = dnsSeeds;
+        }
+
+        { // Parse Blacklisted User Agents...
+            final String defaultBlacklist = "[\".*Bitcoin ABC.*\", \".*Bitcoin SV.*\"]";
+            final Json blacklistJson = Json.parse(_properties.getProperty("bitcoin.userAgentBlacklist", defaultBlacklist));
+
+            final int itemCount = blacklistJson.length();;
+            final MutableList<String> patterns = new MutableList<String>(itemCount);
+            for (int i = 0; i < itemCount; ++i) {
+                final String pattern = blacklistJson.getString(i);
+                patterns.add(pattern);
+            }
+
+            _bitcoinProperties._userAgentBlacklist = patterns;
+        }
+
+        { // Parse Whitelisted Nodes...
+            final List<SeedNodeProperties> nodeWhitelist = _parseSeedNodeProperties("bitcoin.nodeWhitelist", "[]");
+            _bitcoinProperties._nodesWhitelist = nodeWhitelist;
         }
 
         _bitcoinProperties._banFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBanFilter", "1"));
+        _bitcoinProperties._minPeerCount = Util.parseInt(_properties.getProperty("bitcoin.minPeerCount", "8"));
         _bitcoinProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _bitcoinProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _bitcoinProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         _bitcoinProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
-        _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
-        _bitcoinProperties._transactionBloomFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
+        _bitcoinProperties._deletePendingBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.deletePendingBlocks", "1"));
+        _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO)));
+        _bitcoinProperties._utxoCommitFrequency = Util.parseLong(_properties.getProperty("bitcoin.utxoCommitFrequency", "50000"));
+        _bitcoinProperties._logDirectory = _properties.getProperty("bitcoin.logDirectory", "logs");
+        _bitcoinProperties._logLevel = LogLevel.fromString(_properties.getProperty("bitcoin.logLevel", "INFO"));
+
+        _bitcoinProperties._utxoPurgePercent = Util.parseFloat(_properties.getProperty("bitcoin.utxoPurgePercent", String.valueOf(UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT)));
+        if (_bitcoinProperties._utxoPurgePercent < 0F) {
+            _bitcoinProperties._utxoPurgePercent = 0F;
+        }
+        else if (_bitcoinProperties._utxoPurgePercent > 1F) {
+            _bitcoinProperties._utxoPurgePercent = 1F;
+        }
+
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
-        _bitcoinProperties._trimBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
-        _bitcoinProperties._blockCacheIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.cacheBlocks", "1"));
+
+        {
+            final String reIndexPendingBlocks = _properties.getProperty("bitcoin.reIndexPendingBlocks", null);
+            _bitcoinProperties._shouldReIndexPendingBlocks = ((reIndexPendingBlocks != null) ? Util.parseBool(reIndexPendingBlocks) : null);
+        }
+
+        _bitcoinProperties._indexingModeIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.indexBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
         _bitcoinProperties._shouldRelayInvalidSlpTransactions = Util.parseBool(_properties.getProperty("bitcoin.relayInvalidSlpTransactions", "1"));
@@ -184,9 +237,9 @@ public class Configuration {
         _walletProperties = walletProperties;
     }
 
-    protected String[] _getArrayStringProperty(final String propertyName) {
-        final String arrayString = _properties.getProperty(propertyName, "[]").trim();
-        final List<String> matches = new ArrayList<String>();
+    protected List<String> _getArrayStringProperty(final String propertyName, final String defaultValue) {
+        final String arrayString = _properties.getProperty(propertyName, defaultValue).trim();
+        final MutableList<String> matches = new MutableList<String>();
 
         final int startingIndex;
         final int length;
@@ -215,7 +268,7 @@ public class Configuration {
             matches.add(stringBuilder.toString().trim());
         }
 
-        return matches.toArray(new String[0]);
+        return matches;
     }
 
     protected void _loadProxyProperties() {
@@ -223,8 +276,8 @@ public class Configuration {
         final Integer tlsPort = Util.parseInt(_properties.getProperty("proxy.tlsPort", ProxyProperties.TLS_PORT.toString()));
         final Integer externalTlsPort = Util.parseInt(_properties.getProperty("proxy.externalTlsPort", tlsPort.toString()));
 
-        final String[] tlsKeyFiles = _getArrayStringProperty("proxy.tlsKeyFiles");
-        final String[] tlsCertificateFiles = _getArrayStringProperty("proxy.tlsCertificateFiles");
+        final List<String> tlsKeyFiles = _getArrayStringProperty("proxy.tlsKeyFiles", "[]");
+        final List<String> tlsCertificateFiles = _getArrayStringProperty("proxy.tlsCertificateFiles", "[]");
 
         final ProxyProperties proxyProperties = new ProxyProperties();
         proxyProperties._httpPort = httpPort;

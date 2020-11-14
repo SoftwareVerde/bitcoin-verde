@@ -1,14 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -32,12 +31,10 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     public Long getBalance(final Address address) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-            final AddressId addressId = addressDatabaseManager.getAddressId(address.toBase58CheckEncoded());
-            return addressDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
+            return blockchainIndexerDatabaseManager.getAddressBalance(headChainSegmentId, address);
         }
         catch (final Exception exception) {
             Logger.warn(exception);
@@ -51,12 +48,11 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
 
-            final AddressId addressId = addressDatabaseManager.getAddressId(address.toBase58CheckEncoded());
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
+            final List<TransactionId> transactionIds = blockchainIndexerDatabaseManager.getTransactionIds(headChainSegmentId, address, true);
 
             final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
             final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getCount());
@@ -74,9 +70,11 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
                         transactionTimestamps.put(transactionTimestamp, transactions);
                     }
 
-                    transactions.add(transaction);
+                    if (transaction != null) {
+                        transactions.add(transaction);
+                    }
                 }
-                else {
+                else if (transaction != null) {
                     pendingTransactions.add(transaction);
                 }
             }

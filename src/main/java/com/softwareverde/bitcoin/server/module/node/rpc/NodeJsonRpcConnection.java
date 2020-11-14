@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
@@ -33,7 +34,6 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
 
     protected final MasterInflater _masterInflater;
-
     protected final JsonSocket _jsonSocket;
     protected final Object _newMessageNotifier = new Object();
 
@@ -47,6 +47,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     };
 
     protected Boolean _isUpgradedToHook = false;
+    protected Boolean _announcementHookExpectsRawTransactionData = null;
 
     protected Json _executeJsonRequest(final Json rpcRequestJson) {
         if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to a hook-upgraded socket."); }
@@ -71,7 +72,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return (jsonProtocolMessage != null ? jsonProtocolMessage.getMessage() : null);
     }
 
-    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees) {
+    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees, final List<Address> addressFilter) {
         final Json eventTypesJson = new Json(true);
         eventTypesJson.add("NEW_BLOCK");
         eventTypesJson.add("NEW_TRANSACTION");
@@ -80,6 +81,15 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         parametersJson.put("events", eventTypesJson);
         parametersJson.put("rawFormat", (returnRawData ? 1 : 0));
         parametersJson.put("includeTransactionFees", (includeTransactionFees ? 1 : 0));
+
+        if (addressFilter != null) {
+            final Json addressFilterJson = new Json(true);
+            for (final Address address : addressFilter) {
+                final String addressString = address.toBase58CheckEncoded();
+                addressFilterJson.add(addressString);
+            }
+            parametersJson.put("addressFilter", addressFilterJson);
+        }
 
         final Json registerHookRpcJson = new Json();
         registerHookRpcJson.put("method", "POST");
@@ -406,15 +416,34 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json getUtxoCacheStatus() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "UTXO_CACHE");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json commitUtxoCache() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "COMMIT_UTXO_CACHE");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     /**
      * Subscribes to the Node for new Block/Transaction announcements.
      *  The NodeJsonRpcConnection is consumed by this operation and cannot be used for additional API calls.
      *  The underlying JsonSocket remains connected and must be closed when announcements are no longer desired.
      */
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback) {
-        if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
+        return this.upgradeToAnnouncementHook(announcementHookCallback, null);
+    }
+    public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
+        if (announcementHookCallback == null) { throw new NullPointerException("Attempted to create AnnouncementHook without a callback."); }
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true, addressesFilter);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
@@ -442,14 +471,28 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         });
 
         _isUpgradedToHook = true;
+        _announcementHookExpectsRawTransactionData = false;
 
         return true;
     }
 
+    public Boolean replaceAnnouncementHookAddressFilter(final List<Address> addressesFilter) {
+        if (! _isUpgradedToHook) { return false; }
+
+        final boolean returnRawData = _announcementHookExpectsRawTransactionData;
+        final Json rpcRequestJson = _createRegisterHookRpcJson(returnRawData, true, addressesFilter);
+        rpcRequestJson.put("query", "UPDATE_HOOK");
+        _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
+        return true;
+    }
+
     public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback) {
+        return this.upgradeToAnnouncementHook(announcementHookCallback, null);
+    }
+    public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(true, true);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(true, true, addressesFilter);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
@@ -507,6 +550,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         });
 
         _isUpgradedToHook = true;
+        _announcementHookExpectsRawTransactionData = true;
 
         return true;
     }

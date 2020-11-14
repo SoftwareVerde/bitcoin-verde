@@ -12,7 +12,7 @@ import com.softwareverde.util.Container;
 
 import java.util.WeakHashMap;
 
-public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallback, TransactionWhitelist {
+public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataHandler, TransactionWhitelist {
     public static final int BAN_THRESHOLD = -128;
     public static final float MAX_FALSE_POSITIVE_RATE = 0.15F;
 
@@ -21,7 +21,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
     protected static final WeakHashMap<BitcoinNode, Container<Integer>> NODE_SCORES = new WeakHashMap<BitcoinNode, Container<Integer>>(128);
     protected static long FILTER_TRANSACTION_COUNT = 0L;
 
-    public static RequestDataHandlerMonitor wrap(final BitcoinNode.RequestDataCallback core) {
+    public static RequestDataHandlerMonitor wrap(final BitcoinNode.RequestDataHandler core) {
         if (core instanceof RequestDataHandlerMonitor) {
             Logger.warn("Attempted to wrap RequestDataHandlerMonitor.");
             return new RequestDataHandlerMonitor(((RequestDataHandlerMonitor) core)._core);
@@ -30,7 +30,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
         return new RequestDataHandlerMonitor(core);
     }
 
-    protected final BitcoinNode.RequestDataCallback _core;
+    protected final BitcoinNode.RequestDataHandler _core;
 
     protected void _checkFalsePositives() {
         final Float falsePositiveRate = PREVIOUS_TRANSACTIONS.getFalsePositiveRate(FILTER_TRANSACTION_COUNT);
@@ -41,12 +41,12 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
         }
     }
 
-    protected RequestDataHandlerMonitor(final BitcoinNode.RequestDataCallback core) {
+    protected RequestDataHandlerMonitor(final BitcoinNode.RequestDataHandler core) {
         _core = core;
     }
 
     @Override
-    public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) {
+    public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
         for (final InventoryItem inventoryItem : dataHashes) {
             if (inventoryItem.getItemType() == InventoryItemType.TRANSACTION) {
                 final Sha256Hash transactionHash = inventoryItem.getItemHash();
@@ -60,7 +60,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
                     nodeScore.value += ((transactionWasSeenBefore ? 1 : -1));
                     if (nodeScore.value < BAN_THRESHOLD) {
                         Logger.debug("Disconnecting BitcoinNode " + bitcoinNode.getIp() + bitcoinNode.getUserAgent() + " - Requesting too many unusual Transactions. Score: " + nodeScore.value);
-                        bitcoinNode.disconnect(); // TODO: Consider banning node...
+                        bitcoinNode.disconnect();
                         return;
                     }
 
@@ -76,7 +76,7 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
             }
         }
 
-        _core.run(dataHashes, bitcoinNode);
+        _core.run(bitcoinNode, dataHashes);
     }
 
     /**

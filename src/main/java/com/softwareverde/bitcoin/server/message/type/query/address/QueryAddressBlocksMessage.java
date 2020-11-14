@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.server.message.type.query.address;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -39,6 +39,13 @@ public class QueryAddressBlocksMessage extends BitcoinProtocolMessage {
             byteArrayBuilder.appendBytes(address.getBytes(), Endian.LITTLE);
         }
 
-        return MutableByteArray.wrap(byteArrayBuilder.build());
+        return byteArrayBuilder;
+    }
+
+    @Override
+    protected Integer _getPayloadByteCount() {
+        final int addressCount = _addresses.getCount();
+        final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(_addresses.getCount());
+        return (addressCountBytes.length + (addressCount * AddressInflater.BYTE_COUNT));
     }
 }
