@@ -451,7 +451,7 @@ public class NodeModule {
             }
         };
 
-        _requestDataHandler = new RequestDataHandler(databaseManagerFactory, _blockStore);
+        _requestDataHandler = new RequestDataHandler(databaseManagerFactory);
         _transactionWhitelist = RequestDataHandlerMonitor.wrap(_requestDataHandler);
         { // Initialize the monitor with transactions from the memory pool...
             Logger.info("[Loading RequestDataHandlerMonitor]");

@@ -140,21 +140,6 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return listBuilder.build();
     }
 
-    protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-
-        final List<TransactionId> transactionIds = _getTransactionIds(blockId);
-
-        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getCount());
-        for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-            if (transaction == null) { return null; }
-
-            listBuilder.add(transaction);
-        }
-        return listBuilder.build();
-    }
-
     protected BlockId _getHeadBlockId() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -182,39 +167,9 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
-        if (_blockStore != null) {
-            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            return _blockStore.getBlock(blockHash, blockHeight);
-        }
-
-        final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
-
-        if (blockHeader == null) {
-            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-            Logger.warn("Unable to inflate block. BlockId: " + blockId + " Hash: " + blockHash);
-            return null;
-        }
-
-        final List<Transaction> transactions = _getBlockTransactions(blockId);
-        if (transactions == null) {
-            Logger.warn("Unable to inflate block: " + blockHeader.getHash());
-            return null;
-        }
-
-        final MutableBlock block = new MutableBlock(blockHeader, transactions);
-
-        if (! Util.areEqual(blockHeader.getHash(), block.getHash())) {
-            Logger.warn("Unable to inflate block: " + blockHeader.getHash());
-            return null;
-        }
-
-        return block;
-    }
-
-    public FullNodeBlockDatabaseManager(final FullNodeDatabaseManager databaseManager) {
-        _databaseManager = databaseManager;
-        _blockStore = null;
+        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        return _blockStore.getBlock(blockHash, blockHeight);
     }
 
     public FullNodeBlockDatabaseManager(final FullNodeDatabaseManager databaseManager, final BlockStore blockStore) {
