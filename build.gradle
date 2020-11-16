@@ -46,6 +46,7 @@ dependencies {
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.64'
 
     api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
+    api             group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.0'
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.6.1'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.0'
     api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.0.0'
