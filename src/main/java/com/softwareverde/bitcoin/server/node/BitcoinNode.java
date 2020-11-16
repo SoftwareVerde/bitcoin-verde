@@ -92,6 +92,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinNode extends Node {
     public static final Long MIN_MEGABYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mpbs, slower than 3G.
+    public static final Long REQUEST_TIME_BUFFER = 1000L; // Max time, in ms, assumed it takes to respond to a request, ignoring ping.
 
     protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
@@ -477,7 +478,6 @@ public class BitcoinNode extends Node {
 
             final Long maxRequestAgeMs = _getMaximumTimeoutMs(failableRequest.callback);
             final long requestAgeMs = (nowMs - failableRequest.requestStartTimeMs);
-            final long buffer = 1000L;
 
             if (requestAgeMs > maxRequestAgeMs) {
                 iterator.remove();
@@ -487,7 +487,7 @@ public class BitcoinNode extends Node {
             }
             else {
                 final Long ping = _calculateAveragePingMs();
-                if (requestAgeMs >= ((ping * 2L) + buffer)) {
+                if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
                     final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
                     final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
                     final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
