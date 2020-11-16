@@ -286,7 +286,6 @@ public class BlockDownloader extends GracefulSleepyService {
             }
         };
 
-        final Long startingByteCountReceived = bitcoinNode.getTotalBytesReceivedCount();
         final RequestId requestId = bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
 
         final ThreadPool threadPool = _context.getThreadPool();

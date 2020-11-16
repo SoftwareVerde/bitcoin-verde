@@ -375,9 +375,10 @@ public class BitcoinNode extends Node {
 
     @Override
     protected void _disconnect() {
-        synchronized (this) {
-            if (_requestMonitorThread != null) {
-                _requestMonitorThread.interrupt();
+        synchronized (_requestMonitor) {
+            final Thread requestMonitorThread = _requestMonitorThread;
+            if (requestMonitorThread != null) {
+                requestMonitorThread.interrupt();
                 _requestMonitorThread = null;
             }
         }
@@ -411,16 +412,17 @@ public class BitcoinNode extends Node {
 
     @Override
     protected void _onConnect() {
-        synchronized (this) {
+        synchronized (_requestMonitor) {
             final Thread existingRequestMonitorThread = _requestMonitorThread;
             if (existingRequestMonitorThread != null) {
                 existingRequestMonitorThread.interrupt();
             }
 
-            _requestMonitorThread = new Thread(_requestMonitor);
-            _requestMonitorThread.setName("Bitcoin Node - Request Monitor - " + _connection.toString());
-            _requestMonitorThread.setDaemon(true); // Ensure the thread is closed when the process dies (unnecessary, but proper).
-            _requestMonitorThread.start();
+            final Thread requestMonitorThread = new Thread(_requestMonitor);
+            requestMonitorThread.setName("Bitcoin Node - Request Monitor - " + _connection.toString());
+            requestMonitorThread.setDaemon(true); // Ensure the thread is closed when the process dies (unnecessary, but proper).
+            requestMonitorThread.start();
+            _requestMonitorThread = requestMonitorThread;
         }
         super._onConnect();
     }
@@ -523,7 +525,7 @@ public class BitcoinNode extends Node {
                     }
                 }
                 finally {
-                    synchronized (BitcoinNode.this) {
+                    synchronized (_requestMonitor) {
                         if (_requestMonitorThread == Thread.currentThread()) {
                             _requestMonitorThread = null;
                         }

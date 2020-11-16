@@ -89,11 +89,12 @@ public class ExplorerModule {
 
     public void start() {
         _apiServer.start();
+        _announcementsApi.start();
     }
 
     public void stop() {
+        _announcementsApi.stop();
         _apiServer.stop();
-        _announcementsApi.shutdown();
     }
 
     public void loop() {

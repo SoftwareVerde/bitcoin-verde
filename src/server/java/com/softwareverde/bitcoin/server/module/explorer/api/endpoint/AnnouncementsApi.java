@@ -33,9 +33,35 @@ public class AnnouncementsApi implements WebSocketServlet {
 
     protected static final AtomicLong _nextSocketId = new AtomicLong(1L);
 
+    protected Thread _rpcConnectionThread;
+    protected final Runnable _rpcConnectionThreadRunnable = new Runnable() {
+        @Override
+        public void run() {
+            final Thread thread = Thread.currentThread();
+
+            try {
+                while ( (! thread.isInterrupted()) && (! _isShuttingDown) ) {
+                    Thread.sleep(500L);
+
+                    _checkRpcConnection();
+                }
+            }
+            catch (final Exception exception) {
+                Logger.debug(exception);
+            }
+            finally {
+                synchronized (_rpcConnectionThreadRunnable) {
+                    if (_rpcConnectionThread == thread) {
+                        _rpcConnectionThread = null;
+                    }
+                }
+            }
+        }
+    };
+
     protected final ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
-    protected Boolean _isShuttingDown = false;
+    protected volatile Boolean _isShuttingDown = false;
     protected JsonSocket _socketConnection = null; // TODO: Maintain reference to NodeJsonRpcConnection instead.
 
     protected final NodeJsonRpcConnection.AnnouncementHookCallback _announcementHookCallback = new NodeJsonRpcConnection.AnnouncementHookCallback() {
@@ -230,8 +256,37 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
     }
 
-    public void shutdown() {
+    public void start() {
+        synchronized (_rpcConnectionThreadRunnable) {
+            final Thread existingRpcConnectionThread = _rpcConnectionThread;
+            if (existingRpcConnectionThread != null) {
+                existingRpcConnectionThread.interrupt();
+            }
+
+            final Thread rpcConnectionThread = new Thread(_rpcConnectionThreadRunnable);
+            rpcConnectionThread.setName("RPC Connection Monitor");
+            rpcConnectionThread.setDaemon(true);
+            rpcConnectionThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.warn(exception);
+                }
+            });
+            _rpcConnectionThread = rpcConnectionThread;
+            rpcConnectionThread.start();
+        }
+    }
+
+    public void stop() {
         _isShuttingDown = true;
+
+        synchronized (_rpcConnectionThreadRunnable) {
+            final Thread rpcConnectionThread = _rpcConnectionThread;
+            if (rpcConnectionThread != null) {
+                rpcConnectionThread.interrupt();
+                try { rpcConnectionThread.join(5000L); } catch (final Exception exception) { }
+            }
+        }
 
         _threadPool.stop();
 
