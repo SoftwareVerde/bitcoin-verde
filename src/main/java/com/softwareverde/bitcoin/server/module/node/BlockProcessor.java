@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.BlockStoreContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
@@ -59,7 +60,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
-    public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory { }
+    public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory, DifficultyCalculatorFactory { }
 
     protected static class AsyncFuture {
         protected final Pin _pin = new Pin();
@@ -85,6 +86,7 @@ public class BlockProcessor {
 
     protected final Context _context;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
     protected final Object _statisticsMutex = new Object();
     protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
@@ -99,7 +101,8 @@ public class BlockProcessor {
 
     public BlockProcessor(final Context context) {
         _context = context;
-        _transactionValidatorFactory = _context;
+        _transactionValidatorFactory = context;
+        _difficultyCalculatorFactory = context;
 
         _startTime = System.currentTimeMillis();
     }
@@ -182,7 +185,7 @@ public class BlockProcessor {
                 blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                 final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime);
+                final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, _difficultyCalculatorFactory);
                 final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
                 final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
                 if (! blockHeaderValidationResult.isValid) {
@@ -409,7 +412,7 @@ public class BlockProcessor {
                 {
                     final TransactionInflaters transactionInflaters = _context;
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputContext, _transactionValidatorFactory, databaseManager, networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputContext, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, networkTime);
                     blockValidatorContext.loadBlock(blockHeight, blockId, block);
                     blockValidator = new BlockValidator(blockValidatorContext);
                 }

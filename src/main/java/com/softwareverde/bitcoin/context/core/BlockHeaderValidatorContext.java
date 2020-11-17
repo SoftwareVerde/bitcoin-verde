@@ -7,10 +7,12 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyReferenceBlockLoaderContext;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -30,13 +32,16 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
 
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
-    public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
+    public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime, final DifficultyCalculatorFactory difficultyCalculatorFactory) {
         super(blockchainSegmentId, databaseManager);
         _networkTime = networkTime;
 
         final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
         _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
+
+        _difficultyCalculatorFactory = difficultyCalculatorFactory;
     }
 
     @Override
@@ -147,5 +152,10 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
             Logger.debug(exception);
             return null;
         }
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator() {
+        return _difficultyCalculatorFactory.newDifficultyCalculator(this);
     }
 }

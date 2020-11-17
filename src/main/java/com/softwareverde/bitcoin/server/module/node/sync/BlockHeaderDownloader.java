@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.MultiConnectionDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.NodeManagerContext;
@@ -37,7 +38,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BlockHeaderDownloader extends SleepyService {
-    public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext { }
+    public interface Context extends MultiConnectionDatabaseContext, NetworkTimeContext, NodeManagerContext, SystemTimeContext, ThreadPoolContext, DifficultyCalculatorFactory { }
 
     public interface NewBlockHeadersAvailableCallback {
         void onNewHeadersReceived(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders);
@@ -181,8 +182,9 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
+            final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime);
+            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory);
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
 
             final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(blockHeader, blockHeight);
@@ -204,6 +206,7 @@ public class BlockHeaderDownloader extends SleepyService {
         if (blockHeaders.isEmpty()) { return true; }
 
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
+        final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
@@ -285,7 +288,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(firstBlockHeaderId);
 
-            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime);
+            final BlockHeaderValidatorContext blockHeaderValidatorContext = new BlockHeaderValidatorContext(blockchainSegmentId, databaseManager, networkTime, difficultyCalculatorFactory);
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(blockHeaderValidatorContext);
 
             long nextBlockHeight = firstBlockHeight;

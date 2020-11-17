@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -118,7 +118,7 @@ public class BitcoinNodeManager {
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
     protected volatile Boolean _isShuttingDown = false;
 
-    protected Integer _defaultExternalPort = BitcoinProperties.PORT;
+    protected Integer _defaultExternalPort = BitcoinConstants.getDefaultNetworkPort();
     protected NodeIpAddress _localNodeIpAddress = null;
 
     protected final DatabaseManagerFactory _databaseManagerFactory;

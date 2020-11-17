@@ -6,8 +6,11 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.State;
@@ -57,6 +60,7 @@ public class IntegrationTest extends UnitTest {
     protected final FullNodeDatabaseManagerFactory _readUncommittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
     protected final FakeSynchronizationStatus _synchronizationStatus;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected Long _requiredCoinbaseMaturity = 0L;
@@ -102,6 +106,13 @@ public class IntegrationTest extends UnitTest {
                 }
             }
         });
+
+        _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+            @Override
+            public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                return new DifficultyCalculator(context);
+            }
+        };
 
         _transactionValidatorFactory = new TransactionValidatorFactory() {
             @Override

@@ -203,6 +203,12 @@ public class DifficultyCalculator {
         return newDifficulty;
     }
 
+    protected Difficulty _getParentDifficulty(final Long blockHeight) {
+        final Long previousBlockHeight = (blockHeight - 1L);
+        final BlockHeader previousBlockHeader = _context.getBlockHeader(previousBlockHeight);
+        return previousBlockHeader.getDifficulty();
+    }
+
     public Difficulty calculateRequiredDifficulty(final Long blockHeight) {
         final Boolean isFirstBlock = (Util.areEqual(0L, blockHeight));
         if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
@@ -225,8 +231,6 @@ public class DifficultyCalculator {
             return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockHeight);
         }
 
-        final Long previousBlockHeight = (blockHeight - 1L);
-        final BlockHeader previousBlockHeader = _context.getBlockHeader(previousBlockHeight);
-        return previousBlockHeader.getDifficulty();
+        return _getParentDifficulty(blockHeight);
     }
 }

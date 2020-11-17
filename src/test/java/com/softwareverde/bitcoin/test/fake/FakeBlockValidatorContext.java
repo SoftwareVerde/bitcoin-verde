@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -120,5 +121,10 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public AsertReferenceBlock getAsertReferenceBlock() {
         return _asertReferenceBlock;
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator() {
+        return new DifficultyCalculator(this);
     }
 }

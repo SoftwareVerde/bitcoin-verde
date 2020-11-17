@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
@@ -32,7 +34,12 @@ import org.junit.Test;
 public class DifficultyCalculatorTests extends IntegrationTest {
     public static class LazyDifficultyCalculatorContextWithBlockTimeFallback extends LazyDifficultyCalculatorContext {
         public LazyDifficultyCalculatorContextWithBlockTimeFallback(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager) {
-            super(blockchainSegmentId, databaseManager);
+            super(blockchainSegmentId, databaseManager, new DifficultyCalculatorFactory() {
+                @Override
+                public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                    return new DifficultyCalculator(context);
+                }
+            });
         }
 
         @Override

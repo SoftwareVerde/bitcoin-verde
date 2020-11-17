@@ -1,12 +1,13 @@
 package com.softwareverde.bitcoin.chain.time;
 
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.Time;
 
 public interface MedianBlockTime extends Time, Constable<ImmutableMedianBlockTime> {
     Integer BLOCK_COUNT = 11;
-    Long GENESIS_BLOCK_TIMESTAMP = 1231006505L; // In seconds.
+    Long GENESIS_BLOCK_TIMESTAMP = BitcoinConstants.getGenesisBlockTimestamp(); // In seconds.
     ImmutableMedianBlockTime MAX_VALUE = new ImmutableMedianBlockTime(Long.MAX_VALUE);
 
     static MedianBlockTime fromSeconds(final Long medianBlockTimeInSeconds) {

@@ -7,10 +7,12 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
@@ -40,6 +42,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final TransactionInflaters _transactionInflaters;
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
     protected final HashMap<Long, BlockId> _blockIds = new HashMap<Long, BlockId>();
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
@@ -63,7 +66,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
         return blockId;
     }
 
-    public LazyBlockValidatorContext(final TransactionInflaters transactionInflaters, final BlockchainSegmentId blockchainSegmentId, final UnspentTransactionOutputContext unspentTransactionOutputContext, final TransactionValidatorFactory transactionValidatorFactory, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
+    public LazyBlockValidatorContext(final TransactionInflaters transactionInflaters, final BlockchainSegmentId blockchainSegmentId, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
         _transactionInflaters = transactionInflaters;
         _blockchainSegmentId = blockchainSegmentId;
         _unspentTransactionOutputContext = unspentTransactionOutputContext;
@@ -71,6 +74,7 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
         _databaseManager = databaseManager;
         _networkTime = networkTime;
 
+        _difficultyCalculatorFactory = difficultyCalculatorFactory;
         final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
         _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
     }
@@ -242,5 +246,10 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
             Logger.debug(exception);
             return null;
         }
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator() {
+        return _difficultyCalculatorFactory.newDifficultyCalculator(this);
     }
 }
