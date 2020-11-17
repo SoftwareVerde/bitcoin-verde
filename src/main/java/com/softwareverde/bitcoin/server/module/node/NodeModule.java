@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.configuration.NodeProperties;
+import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -374,7 +375,15 @@ public class NodeModule {
             };
         }
 
-        _checkpointConfiguration = new CheckpointConfiguration();
+        { // Block Checkpoints
+            final Boolean isTestNet = bitcoinProperties.isTestNet();
+            if (isTestNet) {
+                _checkpointConfiguration = new TestNetCheckpointConfiguration();
+            }
+            else {
+                _checkpointConfiguration = new CheckpointConfiguration();
+            }
+        }
 
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
@@ -531,16 +540,22 @@ public class NodeModule {
 
         { // Initialize DifficultyCalculatorFactory...
             final Boolean isTestNet = bitcoinProperties.isTestNet();
-            _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
-                @Override
-                public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
-                    if (isTestNet) {
+            if (isTestNet) {
+                _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
                         return new TestNetDifficultyCalculator(context);
                     }
-
-                    return new DifficultyCalculator(context);
-                }
-            };
+                };
+            }
+            else {
+                _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                        return new DifficultyCalculator(context);
+                    }
+                };
+            }
         }
 
         { // Initialize NodeManager...
