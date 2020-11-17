@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.util.Util;
 
-public class HF20171113 {
+class HF20171113 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 504032L;
 
     // Bitcoin Cash: 2017-11-07 Hard Fork:  https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/nov-13-hardfork-spec.md

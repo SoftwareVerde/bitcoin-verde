@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -112,6 +114,7 @@ public class SpvModule {
 
     protected final Wallet _wallet;
 
+    protected final Boolean _isTestNet;
     protected final SpvRequestDataHandler _spvRequestDataHandler = new SpvRequestDataHandler();
     protected BitcoinNodeManager _bitcoinNodeManager;
     protected BlockHeaderDownloader _blockHeaderDownloader;
@@ -324,6 +327,11 @@ public class SpvModule {
     }
 
     public SpvModule(final Environment environment, final List<NodeProperties> seedNodes, final Integer maxPeerCount, final Wallet wallet) {
+        this(environment, seedNodes, maxPeerCount, wallet, false);
+    }
+
+    public SpvModule(final Environment environment, final List<NodeProperties> seedNodes, final Integer maxPeerCount, final Wallet wallet, final Boolean isTestNet) {
+        _isTestNet = isTestNet;
         _masterInflater = new CoreInflater();
         _seedNodes = seedNodes;
         _wallet = wallet;
@@ -361,6 +369,8 @@ public class SpvModule {
             final Database database = _environment.getDatabase();
             maxQueryBatchSize = database.getMaxQueryBatchSize();
         }
+
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -700,21 +710,28 @@ public class SpvModule {
             }
         }
 
-        { // Initialize BlockHeaderDownloader...
-            final Boolean isTestNet = false; // TODO
-
-            final DifficultyCalculatorFactory difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
-                @Override
-                public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
-                    if (isTestNet) {
+        final DifficultyCalculatorFactory difficultyCalculatorFactory;
+        { // Initialize DifficultyCalculatorFactory...
+            if (_isTestNet) {
+                difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
                         return new TestNetDifficultyCalculator(context);
                     }
+                };
+            }
+            else {
+                difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                        return new DifficultyCalculator(context);
+                    }
+                };
+            }
+        }
 
-                    return new DifficultyCalculator(context);
-                }
-            };
-
-            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
+        { // Initialize BlockHeaderDownloader...
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _mainThreadPool, upgradeSchedule);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }

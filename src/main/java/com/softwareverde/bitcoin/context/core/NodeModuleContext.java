@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.context.core;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
+import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
@@ -28,7 +30,8 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownloader.Context, BlockHeaderDownloader.Context, BlockProcessor.Context, PendingBlockLoader.Context, TransactionProcessor.Context {
+public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownloader.Context, BlockHeaderDownloader.Context, BlockProcessor.Context, PendingBlockLoader.Context, TransactionProcessor.Context, UpgradeScheduleContext {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final BlockInflaters _blockInflaters;
     protected final TransactionInflaters _transactionInflaters;
     protected final PendingBlockStore _blockStore;
@@ -41,7 +44,8 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     protected final ThreadPool _threadPool;
     protected final VolatileNetworkTime _networkTime;
 
-    public NodeModuleContext(final BlockInflaters blockInflaters, final TransactionInflaters transactionInflaters, final PendingBlockStore pendingBlockStore, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final BitcoinNodeManager nodeManager, final SynchronizationStatus synchronizationStatus, final MedianBlockTime medianBlockTime, final SystemTime systemTime, final ThreadPool threadPool, final VolatileNetworkTime networkTime) {
+    public NodeModuleContext(final BlockInflaters blockInflaters, final TransactionInflaters transactionInflaters, final PendingBlockStore pendingBlockStore, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final BitcoinNodeManager nodeManager, final SynchronizationStatus synchronizationStatus, final MedianBlockTime medianBlockTime, final SystemTime systemTime, final ThreadPool threadPool, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
         _blockInflaters = blockInflaters;
         _transactionInflaters = transactionInflaters;
         _blockStore = pendingBlockStore;
@@ -123,5 +127,10 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     @Override
     public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
         return _difficultyCalculatorFactory.newDifficultyCalculator(context);
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

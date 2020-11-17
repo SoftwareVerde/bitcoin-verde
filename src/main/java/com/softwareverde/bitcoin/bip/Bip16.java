@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.util.Util;
 
-public class Bip16 {
+class Bip16 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 173805L;
 
     // Pay to Script Hash - https://github.com/bitcoin/bips/blob/master/bip-0016.mediawiki

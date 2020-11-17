@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -13,23 +13,25 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 
 public class SignatureContext {
-    private final Transaction _transaction;
-    private final HashType _hashType;
-    private final Long _blockHeight;
+    protected final Transaction _transaction;
+    protected final HashType _hashType;
+    protected final Long _blockHeight;
 
-    private final MutableList<Boolean> _inputScriptsToSign = new MutableList<Boolean>(); // Determines if the script is left intact or replaced with an empty script...
-    private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
-    private final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
+    protected final UpgradeSchedule _upgradeSchedule;
+    protected final MutableList<Boolean> _inputScriptsToSign = new MutableList<Boolean>(); // Determines if the script is left intact or replaced with an empty script...
+    protected final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
+    protected final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
 
-    private Integer _inputIndexBeingSigned = null;
-    private Script _currentScript;
-    private List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
+    protected Integer _inputIndexBeingSigned = null;
+    protected Script _currentScript;
+    protected List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
 
-    public SignatureContext(final Transaction transaction, final HashType hashType) {
-        this(transaction, hashType, Long.MAX_VALUE);
+    public SignatureContext(final Transaction transaction, final HashType hashType, final UpgradeSchedule upgradeSchedule) {
+        this(transaction, hashType, Long.MAX_VALUE, upgradeSchedule);
     }
 
-    public SignatureContext(final Transaction transaction, final HashType hashType, final Long blockHeight) {
+    public SignatureContext(final Transaction transaction, final HashType hashType, final Long blockHeight, final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
         _transaction = transaction;
         _hashType = hashType;
         _blockHeight = blockHeight;
@@ -152,7 +154,8 @@ public class SignatureContext {
     }
 
     public Boolean shouldUseBitcoinCashSigningAlgorithm() {
-        if (! Buip55.isEnabled(_blockHeight)) { return false; }
+        final Boolean bitcoinCashSignatureHashIsEnabled = _upgradeSchedule.isBitcoinCashSignatureHashTypeEnabled(_blockHeight);
+        if (! bitcoinCashSignatureHashIsEnabled) { return false; }
 
         return _hashType.isBitcoinCashType();
     }

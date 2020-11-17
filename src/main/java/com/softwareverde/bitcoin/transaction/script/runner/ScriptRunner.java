@@ -1,8 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.bip.Bip16;
-import com.softwareverde.bitcoin.bip.HF20181115;
-import com.softwareverde.bitcoin.bip.HF20190515;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
@@ -29,9 +28,15 @@ public class ScriptRunner {
 
     protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
 
-    public ScriptRunner() { }
+    protected final UpgradeSchedule _upgradeSchedule;
+
+    public ScriptRunner(final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
+    }
 
     public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final TransactionContext transactionContext) {
+        final Long blockHeight = transactionContext.getBlockHeight();
+        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
         final MutableTransactionContext mutableContext = new MutableTransactionContext(transactionContext);
 
         final ControlState controlState = new ControlState();
@@ -49,7 +54,7 @@ public class ScriptRunner {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
                 if (unlockingScriptOperations == null) { return false; }
 
-                if (HF20181115.isEnabled(transactionContext.getBlockHeight())) {
+                if (_upgradeSchedule.disallowNonPushOperationsWithinUnlockingScript(blockHeight)) {
                     final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
                     if (unlockingScriptContainsNonPushOperations) { return false; } // Only push operations are allowed in the unlocking script. (BIP 62)
                 }
@@ -104,7 +109,7 @@ public class ScriptRunner {
 
         final boolean shouldRunPayToScriptHashScript;
         { // Pay-To-Script-Hash Validation
-            final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
+            final Boolean payToScriptHashValidationRulesAreEnabled = _upgradeSchedule.isPayToScriptHashEnabled(blockHeight);
             final Boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
 
             if (BITCOIN_ABC_QUIRK_ENABLED) {
@@ -158,10 +163,10 @@ public class ScriptRunner {
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
 
         // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
-        if (HF20181115.isEnabled(transactionContext.getBlockHeight())) {
+        if (_upgradeSchedule.disallowUnusedValuesAfterScriptExecution(blockHeight)) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) {
-                if (HF20190515.isEnabled(transactionContext.getMedianBlockTime())) {
+                if (_upgradeSchedule.allowUnusedValuesAfterScriptExecutionForSegwitScripts(medianBlockTime)) {
                     final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                     final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
                     if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }

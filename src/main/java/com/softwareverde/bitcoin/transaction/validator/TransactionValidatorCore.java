@@ -1,9 +1,6 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
-import com.softwareverde.bitcoin.bip.Bip113;
-import com.softwareverde.bitcoin.bip.Bip68;
-import com.softwareverde.bitcoin.bip.HF20181115;
-import com.softwareverde.bitcoin.bip.HF20200515;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -88,6 +85,7 @@ public class TransactionValidatorCore implements TransactionValidator {
     }
 
     protected Boolean _validateTransactionLockTime(final TransactionContext transactionContext) {
+        final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
         final Transaction transaction = transactionContext.getTransaction();
         final Long blockHeight = transactionContext.getBlockHeight();
 
@@ -98,7 +96,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         else {
             final Long currentNetworkTime;
             {
-                if (Bip113.isEnabled(blockHeight)) {
+                if (upgradeSchedule.enableMedianBlockTimeForTransactionLockTime(blockHeight)) {
                     final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
                     currentNetworkTime = medianBlockTime.getCurrentTimeInSeconds();
                 }
@@ -237,21 +235,22 @@ public class TransactionValidatorCore implements TransactionValidator {
 
     @Override
     public TransactionValidationResult validateTransaction(final Long blockHeight, final Transaction transaction) {
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         final Long previousBlockHeight = (blockHeight - 1L);
         final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
 
-        final MutableTransactionContext transactionContext = new MutableTransactionContext();
+        final MutableTransactionContext transactionContext = new MutableTransactionContext(upgradeSchedule);
         transactionContext.setBlockHeight(blockHeight);
         transactionContext.setMedianBlockTime(medianBlockTime);
 
         transactionContext.setTransaction(transaction);
 
         { // Enforce Transaction minimum byte count...
-            if (HF20181115.isEnabled(blockHeight)) {
+            if (upgradeSchedule.enableMinimumTransactionByteCount(blockHeight)) {
                 final Integer transactionByteCount = transaction.getByteCount();
                 if (transactionByteCount < TransactionInflater.MIN_BYTE_COUNT) {
                     final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
@@ -271,7 +270,7 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
         }
 
-        if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
+        if (upgradeSchedule.isRelativeLockTimeEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
                 final ValidationResult sequenceNumbersValidationResult = _validateSequenceNumbers(transaction, blockHeight);
                 if (! sequenceNumbersValidationResult.isValid) {
@@ -375,7 +374,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
-        if (HF20200515.isEnabled(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
+        if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
             final Integer maximumSignatureOperationCount = _getMaximumSignatureOperations();
             if (signatureOperationCount > maximumSignatureOperationCount) {
                 final Json errorJson = _createInvalidTransactionReport("Transaction exceeds maximum signature operation count.", transaction, transactionContext);

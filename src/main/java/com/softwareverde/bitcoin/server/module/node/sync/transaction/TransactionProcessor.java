@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
@@ -8,6 +9,7 @@ import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
@@ -39,7 +41,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
-    public interface Context extends TransactionInflaters, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext { }
+    public interface Context extends TransactionInflaters, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext, UpgradeScheduleContext { }
 
     public interface Callback {
         void onNewTransactions(List<Transaction> transactions);
@@ -87,7 +89,8 @@ public class TransactionProcessor extends SleepyService {
             final TransactionInflaters transactionInflaters = _context;
             final UnspentTransactionOutputContext unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager, true);
             final MedianBlockTimeContext medianBlockTimeContext = new LazyMedianBlockTimeContext(databaseManager);
-            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
+            final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, upgradeSchedule);
             final TransactionValidator transactionValidator = _context.getUnconfirmedTransactionValidator(transactionValidatorContext);
 
             final Long now = systemTime.getCurrentTimeInMilliSeconds();

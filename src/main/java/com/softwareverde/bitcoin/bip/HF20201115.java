@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
-public class HF20201115 {
+class HF20201115 {
     public static final Long ACTIVATION_BLOCK_TIME = 1605441600L;
 
     // Bitcoin Cash: 2020-11-15 Hard Fork:  https://gitlab.com/bitcoin-cash-node/bchn-sw/bitcoincash-upgrade-specifications/-/blob/master/spec/2020-11-15-upgrade.md

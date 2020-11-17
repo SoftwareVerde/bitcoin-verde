@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -147,6 +149,7 @@ public class NodeModule {
     protected final PendingBlockStoreCore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final MasterInflater _masterInflater;
+    protected final UpgradeSchedule _upgradeSchedule;
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final BinarySocketServer _socketServer;
@@ -358,6 +361,7 @@ public class NodeModule {
 
         _systemTime = new SystemTime();
         _masterInflater = new CoreInflater();
+        _upgradeSchedule = new CoreUpgradeSchedule();
 
         { // Initialize the BlockCache...
             final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks");
@@ -609,13 +613,13 @@ public class NodeModule {
         }
 
         { // Initialize the TransactionProcessor...
-            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_masterInflater, databaseManagerFactory, _mutableNetworkTime, _systemTime, transactionValidatorFactory);
+            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_masterInflater, databaseManagerFactory, _mutableNetworkTime, _systemTime, transactionValidatorFactory, _upgradeSchedule);
             _transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         }
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory);
+            final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory, _upgradeSchedule);
             blockProcessor = new BlockProcessor(blockProcessorContext);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
@@ -624,7 +628,7 @@ public class NodeModule {
 
         final BlockDownloadRequester blockDownloadRequester;
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
-            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _mainThreadPool);
+            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _mainThreadPool, _upgradeSchedule);
             _blockDownloader = new BlockDownloader(blockDownloaderContext);
             blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockDownloaderContext, blockDownloadRequester);
@@ -876,7 +880,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
                 final TransactionInflaters transactionInflaters = _masterInflater;
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(transactionInflaters, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(transactionInflaters, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime, _upgradeSchedule);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);

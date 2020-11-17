@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.core;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -26,6 +27,7 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 
 public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext implements BlockHeaderValidator.Context {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final VolatileNetworkTime _networkTime;
 
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
@@ -34,11 +36,13 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
-    public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime, final DifficultyCalculatorFactory difficultyCalculatorFactory) {
+    public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime, final DifficultyCalculatorFactory difficultyCalculatorFactory, final UpgradeSchedule upgradeSchedule) {
+
         super(blockchainSegmentId, databaseManager);
+        _upgradeSchedule = upgradeSchedule;
         _networkTime = networkTime;
 
-        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
+        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager, _upgradeSchedule);
         _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
 
         _difficultyCalculatorFactory = difficultyCalculatorFactory;
@@ -157,5 +161,10 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     @Override
     public DifficultyCalculator newDifficultyCalculator() {
         return _difficultyCalculatorFactory.newDifficultyCalculator(this);
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

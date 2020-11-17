@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.bip;
 
 import com.softwareverde.util.Util;
 
-public class Bip65 {
+class Bip65 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 388167L;
 
     // OP_CHECKLOCKTIMEVERIFY -- https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki

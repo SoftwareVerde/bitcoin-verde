@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
@@ -171,8 +171,11 @@ public abstract class Operation implements Const {
     }
 
     protected static Boolean validateMinimalEncoding(final Value value, final TransactionContext transactionContext) {
-        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-        if (! HF20191115.isEnabled(medianBlockTime)) { return true; }
+        {
+            final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
+            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+            if (! upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) { return true; }
+        }
 
         return Operation.isMinimallyEncoded(value);
     }

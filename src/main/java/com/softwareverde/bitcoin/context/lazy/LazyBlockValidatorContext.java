@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.context.lazy;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -35,6 +36,7 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 
 public class LazyBlockValidatorContext implements BlockValidator.Context {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
     protected final VolatileNetworkTime _networkTime;
@@ -66,16 +68,17 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
         return blockId;
     }
 
-    public LazyBlockValidatorContext(final TransactionInflaters transactionInflaters, final BlockchainSegmentId blockchainSegmentId, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
+    public LazyBlockValidatorContext(final TransactionInflaters transactionInflaters, final BlockchainSegmentId blockchainSegmentId, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
+        _upgradeSchedule = upgradeSchedule;
         _transactionInflaters = transactionInflaters;
         _blockchainSegmentId = blockchainSegmentId;
         _unspentTransactionOutputContext = unspentTransactionOutputContext;
         _transactionValidatorFactory = transactionValidatorFactory;
         _databaseManager = databaseManager;
         _networkTime = networkTime;
-
         _difficultyCalculatorFactory = difficultyCalculatorFactory;
-        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
+
+        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager, _upgradeSchedule);
         _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
     }
 
@@ -251,5 +254,10 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
     @Override
     public DifficultyCalculator newDifficultyCalculator() {
         return _difficultyCalculatorFactory.newDifficultyCalculator(this);
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

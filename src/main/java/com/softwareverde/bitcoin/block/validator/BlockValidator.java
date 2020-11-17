@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.block.validator;
 
-import com.softwareverde.bitcoin.bip.Bip34;
-import com.softwareverde.bitcoin.bip.HF20200515;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
@@ -53,6 +52,8 @@ public class BlockValidator {
     protected Long _trustedBlockHeight = DO_NOT_TRUST_BLOCKS;
 
     protected BlockValidationResult _validateTransactions(final Block block, final Long blockHeight) {
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
         final Thread currentThread = Thread.currentThread();
 
         { // Enforce max byte count...
@@ -129,7 +130,7 @@ public class BlockValidator {
         }
 
         { // Validate coinbase contains block height...
-            if (Bip34.isEnabled(blockHeight)) {
+            if (upgradeSchedule.requireBlockHeightWithinCoinbase(blockHeight)) {
                 final Long blockVersion = block.getVersion();
                 if (blockVersion < 2L) {
                     totalExpenditureValidationTaskSpawner.abort();
@@ -238,8 +239,7 @@ public class BlockValidator {
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid(errorMessage.toString(), invalidTransactions); }
 
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
-        if (HF20200515.isEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
+        if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) { // Enforce maximum Signature operation count...
             final int maximumSignatureOperationCount = (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
             if (totalSignatureOperationCount > maximumSignatureOperationCount) {
                 return BlockValidationResult.invalid("Too many signature operations.");

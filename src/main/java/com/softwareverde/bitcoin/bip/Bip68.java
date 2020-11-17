@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.bip;
 
-public class Bip68 {
+class Bip68 {
     public static final Long ACTIVATION_BLOCK_HEIGHT = 419328L;
 
     // Relative Lock-Time Using Consensus-Enforced Sequence Numbers - https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki

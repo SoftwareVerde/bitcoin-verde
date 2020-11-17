@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.validator;
 
-import com.softwareverde.bitcoin.bip.Bip113;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
@@ -41,6 +41,8 @@ public class BlockHeaderValidator {
     }
 
     public BlockHeaderValidationResult validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+
         if (! blockHeader.isValid()) {
             return BlockHeaderValidationResult.invalid("Block header is invalid.");
         }
@@ -49,7 +51,7 @@ public class BlockHeaderValidator {
             final Long blockTime = blockHeader.getTimestamp();
             final Long minimumTimeInSeconds;
             {
-                if (Bip113.isEnabled(blockHeight)) {
+                if (upgradeSchedule.enableMedianBlockTimeForBlockTimestamp(blockHeight)) {
                     final Long previousBlockHeight = (blockHeight - 1L);
                     final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
                     minimumTimeInSeconds = medianBlockTime.getCurrentTimeInSeconds();

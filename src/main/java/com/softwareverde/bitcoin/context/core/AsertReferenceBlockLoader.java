@@ -1,17 +1,18 @@
 package com.softwareverde.bitcoin.context.core;
 
-import com.softwareverde.bitcoin.bip.HF20201115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.ContextException;
+import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class AsertReferenceBlockLoader {
-    public interface ReferenceBlockLoaderContext {
+    public interface ReferenceBlockLoaderContext extends UpgradeScheduleContext {
         BlockId getHeadBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId) throws ContextException;
         MedianBlockTime getMedianBlockTime(BlockId blockId) throws ContextException;
         Long getBlockTimestamp(BlockId blockId) throws ContextException;
@@ -28,10 +29,11 @@ public class AsertReferenceBlockLoader {
 
     // TODO: Hardcode value after 2020-11-15...
     public AsertReferenceBlock getAsertReferenceBlock(final BlockchainSegmentId blockchainSegmentId) throws ContextException {
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final BlockId headBlockId = _context.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);
 
         final MedianBlockTime headMedianBlockTime = _context.getMedianBlockTime(headBlockId);
-        if (! HF20201115.isEnabled(headMedianBlockTime)) {
+        if (! upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(headMedianBlockTime)) {
             Logger.debug("Cannot load Aserti3-2d anchor Block; HF has not activated.");
             return null;
         }
@@ -47,7 +49,7 @@ public class AsertReferenceBlockLoader {
             if (blockId == null) { break; }
 
             final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockId);
-            if (! HF20201115.isEnabled(medianBlockTime)) {
+            if (! upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianBlockTime)) {
                 minBlockHeight = _context.getBlockHeight(blockId);
                 break;
             }
@@ -75,7 +77,7 @@ public class AsertReferenceBlockLoader {
             }
 
             final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockId);
-            if (! HF20201115.isEnabled(medianBlockTime)) {
+            if (! upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianBlockTime)) {
                 minBlockHeight = blockHeight;
             }
             else {
