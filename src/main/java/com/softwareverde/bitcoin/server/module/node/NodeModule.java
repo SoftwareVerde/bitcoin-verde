@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -361,7 +362,15 @@ public class NodeModule {
 
         _systemTime = new SystemTime();
         _masterInflater = new CoreInflater();
-        _upgradeSchedule = new CoreUpgradeSchedule();
+
+        { // Upgrade Schedule
+            if (bitcoinProperties.isTestNet()) {
+                _upgradeSchedule = new TestNetUpgradeSchedule();
+            }
+            else {
+                _upgradeSchedule = new CoreUpgradeSchedule();
+            }
+        }
 
         { // Initialize the BlockCache...
             final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks");
