@@ -54,7 +54,7 @@ public class ScriptRunner {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
                 if (unlockingScriptOperations == null) { return false; }
 
-                if (_upgradeSchedule.disallowNonPushOperationsWithinUnlockingScript(blockHeight)) {
+                if (_upgradeSchedule.areOnlyPushOperationsAllowedWithinUnlockingScript(blockHeight)) {
                     final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
                     if (unlockingScriptContainsNonPushOperations) { return false; } // Only push operations are allowed in the unlocking script. (BIP 62)
                 }
@@ -163,10 +163,10 @@ public class ScriptRunner {
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
 
         // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
-        if (_upgradeSchedule.disallowUnusedValuesAfterScriptExecution(blockHeight)) {
+        if (_upgradeSchedule.areUnusedValuesAfterScriptExecutionDisallowed(blockHeight)) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) {
-                if (_upgradeSchedule.allowUnusedValuesAfterScriptExecutionForSegwitScripts(medianBlockTime)) {
+                if (_upgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(medianBlockTime)) {
                     final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                     final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
                     if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }

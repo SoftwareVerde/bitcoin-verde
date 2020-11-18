@@ -14,7 +14,7 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean disallowNonPushOperationsWithinUnlockingScript(final Long blockHeight) {
+    public Boolean areOnlyPushOperationsAllowedWithinUnlockingScript(final Long blockHeight) {
         return HF20181115.isEnabled(blockHeight);
     }
 
@@ -39,7 +39,7 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean requireBlockHeightWithinCoinbase(final Long blockHeight) {
+    public Boolean isBlockHeightWithinCoinbaseRequired(final Long blockHeight) {
         return Bip34.isEnabled(blockHeight);
     }
 
@@ -49,12 +49,12 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean enableMedianBlockTimeForTransactionLockTime(final Long blockHeight) {
+    public Boolean shouldUseMedianBlockTimeForTransactionLockTime(final Long blockHeight) {
         return Bip113.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean enableMedianBlockTimeForBlockTimestamp(final Long blockHeight) {
+    public Boolean shouldUseMedianBlockTimeForBlockTimestamp(final Long blockHeight) {
         return Bip113.isEnabled(blockHeight);
     }
 
@@ -69,52 +69,52 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean requireAllInvalidSignaturesBeEmpty(final Long blockHeight) {
+    public Boolean areAllInvalidSignaturesRequiredToBeEmpty(final Long blockHeight) {
         return HF20171113.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean requireStrictSignatureAndPublicKeyEncoding(final Long blockHeight) {
+    public Boolean areSignaturesRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return Buip55.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean requireCanonicalSignatureEncoding(final Long blockHeight) {
+    public Boolean areCanonicalSignatureEncodingsRequired(final Long blockHeight) {
         return HF20171113.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean requireStrictPublicKeyEncoding(final Long blockHeight) {
+    public Boolean arePublicKeysRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return Buip55.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean disallowNegativeDerSignatureEncodings(final Long blockHeight) {
+    public Boolean areNegativeDerSignatureEncodingsDisallowed(final Long blockHeight) {
         return Bip66.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean disallowUnusedValuesAfterScriptExecution(final Long blockHeight) {
+    public Boolean areUnusedValuesAfterScriptExecutionDisallowed(final Long blockHeight) {
         return HF20181115.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean enableMinimumTransactionByteCount(final Long blockHeight) {
+    public Boolean areTransactionsLessThanOneHundredBytesDisallowed(final Long blockHeight) {
         return HF20181115.isEnabled(blockHeight);
     }
 
     @Override
-    public Boolean allowUnusedValuesAfterScriptExecutionForSegwitScripts(final MedianBlockTime medianBlockTime) {
+    public Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed(final MedianBlockTime medianBlockTime) {
         return HF20190515.isEnabled(medianBlockTime);
     }
 
     @Override
-    public Boolean enableSignatureOperationCountingVersion2(final MedianBlockTime medianBlockTime) {
+    public Boolean isSignatureOperationCountingVersionTwoEnabled(final MedianBlockTime medianBlockTime) {
         return HF20200515.isEnabled(medianBlockTime);
     }
 
     @Override
-    public Boolean requireMultiSignatureChecksAreCanonicallyEncoded(final MedianBlockTime medianBlockTime) {
+    public Boolean areCanonicalMultiSignatureCheckEncodingsRequired(final MedianBlockTime medianBlockTime) {
         return HF20191115.isEnabled(medianBlockTime);
     }
 

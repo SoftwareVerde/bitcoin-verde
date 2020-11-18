@@ -51,7 +51,7 @@ public class BlockHeaderValidator {
             final Long blockTime = blockHeader.getTimestamp();
             final Long minimumTimeInSeconds;
             {
-                if (upgradeSchedule.enableMedianBlockTimeForBlockTimestamp(blockHeight)) {
+                if (upgradeSchedule.shouldUseMedianBlockTimeForBlockTimestamp(blockHeight)) {
                     final Long previousBlockHeight = (blockHeight - 1L);
                     final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
                     minimumTimeInSeconds = medianBlockTime.getCurrentTimeInSeconds();

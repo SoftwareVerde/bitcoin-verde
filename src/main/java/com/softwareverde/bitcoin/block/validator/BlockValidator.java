@@ -130,7 +130,7 @@ public class BlockValidator {
         }
 
         { // Validate coinbase contains block height...
-            if (upgradeSchedule.requireBlockHeightWithinCoinbase(blockHeight)) {
+            if (upgradeSchedule.isBlockHeightWithinCoinbaseRequired(blockHeight)) {
                 final Long blockVersion = block.getVersion();
                 if (blockVersion < 2L) {
                     totalExpenditureValidationTaskSpawner.abort();
@@ -239,7 +239,7 @@ public class BlockValidator {
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid(errorMessage.toString(), invalidTransactions); }
 
-        if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) { // Enforce maximum Signature operation count...
+        if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
             final int maximumSignatureOperationCount = (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
             if (totalSignatureOperationCount > maximumSignatureOperationCount) {
                 return BlockValidationResult.invalid("Too many signature operations.");

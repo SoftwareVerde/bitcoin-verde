@@ -114,7 +114,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (signature != null) {
                 // Check for negative-encoded DER signatures...
                 if (signature.getType() == Signature.Type.ECDSA) { // Bip66 only applies to DER encoded signatures...
-                    if (upgradeSchedule.disallowNegativeDerSignatureEncodings(blockHeight)) { // Enforce non-negative R and S encoding for DER encoded signatures...
+                    if (upgradeSchedule.areNegativeDerSignatureEncodingsDisallowed(blockHeight)) { // Enforce non-negative R and S encoding for DER encoded signatures...
                         final ByteArray signatureR = signature.getR();
                         if (signatureR.getByteCount() == 0) { return false; }
                         if ((signatureR.getByte(0) & 0x80) != 0) { return false; }
@@ -170,23 +170,23 @@ public class CryptographicOperation extends SubTypedOperation {
         {
             final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
 
-            if (upgradeSchedule.requireStrictSignatureAndPublicKeyEncoding(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+            if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
                 final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
                 if (! signatureIsStrictlyEncoded) { return false; }
             }
 
-            if (upgradeSchedule.requireCanonicalSignatureEncoding(blockHeight)) { // Enforce canonical signature encoding (LOW_S)...
+            if (upgradeSchedule.areCanonicalSignatureEncodingsRequired(blockHeight)) { // Enforce canonical signature encoding (LOW_S)...
                 final Boolean signatureIsCanonicallyEncoded = CryptographicOperation.validateCanonicalSignatureEncoding(scriptSignature);
                 if (! signatureIsCanonicallyEncoded) { return false; }
             }
 
             final PublicKey publicKey = publicKeyValue.asPublicKey();
-            if (upgradeSchedule.requireStrictPublicKeyEncoding(blockHeight)) {
+            if (upgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(blockHeight)) {
                 if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
             }
 
             if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
-                if (upgradeSchedule.requireStrictSignatureAndPublicKeyEncoding(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                if (upgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict PublicKey encoding (SCRIPT_VERIFY_STRICTENC)...
                     final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
                     if (! publicKeyIsStrictlyEncoded) { return false; }
                 }
@@ -202,7 +202,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signatureIsValid) { return false; }
         }
         else {
-            if (upgradeSchedule.requireAllInvalidSignaturesBeEmpty(blockHeight)) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+            if (upgradeSchedule.areAllInvalidSignaturesRequiredToBeEmpty(blockHeight)) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
                 if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; }
             }
 
@@ -211,7 +211,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         { // Enforce Signature operation counting...
             final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-            if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) {
+            if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) {
                 if (! signatureValue.isEmpty()) {
                     transactionContext.incrementSignatureOperationCount(1);
                 }
@@ -234,7 +234,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final Value publicKeyCountValue = stack.pop();
             if (stack.didOverflow()) { return false; }
 
-            if (upgradeSchedule.requireMultiSignatureChecksAreCanonicallyEncoded(medianBlockTime)) {
+            if (upgradeSchedule.areCanonicalMultiSignatureCheckEncodingsRequired(medianBlockTime)) {
                 if (! Operation.validateMinimalEncoding(publicKeyCountValue, transactionContext)) { return false; }
             }
 
@@ -262,7 +262,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final Value signatureCountValue = stack.pop();
             if (stack.didOverflow()) { return false; }
 
-            if (upgradeSchedule.requireMultiSignatureChecksAreCanonicallyEncoded(medianBlockTime)) {
+            if (upgradeSchedule.areCanonicalMultiSignatureCheckEncodingsRequired(medianBlockTime)) {
                 if (! Operation.validateMinimalEncoding(signatureCountValue, transactionContext)) { return false; }
             }
 
@@ -422,21 +422,23 @@ public class CryptographicOperation extends SubTypedOperation {
 
                     final int nextPublicKeyIndex = publicKeyIndexesToTry.get(publicKeyIndexIndex);
                     final PublicKey publicKey = publicKeys.get(nextPublicKeyIndex);
-                    if (upgradeSchedule.requireStrictSignatureAndPublicKeyEncoding(blockHeight)) {
+                    if (upgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(blockHeight)) {
                         if (! publicKey.isValid()) { return false; } // Attempting to use an invalid public key fails, even if the signature is empty.
                     }
 
                     // Signatures and PublicKeys that are not used are allowed to be coded incorrectly.
                     //  Therefore, the publicKey checking is performed immediately before the signature check, and not when popped from the stack.
-                    if (upgradeSchedule.requireStrictSignatureAndPublicKeyEncoding(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                    if (upgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict PublicKey encoding (SCRIPT_VERIFY_STRICTENC)...
                         final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
                         if (! publicKeyIsStrictlyEncoded) { return false; }
-
-                        final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
-                        if (! meetsStrictEncodingStandard) { return false; }
                     }
 
-                    if (upgradeSchedule.requireCanonicalSignatureEncoding(blockHeight)) { // Enforce canonical signature encoding (LOW_S)...
+                    if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict PublicKey encoding (SCRIPT_VERIFY_STRICTENC)...
+                        final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
+                        if (! signatureIsStrictlyEncoded) { return false; }
+                    }
+
+                    if (upgradeSchedule.areCanonicalSignatureEncodingsRequired(blockHeight)) { // Enforce canonical signature encoding (LOW_S)...
                         final Boolean signatureIsCanonicallyEncoded = CryptographicOperation.validateCanonicalSignatureEncoding(scriptSignature);
                         if (! signatureIsCanonicallyEncoded) { return false; }
                     }
@@ -485,7 +487,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signaturesAreValid) { return false; }
         }
         else {
-            if (upgradeSchedule.requireAllInvalidSignaturesBeEmpty(blockHeight)) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+            if (upgradeSchedule.areAllInvalidSignaturesRequiredToBeEmpty(blockHeight)) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
                 if ((! signaturesAreValid) && (! allSignaturesWereEmpty)) { return false; }
             }
 
@@ -493,7 +495,7 @@ public class CryptographicOperation extends SubTypedOperation {
         }
 
         { // Enforce Signature operation counting...
-            if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) {
+            if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) {
                 if (! allSignaturesWereEmpty) {
                     transactionContext.incrementSignatureOperationCount(signatureCount);
                 }
@@ -515,12 +517,12 @@ public class CryptographicOperation extends SubTypedOperation {
         if (stack.didOverflow()) { return false; }
 
         final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
-        if (upgradeSchedule.requireStrictSignatureAndPublicKeyEncoding(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+        if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
             final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
             if (! meetsStrictEncodingStandard) { return false; }
         }
 
-        if (upgradeSchedule.requireCanonicalSignatureEncoding(blockHeight)) { // Enforce canonical signature encoding (LOW_S)...
+        if (upgradeSchedule.areCanonicalSignatureEncodingsRequired(blockHeight)) { // Enforce canonical signature encoding (LOW_S)...
             final Boolean signatureIsCanonicallyEncoded = CryptographicOperation.validateCanonicalSignatureEncoding(scriptSignature);
             if (! signatureIsCanonicallyEncoded) { return false; }
         }
@@ -530,7 +532,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final Boolean signatureIsValid;
         if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
             final PublicKey publicKey = publicKeyValue.asPublicKey();
-            if (upgradeSchedule.requireStrictSignatureAndPublicKeyEncoding(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+            if (upgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
                 final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
                 if (! publicKeyIsStrictlyEncoded) { return false; }
             }
@@ -548,7 +550,7 @@ public class CryptographicOperation extends SubTypedOperation {
             signatureIsValid = false;
         }
 
-        if (upgradeSchedule.requireAllInvalidSignaturesBeEmpty(blockHeight)) {
+        if (upgradeSchedule.areAllInvalidSignaturesRequiredToBeEmpty(blockHeight)) {
             if ( (! signatureIsValid) && (! signatureValue.isEmpty()) ) { return false; } // Enforce NULLFAIL...
         }
 
@@ -561,7 +563,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         { // Enforce Signature operation counting...
             final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-            if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) {
+            if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) {
                 if (! signatureValue.isEmpty()) {
                     transactionContext.incrementSignatureOperationCount(1);
                 }

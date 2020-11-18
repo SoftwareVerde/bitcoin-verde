@@ -96,7 +96,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         else {
             final Long currentNetworkTime;
             {
-                if (upgradeSchedule.enableMedianBlockTimeForTransactionLockTime(blockHeight)) {
+                if (upgradeSchedule.shouldUseMedianBlockTimeForTransactionLockTime(blockHeight)) {
                     final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
                     currentNetworkTime = medianBlockTime.getCurrentTimeInSeconds();
                 }
@@ -250,7 +250,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         transactionContext.setTransaction(transaction);
 
         { // Enforce Transaction minimum byte count...
-            if (upgradeSchedule.enableMinimumTransactionByteCount(blockHeight)) {
+            if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) {
                 final Integer transactionByteCount = transaction.getByteCount();
                 if (transactionByteCount < TransactionInflater.MIN_BYTE_COUNT) {
                     final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
@@ -374,7 +374,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         }
 
         final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
-        if (upgradeSchedule.enableSignatureOperationCountingVersion2(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
+        if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
             final Integer maximumSignatureOperationCount = _getMaximumSignatureOperations();
             if (signatureOperationCount > maximumSignatureOperationCount) {
                 final Json errorJson = _createInvalidTransactionReport("Transaction exceeds maximum signature operation count.", transaction, transactionContext);
