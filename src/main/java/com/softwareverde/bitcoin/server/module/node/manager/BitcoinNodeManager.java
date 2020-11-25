@@ -35,11 +35,7 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -361,13 +357,16 @@ public class BitcoinNodeManager {
     }
 
     protected List<BitcoinNode> _filterNodes(final Map<?, BitcoinNode> nodes, final Integer requestedNodeCount, final NodeFilter nodeFilter) {
-        final MutableList<BitcoinNode> filteredNodes = new MutableList<BitcoinNode>(requestedNodeCount);
+        final java.util.ArrayList<BitcoinNode> filteredNodes = new java.util.ArrayList<BitcoinNode>(requestedNodeCount);
         for (final BitcoinNode node : nodes.values()) {
             if (nodeFilter.meetsCriteria(node)) {
                 filteredNodes.add(node);
             }
         }
-        return filteredNodes;
+        // TODO: randomizing the list should help prevent simple issues caused by consistent ordering,
+        //  but ideally this would be something more intelligent (e.g. sorting by node health)
+        Collections.shuffle(filteredNodes);
+        return new MutableList<>(filteredNodes);
     }
 
     protected void _recalculateLocalNodeIpAddress() {
