@@ -176,12 +176,13 @@ public class BitcoinNodeManager {
                         }
                     }
 
-                    final int peerCount = (_preferredNodes.size() + _otherNodes.size() + _pendingNodes.size());
+                    final int preferredNodeCount = _preferredNodes.size();
+                    final int peerCount = (preferredNodeCount + _otherNodes.size() + _pendingNodes.size());
                     if (peerCount == 0) {
                         nextWait = minWait;
                     }
 
-                    if (peerCount < _minNodeCount) {
+                    if (preferredNodeCount < _minNodeCount) {
                         _connectToNewPreferredNodes();
                     }
                     else {
@@ -232,19 +233,18 @@ public class BitcoinNodeManager {
         final int currentPeerCount;
         final HashSet<String> excludeSet = new HashSet<String>();
         { // Exclude currently connected nodes and pending nodes...
-            int i = 0;
             final Map<NodeId, BitcoinNode> bitcoinNodes = _getAllHandshakedNodes();
             bitcoinNodes.putAll(_pendingNodes);
 
             for (final BitcoinNode bitcoinNode : bitcoinNodes.values()) {
                 final String connectionString = (bitcoinNode.getHost() + bitcoinNode.getPort()); // NOTE: not the same as BitcoinNode::getConnectionString.
                 excludeSet.add(connectionString);
-                i += 1;
             }
-            currentPeerCount = i;
         }
 
-        final int newPreferredNodeCountTarget = (_minNodeCount - currentPeerCount);
+        final int preferredNodeCount = _preferredNodes.size();
+
+        final int newPreferredNodeCountTarget = (_minNodeCount - preferredNodeCount);
         if (newPreferredNodeCountTarget <= 0) { return; }
 
         final MutableList<NodeIpAddress> nodeIpAddresses = new MutableList<NodeIpAddress>(_seedNodes);
