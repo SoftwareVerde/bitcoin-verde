@@ -163,7 +163,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
         pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
@@ -198,8 +198,25 @@ public class BlockchainBuilder extends GracefulSleepyService {
             final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
             if (candidatePendingBlockId == null) {
                 // Request the next head block be downloaded... (depends on BlockHeaders)
+                //  Traverse from the head blockHeader to the first processed block, then select its child blockHeader along the head blockchainSegment path.
+                //  Since the head block and head blockHeader may have diverged, traversing backwards along the head blockHeader blockchainSegments is necessary.
                 final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                BlockId headBlockId = null;
+                BlockchainSegmentId currentBlockchainSegmentId = headBlockchainSegmentId;
+                while (headBlockId == null) {
+                    final BlockId firstBlockIdOfHeadBlockchainSegment = blockchainDatabaseManager.getFirstBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
+                    final Boolean firstBlockOfHeadBlockchainHasTransactions = blockDatabaseManager.hasTransactions(firstBlockIdOfHeadBlockchainSegment);
+                    if (! firstBlockOfHeadBlockchainHasTransactions) {
+                        currentBlockchainSegmentId = blockchainDatabaseManager.getPreviousBlockchainSegmentId(currentBlockchainSegmentId);
+                        if (currentBlockchainSegmentId == null) { break; }
+                        continue;
+                    }
+
+                    final BlockId lastBlockWithTransactionsOfBlockchainSegment = blockDatabaseManager.getHeadBlockIdWithinBlockchainSegment(currentBlockchainSegmentId);
+                    headBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, lastBlockWithTransactionsOfBlockchainSegment);
+                }
+                if (headBlockId == null) { break; }
+
                 final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
                 if (nextBlockId != null) {
                     final Sha256Hash previousBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);

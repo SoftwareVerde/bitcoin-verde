@@ -14,7 +14,9 @@ public interface BlockchainDatabaseManager {
     BlockchainSegmentId updateBlockchainsForNewBlock(BlockId blockId) throws DatabaseException;
     BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException;
     BlockId getHeadBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
+    BlockId getFirstBlockIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
     BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
+    BlockchainSegmentId getPreviousBlockchainSegmentId(BlockchainSegmentId blockchainSegmentId) throws DatabaseException;
     Boolean areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId0, BlockchainSegmentId blockchainSegmentId1, BlockRelationship blockRelationship) throws DatabaseException;
     Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(BlockchainSegmentId blockchainSegmentId, List<BlockchainSegmentId> blockchainSegmentIds, BlockRelationship blockRelationship) throws DatabaseException;
 }
