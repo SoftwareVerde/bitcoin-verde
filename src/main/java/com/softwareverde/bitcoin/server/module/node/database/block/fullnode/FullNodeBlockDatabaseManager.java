@@ -294,7 +294,10 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
      */
     public BlockId getHeadBlockIdWithinBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? AND has_transactions = 1 ORDER BY block_height DESC LIMIT 1"));
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? AND has_transactions = 1 ORDER BY block_height DESC LIMIT 1")
+                .setParameter(blockchainSegmentId)
+        );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
