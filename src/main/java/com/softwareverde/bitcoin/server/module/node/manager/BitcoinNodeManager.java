@@ -276,13 +276,14 @@ public class BitcoinNodeManager {
                             requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                         }
 
-                        final List<BitcoinNodeIpAddress> possiblePreferredNodes = nodeDatabaseManager.findNodes(requiredFeatures, (newPreferredNodeCountTarget * 2));
+                        final int actualDesiredNodeCount = (newPreferredNodeCountTarget * 2);
+                        final List<BitcoinNodeIpAddress> possiblePreferredNodes = nodeDatabaseManager.findNodes(requiredFeatures, defaultPort, actualDesiredNodeCount);
                         if (possiblePreferredNodes.getCount() >= newPreferredNodeCountTarget) {
                             foundNodeIpAddresses = possiblePreferredNodes;
                         }
                         else { // If there weren't enough preferred nodes, then relax the requirements to include unknown peers.
-                            final int underflowDesiredNodeCount = ((newPreferredNodeCountTarget * 2) - possiblePreferredNodes.getCount());
-                            final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(underflowDesiredNodeCount);
+                            final int missingDesiredNodeCount = (actualDesiredNodeCount - possiblePreferredNodes.getCount());
+                            final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(missingDesiredNodeCount);
 
                             final MutableList<BitcoinNodeIpAddress> newBitcoinNodeIpAddresses = new MutableList<BitcoinNodeIpAddress>();
                             newBitcoinNodeIpAddresses.addAll(possiblePreferredNodes);
@@ -344,7 +345,7 @@ public class BitcoinNodeManager {
             // The BitcoinNode will be added as a preferred node iff it meets the required criteria after the handshake is complete.
             _addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
-            Logger.info("Connecting to: " + host + ":" + ip);
+            Logger.info("Connecting to: " + host + ":" + port);
         }
     }
 

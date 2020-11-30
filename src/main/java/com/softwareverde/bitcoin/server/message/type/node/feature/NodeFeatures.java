@@ -12,7 +12,8 @@ public class NodeFeatures {
         XTHIN_PROTOCOL_ENABLED                          ((long) (0x01 << 0x04)),
         BITCOIN_CASH_ENABLED                            ((long) (0x01 << 0x05)),
         BLOCKCHAIN_INDEX_ENABLED                        ((long) (0x01 << 0x07)), // BitcoinVerde 2019-05-20
-        SLP_INDEX_ENABLED                               ((long) (0x01 << 0x08)); // BitcoinVerde 2019-10-24
+        SLP_INDEX_ENABLED                               ((long) (0x01 << 0x08)), // BitcoinVerde 2019-10-24
+        MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED          ((long) (0x01 << 0x0A));
 
         public final Long value;
 

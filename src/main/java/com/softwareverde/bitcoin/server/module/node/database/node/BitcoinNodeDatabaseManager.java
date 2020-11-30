@@ -19,6 +19,7 @@ public interface BitcoinNodeDatabaseManager {
     void updateNodeFeatures(BitcoinNode node) throws DatabaseException;
     void updateUserAgent(BitcoinNode node) throws DatabaseException;
     List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer maxCount) throws DatabaseException;
+    List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer requiredPort, Integer maxCount) throws DatabaseException;
     List<BitcoinNodeIpAddress> findNodes(Integer maxCount) throws DatabaseException;
     Integer getFailedConnectionCountForIp(Ip ip) throws DatabaseException;
     Integer getFailedConnectionCountForIp(Ip ip, Long sinceTimestamp) throws DatabaseException;

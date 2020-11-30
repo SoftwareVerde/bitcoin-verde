@@ -198,7 +198,7 @@ public class BlockDownloader extends GracefulSleepyService {
     }
 
     protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
-        Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString());
+        Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString() + " (id: " + bitcoinNode.getId() + ")");
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
