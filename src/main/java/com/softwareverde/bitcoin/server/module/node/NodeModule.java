@@ -190,7 +190,7 @@ public class NodeModule {
             final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-            final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
+            final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, BitcoinProperties.PORT, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
 
             final HashSet<String> seedNodeSet = new HashSet<String>(seedNodes.getCount());
             for (final SeedNodeProperties seedNodeProperties : seedNodes) {
