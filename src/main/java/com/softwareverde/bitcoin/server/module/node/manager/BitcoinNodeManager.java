@@ -35,7 +35,12 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -1069,6 +1074,14 @@ public class BitcoinNodeManager {
         _threadPool = context.threadPool;
 
         _bitcoinNodeObserver = new BitcoinNodeObserver() {
+            protected final List<MessageType> _trackedMessageResponseTypes = new ImmutableList<MessageType>(
+                MessageType.BLOCK,
+                MessageType.TRANSACTION
+            );
+
+            protected boolean _isTrackedResponseType(final MessageType messageType) {
+                return _trackedMessageResponseTypes.contains(messageType);
+            }
 
             protected NodePerformance _getNodePerformance(final BitcoinNode bitcoinNode) {
                 synchronized (_performanceStatistics) {
@@ -1083,17 +1096,21 @@ public class BitcoinNodeManager {
             }
 
             @Override
-            public void onDataRequested(final BitcoinNode bitcoinNode, final MessageType messageType) {
-                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
-                nodePerformance.requestsReceivedCount.incrementAndGet();
+            public void onDataRequested(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
+                if (_isTrackedResponseType(expectedResponseType)) {
+                    final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
+                    nodePerformance.requestsReceivedCount.incrementAndGet();
+                }
             }
 
             @Override
             public void onDataReceived(final BitcoinNode bitcoinNode, final MessageType messageType, final Integer byteCount, final Boolean wasRequested) {
                 final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
-                if (wasRequested) {
+
+                if (wasRequested && _isTrackedResponseType(messageType)) {
                     nodePerformance.requestsFilledCount.incrementAndGet();
                 }
+
                 nodePerformance.byteCountReceived.addAndGet(byteCount);
             }
 
@@ -1105,8 +1122,10 @@ public class BitcoinNodeManager {
 
             @Override
             public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
-                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
-                nodePerformance.failedRequestCount.incrementAndGet();
+                if (_isTrackedResponseType(expectedResponseType)) {
+                    final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
+                    nodePerformance.failedRequestCount.incrementAndGet();
+                }
             }
         };
 

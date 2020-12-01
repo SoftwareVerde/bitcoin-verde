@@ -10,7 +10,7 @@ public interface BitcoinNodeObserver {
     /**
      * Triggered when the remote peer requests data from the local peer.
      */
-    default void onDataRequested(BitcoinNode bitcoinNode, MessageType messageType) { }
+    default void onDataRequested(BitcoinNode bitcoinNode, MessageType expectedResponseType) { }
     default void onDataSent(BitcoinNode bitcoinNode, MessageType messageType, Integer byteCount) { }
 
     /**

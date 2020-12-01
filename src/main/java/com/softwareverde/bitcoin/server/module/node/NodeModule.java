@@ -179,6 +179,7 @@ public class NodeModule {
         final List<String> dnsSeeds = _bitcoinProperties.getDnsSeeds();
 
         final Database database = _environment.getDatabase();
+        final Integer minPeerCount = _bitcoinProperties.getMinPeerCount();
         final Integer maxPeerCount = _bitcoinProperties.getMaxPeerCount();
         if (maxPeerCount < 1) { return; }
 
@@ -202,7 +203,7 @@ public class NodeModule {
 
             int connectedNodeCount = seedNodeSet.size();
             for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
-                if (connectedNodeCount >= maxPeerCount) { break; }
+                if (connectedNodeCount >= minPeerCount) { break; }
 
                 final Ip ip = bitcoinNodeIpAddress.getIp();
                 if (ip == null) { continue; }
@@ -220,7 +221,7 @@ public class NodeModule {
                 Thread.sleep(500L);
             }
 
-            if (connectedNodeCount < maxPeerCount) {
+            if (connectedNodeCount < minPeerCount) {
                 final Integer port = BitcoinProperties.PORT;
 
                 for (final String seedHost : dnsSeeds) {
@@ -236,7 +237,7 @@ public class NodeModule {
                         _bitcoinNodeManager.addNode(bitcoinNode);
                         connectedNodeCount += 1;
 
-                        if (connectedNodeCount >= maxPeerCount) { return; } // Done.
+                        if (connectedNodeCount >= minPeerCount) { return; } // Done.
 
                         Thread.sleep(500L);
                     }
