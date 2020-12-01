@@ -253,7 +253,13 @@ public class BlockProcessor {
 
         // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
         while (nextBlockId != null) {
-            final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
+            if (! blockDatabaseManager.hasTransactions(nextBlockId)) { break; }
+
+            final MutableList<TransactionId> nextBlockTransactionIds;
+            {
+                final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
+                nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+            }
             nextBlockTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
             transactionDatabaseManager.removeFromUnconfirmedTransactions(nextBlockTransactionIds);
 
@@ -495,7 +501,7 @@ public class BlockProcessor {
             }
             else {
                 final BlockchainSegmentId blockchainSegmentIdOfOriginalHead = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId);
-                bestBlockchainHasChanged = (!blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentIdOfOriginalHead, newHeadBlockchainSegmentId, BlockRelationship.ANY));
+                bestBlockchainHasChanged = (! blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentIdOfOriginalHead, newHeadBlockchainSegmentId, BlockRelationship.ANY));
             }
         }
         Logger.trace("bestBlockchainHasChanged=" + bestBlockchainHasChanged);

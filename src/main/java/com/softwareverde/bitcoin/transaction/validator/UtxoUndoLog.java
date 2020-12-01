@@ -84,6 +84,16 @@ public class UtxoUndoLog {
     public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if (_uncreatedOutputs.contains(transactionOutputIdentifier)) { return null; }
 
-        return _reAvailableOutputs.get(transactionOutputIdentifier);
+        final TransactionOutput reAvailableOutput = _reAvailableOutputs.get(transactionOutputIdentifier);
+        if (reAvailableOutput != null) { return reAvailableOutput; }
+
+        try {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+            return transactionDatabaseManager.getTransactionOutput(transactionOutputIdentifier);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return null;
+        }
     }
 }

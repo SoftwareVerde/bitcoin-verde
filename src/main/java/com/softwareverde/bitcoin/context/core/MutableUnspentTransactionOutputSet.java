@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -38,15 +39,15 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     /**
      * Populates _transactionBlockHeights and _transactionOutputs for a block on the provided blockchainSegmentId...
      */
-    public Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId endBlockId, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs, final HashSet<Sha256Hash> transactionsWithUnknownBlockHeights) throws DatabaseException {
+    public Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId blockIdToProcess, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs, final HashSet<Sha256Hash> transactionsWithUnknownBlockHeights) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(endBlockId);
-        final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockIdToProcess);
+        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId(); // TODO: Write test for reorging onto a chain with headers synced far past the new reorg chain.
 
-        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(endBlockId);
+        final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockIdToProcess);
         Logger.debug("Loading Outputs for Alternate Block: " + blockHash);
 
         final UtxoUndoLog utxoUndoLog = new UtxoUndoLog(databaseManager);
@@ -80,7 +81,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         int redoDepth = 0;
         while (redoDepth < maxDepth) {
             blockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, blockId);
-            if ( (blockId == null) || Util.areEqual(blockId, endBlockId) ) {
+            if ( (blockId == null) || Util.areEqual(blockId, blockIdToProcess) ) {
                 break;
             }
 
@@ -106,6 +107,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputs) {
             final TransactionOutput transactionOutput = utxoUndoLog.getUnspentTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput == null) {
+                if (allOutputsWereFound) {
+                    Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
+                }
                 allOutputsWereFound = false;
                 continue;
             }
@@ -124,6 +128,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
@@ -131,8 +136,13 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         if (blockId == null) { return false; }
 
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-        final Boolean blockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+        final BlockchainSegmentId utxoSetBlockchainSegmentId;
+        { // The UTXO set is associated to the head block's blockchainSegment, which is not necessarily the head blockHeader's blockchainSegment.
+            // TODO: Write test for this distinction.
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            utxoSetBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
+        }
+        final Boolean blockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, utxoSetBlockchainSegmentId, BlockRelationship.ANY);
 
         _blockHashesByBlockHeight.put(blockHeight, blockHash);
 
