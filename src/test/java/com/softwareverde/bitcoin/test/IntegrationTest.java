@@ -143,6 +143,7 @@ public class IntegrationTest extends UnitTest {
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
 
+        // make sure UTXO set appears initialized
         final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputJvmManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
 

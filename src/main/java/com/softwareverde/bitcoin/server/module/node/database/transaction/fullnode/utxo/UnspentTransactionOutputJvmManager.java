@@ -448,7 +448,11 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     protected void _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final Boolean shouldBlockUntilComplete) throws DatabaseException {
-        if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) { return; } // Prevent committing a UTXO set that has been invalidated or empty...
+        if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) {
+            // Prevent committing a UTXO set that has been invalidated or empty...
+            Logger.warn("Not committing UTXO set due to invalidated or empty cache.");
+            return;
+        }
 
         UTXO_WRITE_MUTEX.lock();
         try {
@@ -862,7 +866,11 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
     @Override
     public void commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final Boolean blockUntilComplete) throws DatabaseException {
-        if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) { return; } // Prevent committing a UTXO set that has been invalidated and/or empty...
+        if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) {
+            // Prevent committing a UTXO set that has been invalidated or empty...
+            Logger.warn("Not committing UTXO set due to invalidated or empty cache.");
+            return;
+        }
 
         UTXO_WRITE_MUTEX.lock();
         try {

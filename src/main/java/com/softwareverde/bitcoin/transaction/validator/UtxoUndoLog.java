@@ -31,8 +31,6 @@ public class UtxoUndoLog {
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-
             if (! isCoinbase) {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
@@ -42,12 +40,9 @@ public class UtxoUndoLog {
                 }
             }
 
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            int outputIndex = 0;
-            for (final TransactionOutput transactionOutput : transactionOutputs) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 _uncreatedOutputs.add(transactionOutputIdentifier);
-                outputIndex += 1;
             }
 
             isCoinbase = false;
@@ -59,8 +54,6 @@ public class UtxoUndoLog {
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-
             if (! isCoinbase) {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
@@ -69,12 +62,9 @@ public class UtxoUndoLog {
                 }
             }
 
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            int outputIndex = 0;
-            for (final TransactionOutput transactionOutput : transactionOutputs) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 _uncreatedOutputs.remove(transactionOutputIdentifier);
-                outputIndex += 1;
             }
 
             isCoinbase = false;
