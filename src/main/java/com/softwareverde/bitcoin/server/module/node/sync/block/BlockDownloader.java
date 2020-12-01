@@ -129,8 +129,12 @@ public class BlockDownloader extends GracefulSleepyService {
 
     protected void _storePendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
         try {
+            final Sha256Hash blockHash = block.getHash();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-            pendingBlockDatabaseManager.storeBlock(block);
+            final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
+            if (Util.coalesce(pendingBlockConnectedToMainChain, true)) {
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

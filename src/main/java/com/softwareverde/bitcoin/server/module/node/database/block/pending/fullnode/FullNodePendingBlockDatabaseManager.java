@@ -2,10 +2,13 @@ package com.softwareverde.bitcoin.server.module.node.database.block.pending.full
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
@@ -240,6 +243,24 @@ public class FullNodePendingBlockDatabaseManager {
 
     public Boolean hasBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
         return _hasBlockData(pendingBlockId);
+    }
+
+    /**
+     * Returns true if the blockHash is definitively connected to the current head blockchain.
+     *  Returns null if the relationship could not be determined.
+     */
+    public Boolean isPendingBlockConnectedToMainChain(final Sha256Hash blockHash) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        if (blockId == null) { return null; }
+
+        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+        if (headBlockchainSegmentId == null) { return null; }
+
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+        return blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
     }
 
     public Boolean pendingBlockExists(final Sha256Hash blockHash) throws DatabaseException {
