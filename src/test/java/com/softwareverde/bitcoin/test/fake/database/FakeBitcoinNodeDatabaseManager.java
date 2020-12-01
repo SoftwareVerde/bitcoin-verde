@@ -33,6 +33,9 @@ public interface FakeBitcoinNodeDatabaseManager extends BitcoinNodeDatabaseManag
     default List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
+    default List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer requiredPort, Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
+
+    @Override
     default List<BitcoinNodeIpAddress> findNodes(Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
