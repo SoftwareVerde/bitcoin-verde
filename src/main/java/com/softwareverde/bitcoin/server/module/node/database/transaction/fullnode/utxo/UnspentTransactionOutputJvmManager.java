@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo;
 
-import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -10,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.JvmSpentState;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UnspentTransactionOutput;
@@ -18,11 +18,9 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.util.Util;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -38,7 +36,6 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -740,6 +737,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<TransactionOutput>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
 
         final MutableList<TransactionOutputIdentifier> cacheMissIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
@@ -805,33 +803,19 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             UTXO_READ_MUTEX.unlock();
         }
 
-        // TODO: remove non-deterministic group-by clause.
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.hash IN (?) GROUP BY transactions.hash")
-                .setInClauseParameters(unspentTransactionOutputIdentifiers, new ValueExtractor<TransactionOutputIdentifier>() {
-                        @Override
-                        public InClauseParameter extractValues(final TransactionOutputIdentifier transactionOutputIdentifier) {
-                            return ValueExtractor.SHA256_HASH.extractValues(transactionOutputIdentifier.getTransactionHash());
-                        }
-                    }
-                )
-        );
+        final Map<Sha256Hash, Transaction> transactions;
+        {
+            final MutableList<Sha256Hash> transactionHashes;
+            {
+                final HashSet<Sha256Hash> transactionHashSet = new HashSet<>(unspentTransactionOutputIdentifiers.size());
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : unspentTransactionOutputIdentifiers) {
+                    transactionHashSet.add(transactionOutputIdentifier.getTransactionHash());
+                }
+                transactionHashes = new MutableList<>(transactionHashSet);
+                transactionHashes.sort(Sha256Hash.COMPARATOR);
+            }
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>(rows.size());
-        for (final Row row : rows) {
-            final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
-            final Long blockHeight = row.getLong("block_height");
-            final Long diskOffset = row.getLong("disk_offset");
-            final Integer byteCount = row.getInteger("byte_count");
-
-            final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
-            if (transactionData == null) { return null; }
-
-            final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-            final Transaction transaction = ConstUtil.asConstOrNull(transactionInflater.fromBytes(transactionData)); // To ensure Transaction::getHash is constant-time...
-            if (transaction == null) { return null; }
-
-            transactions.put(transaction.getHash(), transaction);
+            transactions = transactionDatabaseManager.getTransactions(transactionHashes);
         }
 
         final ImmutableListBuilder<TransactionOutput> transactionOutputsBuilder = new ImmutableListBuilder<TransactionOutput>(transactionOutputIdentifierCount);

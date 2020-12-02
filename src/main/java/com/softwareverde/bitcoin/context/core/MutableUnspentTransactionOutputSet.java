@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -130,6 +131,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -219,7 +221,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         boolean allTransactionOutputsWereLoaded = true;
         final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(requiredTransactionOutputs);
-        final List<TransactionOutput> transactionOutputs = transactionDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+        final List<TransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
             final TransactionOutput transactionOutput = transactionOutputs.get(i);

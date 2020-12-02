@@ -10,11 +10,11 @@ import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -235,12 +235,6 @@ public class LazyBlockValidatorContext implements BlockValidator.Context {
 
     @Override
     public AsertReferenceBlock getAsertReferenceBlock() {
-        try {
-            return _asertReferenceBlockLoader.getAsertReferenceBlock(_blockchainSegmentId);
-        }
-        catch (final ContextException exception) {
-            Logger.debug(exception);
-            return null;
-        }
+        return BitcoinConstants.getAsertReferenceBlock();
     }
 }

@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -12,6 +16,7 @@ import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
@@ -22,6 +27,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -56,6 +62,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockProcessorTests extends IntegrationTest {
@@ -597,7 +605,66 @@ public class BlockProcessorTests extends IntegrationTest {
         final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
         final TransactionInflaters transactionInflaters = _masterInflater;
         final FakeBlockInflaters blockInflaters = new FakeBlockInflaters();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _fullNodeDatabaseManagerFactory;
+
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration) {
+            protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>();
+            protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<>();
+
+            { // Init Anonymous Class...
+                final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                final String resourceData = IoUtil.getResource("/transactions/block663701_A_utxos");
+                for (final String transactionData : resourceData.split("\n")) {
+                    final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
+                    final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
+                    _transactionIds.put(transaction.getHash(), transactionId);
+                    _transactions.put(transactionId, transaction);
+                }
+            }
+
+            @Override
+            public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
+                final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
+                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent) {{
+                    _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockStore, _masterInflater) {
+                        @Override
+                        public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
+                            return _transactionIds.get(transactionHash);
+                        }
+
+                        @Override
+                        public Map<Sha256Hash, TransactionId> getTransactionIds(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+                            final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<>();
+                            for (final Sha256Hash transactionHash : transactionHashes) {
+                                final TransactionId transactionId = this.getTransactionId(transactionHash);
+                                transactionIds.put(transactionHash, transactionId);
+                            }
+                            return transactionIds;
+                        }
+
+                        @Override
+                        public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
+                            return _transactions.get(transactionId);
+                        }
+
+                        @Override
+                        public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+                            final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+                            for (final Sha256Hash transactionHash : transactionHashes) {
+                                final TransactionId transactionId = this.getTransactionId(transactionHash);
+                                final Transaction transaction = this.getTransaction(transactionId);
+                                transactions.put(transactionHash, transaction);
+                            }
+                            return transactions;
+                        }
+                    };
+                }};
+            }
+
+            @Override
+            public FullNodeDatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
+                return super.newDatabaseManagerFactory(databaseConnectionFactory);
+            }
+        };
 
         final Block genesisBlock = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK));
         final Block asertAnchorBlock = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/00000000000000000083ED4B7A780D59E3983513215518AD75654BB02DEEE62F")));
@@ -727,8 +794,9 @@ public class BlockProcessorTests extends IntegrationTest {
                             continue;
                         }
                         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                            requiredUtxos.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
-                            Logger.warn("701A spends: " + TransactionOutputIdentifier.fromTransactionInput(transactionInput));
+                            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                            requiredUtxos.add(transactionOutputIdentifier);
+                            Logger.debug("701A spends: " + transactionOutputIdentifier);
                         }
                     }
                 }
