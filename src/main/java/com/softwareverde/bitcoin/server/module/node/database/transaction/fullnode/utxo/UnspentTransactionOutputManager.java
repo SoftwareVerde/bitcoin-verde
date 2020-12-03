@@ -216,7 +216,7 @@ public class UnspentTransactionOutputManager {
      * Removes UTXOs generated, and re-adds UTXOs spent, by the provided Block.
      */
     public void removeBlockFromUtxoSet(final Block block, final Long blockHeight) throws DatabaseException {
-        Logger.trace("Un-Applying Block from UTXO set: " + block.getHash());
+        Logger.debug("Un-Applying Block from UTXO set: " + block.getHash());
 
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {

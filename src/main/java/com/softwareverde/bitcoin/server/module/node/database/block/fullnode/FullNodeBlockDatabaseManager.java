@@ -112,6 +112,16 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return transactionIds;
     }
 
+    protected Boolean _hasTransactions(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
+                        .setParameter(blockId)
+        );
+        return (! rows.isEmpty());
+    }
+
     protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -167,6 +177,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
     protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
+        if (! _hasTransactions(blockId)) { return null; }
 
         final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
@@ -321,13 +333,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
     @Override
     public Boolean hasTransactions(final BlockId blockId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
-                .setParameter(blockId)
-        );
-        return (! rows.isEmpty());
+        return _hasTransactions(blockId);
     }
 
     @Override

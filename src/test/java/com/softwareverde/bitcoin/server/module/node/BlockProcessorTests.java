@@ -618,6 +618,13 @@ public class BlockProcessorTests extends IntegrationTest {
                     final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
                     _transactionIds.put(transaction.getHash(), transactionId);
                     _transactions.put(transactionId, transaction);
+                    try (final DatabaseConnection databaseConnection = _database.newConnection()) {
+                        final Query query = new Query("INSERT INTO transactions (id, hash, byte_count) VALUES (?, ?, ?)");
+                        query.setParameter(transactionId);
+                        query.setParameter(transaction.getHash());
+                        query.setParameter(5L);
+                        databaseConnection.executeSql(query);
+                    }
                 }
             }
 
@@ -642,7 +649,7 @@ public class BlockProcessorTests extends IntegrationTest {
                         }
 
                         @Override
-                        public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
+                        protected Transaction _getTransaction(final TransactionId transactionId) throws DatabaseException {
                             return _transactions.get(transactionId);
                         }
 
@@ -816,6 +823,7 @@ public class BlockProcessorTests extends IntegrationTest {
                 }
 
                 unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredUtxos, 663700L);
+                unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663700L);
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
                 Assert.assertNotNull(unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(new TransactionOutputIdentifier(Sha256Hash.fromHexString("BD636BE963B7D9373AEE28419AA5FE0621D67F6DB1D5E8C728DE76DF08FA9197"), 2)));
             }
