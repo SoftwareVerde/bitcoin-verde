@@ -109,6 +109,10 @@ public class BlockchainBuilder extends GracefulSleepyService {
             }
         }
 
+        if (processBlockResult.bestBlockchainHasChanged) {
+            _pendingBlockLoader.invalidateUtxoSets();
+        }
+
         return processBlockResult.isValid;
     }
 
