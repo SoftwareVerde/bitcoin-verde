@@ -18,6 +18,8 @@ import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -33,11 +35,14 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -51,18 +56,23 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Container;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -594,12 +604,26 @@ public class BlockProcessorTests extends IntegrationTest {
         }
     }
 
+    protected void _runBlockchainBuilder(final BlockchainBuilder blockchainBuilder) throws Exception {
+        final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
+        blockchainBuilder.start();
+        final int maxSleepCount = 10;
+        int sleepCount = 0;
+        do {
+            Thread.sleep(250L);
+            sleepCount += 1;
+
+            if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
+        } while (statusMonitor.getStatus() != SleepyService.Status.SLEEPING);
+        blockchainBuilder.stop();
+    }
+
     @Test
     public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks() throws Exception {
         // This test should attempt to setup the scenario encountered on 2020-11-29 where the node fell behind
         //  syncing, during which time a reorg occurred having the node's headBlock on a different blockchain then the
         //  head blockHeader with multiple blocks (and headers) available after the reorg (2+).
-        //  BlockHeight: 663701
+        //  BlockHeight: 663750
 
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
@@ -612,7 +636,8 @@ public class BlockProcessorTests extends IntegrationTest {
 
             { // Init Anonymous Class...
                 final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                final String resourceData = IoUtil.getResource("/transactions/block663701_A_utxos");
+                final String resourceData = IoUtil.getResource("/transactions/block663750_utxos");
+                // TODO: Ensure the fake UTXO set does not include outputs created by the processed blocks (i.e. 750 and 751).
                 for (final String transactionData : resourceData.split("\n")) {
                     final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
                     final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
@@ -650,6 +675,12 @@ public class BlockProcessorTests extends IntegrationTest {
 
                         @Override
                         protected Transaction _getTransaction(final TransactionId transactionId) throws DatabaseException {
+                            try {
+                                final Transaction transaction = super._getTransaction(transactionId);
+                                if (transaction != null) { return transaction; }
+                            }
+                            catch (final Exception exception) { }
+
                             return _transactions.get(transactionId);
                         }
 
@@ -675,48 +706,50 @@ public class BlockProcessorTests extends IntegrationTest {
 
         final Block genesisBlock = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK));
         final Block asertAnchorBlock = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/00000000000000000083ED4B7A780D59E3983513215518AD75654BB02DEEE62F")));
-        final Block block663700 = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/0000000000000000035DE0B0AEF620DF19649D10838D53858A1079B2D871AB84")));
-        final Block block663701_A = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/000000000000000001941919BE2A285D053269FD5EEEF46311DBA1130D8486BF")));
-        final Block block663701_B = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/000000000000000003D8E1EFE1E4C339F1A926CAA9F5D20F5C3DA83A0F3BF4B6")));
-        final BlockHeader blockHeader663702 = blockHeaderInflater.fromBytes(ByteArray.fromHexString("00004020B6F43B0F3AA83D5C0FD2F5A9CA26A9F139C3E4E1EFE1D8030000000000000000BBC16102412BE4269BEB37054288048290A0510A7ED4286DF83485A52953C550F17EC35F713E041871B228D2"));
-        final BlockHeader blockHeader663703 = blockHeaderInflater.fromBytes(ByteArray.fromHexString("0000C0206132919EDC1EEBCD961AD62284B69461A185CD787D3D4E02000000000000000038953887CAD77F89B924BA5FCB15238C6FDA602295538647B4766AB0A873B9F75F7FC35F093D04184D1016AA"));
+        final Block block663749 = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/000000000000000003C6A342B3922672851C5EF677D90BDB8CF245817A536048")));
+        final Block block663750_A = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/00000000000000000007F9C9E6F9564CF56CB3E55232459968B3B3721D34A289")));
+        final Block block663750_B = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/0000000000000000011C8A9B1A8DD1338337E3B6D4BCBE2B19892E7BA41EACA5")));
+        final Block block663751_B = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/000000000000000003922B7EEB66DCE170201D2645B18706D8090BB51D9235D8")));
+        final BlockHeader blockHeader663751_A = blockHeaderInflater.fromBytes(ByteArray.fromHexString("0020002089A2341D72B3B36899453252E5B36CF54C56F9E6C9F907000000000000000000964DD99E5D8B9FE02D0A675B211383883CC44F4B3A7EE1E04D8766B84722F99279B3C35F90FB031842B57D1D"));
+        final Block block663752_B = blockInflater.fromBytes(ByteArray.fromHexString(IoUtil.getResource("/blocks/0000000000000000034B6AFA55214FAF81AB29656F3724C8F0B2F43CBD17BC41")));
 
         Assert.assertNotNull(genesisBlock);
         Assert.assertNotNull(asertAnchorBlock);
-        Assert.assertNotNull(block663700);
-        Assert.assertNotNull(block663701_A);
-        Assert.assertNotNull(block663701_B);
-        Assert.assertNotNull(blockHeader663702);
-        Assert.assertNotNull(blockHeader663703);
+        Assert.assertNotNull(block663749);
+        Assert.assertNotNull(block663750_A);
+        Assert.assertNotNull(block663750_B);
+        Assert.assertNotNull(blockHeader663751_A);
+        Assert.assertNotNull(block663751_B);
+        Assert.assertNotNull(block663752_B);
 
-        final FakeMutableBlock anchorShimBlock;
+        final FakeMutableBlock asertAnchorShimBlock;
         {
-            anchorShimBlock = new FakeMutableBlock(genesisBlock, asertAnchorBlock.getPreviousBlockHash());
-            anchorShimBlock.setPreviousBlockHash(BlockHeader.GENESIS_BLOCK_HASH);
-            anchorShimBlock.clearTransactions();
-            anchorShimBlock.addTransaction(genesisBlock.getCoinbaseTransaction());
+            asertAnchorShimBlock = new FakeMutableBlock(genesisBlock, asertAnchorBlock.getPreviousBlockHash());
+            asertAnchorShimBlock.setPreviousBlockHash(BlockHeader.GENESIS_BLOCK_HASH);
+            asertAnchorShimBlock.clearTransactions();
+            asertAnchorShimBlock.addTransaction(genesisBlock.getCoinbaseTransaction());
 
-            blockInflaters.defineBlockHash(anchorShimBlock.getInvalidHash(), anchorShimBlock.getHash());
+            blockInflaters.defineBlockHash(asertAnchorShimBlock.getInvalidHash(), asertAnchorShimBlock.getHash());
         }
 
-        final FakeMutableBlock block663700ShimBlock;
+        final FakeMutableBlock block663749Shim;
         {
-            block663700ShimBlock = new FakeMutableBlock(block663700, block663700.getPreviousBlockHash());
-            block663700ShimBlock.setPreviousBlockHash(asertAnchorBlock.getHash());
-            block663700ShimBlock.clearTransactions();
-            block663700ShimBlock.addTransaction(genesisBlock.getCoinbaseTransaction());
+            block663749Shim = new FakeMutableBlock(block663749, block663749.getPreviousBlockHash());
+            block663749Shim.setPreviousBlockHash(asertAnchorBlock.getHash());
+            block663749Shim.clearTransactions();
+            block663749Shim.addTransaction(genesisBlock.getCoinbaseTransaction());
 
-            blockInflaters.defineBlockHash(block663700ShimBlock.getInvalidHash(), block663700ShimBlock.getHash());
+            blockInflaters.defineBlockHash(block663749Shim.getInvalidHash(), block663749Shim.getHash());
         }
 
-        final FakeMutableBlock shimBlock;
+        final FakeMutableBlock block663749ShimBlock;
         {
-            shimBlock = new FakeMutableBlock(block663700, block663700.getPreviousBlockHash());
-            shimBlock.setPreviousBlockHash(BlockHeader.GENESIS_BLOCK_HASH);
-            shimBlock.clearTransactions();
-            shimBlock.addTransaction(block663700.getCoinbaseTransaction());
+            block663749ShimBlock = new FakeMutableBlock(block663749, block663749.getPreviousBlockHash());
+            block663749ShimBlock.setPreviousBlockHash(BlockHeader.GENESIS_BLOCK_HASH);
+            block663749ShimBlock.clearTransactions();
+            block663749ShimBlock.addTransaction(genesisBlock.getCoinbaseTransaction());
 
-            blockInflaters.defineBlockHash(shimBlock.getInvalidHash(), shimBlock.getHash());
+            blockInflaters.defineBlockHash(block663749ShimBlock.getInvalidHash(), block663749ShimBlock.getHash());
         }
 
         final FakeBlockStore blockStore = new FakeBlockStore();
@@ -734,66 +767,68 @@ public class BlockProcessorTests extends IntegrationTest {
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockHeaderDatabaseManager.storeBlockHeader(genesisBlock);
-                blockHeaderDatabaseManager.storeBlockHeader(anchorShimBlock);
+                blockHeaderDatabaseManager.storeBlockHeader(asertAnchorShimBlock);
                 blockHeaderDatabaseManager.storeBlockHeader(asertAnchorBlock);
-                blockHeaderDatabaseManager.storeBlockHeader(block663700ShimBlock);
-                blockHeaderDatabaseManager.storeBlockHeader(block663700);
-                blockHeaderDatabaseManager.storeBlockHeader(block663701_A);
-                blockHeaderDatabaseManager.storeBlockHeader(block663701_B);
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader663702);
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader663703);
+                blockHeaderDatabaseManager.storeBlockHeader(block663749Shim);
+                blockHeaderDatabaseManager.storeBlockHeader(block663749);
+                blockHeaderDatabaseManager.storeBlockHeader(block663750_A);
+                blockHeaderDatabaseManager.storeBlockHeader(blockHeader663751_A);
+                blockHeaderDatabaseManager.storeBlockHeader(block663750_B);
+                blockHeaderDatabaseManager.storeBlockHeader(block663751_B);
+                blockHeaderDatabaseManager.storeBlockHeader(block663752_B);
             }
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) { // Skip validation for the setup blocks...
                 final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                for (final Block block : new Block[]{ genesisBlock, anchorShimBlock, asertAnchorBlock, shimBlock, block663700 }) {
+                for (final Block block : new Block[]{ genesisBlock, asertAnchorShimBlock, asertAnchorBlock, block663749ShimBlock, block663749 }) {
                     blockDatabaseManager.storeBlock(block);
                 }
             }
 
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
-            for (final Block block : new Block[]{ block663701_A }) {
+            for (final Block block : new Block[]{ block663750_A }) {
                 pendingBlockDatabaseManager.storeBlock(block);
             }
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            _setBlockHeight(databaseConnection, anchorShimBlock.getHash(), 661646L);
+            _setBlockHeight(databaseConnection, asertAnchorShimBlock.getHash(), 661646L);
             _setBlockHeight(databaseConnection, asertAnchorBlock.getHash(), 661647L);
-            _setBlockHeight(databaseConnection, block663700ShimBlock.getHash(), 663699L);
-            _setBlockHeight(databaseConnection, block663700.getHash(), 663700L);
-            _setBlockHeight(databaseConnection, block663701_A.getHash(), 663701L);
-            _setBlockHeight(databaseConnection, block663701_B.getHash(), 663701L);
-            _setBlockHeight(databaseConnection, blockHeader663702.getHash(), 663702L);
-            _setBlockHeight(databaseConnection, blockHeader663703.getHash(), 663703L);
-
+            _setBlockHeight(databaseConnection, block663749Shim.getHash(), 663748L);
+            _setBlockHeight(databaseConnection, block663749.getHash(), 663749L);
+            _setBlockHeight(databaseConnection, block663750_A.getHash(), 663750L);
+            _setBlockHeight(databaseConnection, block663750_B.getHash(), 663750L);
+            _setBlockHeight(databaseConnection, blockHeader663751_A.getHash(), 663751L);
+            _setBlockHeight(databaseConnection, block663751_B.getHash(), 663751L);
+            _setBlockHeight(databaseConnection, block663752_B.getHash(), 663752L);
 
             final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
             final BlockchainSegmentId blockchainSegmentIdA = BlockchainSegmentId.wrap(2L);
             final BlockchainSegmentId blockchainSegmentIdB = BlockchainSegmentId.wrap(3L);
             Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(genesisBlock.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(anchorShimBlock.getHash())));
+            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(asertAnchorShimBlock.getHash())));
             Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(asertAnchorBlock.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663700ShimBlock.getHash())));
-            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663700.getHash())));
-            Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663701_A.getHash())));
-            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663701_B.getHash())));
-            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(blockHeader663702.getHash())));
-            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(blockHeader663703.getHash())));
+            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663749Shim.getHash())));
+            Assert.assertEquals(blockchainSegmentId, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663749.getHash())));
+            Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663750_A.getHash())));
+            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663750_B.getHash())));
+            Assert.assertEquals(blockchainSegmentIdA, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(blockHeader663751_A.getHash())));
+            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663751_B.getHash())));
+            Assert.assertEquals(blockchainSegmentIdB, blockHeaderDatabaseManager.getBlockchainSegmentId(blockHeaderDatabaseManager.getBlockHeaderId(block663752_B.getHash())));
 
             { // Populate the required UTXOs for validation...
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MutableList<TransactionOutputIdentifier> requiredUtxos = new MutableList<>();
 
-                { // Add all generated outputs for 700.
-                    final List<Transaction> transactions = block663700.getTransactions();
+                { // Add all generated outputs for 749.
+                    final List<Transaction> transactions = block663749.getTransactions();
                     for (final Transaction transaction : transactions) {
                         requiredUtxos.addAll(TransactionOutputIdentifier.fromTransactionOutputs(transaction));
                     }
                 }
 
-                { // Add all outputs required for 701A.
-                    final List<Transaction> transactions = block663701_A.getTransactions();
+                { // Add all outputs required for 750A.
+                    final List<Transaction> transactions = block663750_A.getTransactions();
                     boolean isCoinbase = true;
                     for (final Transaction transaction : transactions) {
                         if (isCoinbase) {
@@ -803,13 +838,12 @@ public class BlockProcessorTests extends IntegrationTest {
                         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                             requiredUtxos.add(transactionOutputIdentifier);
-                            Logger.debug("701A spends: " + transactionOutputIdentifier);
                         }
                     }
                 }
 
-                { // Add all outputs required for 701B.
-                    final List<Transaction> transactions = block663701_B.getTransactions();
+                { // Add all outputs required for 750B.
+                    final List<Transaction> transactions = block663750_B.getTransactions();
                     boolean isCoinbase = true;
                     for (final Transaction transaction : transactions) {
                         if (isCoinbase) {
@@ -822,10 +856,23 @@ public class BlockProcessorTests extends IntegrationTest {
                     }
                 }
 
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredUtxos, 663700L);
-                unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663700L);
+                { // Add all outputs required for 751B.
+                    final List<Transaction> transactions = block663751_B.getTransactions();
+                    boolean isCoinbase = true;
+                    for (final Transaction transaction : transactions) {
+                        if (isCoinbase) {
+                            isCoinbase = false;
+                            continue;
+                        }
+                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                            requiredUtxos.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
+                        }
+                    }
+                }
+
+                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredUtxos, 663749L);
+                unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
-                Assert.assertNotNull(unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(new TransactionOutputIdentifier(Sha256Hash.fromHexString("BD636BE963B7D9373AEE28419AA5FE0621D67F6DB1D5E8C728DE76DF08FA9197"), 2)));
             }
         }
 
@@ -833,51 +880,36 @@ public class BlockProcessorTests extends IntegrationTest {
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
-            { // Process 701A normally.
-                final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
-                final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
-                blockchainBuilder.start();
-                final int maxSleepCount = 10;
-                int sleepCount = 0;
-                do {
-                    Thread.sleep(250L);
-                    sleepCount += 1;
+            final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
 
-                    if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
-                } while (statusMonitor.getStatus() != SleepyService.Status.SLEEPING);
-                blockchainBuilder.stop();
-            }
+            // Process 750A normally.
+            _runBlockchainBuilder(blockchainBuilder);
 
-            Assert.assertTrue(databaseManager.getBlockDatabaseManager().hasTransactions(block663701_A.getHash()));
+            Assert.assertTrue(databaseManager.getBlockDatabaseManager().hasTransactions(block663750_A.getHash()));
 
-            // Commit the UTXO set after 701A.
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
+            // Commit the UTXO set after 750A.
+            // unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
 
             // Action
+            // TODO/RESUME: This test is currently failing, but differently than the production server.  There is still a missing UTXO in both cases,
+            //  however, the current test is using preloaded blocks while the production server appears to be using live-loaded blocks for 751 and preloaded
+            //  for 752.  There is likely an issue with the preloaded blocks not being invalidated after a reorg, but this test does not really test that.
+            //  Ultimately, the production server is saying there is a "MISSING UTXO" while this test is not failing until the Expenditures fails to retrieve
+            //  a UTXO.
 
-            // Make 701B available for processing.
-            for (final Block block : new Block[]{ block663701_B }) {
+            // Make 750B, 751B, 752B available for processing.
+            for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
                 pendingBlockDatabaseManager.storeBlock(block);
             }
 
-            { // Process 701B normally.
-                final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
-                final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
-                blockchainBuilder.start();
-                final int maxSleepCount = 10;
-                int sleepCount = 0;
-                do {
-                    Thread.sleep(250L);
-                    sleepCount += 1;
-
-                    if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
-                } while (statusMonitor.getStatus() != SleepyService.Status.SLEEPING);
-                blockchainBuilder.stop();
-            }
+            // Process 750B, 751B, and 752B normally.
+            _runBlockchainBuilder(blockchainBuilder);
 
             // Assert
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663701_B.getHash()));
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_B.getHash()));
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663751_B.getHash()));
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663752_B.getHash()));
         }
     }
 
