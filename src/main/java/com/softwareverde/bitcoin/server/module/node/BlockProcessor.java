@@ -197,16 +197,15 @@ public class BlockProcessor {
     }
 
     protected void _switchHeadBlock(final DatabaseManagerFactory databaseManagerFactory, final FullNodeDatabaseManager databaseManager, final Long blockHeight, final BlockId blockId, final Block block, final BlockId originalHeadBlockId, final BlockchainSegmentId newHeadBlockchainSegmentId, final VolatileNetworkTime networkTime) throws DatabaseException {
-        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
 
         BlockId nextBlockId;
         final MilliTimer timer = new MilliTimer();
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
         try {
-            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
             Logger.debug("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
             timer.start();
             // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
@@ -220,6 +219,7 @@ public class BlockProcessor {
                 final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
 
                 { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
+                    Logger.trace("Removing Block from UTXO Set: " + nextBlock.getHash() + " @ " + undoBlockHeight);
                     unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
                 }
 
@@ -249,13 +249,20 @@ public class BlockProcessor {
         while (nextBlockId != null) {
             if (! blockDatabaseManager.hasTransactions(nextBlockId)) { break; }
 
-            final MutableList<TransactionId> nextBlockTransactionIds;
-            {
-                final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
-                nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+            final Long nextBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
+            final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
+            final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
+
+            { // Add UTXOs to the UTXO set, and remove spent UTXOs...
+                Logger.trace("Applying Block to UTXO Set: " + nextBlock.getHash() + " @ " + nextBlockHeight);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(nextBlock, nextBlockHeight, databaseManagerFactory);
             }
-            nextBlockTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
-            transactionDatabaseManager.removeFromUnconfirmedTransactions(nextBlockTransactionIds);
+
+            { // Remove non-coinbase transactions from the mempool...
+                final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+                nextBlockTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
+                transactionDatabaseManager.removeFromUnconfirmedTransactions(nextBlockTransactionIds);
+            }
 
             nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
         }
@@ -442,6 +449,7 @@ public class BlockProcessor {
 
                 final AsyncFuture utxoFuture;
                 if (blockIsConnectedToUtxoSet && (blockHeight > 0L)) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
+                    Logger.debug("Applying " + blockHash + " @ " + blockHeight + " to UTXO set.");
                     utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager);
                 }
                 else {

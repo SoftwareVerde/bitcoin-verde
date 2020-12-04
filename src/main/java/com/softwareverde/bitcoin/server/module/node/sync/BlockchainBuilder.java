@@ -162,8 +162,6 @@ public class BlockchainBuilder extends GracefulSleepyService {
     }
 
     protected void _assembleBlockchain(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final Thread thread = Thread.currentThread();
-
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

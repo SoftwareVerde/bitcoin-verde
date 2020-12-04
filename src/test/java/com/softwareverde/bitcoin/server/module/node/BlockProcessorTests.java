@@ -18,8 +18,6 @@ import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.Query;
-import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
-import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -35,14 +33,11 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -56,23 +51,17 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.logging.LogLevel;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Container;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -618,6 +607,32 @@ public class BlockProcessorTests extends IntegrationTest {
         blockchainBuilder.stop();
     }
 
+    protected void _addRequiredUtxos(final Block block, final MutableList<TransactionOutputIdentifier> utxoSet, final Boolean shouldRemoveGeneratedOutputs) {
+        final List<Transaction> transactions = block.getTransactions();
+        boolean isCoinbase = true;
+        for (final Transaction transaction : transactions) {
+            if (isCoinbase) {
+                isCoinbase = false;
+                continue;
+            }
+
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                utxoSet.add(transactionOutputIdentifier);
+            }
+
+            if (shouldRemoveGeneratedOutputs) {
+                final List<TransactionOutputIdentifier> transactionOutputIdentifiersCreated = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiersCreated) {
+                    final int index = utxoSet.indexOf(transactionOutputIdentifier);
+                    if (index >= 0) {
+                        utxoSet.remove(index);
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     public void should_handle_replicated_delayed_deep_reorg_with_synced_headers_with_semi_real_blocks() throws Exception {
         // This test should attempt to setup the scenario encountered on 2020-11-29 where the node fell behind
@@ -637,18 +652,18 @@ public class BlockProcessorTests extends IntegrationTest {
             { // Init Anonymous Class...
                 final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
                 final String resourceData = IoUtil.getResource("/transactions/block663750_utxos");
-                // TODO: Ensure the fake UTXO set does not include outputs created by the processed blocks (i.e. 750 and 751).
                 for (final String transactionData : resourceData.split("\n")) {
                     final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString(transactionData));
                     final TransactionId transactionId = TransactionId.wrap(_transactionIds.size() + 1L);
                     _transactionIds.put(transaction.getHash(), transactionId);
                     _transactions.put(transactionId, transaction);
                     try (final DatabaseConnection databaseConnection = _database.newConnection()) {
-                        final Query query = new Query("INSERT INTO transactions (id, hash, byte_count) VALUES (?, ?, ?)");
-                        query.setParameter(transactionId);
-                        query.setParameter(transaction.getHash());
-                        query.setParameter(5L);
-                        databaseConnection.executeSql(query);
+                        databaseConnection.executeSql(
+                            new Query("INSERT INTO transactions (id, hash, byte_count) VALUES (?, ?, ?)")
+                                .setParameter(transactionId)
+                                .setParameter(transaction.getHash())
+                                .setParameter(transaction.getByteCount())
+                        );
                     }
                 }
             }
@@ -760,6 +775,7 @@ public class BlockProcessorTests extends IntegrationTest {
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
+        blockProcessor.setMaxThreadCount(8);
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 4);
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -783,12 +799,6 @@ public class BlockProcessorTests extends IntegrationTest {
                 for (final Block block : new Block[]{ genesisBlock, asertAnchorShimBlock, asertAnchorBlock, block663749ShimBlock, block663749 }) {
                     blockDatabaseManager.storeBlock(block);
                 }
-            }
-
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-            for (final Block block : new Block[]{ block663750_A }) {
-                pendingBlockDatabaseManager.storeBlock(block);
             }
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -820,55 +830,11 @@ public class BlockProcessorTests extends IntegrationTest {
                 final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                 final MutableList<TransactionOutputIdentifier> requiredUtxos = new MutableList<>();
 
-                { // Add all generated outputs for 749.
-                    final List<Transaction> transactions = block663749.getTransactions();
-                    for (final Transaction transaction : transactions) {
-                        requiredUtxos.addAll(TransactionOutputIdentifier.fromTransactionOutputs(transaction));
-                    }
-                }
-
-                { // Add all outputs required for 750A.
-                    final List<Transaction> transactions = block663750_A.getTransactions();
-                    boolean isCoinbase = true;
-                    for (final Transaction transaction : transactions) {
-                        if (isCoinbase) {
-                            isCoinbase = false;
-                            continue;
-                        }
-                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                            requiredUtxos.add(transactionOutputIdentifier);
-                        }
-                    }
-                }
-
-                { // Add all outputs required for 750B.
-                    final List<Transaction> transactions = block663750_B.getTransactions();
-                    boolean isCoinbase = true;
-                    for (final Transaction transaction : transactions) {
-                        if (isCoinbase) {
-                            isCoinbase = false;
-                            continue;
-                        }
-                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                            requiredUtxos.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
-                        }
-                    }
-                }
-
-                { // Add all outputs required for 751B.
-                    final List<Transaction> transactions = block663751_B.getTransactions();
-                    boolean isCoinbase = true;
-                    for (final Transaction transaction : transactions) {
-                        if (isCoinbase) {
-                            isCoinbase = false;
-                            continue;
-                        }
-                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                            requiredUtxos.add(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
-                        }
-                    }
-                }
+                // UTXOs that are required are processed in reverse-order so that UTXOs generated by the respective blocks are only made available once that block has been processed.
+                _addRequiredUtxos(block663752_B, requiredUtxos, false);
+                _addRequiredUtxos(block663751_B, requiredUtxos, true);
+                _addRequiredUtxos(block663750_B, requiredUtxos, true);
+                _addRequiredUtxos(block663750_A, requiredUtxos, false);
 
                 unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredUtxos, 663749L);
                 unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
@@ -877,25 +843,22 @@ public class BlockProcessorTests extends IntegrationTest {
         }
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
 
+            for (final Block block : new Block[]{ block663750_A }) {
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
+
             // Process 750A normally.
             _runBlockchainBuilder(blockchainBuilder);
 
-            Assert.assertTrue(databaseManager.getBlockDatabaseManager().hasTransactions(block663750_A.getHash()));
-
-            // Commit the UTXO set after 750A.
-            // unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
+            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
 
             // Action
-            // TODO/RESUME: This test is currently failing, but differently than the production server.  There is still a missing UTXO in both cases,
-            //  however, the current test is using preloaded blocks while the production server appears to be using live-loaded blocks for 751 and preloaded
-            //  for 752.  There is likely an issue with the preloaded blocks not being invalidated after a reorg, but this test does not really test that.
-            //  Ultimately, the production server is saying there is a "MISSING UTXO" while this test is not failing until the Expenditures fails to retrieve
-            //  a UTXO.
 
             // Make 750B, 751B, 752B available for processing.
             for (final Block block : new Block[]{ block663750_B, block663751_B, block663752_B }) {
@@ -906,7 +869,6 @@ public class BlockProcessorTests extends IntegrationTest {
             _runBlockchainBuilder(blockchainBuilder);
 
             // Assert
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_B.getHash()));
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663751_B.getHash()));
             Assert.assertTrue(blockDatabaseManager.hasTransactions(block663752_B.getHash()));
