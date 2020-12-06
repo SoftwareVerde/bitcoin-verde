@@ -927,9 +927,13 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
         if (! noLock) { UTXO_READ_MUTEX.lock(); }
         try {
+            final Long uncommittedUtxoBlockHeight = UNCOMMITTED_UTXO_BLOCK_HEIGHT.value;
+            if (uncommittedUtxoBlockHeight != null) {
+                return uncommittedUtxoBlockHeight;
+            }
+
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            final Long committedUtxoBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
-            return Math.max(Util.coalesce(UNCOMMITTED_UTXO_BLOCK_HEIGHT.value, 0L), committedUtxoBlockHeight);
+            return _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
         }
         finally {
             if (! noLock) { UTXO_READ_MUTEX.unlock(); }

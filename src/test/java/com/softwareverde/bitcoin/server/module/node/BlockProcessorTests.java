@@ -55,6 +55,8 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.LogLevel;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import org.junit.After;
 import org.junit.Assert;
@@ -66,14 +68,23 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockProcessorTests extends IntegrationTest {
+
+    protected static LogLevel _originalLogLevel;
     @Override @Before
     public void before() throws Exception {
         super.before();
+
+        _originalLogLevel = Logger.getLogLevel();
+        Logger.setLogLevel(LogLevel.TRACE);
     }
 
     @Override @After
     public void after() throws Exception {
         super.after();
+
+        if (_originalLogLevel != null) {
+            Logger.setLogLevel(_originalLogLevel);
+        }
     }
 
     protected void _setBlockHeight(final DatabaseConnection databaseConnection, final Sha256Hash blockHash, final Long blockHeight) throws Exception {
