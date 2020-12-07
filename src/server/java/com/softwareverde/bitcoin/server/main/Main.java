@@ -52,8 +52,8 @@ public class Main {
         Logger.setLogLevel("com.softwareverde.util", LogLevel.ERROR);
         Logger.setLogLevel("com.softwareverde.network", LogLevel.INFO);
         Logger.setLogLevel("com.softwareverde.async.lock", LogLevel.WARN);
-        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
-        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
+        Logger.setLogLevel("org.apache.commons", LogLevel.WARN);
+        Logger.setLogLevel("com.zaxxer.hikari", LogLevel.WARN);
         Logger.setLogLevel("ch.vorburger.exec", LogLevel.WARN);
         Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
 
