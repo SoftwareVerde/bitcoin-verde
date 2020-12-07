@@ -98,6 +98,20 @@ public class BitcoinNodeManager {
         }
     }
 
+    protected static Boolean isBitcoinCashFullNode(final BitcoinNode bitcoinNode) {
+        final Boolean blockchainIsEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        if (! Util.coalesce(blockchainIsEnabled, false)) {
+            return false;
+        }
+
+        final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+        if (! Util.coalesce(isBitcoinCashNode, false)) {
+            return false;
+        }
+
+        return true;
+    }
+
     protected final SystemTime _systemTime;
     protected final BitcoinNodeFactory _nodeFactory;
     protected final ThreadPool _threadPool;
@@ -473,40 +487,36 @@ public class BitcoinNodeManager {
         }
     }
 
+    protected Boolean _isPreferredNodeType(final BitcoinNode bitcoinNode) {
+        final long preferredPeerBlockHeightThreshold = 6L;
+
+        final Boolean isBitcoinCashFullNode = BitcoinNodeManager.isBitcoinCashFullNode(bitcoinNode);
+        if (! isBitcoinCashFullNode) { return false; }
+
+        final Boolean isOutboundConnection = bitcoinNode.isOutboundConnection();
+        if (! isOutboundConnection) { return false; }
+
+        final Long currentBlockHeight = _synchronizationStatusHandler.getCurrentBlockHeight();
+        if (currentBlockHeight != null) {
+            final Long bitcoinBlockHeight = Util.coalesce(bitcoinNode.getBlockHeight(), 0L);
+            if ( bitcoinBlockHeight < (currentBlockHeight - preferredPeerBlockHeightThreshold) ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected void _addHandshakedNode(final BitcoinNode bitcoinNode) {
         if (_isShuttingDown) {
             bitcoinNode.disconnect();
             return;
         }
 
-        if (bitcoinNode.isOutboundConnection()) {
-            boolean shouldKeepNode = true;
-            final Boolean blockchainIsEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-            if (! Util.coalesce(blockchainIsEnabled, false)) {
-                shouldKeepNode = false;
-            }
-
-            final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-            if (! Util.coalesce(isBitcoinCashNode, false)) {
-                shouldKeepNode = false;
-            }
-
-            final long blockHeightThreshold = 6L;
-            final Long currentBlockHeight = Util.coalesce(_synchronizationStatusHandler.getCurrentBlockHeight(), 0L);
-            if (currentBlockHeight > 0L) {
-                final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
-                if (nodeBlockHeight == null) {
-                    shouldKeepNode = false;
-                }
-                else if (nodeBlockHeight < (currentBlockHeight - blockHeightThreshold)) {
-                    shouldKeepNode = false;
-                }
-            }
-
-            if (! shouldKeepNode) {
-                bitcoinNode.disconnect();
-                return;
-            }
+        final Boolean isPreferredNodeType = _isPreferredNodeType(bitcoinNode);
+        if ( bitcoinNode.isOutboundConnection() && (! isPreferredNodeType)) { // All outbound connections should be preferred nodes.
+            bitcoinNode.disconnect();
+            return;
         }
 
         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -514,25 +524,6 @@ public class BitcoinNodeManager {
 
         if (nodeIpAddress != null) {
             _connectedNodeAddresses.add(nodeIpAddress);
-        }
-
-        boolean isPreferredNodeType = true;
-        final Boolean isOutboundConnection = bitcoinNode.isOutboundConnection();
-        if (isOutboundConnection) {
-            if (! Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED), false)) {
-                isPreferredNodeType = false;
-            }
-            if (! Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED), false)) {
-                isPreferredNodeType = false;
-            }
-
-            final Long currentBlockHeight = _synchronizationStatusHandler.getCurrentBlockHeight();
-            if (currentBlockHeight != null) {
-                final Long bitcoinBlockHeight = bitcoinNode.getBlockHeight();
-                if (bitcoinBlockHeight < (currentBlockHeight - 6L)) {
-                    isPreferredNodeType = false;
-                }
-            }
         }
 
         if (isPreferredNodeType) {
