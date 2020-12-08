@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
@@ -32,7 +35,8 @@ public class TestNetDifficultyUnitTests extends UnitTest {
     @Test
     public void should_calculate_difficulty_for_block_000000001AF3B22A7598B10574DEB6B3E2D596F36D62B0A49CB89A1F99AB81EB() {
         // Setup
-        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final UpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
 
         _loadBlock(
             2016L,
@@ -99,7 +103,8 @@ public class TestNetDifficultyUnitTests extends UnitTest {
     @Test
     public void should_calculate_difficulty_for_block_00000000DB623A1752143F2F805C4527573570D9B4CA0A3CFE371E703AC429AA() {
         // Setup
-        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final UpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
 
         _loadBlock(
             4032L,
@@ -125,7 +130,8 @@ public class TestNetDifficultyUnitTests extends UnitTest {
     @Test
     public void should_calculate_difficulty_for_block_0000000030B3DC00BFD9E8AE426ECF36BD6D25F28D83B53AC9A7FDAF886A9CE8() {
         // Setup
-        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final UpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
 
         _loadBlock(
             4031L,
@@ -186,7 +192,8 @@ public class TestNetDifficultyUnitTests extends UnitTest {
     @Test
     public void should_calculate_difficulty_for_block_0000000000085B97C5648887C2A49B1273FF352ABAD85A977E2F3C5405E5C1ED() {
         // Setup
-        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final UpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
 
         _loadBlock(
             478555L,

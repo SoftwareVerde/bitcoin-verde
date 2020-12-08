@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
@@ -113,7 +115,8 @@ public class HistoricTransactionsTests extends UnitTest {
             }
         }
 
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         {
             context.setBlockHeight(testConfig.blockHeight);
             context.setTransaction(transaction);
@@ -137,7 +140,8 @@ public class HistoricTransactionsTests extends UnitTest {
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         // Action
         final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
@@ -663,7 +667,8 @@ public class HistoricTransactionsTests extends UnitTest {
         medianBlockTimeContext.setMedianBlockTime(testConfig.blockHeight, medianBlockTime);
 
         final MasterInflater masterInflater = new CoreInflater();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, null);
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, null, upgradeSchedule);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         // Action
@@ -1026,7 +1031,8 @@ public class HistoricTransactionsTests extends UnitTest {
         medianBlockTimeContext.setMedianBlockTime(563377L, ImmutableMedianBlockTime.fromSeconds(1546320518L));
 
         final MasterInflater masterInflater = new CoreInflater();
-        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, unspentTransactionOutputContext);
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, unspentTransactionOutputContext, upgradeSchedule);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
         // Action

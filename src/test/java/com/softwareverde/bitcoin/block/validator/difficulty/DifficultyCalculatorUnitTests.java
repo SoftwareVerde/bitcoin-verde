@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.Buip55;
-import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.HF20201115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
@@ -241,7 +241,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1560637323L));
         }
 
-
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final DifficultyCalculatorContext difficultyCalculatorContext = new DifficultyCalculatorContext() {
             @Override
             public DifficultyCalculator newDifficultyCalculator() {
@@ -276,6 +276,11 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
                 }
                 return medianBlockTimes.get(blockHeight);
             }
+
+            @Override
+            public UpgradeSchedule getUpgradeSchedule() {
+                return upgradeSchedule;
+            }
         };
 
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
@@ -291,8 +296,8 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
     public void should_calculate_emergency_difficulty() {
         // Setup
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-
-        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
         final HashMap<Long, BlockHeader> blockHeaders = difficultyCalculatorContext.getBlockHeaders();
         final HashMap<Long, MedianBlockTime> medianBlockTimes = difficultyCalculatorContext.getMedianBlockTimes();
 
@@ -319,8 +324,6 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
 
         { // Ensure the Difficulty calculation is using the emergency calculation...
-            Assert.assertTrue(Buip55.isEnabled(blockHeight)); // Emergency Difficulty adjustment activation...
-            Assert.assertFalse(HF20171113.isEnabled(blockHeight)); // Current BCH Difficulty adjustment activation...
             Assert.assertNotEquals(0L, (blockHeight % DifficultyCalculator.BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT)); // Legacy Difficulty adjustment...
         }
 
@@ -335,8 +338,8 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
     public void should_calculate_difficulty_for_block_0000000000000000037DF1664BEE98AF9EF9BBCDEF882FDF16F91C6EC94334DF() {
         // Setup
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-
-        final FakeBlockHeaderValidatorContext context = new FakeBlockHeaderValidatorContext(new MutableNetworkTime());
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeBlockHeaderValidatorContext context = new FakeBlockHeaderValidatorContext(new MutableNetworkTime(), upgradeSchedule);
         final HashMap<Long, BlockHeader> blockHeaders = context.getBlockHeaders();
         final HashMap<Long, MedianBlockTime> medianBlockTimes = context.getMedianBlockTimes();
 
@@ -365,8 +368,6 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(context);
 
         { // Ensure the Difficulty calculation is using the emergency calculation...
-            Assert.assertTrue(Buip55.isEnabled(blockHeight)); // Emergency Difficulty adjustment activation...
-            Assert.assertFalse(HF20171113.isEnabled(blockHeight)); // Current BCH Difficulty adjustment activation...
             Assert.assertNotEquals(0L, (blockHeight % DifficultyCalculator.BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT)); // Legacy Difficulty adjustment...
         }
 
@@ -394,8 +395,9 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             final Json headersObjectJson = Json.parse(IoUtil.getResource("/aserti3-2d/test-net-headers.json"));
 
             final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-            final FakeReferenceBlockLoaderContext referenceBlockLoaderContext = new FakeReferenceBlockLoaderContext();
-            final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext() {
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+            final FakeReferenceBlockLoaderContext referenceBlockLoaderContext = new FakeReferenceBlockLoaderContext(upgradeSchedule);
+            final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule) {
                 final AsertReferenceBlockLoader _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
 
                 @Override

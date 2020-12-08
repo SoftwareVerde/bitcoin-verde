@@ -35,6 +35,7 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -97,6 +98,20 @@ public class BitcoinNodeManager {
         }
     }
 
+    protected static Boolean isBitcoinCashFullNode(final BitcoinNode bitcoinNode) {
+        final Boolean blockchainIsEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        if (! Util.coalesce(blockchainIsEnabled, false)) {
+            return false;
+        }
+
+        final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+        if (! Util.coalesce(isBitcoinCashNode, false)) {
+            return false;
+        }
+
+        return true;
+    }
+
     protected final SystemTime _systemTime;
     protected final BitcoinNodeFactory _nodeFactory;
     protected final ThreadPool _threadPool;
@@ -155,33 +170,48 @@ public class BitcoinNodeManager {
                     }
 
                     synchronized (_performanceStatistics) {
-                        for (final Map.Entry<BitcoinNode, NodePerformance> entry : _performanceStatistics.entrySet()) {
-                            final BitcoinNode bitcoinNode = entry.getKey();
-                            final NodePerformance nodePerformance = entry.getValue();
-                            if ( (bitcoinNode == null) || (nodePerformance == null) ) { continue; }
+                        for (final BitcoinNode preferredNode : _preferredNodes.values()) {
+                            final NodePerformance nodePerformance = _performanceStatistics.get(preferredNode);
+                            if ( (preferredNode == null) || (nodePerformance == null) ) { continue; }
 
-                            if (Logger.isTraceEnabled()) {
-                                Logger.trace(bitcoinNode + " - failedRequestCount=" + nodePerformance.failedRequestCount + ", requestsFilledCount=" + nodePerformance.requestsFilledCount + ", requestsReceivedCount=" + nodePerformance.requestsReceivedCount + ", byteCountReceived=" + nodePerformance.byteCountReceived + ", byteCountSent=" + nodePerformance.byteCountSent);
-                            }
+                            if (_preferredNodes.containsKey(preferredNode.getId())) {
+                                if (Logger.isTraceEnabled()) {
+                                    Logger.trace(preferredNode + " - failedRequestCount=" + nodePerformance.failedRequestCount + ", requestsFilledCount=" + nodePerformance.requestsFilledCount + ", requestsReceivedCount=" + nodePerformance.requestsReceivedCount + ", byteCountReceived=" + nodePerformance.byteCountReceived + ", byteCountSent=" + nodePerformance.byteCountSent);
+                                }
 
-                            final long failedRequestCount = nodePerformance.failedRequestCount.get();
-                            final long fulfilledRequestCount = nodePerformance.requestsFilledCount.get();
-                            if ( (failedRequestCount > 0) && (failedRequestCount >= (fulfilledRequestCount * 0.15D)) ) {
-                                final NodeId nodeId = bitcoinNode.getId();
-                                _preferredNodes.remove(nodeId);
-                                _otherNodes.put(nodeId, bitcoinNode);
+                                final long failedRequestCount = nodePerformance.failedRequestCount.get();
+                                final long fulfilledRequestCount = nodePerformance.requestsFilledCount.get();
+                                final long totalRequestCount = (fulfilledRequestCount + failedRequestCount);
+                                // The first ten requests must be successful
+                                // After ten requests, permit 5% (+ 2) of the requests to fail
+                                //  At 11, nodes are allowed 3 failures
+                                //  At 50, nodes are allowed 5 failures
+                                //  At 100, nodes are allowed 7 failures
+                                final boolean shouldDemoteNode;
+                                if (totalRequestCount <= 10) {
+                                    shouldDemoteNode = (failedRequestCount > 0);
+                                }
+                                else {
+                                    shouldDemoteNode = ( failedRequestCount > (totalRequestCount * 0.05D + 2D) );
+                                }
+                                if (shouldDemoteNode) {
+                                    final NodeId nodeId = preferredNode.getId();
+                                    _preferredNodes.remove(nodeId);
+                                    _otherNodes.put(nodeId, preferredNode);
 
-                                Logger.debug("Demoting node: " + bitcoinNode);
+                                    Logger.debug("Demoting node: " + preferredNode);
+                                }
                             }
                         }
                     }
 
-                    final int peerCount = (_preferredNodes.size() + _otherNodes.size() + _pendingNodes.size());
+                    final int preferredNodeCount = _preferredNodes.size();
+                    final int peerCount = (preferredNodeCount + _otherNodes.size() + _pendingNodes.size());
                     if (peerCount == 0) {
                         nextWait = minWait;
                     }
 
-                    if (peerCount < _minNodeCount) {
+                    if (preferredNodeCount < _minNodeCount) {
                         _connectToNewPreferredNodes();
                     }
                     else {
@@ -226,37 +256,58 @@ public class BitcoinNodeManager {
         }
     };
 
+    protected String _toCanonicalConnectionString(final BitcoinNode bitcoinNode) {
+        final Ip ip = bitcoinNode.getIp();
+        final Integer port = bitcoinNode.getPort();
+        return (ip + ":" + port);
+    }
+
+    protected String _toCanonicalConnectionString(final NodeIpAddress nodeIpAddress) {
+        final Ip ip = nodeIpAddress.getIp();
+        final Integer port = nodeIpAddress.getPort();
+        return (ip + ":" + port);
+    }
+
     protected void _connectToNewPreferredNodes() {
         final Integer defaultPort = _defaultExternalPort;
 
-        final int currentPeerCount;
         final HashSet<String> excludeSet = new HashSet<String>();
+        final MutableList<NodeIpAddress> nodeIpAddresses = new MutableList<NodeIpAddress>();
+
+        { // Add the node's own IP to the exclude set.
+            final NodeIpAddress localNodeIpAddress = _localNodeIpAddress;
+            if (localNodeIpAddress != null) {
+                final String connectionString = _toCanonicalConnectionString(_localNodeIpAddress);
+                Logger.trace("Excluding self-ip: " + connectionString);
+                excludeSet.add(connectionString);
+            }
+        }
+
         { // Exclude currently connected nodes and pending nodes...
-            int i = 0;
             final Map<NodeId, BitcoinNode> bitcoinNodes = _getAllHandshakedNodes();
             bitcoinNodes.putAll(_pendingNodes);
 
             for (final BitcoinNode bitcoinNode : bitcoinNodes.values()) {
-                final String connectionString = (bitcoinNode.getHost() + bitcoinNode.getPort()); // NOTE: not the same as BitcoinNode::getConnectionString.
+                final String connectionString = _toCanonicalConnectionString(bitcoinNode);
+                Logger.trace("Excluding already-connected address: " + connectionString);
                 excludeSet.add(connectionString);
-                i += 1;
             }
-            currentPeerCount = i;
         }
 
-        final int newPreferredNodeCountTarget = (_minNodeCount - currentPeerCount);
-        if (newPreferredNodeCountTarget <= 0) { return; }
+        final int preferredNodeCount = _preferredNodes.size();
 
-        final MutableList<NodeIpAddress> nodeIpAddresses = new MutableList<NodeIpAddress>(_seedNodes);
+        final int newPreferredNodeCountTarget = (_minNodeCount - preferredNodeCount);
+        final int numberOfNodesToAttemptConnectionsTo = Math.min((newPreferredNodeCountTarget * 2), _minNodeCount);
+        if (numberOfNodesToAttemptConnectionsTo <= 0) { return; }
+
         { // Add seed nodes...
             for (final NodeIpAddress nodeIpAddress : _seedNodes) {
-                final Ip ip = nodeIpAddress.getIp();
-                final String ipString = ip.toString();
-                final Integer port = nodeIpAddress.getPort();
-
-                final String connectionString = (ipString + port);
+                final String connectionString = _toCanonicalConnectionString(nodeIpAddress);
                 final boolean isUnique = excludeSet.add(connectionString);
-                if (! isUnique) { continue; }
+                if (! isUnique) {
+                    Logger.trace("Skipping excluded seed-node address: " + connectionString);
+                    continue;
+                }
 
                 nodeIpAddresses.add(nodeIpAddress);
             }
@@ -276,13 +327,14 @@ public class BitcoinNodeManager {
                             requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                         }
 
-                        final List<BitcoinNodeIpAddress> possiblePreferredNodes = nodeDatabaseManager.findNodes(requiredFeatures, (newPreferredNodeCountTarget * 2));
-                        if (possiblePreferredNodes.getCount() >= newPreferredNodeCountTarget) {
+                        final long minSecondsSinceLastConnectionAttempt = (10L * 60L);
+                        final List<BitcoinNodeIpAddress> possiblePreferredNodes = nodeDatabaseManager.findNodes(requiredFeatures, minSecondsSinceLastConnectionAttempt, defaultPort, numberOfNodesToAttemptConnectionsTo);
+                        if (possiblePreferredNodes.getCount() >= numberOfNodesToAttemptConnectionsTo) {
                             foundNodeIpAddresses = possiblePreferredNodes;
                         }
                         else { // If there weren't enough preferred nodes, then relax the requirements to include unknown peers.
-                            final int underflowDesiredNodeCount = ((newPreferredNodeCountTarget * 2) - possiblePreferredNodes.getCount());
-                            final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(underflowDesiredNodeCount);
+                            final int missingDesiredNodeCount = (numberOfNodesToAttemptConnectionsTo - possiblePreferredNodes.getCount());
+                            final List<BitcoinNodeIpAddress> unknownBitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(minSecondsSinceLastConnectionAttempt, missingDesiredNodeCount);
 
                             final MutableList<BitcoinNodeIpAddress> newBitcoinNodeIpAddresses = new MutableList<BitcoinNodeIpAddress>();
                             newBitcoinNodeIpAddresses.addAll(possiblePreferredNodes);
@@ -292,17 +344,17 @@ public class BitcoinNodeManager {
                     }
 
                     for (final BitcoinNodeIpAddress nodeIpAddress : foundNodeIpAddresses) {
-                        if (nodeIpAddresses.getCount() >= newPreferredNodeCountTarget) { break; }
+                        if (nodeIpAddresses.getCount() >= numberOfNodesToAttemptConnectionsTo) { break; }
 
-                        final Ip ip = nodeIpAddress.getIp();
-                        final String ipString = ip.toString();
                         final Integer port = nodeIpAddress.getPort();
-
                         if (Util.areEqual(defaultPort, port)) { continue; }
 
-                        final String connectionString = (ipString + port);
+                        final String connectionString = _toCanonicalConnectionString(nodeIpAddress);
                         final boolean isUnique = excludeSet.add(connectionString);
-                        if (! isUnique) { continue; }
+                        if (! isUnique) {
+                            Logger.trace("Skipping excluded database address: " + connectionString);
+                            continue;
+                        }
 
                         nodeIpAddresses.add(nodeIpAddress);
                     }
@@ -318,16 +370,17 @@ public class BitcoinNodeManager {
                     if (seedIps == null) { continue; }
 
                     for (final Ip ip : seedIps) {
-                        if (nodeIpAddresses.getCount() >= newPreferredNodeCountTarget) { break; }
+                        if (nodeIpAddresses.getCount() >= numberOfNodesToAttemptConnectionsTo) { break; }
+                        final NodeIpAddress nodeIpAddress = new NodeIpAddress(ip, defaultPort);
 
-                        final String ipString = ip.toString();
-                        final Integer port = defaultPort;
-
-                        final String connectionString = (ipString + port);
+                        final String connectionString = _toCanonicalConnectionString(nodeIpAddress);
                         final boolean isUnique = excludeSet.add(connectionString);
-                        if (! isUnique) { continue; }
+                        if (! isUnique) {
+                            Logger.trace("Skipping excluded DNS address: " + connectionString);
+                            continue;
+                        }
 
-                        nodeIpAddresses.add(new NodeIpAddress(ip, defaultPort));
+                        nodeIpAddresses.add(nodeIpAddress);
                     }
                 }
             }
@@ -344,7 +397,7 @@ public class BitcoinNodeManager {
             // The BitcoinNode will be added as a preferred node iff it meets the required criteria after the handshake is complete.
             _addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
-            Logger.info("Connecting to: " + host + ":" + ip);
+            Logger.info("Connecting to: " + host + ":" + port);
         }
     }
 
@@ -361,13 +414,16 @@ public class BitcoinNodeManager {
     }
 
     protected List<BitcoinNode> _filterNodes(final Map<?, BitcoinNode> nodes, final Integer requestedNodeCount, final NodeFilter nodeFilter) {
-        final MutableList<BitcoinNode> filteredNodes = new MutableList<BitcoinNode>(requestedNodeCount);
+        final java.util.ArrayList<BitcoinNode> filteredNodes = new java.util.ArrayList<BitcoinNode>(requestedNodeCount);
         for (final BitcoinNode node : nodes.values()) {
             if (nodeFilter.meetsCriteria(node)) {
                 filteredNodes.add(node);
             }
         }
-        return filteredNodes;
+        // TODO: randomizing the list should help prevent simple issues caused by consistent ordering,
+        //  but ideally this would be something more intelligent (e.g. sorting by node health)
+        Collections.shuffle(filteredNodes);
+        return new MutableList<>(filteredNodes);
     }
 
     protected void _recalculateLocalNodeIpAddress() {
@@ -454,40 +510,37 @@ public class BitcoinNodeManager {
         }
     }
 
+    protected Boolean _isPreferredNodeType(final BitcoinNode bitcoinNode) {
+        final long preferredPeerBlockHeightThreshold = 6L;
+
+        final Boolean isBitcoinCashFullNode = BitcoinNodeManager.isBitcoinCashFullNode(bitcoinNode);
+        if (! isBitcoinCashFullNode) { return false; }
+
+        final Boolean isOutboundConnection = bitcoinNode.isOutboundConnection();
+        if (! isOutboundConnection) { return false; }
+
+        final Long currentBlockHeight = _synchronizationStatusHandler.getCurrentBlockHeight();
+        if (currentBlockHeight != null) {
+            final Long bitcoinBlockHeight = Util.coalesce(bitcoinNode.getBlockHeight(), 0L);
+            if ( bitcoinBlockHeight < (currentBlockHeight - preferredPeerBlockHeightThreshold) ) {
+                Logger.debug("Excluding node from preferred list; blockHeight=" + bitcoinBlockHeight);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected void _addHandshakedNode(final BitcoinNode bitcoinNode) {
         if (_isShuttingDown) {
             bitcoinNode.disconnect();
             return;
         }
 
-        if (bitcoinNode.isOutboundConnection()) {
-            boolean shouldKeepNode = true;
-            final Boolean blockchainIsEnabled = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-            if (! Util.coalesce(blockchainIsEnabled, false)) {
-                shouldKeepNode = false;
-            }
-
-            final Boolean isBitcoinCashNode = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-            if (! Util.coalesce(isBitcoinCashNode, false)) {
-                shouldKeepNode = false;
-            }
-
-            final long blockHeightThreshold = 6L;
-            final Long currentBlockHeight = Util.coalesce(_synchronizationStatusHandler.getCurrentBlockHeight(), 0L);
-            if (currentBlockHeight > 0L) {
-                final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
-                if (nodeBlockHeight == null) {
-                    shouldKeepNode = false;
-                }
-                else if (nodeBlockHeight < (currentBlockHeight - blockHeightThreshold)) {
-                    shouldKeepNode = false;
-                }
-            }
-
-            if (! shouldKeepNode) {
-                bitcoinNode.disconnect();
-                return;
-            }
+        final Boolean isPreferredNodeType = _isPreferredNodeType(bitcoinNode);
+        if ( bitcoinNode.isOutboundConnection() && (! isPreferredNodeType)) { // All outbound connections should be preferred nodes.
+            bitcoinNode.disconnect();
+            return;
         }
 
         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -495,25 +548,6 @@ public class BitcoinNodeManager {
 
         if (nodeIpAddress != null) {
             _connectedNodeAddresses.add(nodeIpAddress);
-        }
-
-        boolean isPreferredNodeType = true;
-        final Boolean isOutboundConnection = bitcoinNode.isOutboundConnection();
-        if (isOutboundConnection) {
-            if (! Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED), false)) {
-                isPreferredNodeType = false;
-            }
-            if (! Util.coalesce(bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.BITCOIN_CASH_ENABLED), false)) {
-                isPreferredNodeType = false;
-            }
-
-            final Long currentBlockHeight = _synchronizationStatusHandler.getCurrentBlockHeight();
-            if (currentBlockHeight != null) {
-                final Long bitcoinBlockHeight = bitcoinNode.getBlockHeight();
-                if (bitcoinBlockHeight < (currentBlockHeight - 6L)) {
-                    isPreferredNodeType = false;
-                }
-            }
         }
 
         if (isPreferredNodeType) {
@@ -1055,6 +1089,14 @@ public class BitcoinNodeManager {
         _threadPool = context.threadPool;
 
         _bitcoinNodeObserver = new BitcoinNodeObserver() {
+            protected final List<MessageType> _trackedMessageResponseTypes = new ImmutableList<MessageType>(
+                MessageType.BLOCK,
+                MessageType.TRANSACTION
+            );
+
+            protected boolean _isTrackedResponseType(final MessageType messageType) {
+                return _trackedMessageResponseTypes.contains(messageType);
+            }
 
             protected NodePerformance _getNodePerformance(final BitcoinNode bitcoinNode) {
                 synchronized (_performanceStatistics) {
@@ -1069,15 +1111,21 @@ public class BitcoinNodeManager {
             }
 
             @Override
-            public void onDataRequested(final BitcoinNode bitcoinNode, final MessageType messageType) {
-                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
-                nodePerformance.requestsReceivedCount.incrementAndGet();
+            public void onDataRequested(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
+                if (_isTrackedResponseType(expectedResponseType)) {
+                    final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
+                    nodePerformance.requestsReceivedCount.incrementAndGet();
+                }
             }
 
             @Override
             public void onDataReceived(final BitcoinNode bitcoinNode, final MessageType messageType, final Integer byteCount, final Boolean wasRequested) {
                 final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
-                nodePerformance.requestsFilledCount.incrementAndGet();
+
+                if (wasRequested && _isTrackedResponseType(messageType)) {
+                    nodePerformance.requestsFilledCount.incrementAndGet();
+                }
+
                 nodePerformance.byteCountReceived.addAndGet(byteCount);
             }
 
@@ -1089,8 +1137,10 @@ public class BitcoinNodeManager {
 
             @Override
             public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
-                final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
-                nodePerformance.failedRequestCount.incrementAndGet();
+                if (_isTrackedResponseType(expectedResponseType)) {
+                    final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
+                    nodePerformance.failedRequestCount.incrementAndGet();
+                }
             }
         };
 

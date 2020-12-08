@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
@@ -30,19 +31,21 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
+    private final UpgradeSchedule _upgradeSchedule;
 
-    public FakeBlockValidatorContext(final NetworkTime networkTime) {
-        this(new CoreInflater(), networkTime, null);
+    public FakeBlockValidatorContext(final NetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
+        this(new CoreInflater(), networkTime, null, upgradeSchedule);
     }
 
-    public FakeBlockValidatorContext(final NetworkTime networkTime, final AsertReferenceBlock asertReferenceBlock) {
-        this(new CoreInflater(), networkTime, asertReferenceBlock);
+    public FakeBlockValidatorContext(final NetworkTime networkTime, final AsertReferenceBlock asertReferenceBlock, final UpgradeSchedule upgradeSchedule) {
+        this(new CoreInflater(), networkTime, asertReferenceBlock, upgradeSchedule);
     }
 
-    public FakeBlockValidatorContext(final TransactionInflaters transactionInflaters, final NetworkTime networkTime, final AsertReferenceBlock asertReferenceBlock) {
+    public FakeBlockValidatorContext(final TransactionInflaters transactionInflaters, final NetworkTime networkTime, final AsertReferenceBlock asertReferenceBlock, final UpgradeSchedule upgradeSchedule) {
         _transactionInflaters = transactionInflaters;
         _networkTime = VolatileNetworkTimeWrapper.wrap(networkTime);
         _asertReferenceBlock = asertReferenceBlock;
+        _upgradeSchedule = upgradeSchedule;
     }
 
     public void addBlockHeader(final BlockHeader block, final Long blockHeight) {
@@ -126,5 +129,10 @@ public class FakeBlockValidatorContext extends FakeUnspentTransactionOutputConte
     @Override
     public DifficultyCalculator newDifficultyCalculator() {
         return new DifficultyCalculator(this);
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
@@ -31,8 +30,6 @@ public class UtxoUndoLog {
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-
             if (! isCoinbase) {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
@@ -42,12 +39,9 @@ public class UtxoUndoLog {
                 }
             }
 
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            int outputIndex = 0;
-            for (final TransactionOutput transactionOutput : transactionOutputs) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 _uncreatedOutputs.add(transactionOutputIdentifier);
-                outputIndex += 1;
             }
 
             isCoinbase = false;
@@ -59,8 +53,6 @@ public class UtxoUndoLog {
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-
             if (! isCoinbase) {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
@@ -69,12 +61,9 @@ public class UtxoUndoLog {
                 }
             }
 
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-            int outputIndex = 0;
-            for (final TransactionOutput transactionOutput : transactionOutputs) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                 _uncreatedOutputs.remove(transactionOutputIdentifier);
-                outputIndex += 1;
             }
 
             isCoinbase = false;
@@ -84,6 +73,16 @@ public class UtxoUndoLog {
     public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         if (_uncreatedOutputs.contains(transactionOutputIdentifier)) { return null; }
 
-        return _reAvailableOutputs.get(transactionOutputIdentifier);
+        final TransactionOutput reAvailableOutput = _reAvailableOutputs.get(transactionOutputIdentifier);
+        if (reAvailableOutput != null) { return reAvailableOutput; }
+
+        try {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+            return transactionDatabaseManager.getTransactionOutput(transactionOutputIdentifier);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return null;
+        }
     }
 }

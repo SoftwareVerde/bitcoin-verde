@@ -129,8 +129,12 @@ public class BlockDownloader extends GracefulSleepyService {
 
     protected void _storePendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
         try {
+            final Sha256Hash blockHash = block.getHash();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-            pendingBlockDatabaseManager.storeBlock(block);
+            final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
+            if (Util.coalesce(pendingBlockConnectedToMainChain, true)) {
+                pendingBlockDatabaseManager.storeBlock(block);
+            }
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -198,7 +202,7 @@ public class BlockDownloader extends GracefulSleepyService {
     }
 
     protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
-        Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString());
+        Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString() + " (id: " + bitcoinNode.getId() + ")");
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
@@ -215,7 +219,9 @@ public class BlockDownloader extends GracefulSleepyService {
                 final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
                 pin.release();
 
-                _currentBlockDownloadSet.remove(blockHash);
+                final CurrentDownload removedCurrentDownload = _currentBlockDownloadSet.remove(blockHash);
+                Logger.trace("Download requested from " + (removedCurrentDownload == null ? null : removedCurrentDownload.nodeId) + ", received response from " + (currentDownload == null ? null : currentDownload.nodeId) + " / " + (bitcoinNode == null ? null : bitcoinNode.getId()));
+
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
 
@@ -267,7 +273,10 @@ public class BlockDownloader extends GracefulSleepyService {
                     bitcoinNode.removeCallback(requestId);
                 }
 
-                final boolean callbackExistedInSet = (_currentBlockDownloadSet.remove(blockHash) != null);
+                final CurrentDownload removedCurrentDownload = _currentBlockDownloadSet.remove(blockHash);
+                Logger.trace("Download requested from " + (removedCurrentDownload == null ? null : removedCurrentDownload.nodeId) + ", received response from " + (currentDownload == null ? null : currentDownload.nodeId) + " / " + (bitcoinNode == null ? null : bitcoinNode.getId()));
+
+                final boolean callbackExistedInSet = (removedCurrentDownload != null);
                 if (currentDownload != null) {
                     currentDownload.milliTimer.stop();
 

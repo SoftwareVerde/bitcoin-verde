@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -111,6 +112,16 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         return transactionIds;
     }
 
+    protected Boolean _hasTransactions(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
+                        .setParameter(blockId)
+        );
+        return (! rows.isEmpty());
+    }
+
     protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -166,6 +177,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
     protected MutableBlock _getBlock(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
+        if (! _hasTransactions(blockId)) { return null; }
 
         final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
@@ -272,7 +285,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     /**
-     * Returns the Sha256Hash of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
+     * Returns the Sha256Hash of the block that has the tallest block-height that has been validated (i.e. has transactions).
      */
     @Override
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
@@ -280,11 +293,28 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     /**
-     * Returns the BlockId of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
+     * Returns the BlockId of the block that has the tallest block-height that has been validated (i.e. has transactions).
      */
     @Override
     public BlockId getHeadBlockId() throws DatabaseException {
         return _getHeadBlockId();
+    }
+
+    /**
+     * Returns the BlockId of the block that has the tallest block-height that has been validated (i.e. has transactions) within the
+     *  BlockchainSegment with the provided blockchainSegmentId. Parent/Ancestor blockchainSegments are not considered.
+     */
+    public BlockId getHeadBlockIdWithinBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? AND has_transactions = 1 ORDER BY block_height DESC LIMIT 1")
+                .setParameter(blockchainSegmentId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long blockId = row.getLong("id");
+        return BlockId.wrap(blockId);
     }
 
     /**
@@ -303,13 +333,7 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
     @Override
     public Boolean hasTransactions(final BlockId blockId) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
-                .setParameter(blockId)
-        );
-        return (! rows.isEmpty());
+        return _hasTransactions(blockId);
     }
 
     @Override

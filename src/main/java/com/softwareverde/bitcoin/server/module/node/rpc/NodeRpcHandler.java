@@ -62,6 +62,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     public interface NodeHandler {
         void addNode(Ip ip, Integer port);
         List<BitcoinNode> getNodes();
+        Boolean isPreferredNode(BitcoinNode bitcoinNode);
         void banNode(Ip ip);
         void unbanNode(Ip ip);
         void addIpToWhitelist(Ip ip);
@@ -1393,31 +1394,32 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final Json nodeListJson = new Json();
 
-        final List<BitcoinNode> nodes = _nodeHandler.getNodes();
-        for (final BitcoinNode node : nodes) {
-            final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+        final List<BitcoinNode> bitcoinNodes = nodeHandler.getNodes();
+        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+            final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
             if (nodeIpAddress == null) { continue; }
 
             final Json nodeJson = new Json();
+            nodeJson.put("isPreferred", nodeHandler.isPreferredNode(bitcoinNode));
             nodeJson.put("host", nodeIpAddress.getIp());
             nodeJson.put("port", nodeIpAddress.getPort());
-            nodeJson.put("userAgent", node.getUserAgent());
-            nodeJson.put("initializationTimestamp", (node.getInitializationTimestamp() / 1000L));
-            nodeJson.put("lastMessageReceivedTimestamp", (node.getLastMessageReceivedTimestamp() / 1000L));
-            nodeJson.put("networkOffset", node.getNetworkTimeOffset());
-            nodeJson.put("ping", node.getAveragePing());
-            nodeJson.put("blockHeight", node.getBlockHeight());
+            nodeJson.put("userAgent", bitcoinNode.getUserAgent());
+            nodeJson.put("initializationTimestamp", (bitcoinNode.getInitializationTimestamp() / 1000L));
+            nodeJson.put("lastMessageReceivedTimestamp", (bitcoinNode.getLastMessageReceivedTimestamp() / 1000L));
+            nodeJson.put("networkOffset", bitcoinNode.getNetworkTimeOffset());
+            nodeJson.put("ping", bitcoinNode.getAveragePing());
+            nodeJson.put("blockHeight", bitcoinNode.getBlockHeight());
 
-            final NodeIpAddress localNodeIpAddress = node.getLocalNodeIpAddress();
+            final NodeIpAddress localNodeIpAddress = bitcoinNode.getLocalNodeIpAddress();
             nodeJson.put("localHost", (localNodeIpAddress != null ? localNodeIpAddress.getIp() : null));
             nodeJson.put("localPort", (localNodeIpAddress != null ? localNodeIpAddress.getPort() : null));
 
-            nodeJson.put("handshakeIsComplete", (node.handshakeIsComplete() ? 1 : 0));
-            nodeJson.put("id", node.getId());
+            nodeJson.put("handshakeIsComplete", (bitcoinNode.handshakeIsComplete() ? 1 : 0));
+            nodeJson.put("id", bitcoinNode.getId());
 
             final Json featuresJson = new Json(false);
             for (final NodeFeatures.Feature nodeFeature : NodeFeatures.Feature.values()) {
-                final Boolean hasFeatureEnabled = (node.hasFeatureEnabled(nodeFeature));
+                final Boolean hasFeatureEnabled = (bitcoinNode.hasFeatureEnabled(nodeFeature));
                 final String featureKey = nodeFeature.name();
                 if (hasFeatureEnabled == null) {
                     featuresJson.put(featureKey, null);
@@ -1426,7 +1428,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     featuresJson.put(featureKey, (hasFeatureEnabled ? 1 : 0));
                 }
             }
-            featuresJson.put("THIN_PROTOCOL_ENABLED", (node.supportsExtraThinBlocks() ? 1 : 0));
+            featuresJson.put("THIN_PROTOCOL_ENABLED", (bitcoinNode.supportsExtraThinBlocks() ? 1 : 0));
             nodeJson.put("features", featuresJson);
 
             nodeListJson.add(nodeJson);

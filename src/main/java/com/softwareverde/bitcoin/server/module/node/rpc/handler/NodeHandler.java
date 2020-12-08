@@ -44,6 +44,12 @@ public class NodeHandler implements NodeRpcHandler.NodeHandler {
     }
 
     @Override
+    public Boolean isPreferredNode(final BitcoinNode bitcoinNode) {
+        final List<BitcoinNode> preferredNodes = _nodeManager.getPreferredNodes();
+        return preferredNodes.contains(bitcoinNode);
+    }
+
+    @Override
     public void banNode(final Ip ip) {
         _nodeManager.banNode(ip);
     }

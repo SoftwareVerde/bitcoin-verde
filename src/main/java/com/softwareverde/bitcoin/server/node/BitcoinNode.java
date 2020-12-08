@@ -301,6 +301,8 @@ public class BitcoinNode extends Node {
         super._queueMessage(message);
 
         if (message instanceof BitcoinProtocolMessage) {
+            Logger.trace("Sending: " + ((BitcoinProtocolMessage) message).getCommand() + " to " + BitcoinNode.this.getConnectionString());
+
             final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
             final MessageType messageType = bitcoinProtocolMessage.getCommand();
             final Integer byteCount = bitcoinProtocolMessage.getByteCount();
@@ -547,10 +549,7 @@ public class BitcoinNode extends Node {
 
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
-                final MessageType messageType = message.getCommand();
-                if (messageType != MessageType.INVENTORY) {
-                    Logger.debug("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
-                }
+                Logger.trace("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
 

@@ -27,7 +27,6 @@ public class AsertReferenceBlockLoader {
         _context = context;
     }
 
-    // TODO: Hardcode value after 2020-11-15...
     public AsertReferenceBlock getAsertReferenceBlock(final BlockchainSegmentId blockchainSegmentId) throws ContextException {
         final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final BlockId headBlockId = _context.getHeadBlockIdOfBlockchainSegment(blockchainSegmentId);

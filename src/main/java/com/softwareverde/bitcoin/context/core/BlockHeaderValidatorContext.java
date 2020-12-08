@@ -12,10 +12,10 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyReferenceBlockLoaderContext;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
@@ -37,7 +37,6 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
     public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime, final DifficultyCalculatorFactory difficultyCalculatorFactory, final UpgradeSchedule upgradeSchedule) {
-
         super(blockchainSegmentId, databaseManager);
         _upgradeSchedule = upgradeSchedule;
         _networkTime = networkTime;
@@ -149,13 +148,7 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
 
     @Override
     public AsertReferenceBlock getAsertReferenceBlock() {
-        try {
-            return _asertReferenceBlockLoader.getAsertReferenceBlock(_blockchainSegmentId);
-        }
-        catch (final ContextException exception) {
-            Logger.debug(exception);
-            return null;
-        }
+        return BitcoinConstants.getAsertReferenceBlock();
     }
 
     @Override

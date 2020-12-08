@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
@@ -57,6 +60,8 @@ public class BitcoinConstants {
 
     protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
 
+    protected static final AsertReferenceBlock ASERT_REFERENCE_BLOCK;
+
     static {
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
@@ -76,6 +81,12 @@ public class BitcoinConstants {
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", String.valueOf(defaultProtocolVersion)), defaultProtocolVersion);
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
+
+        ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+            661647L,
+            1605447844L,
+            Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
+        );
 
         REQUIRE_BITCOIN_CASH_FORK_ID = true;
         REQUIRE_MINIMAL_ENCODED_VALUES = true;
@@ -251,6 +262,10 @@ public class BitcoinConstants {
 
     public static String getBitcoinSignatureMessageMagic() {
         return BITCOIN_SIGNATURE_MESSAGE_MAGIC;
+    }
+
+    public static AsertReferenceBlock getAsertReferenceBlock() {
+        return ASERT_REFERENCE_BLOCK;
     }
 
     protected BitcoinConstants() { }

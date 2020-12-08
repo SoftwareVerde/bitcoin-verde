@@ -11,13 +11,11 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 /**
@@ -51,57 +49,15 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
+            if (priority >= 256) {
+                final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
+                if (! Util.coalesce(pendingBlockConnectedToMainChain, true)) { return; }
+            }
+
             TransactionUtil.startTransaction(databaseConnection);
             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
             pendingBlockDatabaseManager.setPriority(pendingBlockId, priority);
             TransactionUtil.commitTransaction(databaseConnection);
-
-            if (priority < 256) { // Check if any peers have the requested block if it is of high priority...
-                // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.
-
-                final boolean searchForBlockHash = true;
-//                boolean searchForBlockHash = false;
-//                synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
-//                    final Long now = _systemTime.getCurrentTimeInSeconds();
-//                    final long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
-//                    if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
-//                        final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
-//                        final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
-//                        if (! nodesHaveInventory) {
-//                            _lastUnavailableRequestedBlockTimestamp = now;
-//                            searchForBlockHash = true;
-//                        }
-//                    }
-//                }
-
-                if (searchForBlockHash) {
-                    // Use the previousBlockHash (if provided)...
-                    final MutableList<Sha256Hash> blockFinderHashes = new MutableList<Sha256Hash>(1);
-                    if (parentBlockHash != null) {
-                        blockFinderHashes.add(parentBlockHash);
-                        Logger.debug("Broadcasting QueryBlocks with provided BlockHash: " + parentBlockHash);
-                    }
-                    else {
-                        // Search for the previousBlockHash via the database (relies on the BlockHeaders sync)...
-                        final Sha256Hash queriedParentBlockHash = _getParentBlockHash(blockHash, databaseManager);
-                        if (queriedParentBlockHash != null) {
-                            blockFinderHashes.add(queriedParentBlockHash);
-                            Logger.debug("Broadcasting QueryBlocks with queried BlockHash: " + queriedParentBlockHash);
-                        }
-                        else {
-                            // Fallback to broadcasting a blockFinder...
-                            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
-                            blockFinderHashes.addAll(blockFinderHashesBuilder.createBlockFinderBlockHashes());
-                            Logger.debug("Broadcasting blockfinder...");
-                        }
-                    }
-
-                    final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
-                    for (final BitcoinNode bitcoinNode : bitcoinNodes) {
-                        bitcoinNode.transmitBlockFinder(blockFinderHashes);
-                    }
-                }
-            }
 
             _blockDownloader.wakeUp();
         }

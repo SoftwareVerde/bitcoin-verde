@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.test.fake;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
@@ -20,13 +21,16 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
     protected final HashSet<BlockHeader> _requestedBlocks = new HashSet<BlockHeader>();
 
     protected final AsertReferenceBlock _asertReferenceBlock;
+    protected final UpgradeSchedule _upgradeSchedule;
 
-    public FakeDifficultyCalculatorContext() {
-        this(null);
+    public FakeDifficultyCalculatorContext(final UpgradeSchedule upgradeSchedule) {
+        this(null, upgradeSchedule);
+
     }
 
-    public FakeDifficultyCalculatorContext(final AsertReferenceBlock asertReferenceBlock) {
+    public FakeDifficultyCalculatorContext(final AsertReferenceBlock asertReferenceBlock, final UpgradeSchedule upgradeSchedule) {
         _asertReferenceBlock = asertReferenceBlock;
+        _upgradeSchedule = upgradeSchedule;
     }
 
     @Override
@@ -87,5 +91,10 @@ public class FakeDifficultyCalculatorContext implements DifficultyCalculatorCont
             }
         }
         return unusedBlocks;
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

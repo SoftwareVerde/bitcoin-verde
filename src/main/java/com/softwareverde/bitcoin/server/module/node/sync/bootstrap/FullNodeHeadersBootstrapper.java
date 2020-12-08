@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.util.Util;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -31,6 +32,9 @@ public class FullNodeHeadersBootstrapper extends HeadersBootstrapper {
             for (final BlockHeader blockHeader : batchedHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
                 final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+                final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
+                if (! Util.coalesce(pendingBlockConnectedToMainChain, true)) { break; }
+
                 pendingBlockDatabaseManager.storeBlockHash(blockHash, previousBlockHash);
             }
         }

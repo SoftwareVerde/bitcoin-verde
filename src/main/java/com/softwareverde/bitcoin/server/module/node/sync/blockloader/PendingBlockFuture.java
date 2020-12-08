@@ -19,6 +19,7 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
     protected volatile PendingBlock _pendingBlock;
     protected volatile Long _blockHeight;
     protected volatile MutableUnspentTransactionOutputSet _unspentTransactionOutputSet;
+    protected volatile Boolean _wasUnspentTransactionOutputSetInvalidated = false;
 
     protected void setLoadedPendingBlock(final Long blockHeight, final PendingBlock pendingBlock, final MutableUnspentTransactionOutputSet unspentTransactionOutputSet) {
         _blockHeight = blockHeight;
@@ -64,6 +65,7 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
     public MutableUnspentTransactionOutputSet getUnspentTransactionOutputSet() {
         if (! _pin.wasReleased()) { return null; }
         if (_unspentTransactionOutputSet == null) { return null; } // _unspentTransactionOutputSet may be set to null for blocks skipping validation...
+        if (_wasUnspentTransactionOutputSetInvalidated) { return null; } // Force live-loading of UTXO sets if the set was explicitly invalidated (i.e. blockchain reorgs).
 
         // Update the UnspentTransactionOutputSet with the previously cached blocks...
         //  The previous Blocks that weren't processed at the time of the initial load are loaded into the UnspentTransactionOutputSet.
@@ -117,6 +119,10 @@ public class PendingBlockFuture implements PreloadedPendingBlock {
         if (! _pin.wasReleased()) { return null; }
 
         return _blockHeight;
+    }
+
+    public void invalidateUnspentTransactionOutputSet() {
+        _wasUnspentTransactionOutputSetInvalidated = true;
     }
 
     /**

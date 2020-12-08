@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.test.util;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
@@ -65,7 +67,8 @@ public class TransactionTestUtil {
             final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
             final TransactionOutput transactionOutputBeingSpent = transactionOutputsToSpend.get(transactionOutputIdentifierBeingSpent);
 
-            final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false)); // BCH is not enabled at this block height...
+            final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+            final SignatureContext signatureContext = new SignatureContext(partiallySignedTransaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), upgradeSchedule); // BCH is not enabled at this block height...
             signatureContext.setInputIndexBeingSigned(inputIndex);
             signatureContext.setShouldSignInputScript(inputIndex, true, transactionOutputBeingSpent);
 

@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.HF20201115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -36,7 +38,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_return_null_reference_block_before_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final long blockHeight = (699998L - i);
@@ -73,7 +76,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_at_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final long blockHeight = (699999L - i);
@@ -116,7 +120,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_one_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final Long blockHeight = (699999L - i);
@@ -167,7 +172,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_shortly_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         final int afterCount = 128;
 
@@ -220,7 +226,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_well_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         final int afterCount = 10000;
 
@@ -273,7 +280,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_excessively_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         final int afterCount = 100000;
 
@@ -328,7 +336,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         // This test is designed to ensure the correct anchor block is selected if the ActivationBlock+1 shares the same MTP as the ActivationBlock.
 
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final Long blockHeight = (699999L - i);

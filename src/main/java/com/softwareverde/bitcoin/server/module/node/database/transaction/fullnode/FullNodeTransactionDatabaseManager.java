@@ -40,12 +40,4 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     SlpTokenId getSlpTokenId(Sha256Hash transactionHash) throws DatabaseException;
 
     TransactionOutput getTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
-    TransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
-
-    /**
-     * Returns a List of TransactionOutputs in the order provided by the `transactionOutputIdentifier` collection.
-     *  If a provided TransactionOutputIdentifier corresponds to a non-existent or spent output, then null is put in its place within the returned list.
-     *  If an error occurred while loading any TransactionOutput then null is returned instead of a List.
-     */
-    List<TransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifier) throws DatabaseException;
 }

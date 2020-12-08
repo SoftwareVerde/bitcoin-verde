@@ -19,6 +19,7 @@ public interface TransactionDatabaseManager {
     Sha256Hash getTransactionHash(TransactionId transactionId) throws DatabaseException;
     Map<Sha256Hash, TransactionId> getTransactionIds(List<Sha256Hash> transactionHashes) throws DatabaseException;
     Transaction getTransaction(TransactionId transactionId) throws DatabaseException;
+    Map<Sha256Hash, Transaction> getTransactions(List<Sha256Hash> transactionHashes) throws DatabaseException;
     BlockId getBlockId(BlockchainSegmentId blockchainSegmentId, TransactionId transactionId) throws DatabaseException;
     Map<Sha256Hash, BlockId> getBlockIds(BlockchainSegmentId blockchainSegmentId, List<Sha256Hash> transactionHashes) throws DatabaseException;
     List<BlockId> getBlockIds(TransactionId transactionId) throws DatabaseException;
