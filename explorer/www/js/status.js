@@ -124,6 +124,12 @@ class StatusUi {
                 for (const i in nodes) {
                     const node = nodes[i];
                     const nodeElement = $("#templates .node").clone();
+
+                    if (node.isPreferred) {
+                        $(nodeElement).toggleClass("preferred");
+                        $(".user-agent", nodeElement).attr("title", "Preferred Node");
+                    }
+
                     $(".id", nodeElement).text(node.id);
                     $(".user-agent", nodeElement).text(node.userAgent);
                     $(".host", nodeElement).text(node.host);
