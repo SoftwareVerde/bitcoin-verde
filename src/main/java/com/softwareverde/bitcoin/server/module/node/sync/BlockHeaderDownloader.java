@@ -66,7 +66,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected NewBlockHeadersAvailableCallback _newBlockHeaderAvailableCallback = null;
 
-    protected Boolean _checkForGenesisBlockHeader() {
+    protected Boolean _checkForGenesisBlockHeader() throws DatabaseException {
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -78,10 +78,6 @@ public class BlockHeaderDownloader extends SleepyService {
             }
 
             return _hasGenesisBlock;
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-            return false;
         }
     }
 
@@ -114,7 +110,12 @@ public class BlockHeaderDownloader extends SleepyService {
             bitcoinNode.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
-                    if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
+                    try {
+                        if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
+                    }
+                    catch (final Exception exception) {
+                        Logger.warn("Unable to check for Genesis Block before processing.", exception);
+                    }
 
                     final Sha256Hash blockHash = block.getHash();
                     Logger.trace("GENESIS RECEIVED: " + blockHash);
@@ -434,8 +435,14 @@ public class BlockHeaderDownloader extends SleepyService {
             _lastBlockHash = Util.coalesce(_lastBlockHash, Block.GENESIS_BLOCK_HASH);
         }
 
-        if (! _checkForGenesisBlockHeader()) {
-            _downloadGenesisBlock();
+        try {
+            if (! _checkForGenesisBlockHeader()) {
+                _downloadGenesisBlock();
+            }
+        }
+        catch (final Exception exception) {
+            Logger.warn("Unable to check for Genesis Block.", exception);
+            try { Thread.sleep(1000L); } catch (final Exception ignored) { }
         }
     }
 
