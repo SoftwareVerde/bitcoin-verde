@@ -410,12 +410,6 @@ public class AbcScriptRunnerTests extends UnitTest {
 
     protected static Boolean originalNativeSecp256k1Value = null;
 
-    protected void _reconfigureProductionConstants() {
-//        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
-    }
-
     @Override @Before
     public void before() throws Exception {
         super.before();
@@ -425,9 +419,6 @@ public class AbcScriptRunnerTests extends UnitTest {
         }
 
         try {
-//            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
             BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
         }
         catch (final Exception exception) {
@@ -436,13 +427,11 @@ public class AbcScriptRunnerTests extends UnitTest {
             Logger.debug("Unable to set volatile modifier.", exception);
         }
 
-        _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
     }
 
     @After
     public void after() throws Exception {
-        _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
 
         super.after();
@@ -606,11 +595,6 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setAreSchnorrSignaturesEnabledWithinMultiSignature(true);
             }
 
-            // Reconfigure the BitcoinConstants to mimic some of the reference client's feature-flags...
-//            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", testVector.flagsString.contains("NULLFAIL"));
-            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", testVector.flagsString.contains("SIGHASH_FORKID"));
-            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", testVector.flagsString.contains("MINIMALDATA"));
-
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
 
             executedCount += 1;
@@ -624,7 +608,6 @@ public class AbcScriptRunnerTests extends UnitTest {
             }
             else {
                 // Retry with production values to assess severity...
-                _reconfigureProductionConstants();
                 context.setBlockHeight(Long.MAX_VALUE);
                 medianBlockTime.setMedianBlockTime(Long.MAX_VALUE);
                 final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context);
