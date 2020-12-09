@@ -118,16 +118,27 @@ public class CryptographicOperation extends SubTypedOperation {
                         final ByteArray signatureR = signature.getR();
                         if (signatureR.getByteCount() == 0) { return false; }
                         if ((signatureR.getByte(0) & 0x80) != 0) { return false; }
+                        if (CryptographicOperation.isMinimallyEncodedSignatureValue(signatureR)) { return false; }
 
                         final ByteArray signatureS = signature.getS();
                         if (signatureS.getByteCount() == 0) { return false; }
                         if ((signatureS.getByte(0) & 0x80) != 0) { return false; }
+                        if (CryptographicOperation.isMinimallyEncodedSignatureValue(signatureS)) { return false; }
                     }
                 }
             }
         }
 
         return true;
+    }
+
+    protected static boolean isMinimallyEncodedSignatureValue(final ByteArray signatureValue) {
+        if (signatureValue.getByteCount() > 1) {
+            // ensure that if the leading byte is null, it was required due to the following byte
+            // having its highest bit set (i.e. would have resulting in interpreting the value as negative)
+            return ( (signatureValue.getByte(0) == 0) && ((signatureValue.getByte(1) & 0x80) == 0) );
+        }
+        return false;
     }
 
     protected static Boolean validateCanonicalSignatureEncoding(final ScriptSignature scriptSignature) {
