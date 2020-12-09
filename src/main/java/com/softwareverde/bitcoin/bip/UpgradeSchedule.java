@@ -83,7 +83,7 @@ public interface UpgradeSchedule {
      * This feature reduces malleability by enforcing DER encodings use their non-negative canonical encoding.
      * Enabled in Bip 66.
      */
-    Boolean areNegativeDerSignatureEncodingsDisallowed(Long blockHeight);
+    Boolean areDerSignaturesRequiredToBeStrictlyEncoded(Long blockHeight);
 
     /**
      * Dirty stacks are considered invalid after HF20181115 in order to reduce malleability.

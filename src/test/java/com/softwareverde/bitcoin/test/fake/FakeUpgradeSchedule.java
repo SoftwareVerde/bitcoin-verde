@@ -25,7 +25,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areCanonicalSignatureEncodingsRequired;
     protected Boolean _areSignaturesRequiredToBeStrictlyEncoded;
     protected Boolean _arePublicKeysRequiredToBeStrictlyEncoded;
-    protected Boolean _areNegativeDerSignatureEncodingsDisallowed;
+    protected Boolean _areDerSignaturesRequiredToBeStrictlyEncoded;
     protected Boolean _areUnusedValuesAfterScriptExecutionDisallowed;
     protected Boolean _areTransactionsLessThanOneHundredBytesDisallowed;
     protected Boolean _areUnusedValuesAfterSegwitScriptExecutionAllowed;
@@ -180,10 +180,10 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean areNegativeDerSignatureEncodingsDisallowed(final Long blockHeight) {
+    public Boolean areDerSignaturesRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return _isOverriddenOrEnabled(
-                _areNegativeDerSignatureEncodingsDisallowed,
-                _coreUpgradeSchedule.areNegativeDerSignatureEncodingsDisallowed(blockHeight)
+                _areDerSignaturesRequiredToBeStrictlyEncoded,
+                _coreUpgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)
         );
     }
 
@@ -319,8 +319,8 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         _arePublicKeysRequiredToBeStrictlyEncoded = arePublicKeysRequiredToBeStrictlyEncoded;
     }
 
-    public void setNegativeDerSignatureEncodingsDisallowed(final Boolean areNegativeDerSignatureEncodingsDisallowed) {
-        _areNegativeDerSignatureEncodingsDisallowed = areNegativeDerSignatureEncodingsDisallowed;
+    public void setDerSignaturesRequiredToBeStrictlyEncoded(final Boolean areNegativeDerSignatureEncodingsDisallowed) {
+        _areDerSignaturesRequiredToBeStrictlyEncoded = areNegativeDerSignatureEncodingsDisallowed;
     }
 
     public void setUnusedValuesAfterScriptExecutionDisallowed(final Boolean areUnusedValuesAfterScriptExecutionDisallowed) {

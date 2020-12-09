@@ -89,7 +89,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean areNegativeDerSignatureEncodingsDisallowed(final Long blockHeight) {
+    public Boolean areDerSignaturesRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return (blockHeight >= 330776L);
     }
 

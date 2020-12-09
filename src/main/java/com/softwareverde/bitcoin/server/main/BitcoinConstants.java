@@ -55,9 +55,6 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static Boolean REQUIRE_BITCOIN_CASH_FORK_ID;
-    protected static Boolean REQUIRE_MINIMAL_ENCODED_VALUES;
-
     protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
 
     protected static final AsertReferenceBlock ASERT_REFERENCE_BLOCK;
@@ -87,9 +84,6 @@ public class BitcoinConstants {
             1605447844L,
             Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
         );
-
-        REQUIRE_BITCOIN_CASH_FORK_ID = true;
-        REQUIRE_MINIMAL_ENCODED_VALUES = true;
 
         BITCOIN_SIGNATURE_MESSAGE_MAGIC = "Bitcoin Signed Message:\n";
     }
@@ -248,16 +242,6 @@ public class BitcoinConstants {
         }
 
         COINBASE_MESSAGE = coinbaseMessage;
-    }
-
-    // Aka the "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID" flags.
-    public static Boolean requireBitcoinCashForkId() {
-        return REQUIRE_BITCOIN_CASH_FORK_ID;
-    }
-
-    // Aka the "STRICTENC" flag.
-    public static Boolean valuesMustBeMinimallyEncoded() {
-        return REQUIRE_MINIMAL_ENCODED_VALUES;
     }
 
     public static String getBitcoinSignatureMessageMagic() {

@@ -104,7 +104,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (hashType.getMode() == null) { return false; }
             if (hashType.hasUnknownFlags()) { return false; }
 
-            if (BitcoinConstants.requireBitcoinCashForkId()) {
+            if (upgradeSchedule.isBitcoinCashSignatureHashTypeEnabled(blockHeight)) {
                 if (! hashType.isBitcoinCashType()) { return false; }
             }
         }
@@ -114,7 +114,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (signature != null) {
                 // Check for negative-encoded DER signatures...
                 if (signature.getType() == Signature.Type.ECDSA) { // Bip66 only applies to DER encoded signatures...
-                    if (upgradeSchedule.areNegativeDerSignatureEncodingsDisallowed(blockHeight)) { // Enforce non-negative R and S encoding for DER encoded signatures...
+                    if (upgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce non-negative R and S encoding for DER encoded signatures...
                         final ByteArray signatureR = signature.getR();
                         if (signatureR.getByteCount() == 0) { return false; }
                         if ((signatureR.getByte(0) & 0x80) != 0) { return false; }

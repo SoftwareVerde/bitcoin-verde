@@ -561,9 +561,12 @@ public class AbcScriptRunnerTests extends UnitTest {
             context.setTransactionInput(transactionInput);
             context.setTransactionInputIndex(0);
 
-            context.setBlockHeight(0L);
+            context.setBlockHeight(1L);
             context.setMedianBlockTime(medianBlockTime);
 
+            if (testVector.flagsString.contains("MINIMALDATA")) {
+                upgradeSchedule.setMinimalNumberEncodingRequired(true);
+            }
             if (testVector.flagsString.contains("P2SH")) {
                 upgradeSchedule.setPayToScriptHashEnabled(true);
             }
@@ -578,7 +581,8 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setPublicKeysRequiredToBeStrictlyEncoded(true);
             }
             if (testVector.flagsString.contains("DERSIG")) {
-                upgradeSchedule.setNegativeDerSignatureEncodingsDisallowed(true);
+                upgradeSchedule.setSignaturesRequiredToBeStrictlyEncoded(true);
+                upgradeSchedule.setDerSignaturesRequiredToBeStrictlyEncoded(true);
             }
             if (testVector.flagsString.contains("LOW_S")) {
                 upgradeSchedule.setCanonicalSignatureEncodingsRequired(true);
@@ -628,9 +632,9 @@ public class AbcScriptRunnerTests extends UnitTest {
 
                 if (! skipTest) {
                     failCount += 1;
-                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + ")");
+                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - \"" + testVector.comments + "\")");
                     System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
-                    break;
+                    //break;
                 }
             }
         }

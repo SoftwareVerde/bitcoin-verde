@@ -89,7 +89,7 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean areNegativeDerSignatureEncodingsDisallowed(final Long blockHeight) {
+    public Boolean areDerSignaturesRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return Bip66.isEnabled(blockHeight);
     }
 
