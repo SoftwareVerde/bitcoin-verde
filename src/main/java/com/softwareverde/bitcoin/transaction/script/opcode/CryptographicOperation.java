@@ -109,22 +109,30 @@ public class CryptographicOperation extends SubTypedOperation {
             }
         }
 
+        return true;
+    }
+
+    protected static Boolean validateStrictDerSignatureEncoding(final ScriptSignature scriptSignature, final ScriptSignatureContext scriptSignatureContext, final TransactionContext transactionContext) {
+        if (scriptSignature == null) { return false; }
+        if (scriptSignature.isEmpty()) { return true; }
+
+        if (scriptSignature.hasExtraBytes()) { return false; }
+
         {
             final Signature signature = scriptSignature.getSignature();
             if (signature != null) {
                 // Check for negative-encoded DER signatures...
                 if (signature.getType() == Signature.Type.ECDSA) { // Bip66 only applies to DER encoded signatures...
-                    if (upgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce non-negative R and S encoding for DER encoded signatures...
-                        final ByteArray signatureR = signature.getR();
-                        if (signatureR.getByteCount() == 0) { return false; }
-                        if ((signatureR.getByte(0) & 0x80) != 0) { return false; }
-                        if (CryptographicOperation.isMinimallyEncodedSignatureValue(signatureR)) { return false; }
+                    // Enforce non-negative R and S encoding for DER encoded signatures...
+                    final ByteArray signatureR = signature.getR();
+                    if (signatureR.getByteCount() == 0) { return false; }
+                    if ((signatureR.getByte(0) & 0x80) != 0) { return false; }
+                    if (CryptographicOperation.isMinimallyEncodedSignatureValue(signatureR)) { return false; }
 
-                        final ByteArray signatureS = signature.getS();
-                        if (signatureS.getByteCount() == 0) { return false; }
-                        if ((signatureS.getByte(0) & 0x80) != 0) { return false; }
-                        if (CryptographicOperation.isMinimallyEncodedSignatureValue(signatureS)) { return false; }
-                    }
+                    final ByteArray signatureS = signature.getS();
+                    if (signatureS.getByteCount() == 0) { return false; }
+                    if ((signatureS.getByte(0) & 0x80) != 0) { return false; }
+                    if (CryptographicOperation.isMinimallyEncodedSignatureValue(signatureS)) { return false; }
                 }
             }
         }
@@ -183,6 +191,11 @@ public class CryptographicOperation extends SubTypedOperation {
 
             if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
                 final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
+                if (! signatureIsStrictlyEncoded) { return false; }
+            }
+
+            if (upgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict DER signature encoding (DERSIG)...
+                final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictDerSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
                 if (! signatureIsStrictlyEncoded) { return false; }
             }
 
@@ -444,8 +457,13 @@ public class CryptographicOperation extends SubTypedOperation {
                         if (! publicKeyIsStrictlyEncoded) { return false; }
                     }
 
-                    if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict PublicKey encoding (SCRIPT_VERIFY_STRICTENC)...
+                    if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
                         final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
+                        if (! signatureIsStrictlyEncoded) { return false; }
+                    }
+
+                    if (upgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict DER signature encoding (DERSIG)...
+                        final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictDerSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
                         if (! signatureIsStrictlyEncoded) { return false; }
                     }
 
@@ -530,6 +548,11 @@ public class CryptographicOperation extends SubTypedOperation {
         final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
         if (upgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
             final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
+            if (! meetsStrictEncodingStandard) { return false; }
+        }
+
+        if (upgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)) { // Enforce strict DER signature encoding (DERSIG)...
+            final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictDerSignatureEncoding(scriptSignature, scriptSignatureContext, transactionContext);
             if (! meetsStrictEncodingStandard) { return false; }
         }
 
