@@ -567,6 +567,7 @@ public class AbcScriptRunnerTests extends UnitTest {
             }
             if (testVector.flagsString.contains("STRICTENC")) {
                 upgradeSchedule.setSignaturesRequiredToBeStrictlyEncoded(true);
+                upgradeSchedule.setDerSignaturesRequiredToBeStrictlyEncoded(true);
                 upgradeSchedule.setPublicKeysRequiredToBeStrictlyEncoded(true);
             }
             if (testVector.flagsString.contains("DERSIG")) {
