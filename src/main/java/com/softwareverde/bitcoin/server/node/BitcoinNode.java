@@ -92,6 +92,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinNode extends Node {
     public static final Long MIN_MEGABYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mpbs, slower than 3G.
+    public static final Long REQUEST_TIME_BUFFER = 1000L; // Max time, in ms, assumed it takes to respond to a request, ignoring ping.
 
     protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
 
@@ -300,6 +301,8 @@ public class BitcoinNode extends Node {
         super._queueMessage(message);
 
         if (message instanceof BitcoinProtocolMessage) {
+            Logger.trace("Sending: " + ((BitcoinProtocolMessage) message).getCommand() + " to " + BitcoinNode.this.getConnectionString());
+
             final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
             final MessageType messageType = bitcoinProtocolMessage.getCommand();
             final Integer byteCount = bitcoinProtocolMessage.getByteCount();
@@ -375,9 +378,10 @@ public class BitcoinNode extends Node {
 
     @Override
     protected void _disconnect() {
-        synchronized (this) {
-            if (_requestMonitorThread != null) {
-                _requestMonitorThread.interrupt();
+        synchronized (_requestMonitor) {
+            final Thread requestMonitorThread = _requestMonitorThread;
+            if (requestMonitorThread != null) {
+                requestMonitorThread.interrupt();
                 _requestMonitorThread = null;
             }
         }
@@ -411,16 +415,17 @@ public class BitcoinNode extends Node {
 
     @Override
     protected void _onConnect() {
-        synchronized (this) {
+        synchronized (_requestMonitor) {
             final Thread existingRequestMonitorThread = _requestMonitorThread;
             if (existingRequestMonitorThread != null) {
                 existingRequestMonitorThread.interrupt();
             }
 
-            _requestMonitorThread = new Thread(_requestMonitor);
-            _requestMonitorThread.setName("Bitcoin Node - Request Monitor - " + _connection.toString());
-            _requestMonitorThread.setDaemon(true); // Ensure the thread is closed when the process dies (unnecessary, but proper).
-            _requestMonitorThread.start();
+            final Thread requestMonitorThread = new Thread(_requestMonitor);
+            requestMonitorThread.setName("Bitcoin Node - Request Monitor - " + _connection.toString());
+            requestMonitorThread.setDaemon(true); // Ensure the thread is closed when the process dies (unnecessary, but proper).
+            requestMonitorThread.start();
+            _requestMonitorThread = requestMonitorThread;
         }
         super._onConnect();
     }
@@ -475,7 +480,6 @@ public class BitcoinNode extends Node {
 
             final Long maxRequestAgeMs = _getMaximumTimeoutMs(failableRequest.callback);
             final long requestAgeMs = (nowMs - failableRequest.requestStartTimeMs);
-            final long buffer = 1000L;
 
             if (requestAgeMs > maxRequestAgeMs) {
                 iterator.remove();
@@ -485,7 +489,7 @@ public class BitcoinNode extends Node {
             }
             else {
                 final Long ping = _calculateAveragePingMs();
-                if (requestAgeMs >= ((ping * 2L) + buffer)) {
+                if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
                     final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
                     final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
                     final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
@@ -523,7 +527,7 @@ public class BitcoinNode extends Node {
                     }
                 }
                 finally {
-                    synchronized (BitcoinNode.this) {
+                    synchronized (_requestMonitor) {
                         if (_requestMonitorThread == Thread.currentThread()) {
                             _requestMonitorThread = null;
                         }
@@ -545,10 +549,7 @@ public class BitcoinNode extends Node {
 
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
-                final MessageType messageType = message.getCommand();
-                if (messageType != MessageType.INVENTORY) {
-                    Logger.debug("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
-                }
+                Logger.trace("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
 

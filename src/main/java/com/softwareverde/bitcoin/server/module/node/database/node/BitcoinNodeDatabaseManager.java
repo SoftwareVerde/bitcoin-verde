@@ -18,8 +18,9 @@ public interface BitcoinNodeDatabaseManager {
     void updateLastHandshake(BitcoinNode node) throws DatabaseException;
     void updateNodeFeatures(BitcoinNode node) throws DatabaseException;
     void updateUserAgent(BitcoinNode node) throws DatabaseException;
-    List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer maxCount) throws DatabaseException;
-    List<BitcoinNodeIpAddress> findNodes(Integer maxCount) throws DatabaseException;
+    List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Long secondsSinceLastConnectionAttempt, Integer maxCount) throws DatabaseException;
+    List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Long secondsSinceLastConnectionAttempt, Integer requiredPort, Integer maxCount) throws DatabaseException;
+    List<BitcoinNodeIpAddress> findNodes(Long secondsSinceLastConnectionAttempt, Integer maxCount) throws DatabaseException;
     Integer getFailedConnectionCountForIp(Ip ip) throws DatabaseException;
     Integer getFailedConnectionCountForIp(Ip ip, Long sinceTimestamp) throws DatabaseException;
     void setIsBanned(Ip ip, Boolean isBanned) throws DatabaseException;

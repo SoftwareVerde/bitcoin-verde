@@ -30,10 +30,13 @@ public interface FakeBitcoinNodeDatabaseManager extends BitcoinNodeDatabaseManag
     default void updateUserAgent(BitcoinNode node) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
-    default List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
+    default List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Long secondsSinceLastConnectionAttempt, Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
-    default List<BitcoinNodeIpAddress> findNodes(Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
+    default List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Long secondsSinceLastConnectionAttempt, Integer requiredPort, Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
+
+    @Override
+    default List<BitcoinNodeIpAddress> findNodes(Long secondsSinceLastConnectionAttempt, Integer maxCount) throws DatabaseException { throw new UnsupportedOperationException(); }
 
     @Override
     default Integer getFailedConnectionCountForIp(Ip ip) throws DatabaseException { throw new UnsupportedOperationException(); }

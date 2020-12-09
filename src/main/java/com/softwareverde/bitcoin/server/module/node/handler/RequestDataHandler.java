@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -33,11 +32,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
-    protected final BlockStore _blockStore;
 
-    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore) {
+    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
-        _blockStore = blockStore;
     }
 
     @Override
@@ -75,27 +72,10 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                             continue;
                         }
 
-                        final Block block;
-                        {
-                            if (_blockStore != null) {
-                                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                                final Block cachedBlock = _blockStore.getBlock(blockHash, blockHeight);
-
-                                if (cachedBlock != null) {
-                                    block = cachedBlock;
-                                }
-                                else {
-                                    block = blockDatabaseManager.getBlock(blockId);
-                                    _blockStore.storeBlock(block, blockHeight);
-                                }
-                            }
-                            else {
-                                block = blockDatabaseManager.getBlock(blockId);
-                            }
-                        }
+                        final Block block = blockDatabaseManager.getBlock(blockId);
 
                         if (block == null) {
-                            Logger.warn("Error inflating Block: " + blockHash);
+                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown block: " + blockHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }
@@ -130,7 +110,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                         if (transaction == null) {
-                            Logger.warn("Error inflating Transaction: " + transactionHash);
+                            Logger.debug(bitcoinNode.getConnectionString() + "requested unknown Transaction: " + transactionHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }

@@ -88,9 +88,10 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
     }
 
     @Override
-    public Boolean hasTransaction(final Transaction transaction) {
+    public Boolean hasTransaction(final Sha256Hash transactionHash) {
         for (final Transaction existingTransaction : _transactions) {
-            if (Util.areEqual(transaction, existingTransaction)) {
+            final Sha256Hash existingTransactionHash = existingTransaction.getHash();
+            if (Util.areEqual(transactionHash, existingTransactionHash)) {
                 return true;
             }
         }

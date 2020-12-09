@@ -36,6 +36,8 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.LogLevel;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;
 import com.softwareverde.util.Container;
@@ -62,6 +64,11 @@ public class IntegrationTest extends UnitTest {
     protected Long _requiredCoinbaseMaturity = 0L;
 
     public IntegrationTest() {
+        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
+        Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
+        Logger.setLogLevel("ch.vorburger.exec", LogLevel.WARN);
+        Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
+
         _masterInflater = new CoreInflater();
         _blockStore = new FakeBlockStore();
         _synchronizationStatus = new FakeSynchronizationStatus();
@@ -143,6 +150,7 @@ public class IntegrationTest extends UnitTest {
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
 
+        // make sure UTXO set appears initialized
         final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputJvmManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
 

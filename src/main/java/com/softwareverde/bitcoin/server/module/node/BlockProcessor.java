@@ -197,40 +197,36 @@ public class BlockProcessor {
     }
 
     protected void _switchHeadBlock(final DatabaseManagerFactory databaseManagerFactory, final FullNodeDatabaseManager databaseManager, final Long blockHeight, final BlockId blockId, final Block block, final BlockId originalHeadBlockId, final BlockchainSegmentId newHeadBlockchainSegmentId, final VolatileNetworkTime networkTime) throws DatabaseException {
-        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
 
         BlockId nextBlockId;
         final MilliTimer timer = new MilliTimer();
         TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
         try {
-            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
-            Logger.trace("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
+            Logger.debug("Starting Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId);
             timer.start();
             // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
             // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
-            final BlockchainSegmentId oldHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId); // The original BlockchainSegmentId was most likely invalidated during reordering, so reacquire the new BlockchainSegmentIds via BlockId...
-            nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(oldHeadBlockchainSegmentId);
+            nextBlockId = originalHeadBlockId;
             Logger.trace("Utxo Reorg - 1/6 complete.");
 
-            long undoBlockHeight;
             while (nextBlockId != null) {
-                undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
+                final Long undoBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
                 final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
-                if (nextBlock != null) { // If the head block was just a processed header, then continue backwards without processing its transactions...
-                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
+                final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
 
-                    { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
-                        unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
-                    }
+                { // Remove UTXOs from the UTXO set, and re-add spent UTXOs...
+                    Logger.trace("Removing Block from UTXO Set: " + nextBlock.getHash() + " @ " + undoBlockHeight);
+                    unspentTransactionOutputManager.removeBlockFromUtxoSet(nextBlock, undoBlockHeight);
+                }
 
-                    { // Add non-coinbase transactions to the mempool...
-                        final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
-                        nextBlockTransactionIds.remove(0); // Exclude the coinbase...
-                        transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
-                    }
+                { // Add non-coinbase transactions to the mempool...
+                    final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+                    nextBlockTransactionIds.remove(0); // Exclude the coinbase...
+                    transactionDatabaseManager.addToUnconfirmedTransactions(nextBlockTransactionIds);
                 }
 
                 // 2. Continue to traverse up the chain until the block is connected to the new headBlockchain...
@@ -239,8 +235,6 @@ public class BlockProcessor {
 
                 final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
                 if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
-
-                undoBlockHeight -= 1L;
             }
         }
         finally {
@@ -253,9 +247,22 @@ public class BlockProcessor {
 
         // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
         while (nextBlockId != null) {
-            final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
-            nextBlockTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
-            transactionDatabaseManager.removeFromUnconfirmedTransactions(nextBlockTransactionIds);
+            if (! blockDatabaseManager.hasTransactions(nextBlockId)) { break; }
+
+            final Long nextBlockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
+            final Block nextBlock = blockDatabaseManager.getBlock(nextBlockId);
+            final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(nextBlockId);
+
+            { // Add UTXOs to the UTXO set, and remove spent UTXOs...
+                Logger.trace("Applying Block to UTXO Set: " + nextBlock.getHash() + " @ " + nextBlockHeight);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(nextBlock, nextBlockHeight, databaseManagerFactory);
+            }
+
+            { // Remove non-coinbase transactions from the mempool...
+                final MutableList<TransactionId> nextBlockTransactionIds = new MutableList<TransactionId>(transactionIds);
+                nextBlockTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
+                transactionDatabaseManager.removeFromUnconfirmedTransactions(nextBlockTransactionIds);
+            }
 
             nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
         }
@@ -442,6 +449,7 @@ public class BlockProcessor {
 
                 final AsyncFuture utxoFuture;
                 if (blockIsConnectedToUtxoSet && (blockHeight > 0L)) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
+                    Logger.debug("Applying " + blockHash + " @ " + blockHeight + " to UTXO set.");
                     utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager);
                 }
                 else {
@@ -495,7 +503,7 @@ public class BlockProcessor {
             }
             else {
                 final BlockchainSegmentId blockchainSegmentIdOfOriginalHead = blockHeaderDatabaseManager.getBlockchainSegmentId(originalHeadBlockId);
-                bestBlockchainHasChanged = (!blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentIdOfOriginalHead, newHeadBlockchainSegmentId, BlockRelationship.ANY));
+                bestBlockchainHasChanged = (! blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentIdOfOriginalHead, newHeadBlockchainSegmentId, BlockRelationship.ANY));
             }
         }
         Logger.trace("bestBlockchainHasChanged=" + bestBlockchainHasChanged);

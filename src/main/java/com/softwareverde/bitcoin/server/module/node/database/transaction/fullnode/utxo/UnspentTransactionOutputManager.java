@@ -138,6 +138,7 @@ public class UnspentTransactionOutputManager {
         totalTimer.stop();
 
         unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
+        Logger.trace("UTXO Block Height: " + unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight());
         Logger.debug("BlockHeight: " + blockHeight + " " + unspentTransactionOutputIdentifiers.getCount() + " unspent, " + spentTransactionOutputIdentifiers.getCount() + " spent, " + unspendableCount + " unspendable. " + transactionCount + " transactions in " + totalTimer.getMillisecondsElapsed() + " ms (" + (transactionCount * 1000L / (totalTimer.getMillisecondsElapsed() + 1L)) + " tps), " + utxoTimer.getMillisecondsElapsed() + "ms for UTXOs. " + (transactions.getCount() * 1000L / (utxoTimer.getMillisecondsElapsed() + 1L)) + " tps.");
     }
 
@@ -216,7 +217,7 @@ public class UnspentTransactionOutputManager {
      * Removes UTXOs generated, and re-adds UTXOs spent, by the provided Block.
      */
     public void removeBlockFromUtxoSet(final Block block, final Long blockHeight) throws DatabaseException {
-        Logger.trace("Un-Applying Block from UTXO set: " + block.getHash());
+        Logger.debug("Un-Applying Block from UTXO set: " + block.getHash());
 
         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
         try {
@@ -247,6 +248,7 @@ public class UnspentTransactionOutputManager {
             unspentTransactionOutputDatabaseManager.undoCreationOfTransactionOutputs(newOutputIdentifiers);
             unspentTransactionOutputDatabaseManager.undoSpendingOfTransactionOutputs(previousOutputIdentifiers);
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight - 1L);
+            Logger.trace("UTXO Block Height: " + (blockHeight - 1L) + " " + unspentTransactionOutputDatabaseManager.getUncommittedUnspentTransactionOutputBlockHeight());
         }
         catch (final Exception exception) {
             UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();

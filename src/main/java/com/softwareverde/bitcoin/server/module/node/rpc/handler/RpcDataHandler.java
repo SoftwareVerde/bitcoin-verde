@@ -74,6 +74,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         if (blockId == null) { return null; }
 
         final Block block = _getBlock(blockId, databaseManager);
+        if (block == null) { return null; }
+
         final List<Transaction> transactions = block.getTransactions();
 
         final MutableList<Transaction> returnedTransactions = new MutableList<Transaction>(pageSize);

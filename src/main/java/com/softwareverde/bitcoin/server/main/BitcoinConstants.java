@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
@@ -22,13 +25,15 @@ public class BitcoinConstants {
 
     protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
 
+    protected static final AsertReferenceBlock ASERT_REFERENCE_BLOCK;
+
     static {
         final String defaultBlockHash = "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F";
         final String defaultNetMagicNumber = "E8F3E1E3";
         final Long defaultBlockVersion = 0x04L;
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
-        final String defaultUserAgent = "/Bitcoin Verde:2.0.0/";
+        final String defaultUserAgent = "/Bitcoin Verde:2.0.1/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", defaultBlockHash);
@@ -38,6 +43,12 @@ public class BitcoinConstants {
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", defaultProtocolVersion.toString()), defaultProtocolVersion);
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
+
+        ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+            661647L,
+            1605447844L,
+            Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
+        );
 
         FAIL_ON_BAD_SIGNATURE = true;
         REQUIRE_BITCOIN_CASH_FORK_ID = true;
@@ -161,6 +172,10 @@ public class BitcoinConstants {
 
     public static String getBitcoinSignatureMessageMagic() {
         return BITCOIN_SIGNATURE_MESSAGE_MAGIC;
+    }
+
+    public static AsertReferenceBlock getAsertReferenceBlock() {
+        return ASERT_REFERENCE_BLOCK;
     }
 
     protected BitcoinConstants() { }

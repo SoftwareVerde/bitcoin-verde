@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -17,7 +18,6 @@ import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainI
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.UnconfirmedTransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -39,6 +39,8 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -162,69 +164,68 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
     }
 
-    protected Transaction _getTransaction(final TransactionId transactionId, final Boolean allowFromUnconfirmedTransactions) throws DatabaseException {
+    protected Transaction _getUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        { // Attempt to load the Transaction from a Block on disk...
-            final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.id = ? LIMIT 1")
-                    .setParameter(transactionId)
-            );
-            if (! rows.isEmpty()) {
-                final Row row = rows.get(0);
-                final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
-                final Long blockHeight = row.getLong("block_height");
-                final Long diskOffset = row.getLong("disk_offset");
-                final Integer byteCount = row.getInteger("byte_count");
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transactions.hash, unconfirmed_transactions.version, unconfirmed_transactions.lock_time FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id WHERE transactions.id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
 
-                final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
-                if (transactionData == null) { return null; }
+        final Row row = rows.get(0);
+        final Long version = row.getLong("version");
+        final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
 
-                final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                return transactionInflater.fromBytes(transactionData);
-            }
+        final MutableTransaction transaction = new MutableTransaction();
+        transaction.setVersion(version);
+        transaction.setLockTime(lockTime);
+
+        final UnconfirmedTransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getUnconfirmedTransactionInputDatabaseManager();
+        final List<UnconfirmedTransactionInputId> transactionInputIds = transactionInputDatabaseManager.getUnconfirmedTransactionInputIds(transactionId);
+        if (transactionInputIds.isEmpty()) { return null; }
+
+        for (final UnconfirmedTransactionInputId transactionInputId : transactionInputIds) {
+            final TransactionInput transactionInput = transactionInputDatabaseManager.getUnconfirmedTransactionInput(transactionInputId);
+            transaction.addTransactionInput(transactionInput);
         }
 
-        if (allowFromUnconfirmedTransactions) { // Attempt to load the Transaction from the Unconfirmed Transactions table...
-            final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT transactions.hash, unconfirmed_transactions.version, unconfirmed_transactions.lock_time FROM unconfirmed_transactions INNER JOIN transactions ON transactions.id = unconfirmed_transactions.transaction_id WHERE transactions.id = ?")
-                    .setParameter(transactionId)
-            );
-            if (! rows.isEmpty()) {
-                final Row row = rows.get(0);
-                final Long version = row.getLong("version");
-                final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
-                final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+        final UnconfirmedTransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
+        final List<UnconfirmedTransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getUnconfirmedTransactionOutputIds(transactionId);
+        if (transactionOutputIds.isEmpty()) { return null; }
 
-                final MutableTransaction transaction = new MutableTransaction();
-                transaction.setVersion(version);
-                transaction.setLockTime(lockTime);
-
-                final UnconfirmedTransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getUnconfirmedTransactionInputDatabaseManager();
-                final List<UnconfirmedTransactionInputId> transactionInputIds = transactionInputDatabaseManager.getUnconfirmedTransactionInputIds(transactionId);
-                if (transactionInputIds.isEmpty()) { return null; }
-
-                for (final UnconfirmedTransactionInputId transactionInputId : transactionInputIds) {
-                    final TransactionInput transactionInput = transactionInputDatabaseManager.getUnconfirmedTransactionInput(transactionInputId);
-                    transaction.addTransactionInput(transactionInput);
-                }
-
-                final UnconfirmedTransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getUnconfirmedTransactionOutputDatabaseManager();
-                final List<UnconfirmedTransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getUnconfirmedTransactionOutputIds(transactionId);
-                if (transactionOutputIds.isEmpty()) { return null; }
-
-                for (final UnconfirmedTransactionOutputId transactionOutputId : transactionOutputIds) {
-                    final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
-                    transaction.addTransactionOutput(transactionOutput);
-                }
-
-                if (! Util.areEqual(transactionHash, transaction.getHash())) { return null; }
-
-                return transaction;
-            }
+        for (final UnconfirmedTransactionOutputId transactionOutputId : transactionOutputIds) {
+            final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getUnconfirmedTransactionOutput(transactionOutputId);
+            transaction.addTransactionOutput(transactionOutput);
         }
 
-        return null;
+        if (! Util.areEqual(transactionHash, transaction.getHash())) { return null; }
+
+        return transaction;
+    }
+
+    protected Transaction _getTransaction(final TransactionId transactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        // Attempt to load the Transaction from a Block on disk...
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.id = ? LIMIT 1")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
+        final Long blockHeight = row.getLong("block_height");
+        final Long diskOffset = row.getLong("disk_offset");
+        final Integer byteCount = row.getInteger("byte_count");
+
+        final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+        if (transactionData == null) { return null; }
+
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+        return transactionInflater.fromBytes(transactionData);
     }
 
     protected List<TransactionId> _getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
@@ -378,7 +379,73 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
-        return _getTransaction(transactionId, true);
+        final Transaction transaction = _getTransaction(transactionId);
+        if (transaction != null) { return transaction; }
+
+        return _getUnconfirmedTransaction(transactionId);
+    }
+
+    @Override
+    public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(0);
+
+        final Container<Boolean> errorContainer = new Container<>(false);
+        final int batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
+        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(batchSize, false);
+        batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
+            @Override
+            public void run(final List<Sha256Hash> batchItems) throws Exception {
+                if (errorContainer.value) { return; }
+
+                // TODO: remove non-deterministic group-by clause.
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.hash IN (?) GROUP BY transactions.hash")
+                        .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
+                );
+
+                for (final Row row : rows) {
+                    final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
+                    final Long blockHeight = row.getLong("block_height");
+                    final Long diskOffset = row.getLong("disk_offset");
+                    final Integer byteCount = row.getInteger("byte_count");
+
+                    final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+                    if (transactionData == null) {
+                        Logger.debug("Unable to load transaction from block.");
+                        errorContainer.value = true;
+                        return;
+                    }
+
+                    final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                    final Transaction transaction = ConstUtil.asConstOrNull(transactionInflater.fromBytes(transactionData)); // To ensure Transaction::getHash is constant-time...
+                    if (transaction == null) {
+                        Logger.debug("Unable to load transaction from block.");
+                        errorContainer.value = true;
+                        return;
+                    }
+
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    transactions.put(transactionHash, transaction);
+                }
+            }
+        });
+
+        if (errorContainer.value) { return null; }
+
+        // Check for unconfirmed Transactions...
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            if (transactions.containsKey(transactionHash)) { continue; }
+
+            final TransactionId transactionId = _getTransactionId(transactionHash);
+            final Transaction unconfirmedTransaction = _getUnconfirmedTransaction(transactionId);
+            if (unconfirmedTransaction != null) {
+                transactions.put(transactionHash, unconfirmedTransaction);
+            }
+        }
+
+        return transactions;
     }
 
     @Override
@@ -390,7 +457,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
             if (previousTransactionId == null) { return false; }
 
-            final Transaction previousTransaction = _getTransaction(previousTransactionId, true);
+            final Transaction previousTransaction;
+            {
+                final Transaction onDiskTransaction = _getTransaction(previousTransactionId);
+                if (onDiskTransaction != null) {
+                    previousTransaction = onDiskTransaction;
+                }
+                else {
+                    previousTransaction = _getUnconfirmedTransaction(previousTransactionId);
+                }
+            }
             if (previousTransaction == null) { return false; }
 
             final List<TransactionOutput> previousTransactionOutputs = previousTransaction.getTransactionOutputs();
@@ -434,7 +510,16 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     @Override
     public void addToUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
-        final Transaction transaction = _getTransaction(transactionId, true);
+        final Transaction transaction;
+        {
+            final Transaction onDiskTransaction = _getTransaction(transactionId);
+            if (onDiskTransaction != null) {
+                transaction = onDiskTransaction;
+            }
+            else {
+                transaction = _getUnconfirmedTransaction(transactionId);
+            }
+        }
         if (transaction == null) {
             throw new DatabaseException("Unable to load transaction: " + transactionId);
         }
@@ -453,7 +538,17 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionIds.getCount());
 
         for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = _getTransaction(transactionId, true);
+            final Transaction transaction;
+            {
+                final Transaction onDiskTransaction = _getTransaction(transactionId);
+                if (onDiskTransaction != null) {
+                    transaction = onDiskTransaction;
+                }
+                else {
+                    // TODO: Confirm this is necessary...
+                    transaction = _getUnconfirmedTransaction(transactionId);
+                }
+            }
             if (transaction == null) {
                 throw new DatabaseException("Unable to load transaction: " + transactionId);
             }
@@ -629,7 +724,13 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         final TransactionId previousTransactionId = _getTransactionId(previousTransactionHash);
                         if (previousTransactionId == null) { return null; }
 
-                        previousTransaction = _getTransaction(previousTransactionId, true);
+                        final Transaction onDiskTransaction = _getTransaction(previousTransactionId);
+                        if (onDiskTransaction != null) {
+                            previousTransaction = onDiskTransaction;
+                        }
+                        else {
+                            previousTransaction = _getUnconfirmedTransaction(previousTransactionId);
+                        }
                         if (previousTransaction == null) { return null; }
                         cachedTransactions.put(previousTransactionHash, previousTransaction);
                     }
@@ -800,24 +901,21 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionId transactionId = _getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final Transaction transaction = _getTransaction(transactionId, true);
+        final Transaction transaction;
+        {
+            final Transaction onDiskTransaction = _getTransaction(transactionId);
+            if (onDiskTransaction != null) {
+                transaction = onDiskTransaction;
+            }
+            else {
+                transaction = _getUnconfirmedTransaction(transactionId);
+            }
+        }
         if (transaction == null) { return null; }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         if (outputIndex >= transactionOutputs.getCount()) { return null; }
 
         return transactionOutputs.get(outputIndex);
-    }
-
-    @Override
-    public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-        return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
-    }
-
-    @Override
-    public List<TransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
-        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-        return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
     }
 }

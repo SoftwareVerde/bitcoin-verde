@@ -259,12 +259,17 @@
 
 .node .id {
     float: right;
-    padding: 0.15em
+    padding: 0.15em;
+    background-color: #F0F0F0;
+    border-bottom: solid 1px #D0D0D0;
+    height: 1.5em;
+    line-height: 1.5em;
 }
 
 .node .user-agent {
-    height: 1em;
-    overflow-x: hidden;
+    height: 1.5em;
+    line-height: 1.5em;
+    overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
     padding: 0.15em;
@@ -288,6 +293,14 @@
     padding: 0;
     margin-left: 1em;
     float: right;
+}
+
+.node.preferred .user-agent::before {
+    content: "\2B50" / "Preferred Node";
+    margin-right: 0.25em;
+    margin-left: 0.25em;
+    min-width: auto;
+    display: initial;
 }
 
 .node .host::before,

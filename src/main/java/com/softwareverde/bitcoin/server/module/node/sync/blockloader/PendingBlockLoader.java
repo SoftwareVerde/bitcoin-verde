@@ -206,6 +206,12 @@ public class PendingBlockLoader {
         }
     }
 
+    public synchronized void invalidateUtxoSets() {
+        for (final PendingBlockFuture pendingBlockFuture : _pendingBlockFutures) {
+            pendingBlockFuture.invalidateUnspentTransactionOutputSet();
+        }
+    }
+
     public void setLoadUnspentOutputsAfterBlockHeight(final Long blockHeight) {
         _loadUnspentOutputsAfterBlockHeight = blockHeight;
     }

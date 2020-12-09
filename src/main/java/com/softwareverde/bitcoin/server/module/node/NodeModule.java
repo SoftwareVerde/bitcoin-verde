@@ -174,80 +174,6 @@ public class NodeModule {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
-    protected void _connectToAdditionalNodes() {
-        final List<SeedNodeProperties> seedNodes = _bitcoinProperties.getSeedNodeProperties();
-        final List<String> dnsSeeds = _bitcoinProperties.getDnsSeeds();
-
-        final Database database = _environment.getDatabase();
-        final Integer maxPeerCount = _bitcoinProperties.getMaxPeerCount();
-        if (maxPeerCount < 1) { return; }
-
-        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
-        requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-        requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-
-        try (final DatabaseConnection databaseConnection = database.newConnection()) {
-            final DatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
-
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
-            final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
-
-            final HashSet<String> seedNodeSet = new HashSet<String>(seedNodes.getCount());
-            for (final SeedNodeProperties seedNodeProperties : seedNodes) {
-                final String host = seedNodeProperties.getAddress();
-                final Integer port = seedNodeProperties.getPort();
-
-                seedNodeSet.add(host + port);
-            }
-
-            int connectedNodeCount = seedNodeSet.size();
-            for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
-                if (connectedNodeCount >= maxPeerCount) { break; }
-
-                final Ip ip = bitcoinNodeIpAddress.getIp();
-                if (ip == null) { continue; }
-
-                final String host = ip.toString();
-                final Integer port = bitcoinNodeIpAddress.getPort();
-
-                if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
-
-                Logger.info("Connecting to former peer: " + host + ":" + port);
-                final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(host, port);
-                _bitcoinNodeManager.addNode(bitcoinNode);
-                connectedNodeCount += 1;
-
-                Thread.sleep(500L);
-            }
-
-            if (connectedNodeCount < maxPeerCount) {
-                final Integer port = BitcoinProperties.PORT;
-
-                for (final String seedHost : dnsSeeds) {
-                    final List<Ip> seedIps = Ip.allFromHostName(seedHost);
-                    if (seedIps == null) { continue; }
-
-                    for (final Ip ip : seedIps) {
-                        final String host = ip.toString();
-                        if (seedNodeSet.contains(host + port)) { continue; } // Exclude SeedNodes...
-
-                        Logger.info("Connecting to peer via DNS: " + host + ":" + port + " (" + seedHost + ")");
-                        final BitcoinNode bitcoinNode = _bitcoinNodeFactory.newNode(host, port);
-                        _bitcoinNodeManager.addNode(bitcoinNode);
-                        connectedNodeCount += 1;
-
-                        if (connectedNodeCount >= maxPeerCount) { return; } // Done.
-
-                        Thread.sleep(500L);
-                    }
-                }
-            }
-        }
-        catch (final Exception exception) {
-            Logger.debug(exception);
-        }
-    }
-
     protected void _shutdown() {
         synchronized (_isShuttingDown) {
             if (! _isShuttingDown.compareAndSet(false, true)) {
@@ -451,7 +377,7 @@ public class NodeModule {
             }
         };
 
-        _requestDataHandler = new RequestDataHandler(databaseManagerFactory, _blockStore);
+        _requestDataHandler = new RequestDataHandler(databaseManagerFactory);
         _transactionWhitelist = RequestDataHandlerMonitor.wrap(_requestDataHandler);
         { // Initialize the monitor with transactions from the memory pool...
             Logger.info("[Loading RequestDataHandlerMonitor]");
@@ -1195,11 +1121,6 @@ public class NodeModule {
         if (_slpTransactionProcessor != null) {
             Logger.info("[Started SlpTransaction Processor]");
             _slpTransactionProcessor.start();
-        }
-
-        if (! _bitcoinProperties.skipNetworking()) {
-            Logger.info("[Connecting To Peers]");
-            _connectToAdditionalNodes();
         }
 
         _uptimeTimer.start();

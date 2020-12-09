@@ -10,9 +10,8 @@ import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.context.ContextException;
 import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
-import com.softwareverde.bitcoin.context.lazy.LazyReferenceBlockLoaderContext;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
@@ -29,14 +28,9 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
     protected final HashMap<Long, BlockHeader> _blockHeaders = new HashMap<Long, BlockHeader>();
     protected final HashMap<Long, ChainWork> _chainWorks = new HashMap<Long, ChainWork>();
 
-    protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
-
     public BlockHeaderValidatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final VolatileNetworkTime networkTime) {
         super(blockchainSegmentId, databaseManager);
         _networkTime = networkTime;
-
-        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
-        _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
     }
 
     @Override
@@ -140,12 +134,6 @@ public class BlockHeaderValidatorContext extends CachingMedianBlockTimeContext i
 
     @Override
     public AsertReferenceBlock getAsertReferenceBlock() {
-        try {
-            return _asertReferenceBlockLoader.getAsertReferenceBlock(_blockchainSegmentId);
-        }
-        catch (final ContextException exception) {
-            Logger.debug(exception);
-            return null;
-        }
+        return BitcoinConstants.getAsertReferenceBlock();
     }
 }

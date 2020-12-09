@@ -145,7 +145,7 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
         return transactionHashMap;
     }
 
-    protected Transaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
+    protected Transaction _getTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -300,7 +300,24 @@ public class SpvTransactionDatabaseManager implements TransactionDatabaseManager
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
         READ_LOCK.lock();
         try {
-            return _inflateTransaction(transactionId);
+            return _getTransaction(transactionId);
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
+
+    @Override
+    public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) throws DatabaseException {
+        READ_LOCK.lock();
+        try {
+            final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>();
+            for (final Sha256Hash transactionHash : transactionHashes) {
+                final TransactionId transactionId = _getTransactionId(transactionHash);
+                final Transaction transaction = _getTransaction(transactionId);
+                transactions.put(transactionHash, transaction);
+            }
+            return transactions;
         }
         finally {
             READ_LOCK.unlock();
