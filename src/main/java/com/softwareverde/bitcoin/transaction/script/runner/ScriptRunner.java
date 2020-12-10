@@ -113,10 +113,12 @@ public class ScriptRunner {
             final Boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
 
             if (BITCOIN_ABC_QUIRK_ENABLED) {
+                final Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed = _upgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(medianBlockTime);
+
                 // NOTE: Bitcoin ABC's 0.19 behavior does not run P2SH Scripts that match the Segwit format...
                 final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                 final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
-                shouldRunPayToScriptHashScript = ( payToScriptHashValidationRulesAreEnabled && scriptIsPayToScriptHash && (! unlockingScriptIsSegregatedWitnessProgram) );
+                shouldRunPayToScriptHashScript = ( payToScriptHashValidationRulesAreEnabled && scriptIsPayToScriptHash && (! areUnusedValuesAfterSegwitScriptExecutionAllowed || ! unlockingScriptIsSegregatedWitnessProgram) );
             }
             else {
                 shouldRunPayToScriptHashScript = ( payToScriptHashValidationRulesAreEnabled && scriptIsPayToScriptHash );
@@ -142,7 +144,7 @@ public class ScriptRunner {
 
                         final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
                         if (! shouldExecute) { continue; }
-                        
+
                         final Boolean wasSuccessful = operation.applyTo(payToScriptHashStack, controlState, mutableContext);
                         if (! wasSuccessful) { return false; }
                     }
