@@ -168,19 +168,19 @@ public class PushOperation extends SubTypedOperation {
             return new PushOperation((byte) byteCount, Opcode.PUSH_DATA, payload);
         }
         else if (byteCount < (1 << 8)) {
-            final ByteArray lengthBytes = ByteArray.wrap(Value.fromInteger((long) byteCount).getBytes());
+            final ByteArray lengthBytes = ByteArray.wrap(ByteUtil.getTailBytes(ByteUtil.integerToBytes(byteCount), 1)).toReverseEndian();
             final Value value = Value.fromBytes(byteArray);
             final Payload payload = new Payload(true, lengthBytes, value);
             return new PushOperation(Opcode.PUSH_DATA_BYTE.getValue(), Opcode.PUSH_DATA_BYTE, payload);
         }
         else if (byteCount < (1 << 16)) {
-            final ByteArray lengthBytes = ByteArray.wrap(Value.fromInteger((long) byteCount).getBytes());
+            final ByteArray lengthBytes = ByteArray.wrap(ByteUtil.getTailBytes(ByteUtil.integerToBytes(byteCount), 2)).toReverseEndian();
             final Value value = Value.fromBytes(byteArray);
             final Payload payload = new Payload(true, lengthBytes, value);
             return new PushOperation(Opcode.PUSH_DATA_SHORT.getValue(), Opcode.PUSH_DATA_SHORT, payload);
         }
         else {
-            final ByteArray lengthBytes = ByteArray.wrap(Value.fromInteger((long) byteCount).getBytes());
+            final ByteArray lengthBytes = ByteArray.wrap(ByteUtil.getTailBytes(ByteUtil.integerToBytes(byteCount), 4)).toReverseEndian();
             final Value value = Value.fromBytes(byteArray);
             final Payload payload = new Payload(true, lengthBytes, value);
             return new PushOperation(Opcode.PUSH_DATA_INTEGER.getValue(), Opcode.PUSH_DATA_INTEGER, payload);

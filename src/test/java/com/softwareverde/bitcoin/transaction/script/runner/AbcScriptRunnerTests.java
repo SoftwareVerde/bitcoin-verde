@@ -236,9 +236,17 @@ public class AbcScriptRunnerTests extends UnitTest {
             }
 
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-            byteArrayBuilder.appendByte((byte) 0x4E); // PUSH_DATA_INTEGER
-            byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
-            byteArrayBuilder.appendBytes(contentBytes);
+            if (contentByteCount < (1 << 16)) {
+                byteArrayBuilder.appendByte(Opcode.PUSH_DATA_SHORT.getValue());
+                byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.getTailBytes(ByteUtil.integerToBytes(contentByteCount), 2)));
+                byteArrayBuilder.appendBytes(contentBytes);
+                return MutableByteArray.wrap(byteArrayBuilder.build());
+            }
+            else {
+                byteArrayBuilder.appendByte(Opcode.PUSH_DATA_INTEGER.getValue());
+                byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
+                byteArrayBuilder.appendBytes(contentBytes);
+            }
             return MutableByteArray.wrap(byteArrayBuilder.build());
         }
 
@@ -579,20 +587,27 @@ public class AbcScriptRunnerTests extends UnitTest {
             if (testVector.flagsString.contains("NULLFAIL")) {
                 upgradeSchedule.setAllInvalidSignaturesRequiredToBeEmpty(true);
             }
+            if (testVector.flagsString.contains("NULLDUMMY")) {
+                // TODO
+            }
             if (testVector.flagsString.contains("SIGHASH_FORKID")) {
                 upgradeSchedule.setBitcoinCashSignatureHashTypeEnabled(true);
             }
             if (testVector.flagsString.contains("SIGPUSHONLY")) {
                 upgradeSchedule.setOnlyPushOperationsAllowedWithinUnlockingScript(true);
             }
-            if (testVector.flagsString.contains("CLEANSTACK")) {
-                upgradeSchedule.setUnusedValuesAfterScriptExecutionDisallowed(true);
-            }
             if (testVector.lockingScriptString.contains("CHECKDATASIG")) {
                 upgradeSchedule.setCheckDataSignatureOperationEnabled(true);
             }
             if (testVector.flagsString.contains("SCHNORR_MULTISIG")) {
                 upgradeSchedule.setAreSchnorrSignaturesEnabledWithinMultiSignature(true);
+            }
+            if (testVector.flagsString.contains("CLEANSTACK")) {
+                upgradeSchedule.setUnusedValuesAfterScriptExecutionDisallowed(true);
+                upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(true);
+            }
+            if (testVector.flagsString.contains("DISALLOW_SEGWIT_RECOVERY")) {
+                upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
