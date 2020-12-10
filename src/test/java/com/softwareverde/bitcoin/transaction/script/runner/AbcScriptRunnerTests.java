@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
-import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
 import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
@@ -17,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -555,6 +555,7 @@ public class AbcScriptRunnerTests extends UnitTest {
 
             if (testVector.flagsString.contains("MINIMALDATA")) {
                 upgradeSchedule.setMinimalNumberEncodingRequired(true);
+                upgradeSchedule.setCanonicalMultiSignatureCheckEncodingsRequired(true);
             }
             if (testVector.flagsString.contains("P2SH")) {
                 upgradeSchedule.setPayToScriptHashEnabled(true);

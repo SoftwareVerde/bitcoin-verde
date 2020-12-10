@@ -339,7 +339,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
         _isSignatureOperationCountingVersionTwoEnabled = signatureOperationCountingVersionTwoEnabled;
     }
 
-    public void setAreCanonicalMultiSignatureCheckEncodingsRequired(final Boolean areCanonicalMultiSignatureCheckEncodingsRequired) {
+    public void setCanonicalMultiSignatureCheckEncodingsRequired(final Boolean areCanonicalMultiSignatureCheckEncodingsRequired) {
         _areCanonicalMultiSignatureCheckEncodingsRequired = areCanonicalMultiSignatureCheckEncodingsRequired;
     }
 
