@@ -555,7 +555,6 @@ public class AbcScriptRunnerTests extends UnitTest {
 
             if (testVector.flagsString.contains("MINIMALDATA")) {
                 upgradeSchedule.setMinimalNumberEncodingRequired(true);
-                upgradeSchedule.setCanonicalMultiSignatureCheckEncodingsRequired(true);
             }
             if (testVector.flagsString.contains("P2SH")) {
                 upgradeSchedule.setPayToScriptHashEnabled(true);

@@ -118,14 +118,6 @@ public interface UpgradeSchedule {
     Boolean isSignatureOperationCountingVersionTwoEnabled(MedianBlockTime medianBlockTime);
 
     /**
-     * MultiSignature Check Scripts historically allowed the Values encoding the number of PublicKeys and Signatures be
-     *  ambiguously coded. This feature requires the encoding is canonical.
-     * This features reduces Transaction malleability.
-     * Enabled in HF20191115.
-     */
-    Boolean areCanonicalMultiSignatureCheckEncodingsRequired(MedianBlockTime medianBlockTime);
-
-    /**
      * The CheckDataSignature Operation checks whether a signature is valid with respect to a message and a PublicKey.
      * Enabled in HF20181115.
      */

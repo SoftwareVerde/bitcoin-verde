@@ -114,11 +114,6 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean areCanonicalMultiSignatureCheckEncodingsRequired(final MedianBlockTime medianBlockTime) {
-        return (medianBlockTime.getCurrentTimeInSeconds() >= 1573820238L);
-    }
-
-    @Override
     public Boolean isCheckDataSignatureOperationEnabled(final Long blockHeight) {
         return (blockHeight >= 1267996L);
     }

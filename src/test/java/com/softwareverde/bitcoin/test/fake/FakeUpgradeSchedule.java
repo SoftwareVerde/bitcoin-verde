@@ -30,7 +30,6 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _areTransactionsLessThanOneHundredBytesDisallowed;
     protected Boolean _areUnusedValuesAfterSegwitScriptExecutionAllowed;
     protected Boolean _isSignatureOperationCountingVersionTwoEnabled;
-    protected Boolean _areCanonicalMultiSignatureCheckEncodingsRequired;
     protected Boolean _isCheckDataSignatureOperationEnabled;
     protected Boolean _areSchnorrSignaturesEnabledWithinMultiSignature;
     protected Boolean _isReverseBytesOperationEnabled;
@@ -220,14 +219,6 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean areCanonicalMultiSignatureCheckEncodingsRequired(final MedianBlockTime medianBlockTime) {
-        return _isOverriddenOrEnabled(
-                _areCanonicalMultiSignatureCheckEncodingsRequired,
-                _coreUpgradeSchedule.areCanonicalMultiSignatureCheckEncodingsRequired(medianBlockTime)
-        );
-    }
-
-    @Override
     public Boolean isCheckDataSignatureOperationEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isCheckDataSignatureOperationEnabled,
@@ -337,10 +328,6 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
 
     public void setSignatureOperationCountingVersionTwoEnabled(final Boolean signatureOperationCountingVersionTwoEnabled) {
         _isSignatureOperationCountingVersionTwoEnabled = signatureOperationCountingVersionTwoEnabled;
-    }
-
-    public void setCanonicalMultiSignatureCheckEncodingsRequired(final Boolean areCanonicalMultiSignatureCheckEncodingsRequired) {
-        _areCanonicalMultiSignatureCheckEncodingsRequired = areCanonicalMultiSignatureCheckEncodingsRequired;
     }
 
     public void setCheckDataSignatureOperationEnabled(final Boolean checkDataSignatureOperationEnabled) {

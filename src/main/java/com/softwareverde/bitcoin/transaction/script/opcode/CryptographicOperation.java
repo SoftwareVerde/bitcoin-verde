@@ -258,7 +258,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final Value publicKeyCountValue = stack.pop();
             if (stack.didOverflow()) { return false; }
 
-            if (upgradeSchedule.areCanonicalMultiSignatureCheckEncodingsRequired(medianBlockTime)) {
+            if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
                 if (! Operation.validateMinimalEncoding(publicKeyCountValue, transactionContext)) { return false; }
             }
 
@@ -286,7 +286,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final Value signatureCountValue = stack.pop();
             if (stack.didOverflow()) { return false; }
 
-            if (upgradeSchedule.areCanonicalMultiSignatureCheckEncodingsRequired(medianBlockTime)) {
+            if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
                 if (! Operation.validateMinimalEncoding(signatureCountValue, transactionContext)) { return false; }
             }
 

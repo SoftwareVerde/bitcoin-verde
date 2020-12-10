@@ -114,11 +114,6 @@ public class CoreUpgradeSchedule implements UpgradeSchedule {
     }
 
     @Override
-    public Boolean areCanonicalMultiSignatureCheckEncodingsRequired(final MedianBlockTime medianBlockTime) {
-        return HF20191115.isEnabled(medianBlockTime);
-    }
-
-    @Override
     public Boolean isCheckDataSignatureOperationEnabled(final Long blockHeight) {
         return HF20181115.isEnabled(blockHeight);
     }
