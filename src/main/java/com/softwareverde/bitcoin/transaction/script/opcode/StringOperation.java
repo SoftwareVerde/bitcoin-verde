@@ -145,7 +145,10 @@ public class StringOperation extends SubTypedOperation {
                     if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
                 }
 
+                if (byteCountValue.getByteCount() > 4) { return false; }
+
                 final int byteCount = byteCountValue.asInteger();
+                if (byteCount > StringOperation.MAX_BYTE_COUNT) { return false; }
 
                 final MutableByteArray minimallyEncodedByteArray;
                 {
