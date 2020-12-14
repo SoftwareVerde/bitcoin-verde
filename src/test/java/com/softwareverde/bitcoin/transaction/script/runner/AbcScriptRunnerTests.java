@@ -627,7 +627,7 @@ public class AbcScriptRunnerTests extends UnitTest {
 
                 if (! skipTest) {
                     failCount += 1;
-                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - \"" + testVector.comments + "\")");
+                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
                     System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
                     //break;
                 }
