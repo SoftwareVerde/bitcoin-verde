@@ -237,12 +237,6 @@ public class PushOperation extends SubTypedOperation {
         final MedianBlockTime medianBlockTime = context.getMedianBlockTime();
         if (upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) {
             if (_payload.valueLengthBytes != null) {
-                // if a value length was specified, it must be minimally encoded
-                if (! Operation.isMinimallyEncoded(_payload.valueLengthBytes)) {
-                    Logger.debug("Push operation length not minimally encoded.");
-                    return false;
-                }
-
                 // pushes of various lengths must be done with the required op-code
                 final int lengthValue = ByteUtil.bytesToInteger(ByteUtil.reverseEndian(_payload.valueLengthBytes));
                 if (lengthValue < 76) {
