@@ -105,7 +105,12 @@ public class CryptographicOperation extends SubTypedOperation {
             if (hashType.hasUnknownFlags()) { return false; }
 
             if (upgradeSchedule.isBitcoinCashSignatureHashTypeEnabled(blockHeight)) {
+                // if BCH signatures are enabled, they are required
                 if (! hashType.isBitcoinCashType()) { return false; }
+            }
+            else {
+                // if BCH signatures are not enabled, they are not permitted
+                if (hashType.isBitcoinCashType()) { return false; }
             }
         }
 
