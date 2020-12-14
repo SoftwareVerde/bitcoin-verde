@@ -26,8 +26,6 @@ import com.softwareverde.logging.Logger;
 public class ScriptRunner {
     public static final Integer MAX_SCRIPT_BYTE_COUNT = 10000;
 
-    protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
-
     protected final UpgradeSchedule _upgradeSchedule;
 
     public ScriptRunner(final UpgradeSchedule upgradeSchedule) {
