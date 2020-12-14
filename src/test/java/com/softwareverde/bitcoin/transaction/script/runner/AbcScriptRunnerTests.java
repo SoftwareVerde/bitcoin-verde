@@ -587,9 +587,6 @@ public class AbcScriptRunnerTests extends UnitTest {
             if (testVector.flagsString.contains("NULLFAIL")) {
                 upgradeSchedule.setAllInvalidSignaturesRequiredToBeEmpty(true);
             }
-            if (testVector.flagsString.contains("NULLDUMMY")) {
-                // TODO
-            }
             if (testVector.flagsString.contains("SIGHASH_FORKID")) {
                 upgradeSchedule.setBitcoinCashSignatureHashTypeEnabled(true);
             }
