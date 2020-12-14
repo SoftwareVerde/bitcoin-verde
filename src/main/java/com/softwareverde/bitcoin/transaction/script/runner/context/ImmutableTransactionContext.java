@@ -24,6 +24,7 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     protected final Integer _currentScriptIndex;
     protected final Integer _scriptLastCodeSeparatorIndex;
     protected final Integer _signatureOperationCount;
+    protected final Integer _operationCount;
 
     public ImmutableTransactionContext(final TransactionContext transactionContext) {
         _upgradeSchedule = transactionContext.getUpgradeSchedule();
@@ -40,6 +41,7 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
         _scriptLastCodeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
 
         _signatureOperationCount = transactionContext.getSignatureOperationCount();
+        _operationCount = transactionContext.getOperationCount();
     }
 
     @Override
@@ -95,6 +97,11 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     @Override
     public UpgradeSchedule getUpgradeSchedule() {
         return _upgradeSchedule;
+    }
+
+    @Override
+    public Integer getOperationCount() {
+        return _operationCount;
     }
 
     @Override

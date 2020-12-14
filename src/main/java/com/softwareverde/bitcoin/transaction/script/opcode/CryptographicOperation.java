@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
@@ -27,6 +28,7 @@ import com.softwareverde.cryptography.secp256k1.Schnorr;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.secp256k1.signature.Signature;
 import com.softwareverde.cryptography.util.HashUtil;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -270,6 +272,12 @@ public class CryptographicOperation extends SubTypedOperation {
             publicKeyCount = publicKeyCountValue.asLong().intValue();
             if (publicKeyCount < 0) { return false; }
             if (publicKeyCount > MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT) { return false; }
+        }
+
+        transactionContext.incrementOperationCount(publicKeyCount);
+        if (transactionContext.getOperationCount() > ScriptRunner.MAX_OPERATION_COUNT) {
+            Logger.debug("Maximum number of operations exceeded.");
+            return false;
         }
 
         final List<PublicKey> publicKeys;

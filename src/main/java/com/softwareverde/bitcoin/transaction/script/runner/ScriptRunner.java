@@ -7,12 +7,14 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 
@@ -25,6 +27,7 @@ import com.softwareverde.logging.Logger;
  */
 public class ScriptRunner {
     public static final Integer MAX_SCRIPT_BYTE_COUNT = 10000;
+    public static final Integer MAX_OPERATION_COUNT = 201;
 
     protected final UpgradeSchedule _upgradeSchedule;
 
@@ -61,6 +64,8 @@ public class ScriptRunner {
                 for (final Operation operation : unlockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
+                    if (! _incrementAndCheckOperationCount(operation, mutableContext)) { return false; }
+
                     if (operation.failIfPresent()) { return false; }
 
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
@@ -82,6 +87,8 @@ public class ScriptRunner {
                 mutableContext.setCurrentScript(lockingScript);
                 for (final Operation operation : lockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
+
+                    if (! _incrementAndCheckOperationCount(operation, mutableContext)) { return false; }
 
                     if (operation.failIfPresent()) { return false; }
 
@@ -137,6 +144,8 @@ public class ScriptRunner {
                     for (final Operation operation : redeemScriptOperations) {
                         mutableContext.incrementCurrentScriptIndex();
 
+                        if (! _incrementAndCheckOperationCount(operation, mutableContext)) { return false; }
+
                         if (operation.failIfPresent()) { return false; }
 
                         final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
@@ -174,6 +183,17 @@ public class ScriptRunner {
             }
         }
 
+        return true;
+    }
+
+    private Boolean _incrementAndCheckOperationCount(final Operation operation, final MutableTransactionContext mutableContext) {
+        if (ByteUtil.byteToInteger(operation.getOpcodeByte()) > Opcode.PUSH_VALUE.getMaxValue()) {
+            mutableContext.incrementOperationCount(1);
+            if (mutableContext.getOperationCount() > ScriptRunner.MAX_OPERATION_COUNT) {
+                Logger.debug("Maximum number of operations exceeded.");
+                return false;
+            }
+        }
         return true;
     }
 }

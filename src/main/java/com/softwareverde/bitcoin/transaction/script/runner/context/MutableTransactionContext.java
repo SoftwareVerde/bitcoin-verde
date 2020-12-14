@@ -46,6 +46,7 @@ public class MutableTransactionContext implements TransactionContext {
     protected Integer _currentScriptIndex = 0;
     protected Integer _scriptLastCodeSeparatorIndex = 0;
     protected Integer _signatureOperationCount = 0;
+    protected Integer _operationCount = 0;
 
     public MutableTransactionContext(final UpgradeSchedule upgradeSchedule) {
         _upgradeSchedule = upgradeSchedule;
@@ -97,6 +98,7 @@ public class MutableTransactionContext implements TransactionContext {
         _currentScript = script;
         _currentScriptIndex = 0;
         _scriptLastCodeSeparatorIndex = 0;
+        _operationCount = 0;
     }
 
     public void incrementCurrentScriptIndex() {
@@ -109,6 +111,10 @@ public class MutableTransactionContext implements TransactionContext {
 
     public void incrementSignatureOperationCount(final Integer operationCount) {
         _signatureOperationCount += operationCount;
+    }
+
+    public void incrementOperationCount(final Integer operationCount) {
+        _operationCount += operationCount;
     }
 
     @Override
@@ -159,6 +165,11 @@ public class MutableTransactionContext implements TransactionContext {
     @Override
     public Integer getSignatureOperationCount() {
         return _signatureOperationCount;
+    }
+
+    @Override
+    public Integer getOperationCount() {
+        return _operationCount;
     }
 
     @Override

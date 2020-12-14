@@ -54,5 +54,10 @@ public interface TransactionContext extends Constable<ImmutableTransactionContex
      */
     Integer getSignatureOperationCount();
 
+    /**
+     * Returns the total number of counted operations executed thus far.
+     */
+    Integer getOperationCount();
+
     UpgradeSchedule getUpgradeSchedule();
 }
