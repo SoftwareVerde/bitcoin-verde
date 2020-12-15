@@ -25,7 +25,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
 
     @Override
     public Boolean isAsertDifficultyAdjustmentAlgorithmEnabled(final MedianBlockTime medianBlockTime) {
-        return false; // TODO
+        return (medianBlockTime.getCurrentTimeInSeconds() >= 1605441600L);
     }
 
     @Override
@@ -50,12 +50,12 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
 
     @Override
     public Boolean shouldUseMedianBlockTimeForTransactionLockTime(final Long blockHeight) {
-        return false; // TODO
+        return (blockHeight >= 770112L);
     }
 
     @Override
     public Boolean shouldUseMedianBlockTimeForBlockTimestamp(final Long blockHeight) {
-        return false; // TODO
+        return (blockHeight >= 770112L);
     }
 
     @Override
@@ -65,7 +65,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
 
     @Override
     public Boolean isCheckSequenceNumberOperationEnabled(final Long blockHeight) {
-        return false; // TODO
+        return (blockHeight >= 770112);
     }
 
     @Override
@@ -105,7 +105,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
 
     @Override
     public Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed(final MedianBlockTime medianBlockTime) {
-        return false; // TODO
+        return (medianBlockTime.getCurrentTimeInSeconds() >= 1542300039L); // defined as 1267996 in BCHN
     }
 
     @Override

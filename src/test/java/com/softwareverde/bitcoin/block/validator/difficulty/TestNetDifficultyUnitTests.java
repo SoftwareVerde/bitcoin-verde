@@ -4,14 +4,19 @@ import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.TestNetUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.merkleroot.ImmutableMerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.json.Json;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -201,6 +206,11 @@ public class TestNetDifficultyUnitTests extends UnitTest {
             difficultyCalculatorContext
         );
         _loadBlock(
+            478560L,
+            "03000000B49634BAC1569759B6886D1201BDD781490A9B2E553BECBAC551090000000000E62022CF68D70103E6B8120673F5C747BA3F795542A52BDA585767822728D19194B9805570AD111B88B334410101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2f03604d0707062f503253482ffe10a28055fe66710e000963676d696e6572343208e400000000000000046b69776900ffffffff01807c814a000000001976a91496621bc1c9d1e5a1293e401519365de820792bbc88ac00000000",
+            difficultyCalculatorContext
+        );
+        _loadBlock(
             478561L,
             "03000000CAB49FC808BC471778A06BADCC7003A3F8C57B5447166E3AEE82010000000000EA1624D08EDA2AC1FBF21E15D0370479599D9CB3458AA3177B1DC087DEFEC18F45BE8055FFFF001D10A9B8A80101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0403614D07FFFFFFFF04807C814A000000001976A914FDB9FB622B0DB8D9121475A983288A0876F4DE4888AC0000000000000000226A200000000000000000000000000000000000000000000000000000FFFF0000000000000000000000001B6A1976A914FDB9FB622B0DB8D9121475A983288A0876F4DE4888AC0000000000000000326A30EA7C240AAA1805001CE2A0725FF361F3466A45FE65198D1822CA3015DCD6B6C50167AC467D61227132E1CCCB1840340000000000",
             difficultyCalculatorContext
@@ -219,5 +229,42 @@ public class TestNetDifficultyUnitTests extends UnitTest {
         // Assert
         Assert.assertEquals(blockHeader.getDifficulty(), difficulty);
         Assert.assertTrue(difficulty.isSatisfiedBy(blockHeader.getHash()));
+    }
+
+    /**
+     * To be enabled temporarily to convert JSON from https://testnet2.imaginary.cash/ to a block header,
+     * so that full block data can be used in the tests above.
+     */
+    //@Test
+    public void _jsonToBlockHeader() {
+        final String blockJson = "";
+        final Json json = Json.parse(blockJson);
+
+        final Long blockHeight = json.getLong("height");
+        final Long blockTimestamp = json.getLong("time");
+
+        final MutableBlockHeader blockHeader = new MutableBlockHeader();
+        blockHeader.setVersion(json.getLong("version"));
+        blockHeader.setTimestamp(blockTimestamp);
+        blockHeader.setNonce(json.getLong("nonce"));
+
+        final ByteArray difficultyBytes = ByteArray.fromHexString(json.getString("bits"));
+        final Difficulty difficulty = Difficulty.decode(difficultyBytes);
+        blockHeader.setDifficulty(difficulty);
+
+        final MerkleRoot merkleRoot = ImmutableMerkleRoot.fromHexString(json.getString("merkleroot"));
+        blockHeader.setMerkleRoot(merkleRoot);
+
+        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(json.getString("previousblockhash"));
+        blockHeader.setPreviousBlockHash(previousBlockHash);
+
+        final Sha256Hash expectedBlockHash = Sha256Hash.fromHexString(json.getString("hash"));
+
+        final Sha256Hash blockHash = blockHeader.getHash();
+        Assert.assertEquals(expectedBlockHash, blockHash);
+
+        // BlockHeader
+        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        System.out.println(blockHeaderDeflater.toBytes(blockHeader));
     }
 }

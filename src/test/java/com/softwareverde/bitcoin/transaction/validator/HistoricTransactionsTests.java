@@ -48,10 +48,12 @@ public class HistoricTransactionsTests extends UnitTest {
         Integer transactionInputIndex;
         String lockingScriptBytes;
         String unlockingScriptBytes;
+        Long medianBlockTime;
     }
 
     public static Json toBitcoinjTestCase(final TestConfig testConfig) {
-        final TransactionContext transactionContext = initContext(testConfig);
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
         return toBitcoinjTestCase(transactionContext);
     }
 
@@ -89,7 +91,7 @@ public class HistoricTransactionsTests extends UnitTest {
         return json;
     }
 
-    public static TransactionContext initContext(final TestConfig testConfig) {
+    public static TransactionContext initContext(final TestConfig testConfig, final UpgradeSchedule upgradeSchedule) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(testConfig.transactionBytes));
 
@@ -115,11 +117,14 @@ public class HistoricTransactionsTests extends UnitTest {
             }
         }
 
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         {
             context.setBlockHeight(testConfig.blockHeight);
             context.setTransaction(transaction);
+            if (testConfig.medianBlockTime != null) {
+                final MedianBlockTime medianBlockTime = MedianBlockTime.fromSeconds(testConfig.medianBlockTime);
+                context.setMedianBlockTime(medianBlockTime);
+            }
 
             context.setTransactionInput(transactionInput);
             context.setTransactionOutputBeingSpent(transactionOutput);
@@ -135,12 +140,12 @@ public class HistoricTransactionsTests extends UnitTest {
 
     public static void runScripts(final TestConfig testConfig, final Boolean expectedResult) {
         // Setup
-        final TransactionContext transactionContext = initContext(testConfig);
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
 
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
 
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         // Action
@@ -377,6 +382,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.transactionInputIndex = 0;
         testConfig.lockingScriptBytes = "76009F69905160A56B210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C71AD6C";
         testConfig.unlockingScriptBytes = "483045022100D92E4B61452D91A473A43CDE4B469A472467C0BA0CBD5EBBA0834E4F4762810402204802B76B7783DB57AC1F61D2992799810E173E91055938750815B6D8A675902E014F";
+        testConfig.medianBlockTime = 1378738978L;
 
         HistoricTransactionsTests.runScripts(testConfig);
     }
@@ -394,6 +400,7 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.transactionInputIndex = 0;
         testConfig.lockingScriptBytes = "A914FE441065B6532231DE2FAC563152205EC4F59C7487";
         testConfig.unlockingScriptBytes = "510181086E879169907C9087";
+        testConfig.medianBlockTime = 1379070870L;
 
         HistoricTransactionsTests.runScripts(testConfig);
     }
@@ -658,7 +665,9 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.transactionBytes = "0100000001FEF8D1C268874475E874A2A3A664A4EB6F98D1D258B62A2800E4BEFA069C57AD010000008B483045022100B482783530D3EC73C97A5DC147EE3CF1705E355C17DD9DF7AD30D8E49712260D022059750222B33F45D80F5DC49C732786EBAED6C6FA72162A4632FEA7231339C15C0141045D443089B4587D355B4CB5AC39B0156AFC92152627693149DE16D0D2269CEA2417010C0BC6930E9B47573DAB76A951E01D884B2BED9EAF92CC2369B6DDC7F98CFFFFFFFF0200000000000000000B6A0942454E2072756C657A306F0100000000001976A9147038DC3B8533A422D1225ECBCC3C85E282FD92B388ACE4670600";
         testConfig.blockHeight = 419808L;
 
-        final TransactionContext transactionContext = initContext(testConfig);
+
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final TransactionContext transactionContext = initContext(testConfig, upgradeSchedule);
 
         final MedianBlockTime medianBlockTime = ImmutableMedianBlockTime.fromSeconds(1467969398L);
         final VolatileNetworkTime networkTime = VolatileNetworkTimeWrapper.wrap(ImmutableNetworkTime.fromSeconds(1529680230L));
@@ -667,7 +676,6 @@ public class HistoricTransactionsTests extends UnitTest {
         medianBlockTimeContext.setMedianBlockTime(testConfig.blockHeight, medianBlockTime);
 
         final MasterInflater masterInflater = new CoreInflater();
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(masterInflater, networkTime, medianBlockTimeContext, null, upgradeSchedule);
         final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
