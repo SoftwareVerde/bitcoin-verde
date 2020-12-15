@@ -1608,9 +1608,18 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
-        if (blockFinder.isEmpty()) { return null; }
-
         final RequestId requestId = _newRequestId();
+
+        if (blockFinder.isEmpty()) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    downloadBlockHeaderCallback.onFailure(requestId, BitcoinNode.this, null);
+                }
+            });
+            return requestId;
+        }
+
         final Sha256Hash firstBlockHash = blockFinder.get(0);
         BitcoinNodeUtil.storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, new PendingRequest<>(requestId, downloadBlockHeaderCallback));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
@@ -1629,9 +1638,18 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
-        if (transactionHashes.isEmpty()) { return null; }
-
         final RequestId requestId = _newRequestId();
+
+        if (transactionHashes.isEmpty()) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    downloadTransactionCallback.onFailure(requestId, BitcoinNode.this, null);
+                }
+            });
+            return requestId;
+        }
+
         for (final Sha256Hash transactionHash : transactionHashes) {
             BitcoinNodeUtil.storeInMapSet(_downloadTransactionRequests, transactionHash, new PendingRequest<>(requestId, downloadTransactionCallback));
             final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
