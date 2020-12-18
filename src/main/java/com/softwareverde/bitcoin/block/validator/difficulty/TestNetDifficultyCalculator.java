@@ -5,8 +5,11 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.util.Util;
 
+import java.math.BigInteger;
+
 public class TestNetDifficultyCalculator extends DifficultyCalculator {
     protected static final Long TWENTY_MINUTES = (20L * 60L);
+    protected static final Long TEST_NET_ASERT_HALF_LIFE = (60L * 60L);
 
     protected Long _getSecondsElapsed(final Long blockHeight) {
         final BlockHeader previousBlockHeader = _context.getBlockHeader(blockHeight - 1L);
@@ -19,7 +22,12 @@ public class TestNetDifficultyCalculator extends DifficultyCalculator {
     }
 
     public TestNetDifficultyCalculator(final DifficultyCalculatorContext blockchainContext) {
-        super(blockchainContext);
+        this(blockchainContext, new MedianBlockHeaderSelector(), new AsertDifficultyCalculator() {
+            @Override
+            protected BigInteger _getHalfLife() {
+                return BigInteger.valueOf(TEST_NET_ASERT_HALF_LIFE);
+            }
+        });
     }
 
     @Override

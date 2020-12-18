@@ -101,7 +101,7 @@ public class DifficultyCalculator {
             return newDifficulty;
         }
 
-        return previousBlockHeader.getDifficulty();
+        return _getParentDifficulty(forBlockHeight);
     }
 
     protected Difficulty _calculateAserti32dBitcoinCashTarget(final Long blockHeight) {

@@ -55,9 +55,9 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
+    protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK;
 
-    protected static final AsertReferenceBlock ASERT_REFERENCE_BLOCK;
+    protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
 
     static {
         final Long defaultBlockVersion = 0x04L;
@@ -80,9 +80,9 @@ public class BitcoinConstants {
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
 
         ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
-            661647L,
-            1605447844L,
-            Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
+                661647L,
+                1605447844L,
+                Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
         );
 
         BITCOIN_SIGNATURE_MESSAGE_MAGIC = "Bitcoin Signed Message:\n";
@@ -177,6 +177,14 @@ public class BitcoinConstants {
         }
 
         DEFAULT_RPC_PORT = defaultRpcPort;
+    }
+
+    public static void setAsertReferenceBlock(final AsertReferenceBlock asertReferenceBlock) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        ASERT_REFERENCE_BLOCK = asertReferenceBlock;
     }
 
     public static Long getBlockVersion() {
