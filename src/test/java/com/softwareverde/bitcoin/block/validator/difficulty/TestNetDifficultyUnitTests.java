@@ -311,7 +311,80 @@ public class TestNetDifficultyUnitTests extends UnitTest {
         Assert.assertTrue(difficulty.isSatisfiedBy(blockHeader.getHash()));
     }
 
-    // CW144 DAA
+
+    // Emergency DAA (CW144 activation height)
+    @Test
+    public void should_calculate_difficulty_for_block_0000000000170ED0918077BDE7B4D36CC4C91BE69FA09211F748240DABE047FB() {
+        // Setup
+        final UpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
+        final FakeDifficultyCalculatorContext difficultyCalculatorContext = new FakeDifficultyCalculatorContext(upgradeSchedule);
+
+        // NOTE: this provides all the necessary data for the emergency DAA and the CW-144.
+        //       As a result, this tests that we don't use the new DAA yet, even though this is the activation height for the hard-fork.
+        _setChainWork(1188549L, "0000000000000000000000000000000000000000000000288037787434ce1235", difficultyCalculatorContext);
+        _loadBlock(
+                1188550L,
+                "0000002068514CF149F901FF0EABAD414A70CD85532A664B9898CFAF14651A000000000022B55A9680BDCC6E49107A81D678B7B1E93B874E9E96563814B7D20379E188419BC9095AC02D231B086078620101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff3203c622120004cbc9095a0411f5cd120c0bae095af3050000000000000a636b706f6f6c0e2f2046756e6e794d696e6572202fffffffff02902f5009000000001976a9147dbba1ae6001b2e52d0480af7c9e5710e0b62b3388ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf900000000",
+                difficultyCalculatorContext,
+                true
+        );
+        _loadBlock(
+                1188551L,
+                "0000002074D749CE50041493F30B36A9151253F58CEDACDCEB74690201850D0000000000212809B42449ADBB19B92D6890A920F429E63C822F5BA13FA41DFD6C64D94E5E9FC9095AC02D231B32A897E30101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff3203c722120004cfc9095a040c8e9f320c0bae095a0f020000000000000a636b706f6f6c0e2f2046756e6e794d696e6572202fffffffff02902f5009000000001976a9147dbba1ae6001b2e52d0480af7c9e5710e0b62b3388ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf900000000",
+                difficultyCalculatorContext,
+                true
+        );
+        _loadBlock(
+                1188552L,
+                "000000203CF5A59D5331AC9674172B87A1422FA83314FCDCF70BB8FF6F240B0000000000BA69568657F8145A6BD5D870BE711ECC0E33A9044FC4AFEB7CC98D5446364F9BA1C9095AC02D231BC13393190101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff3203c822120004d1c9095a04e3a0be280c0bae095afb010000000000000a636b706f6f6c0e2f2046756e6e794d696e6572202fffffffff02902f5009000000001976a9147dbba1ae6001b2e52d0480af7c9e5710e0b62b3388ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf900000000",
+                difficultyCalculatorContext,
+                true
+        );
+        _loadBlock(
+                1188690L,
+                "00000020B06B1B9C75F4F362288F392985B3D7DCCCEA74FED9BE6D6F3429C61E000000003955B8F820DA18110C3386B5724335C0AE1CA74E35E6AC6F9D7B9CF3F28E3ED115E3095AFFFF001D0C77B1980101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4a035223120415e3095a08fabe6d6de0629eba49e2ff41000039a895e06294ba49e2ff41000039a895e0626cba49e2010000000000000077fffff8000000000b2f4d6f636163696e6e6f2f0000000003c817a804000000001976a9149afc997d8320c65b8af8644bc3c38aa3c1c836dd88ace40b5402000000001976a9141383df63c734967a373c07e1ee8cf50ad3d198b688ace40b5402000000001976a9148b4849d753e11526a5394c6510173304f2c2eced88ac00000000",
+                1510591592L,
+                difficultyCalculatorContext,
+                false
+        );
+        _setChainWork(1188693L, "000000000000000000000000000000000000000000000028803b5d72a83c6494", difficultyCalculatorContext);
+        _loadBlock(
+                1188694L,
+                "00000020A034A2D49ED7A3E111D53B3957D8338C496FF7BF126894C96E6C23A5000000003D9701875FBCF05B3A57E9D9003887B38BEECA5DE4FEE7F653F4A36E7AFD043362FA095AFFFF001D60C5D0430101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4a035623120462fa095a08fabe6d6d6e696f636574696c8be333eef2db14f4279ca4e2b2868644412d563e3b3f5980010000000000000077fffff7000000000b2f4d6f636163696e6e6f2f0000000003c817a804000000001976a9149afc997d8320c65b8af8644bc3c38aa3c1c836dd88ace40b5402000000001976a9141383df63c734967a373c07e1ee8cf50ad3d198b688ace40b5402000000001976a9148b4849d753e11526a5394c6510173304f2c2eced88ac00000000",
+                difficultyCalculatorContext,
+                true
+        );
+        _loadBlock(
+                1188695L,
+                "00000020A77FD20382CB73275AD094936390864881F0F4520110FF0AAFA781E20000000087C8CC8C8D815B713BFE48652A0C9E5A8C2C83E90169BFE50B687974DF71C4B278FB095AC02D231B524F549A0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff32035723120004a8fb095a04a0f70b240c8fd5095aca170000000000000a636b706f6f6c0e2f2046756e6e794d696e6572202fffffffff02902f5009000000001976a9147dbba1ae6001b2e52d0480af7c9e5710e0b62b3388ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf900000000",
+                difficultyCalculatorContext,
+                true
+        );
+        _loadBlock(
+                1188696L,
+                "0000002065B9C61F7884D63F02A8C35626E09D5728B16BD65B75EBB83256220000000000E974F22AD61C71F6A23FB4616FFD4643A7BC03A14ABEA7FD8744C5DD3D15090B7BFB095AC02D231B0A86D4E20101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff32035823120004abfb095a04500423250c8fd5095a35020000000000000a636b706f6f6c0e2f2046756e6e794d696e6572202fffffffff02902f5009000000001976a9147dbba1ae6001b2e52d0480af7c9e5710e0b62b3388ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf900000000",
+                difficultyCalculatorContext,
+                true
+        );
+        final BlockHeader blockHeader = _loadBlock(
+                1188697L,
+                "00000020844BC249361F0C38FE73B7EF9AB2D18F297FEA1AB7ECD612A849110000000000ED14E7C74E5450794479FBE3B8D621463A159976178588F14B162BC5E0FD442E7DFB095AC02D231BC187D6A80101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff32035923120004adfb095a048fbdba140c8fd5095a1c040000000000000a636b706f6f6c0e2f2046756e6e794d696e6572202fffffffff02902f5009000000001976a9147dbba1ae6001b2e52d0480af7c9e5710e0b62b3388ac0000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf900000000",
+                1510600611L,
+                difficultyCalculatorContext,
+                true
+        );
+
+        final DifficultyCalculator difficultyCalculator = new TestNetDifficultyCalculator(difficultyCalculatorContext);
+
+        // Action
+        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(1188697L);
+
+        // Assert
+        Assert.assertEquals(blockHeader.getDifficulty(), difficulty);
+        Assert.assertTrue(difficulty.isSatisfiedBy(blockHeader.getHash()));
+    }
+
+    // CW144 DAA 2
     @Test
     public void should_calculate_difficulty_for_block_000000000001ED8CB72E21F25CE520773808CE380562C4C0A6F67E9447063AD0() {
         // Setup
@@ -419,85 +492,9 @@ public class TestNetDifficultyUnitTests extends UnitTest {
      * so that block data can be used in the tests above.  The block data is not always valid, as it assumes the only
      * transaction is the coinbase, though that shouldn't be a problem for these tests.
      */
-    @Test
+    //@Test
     public void _jsonToSimplifiedBlockData() {
-        final String blockJsonString = "{\n" +
-                "    \"hash\": \"00000000062c7f32591d883c99fc89ebe74a83287c0f2b7ffeef72e62217d40b\",\n" +
-                "    \"confirmations\": 4855,\n" +
-                "    \"size\": 253,\n" +
-                "    \"height\": 1421481,\n" +
-                "    \"version\": 536870912,\n" +
-                "    \"versionHex\": \"20000000\",\n" +
-                "    \"merkleroot\": \"311709bdf4ae50c16d18461308185a6a0caf8d597de150d6ea29d8f95b5ff80c\",\n" +
-                "    \"tx\": \"See 'Transaction IDs'\",\n" +
-                "    \"time\": 1605446605,\n" +
-                "    \"mediantime\": 1605442008,\n" +
-                "    \"nonce\": 1256365868,\n" +
-                "    \"bits\": \"1d00ffff\",\n" +
-                "    \"difficulty\": 1,\n" +
-                "    \"chainwork\": \"00000000000000000000000000000000000000000000006e7acfacf80f43ec25\",\n" +
-                "    \"nTx\": 1,\n" +
-                "    \"previousblockhash\": \"000000000fc2ff8fc6585b71961c6ca0ecea24fa52746cb5484256019891e448\",\n" +
-                "    \"nextblockhash\": \"0000000023e0680a8a062b3cc289a4a341124ce7fcb6340ede207e194d73b60a\",\n" +
-                "    \"coinbaseTx\": {\n" +
-                "        \"txid\": \"311709bdf4ae50c16d18461308185a6a0caf8d597de150d6ea29d8f95b5ff80c\",\n" +
-                "        \"hash\": \"311709bdf4ae50c16d18461308185a6a0caf8d597de150d6ea29d8f95b5ff80c\",\n" +
-                "        \"version\": 1,\n" +
-                "        \"size\": 172,\n" +
-                "        \"locktime\": 0,\n" +
-                "        \"vin\": [\n" +
-                "            {\n" +
-                "                \"coinbase\": \"03a9b015\",\n" +
-                "                \"sequence\": 4294967295\n" +
-                "            }\n" +
-                "        ],\n" +
-                "        \"vout\": [\n" +
-                "            {\n" +
-                "                \"value\": 0.71827726,\n" +
-                "                \"n\": 0,\n" +
-                "                \"scriptPubKey\": {\n" +
-                "                    \"asm\": \"OP_DUP OP_HASH160 d39b00b07e0ebc72fea383830264fd33e6dc16aa OP_EQUALVERIFY OP_CHECKSIG\",\n" +
-                "                    \"hex\": \"76a914d39b00b07e0ebc72fea383830264fd33e6dc16aa88ac\",\n" +
-                "                    \"reqSigs\": 1,\n" +
-                "                    \"type\": \"pubkeyhash\",\n" +
-                "                    \"addresses\": [\n" +
-                "                        \"bchtest:qrfekq9s0c8tcuh75wpcxqnyl5e7dhqk4gmw07xth0\"\n" +
-                "                    ]\n" +
-                "                }\n" +
-                "            },\n" +
-                "            {\n" +
-                "                \"value\": 0.06297274,\n" +
-                "                \"n\": 1,\n" +
-                "                \"scriptPubKey\": {\n" +
-                "                    \"asm\": \"OP_HASH160 260617ebf668c9102f71ce24aba97fcaaf9c666a OP_EQUAL\",\n" +
-                "                    \"hex\": \"a914260617ebf668c9102f71ce24aba97fcaaf9c666a87\",\n" +
-                "                    \"reqSigs\": 1,\n" +
-                "                    \"type\": \"scripthash\",\n" +
-                "                    \"addresses\": [\n" +
-                "                        \"bchtest:pqnqv9lt7e5vjyp0w88zf2af0l92l8rxdghdzfvj4e\"\n" +
-                "                    ]\n" +
-                "                }\n" +
-                "            },\n" +
-                "            {\n" +
-                "                \"value\": 0,\n" +
-                "                \"n\": 2,\n" +
-                "                \"scriptPubKey\": {\n" +
-                "                    \"asm\": \"OP_RETURN fd11a42e8c0e12370270afaf4c3bfb1fdbee0298934f816d2dd800671ca6e945a07d8efb05000000\",\n" +
-                "                    \"hex\": \"6a28fd11a42e8c0e12370270afaf4c3bfb1fdbee0298934f816d2dd800671ca6e945a07d8efb05000000\",\n" +
-                "                    \"type\": \"nulldata\"\n" +
-                "                }\n" +
-                "            }\n" +
-                "        ],\n" +
-                "        \"hex\": \"01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0403a9b015ffffffff030e014804000000001976a914d39b00b07e0ebc72fea383830264fd33e6dc16aa88acba1660000000000017a914260617ebf668c9102f71ce24aba97fcaaf9c666a8700000000000000002a6a28fd11a42e8c0e12370270afaf4c3bfb1fdbee0298934f816d2dd800671ca6e945a07d8efb0500000000000000\",\n" +
-                "        \"blockhash\": \"00000000062c7f32591d883c99fc89ebe74a83287c0f2b7ffeef72e62217d40b\",\n" +
-                "        \"confirmations\": 4855,\n" +
-                "        \"time\": 1605446605,\n" +
-                "        \"blocktime\": 1605446605\n" +
-                "    },\n" +
-                "    \"totalFees\": \"0\",\n" +
-                "    \"subsidy\": \"0.78125\",\n" +
-                "    \"miner\": []\n" +
-                "}"; // <-- paste block JSON here and run test
+        final String blockJsonString = ""; // <-- paste block JSON here and run test
         final Json json = Json.parse(blockJsonString);
 
         final Long blockHeight = json.getLong("height");

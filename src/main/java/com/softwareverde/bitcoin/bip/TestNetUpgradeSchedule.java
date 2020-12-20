@@ -30,12 +30,12 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
 
     @Override
     public Boolean isCw144DifficultyAdjustmentAlgorithmEnabled(final Long blockHeight) {
-        return (blockHeight >= 1188697L);
+        return (blockHeight >= 1188698L); // NOTE: this is one block higher than BCHN uses, since they use the prior block's height.
     }
 
     @Override
     public Boolean isEmergencyDifficultyAdjustmentAlgorithmEnabled(final Long blockHeight) {
-        return (blockHeight >= 1155875L);
+        return (blockHeight >= 1155876L); // NOTE: this is one block higher than BCHN uses, since they use the prior block's height.
     }
 
     @Override
