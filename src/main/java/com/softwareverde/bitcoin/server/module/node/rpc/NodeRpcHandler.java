@@ -123,6 +123,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Difficulty getDifficulty();
         List<Transaction> getUnconfirmedTransactions();
         List<TransactionWithFee> getUnconfirmedTransactionsWithFees();
+        Block getPrototypeBlock();
 
         Long getBlockReward();
 
@@ -614,7 +615,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
-    protected void _calculateNextDifficulty(final Json response) {
+    protected void _calculateNextDifficulty(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
@@ -627,8 +628,36 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: [rawFormat=0]
+    protected void _getPrototypeBlock(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Boolean shouldReturnInRawFormat = parameters.getBoolean("rawFormat");
+
+        final Block block = dataHandler.getPrototypeBlock();
+        if (block == null) {
+            response.put(ERROR_MESSAGE_KEY, "Unable to generate template.");
+            return;
+        }
+
+        if (shouldReturnInRawFormat) {
+            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
+            final ByteArray bytes = blockDeflater.toBytes(block);
+            response.put("block", bytes);
+        }
+        else {
+            response.put("block", block);
+        }
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires GET:
-    protected void _calculateNextBlockReward(final Json response) {
+    protected void _calculateNextBlockReward(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
@@ -685,7 +714,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
-    protected void _queryStatus(final Json response) {
+    protected void _queryStatus(final Json parameters, final Json response) {
         { // Status
             response.put("status", (_synchronizationStatusHandler != null ? _synchronizationStatusHandler.getState() : null));
         }
@@ -715,9 +744,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         { // Utxo Cache Status
-            final Json parameters = new Json();
+            final Json queryUtxoCacheParameters = new Json();
             final Json utxoCacheStatus = new Json();
-            _queryUtxoCache(parameters, utxoCacheStatus);
+            _queryUtxoCache(queryUtxoCacheParameters, utxoCacheStatus);
             response.put("utxoCacheStatus", utxoCacheStatus);
         }
 
@@ -938,7 +967,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
-    protected void _queryBlockchainMetadata(final Json response) {
+    protected void _queryBlockchainMetadata(final Json parameters, final Json response) {
         final QueryBlockchainHandler queryBlockchainHandler = _queryBlockchainHandler;
         if (queryBlockchainHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
@@ -1385,7 +1414,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
-    protected void _listNodes(final Json response) {
+    protected void _listNodes(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
@@ -1696,11 +1725,15 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "DIFFICULTY": {
-                                _calculateNextDifficulty(response);
+                                _calculateNextDifficulty(parameters, response);
+                            } break;
+
+                            case "BLOCK_TEMPLATE": {
+                                _getPrototypeBlock(parameters, response);
                             } break;
 
                             case "BLOCK_REWARD": {
-                                _calculateNextBlockReward(response);
+                                _calculateNextBlockReward(parameters, response);
                             } break;
 
                             case "MEMPOOL":
@@ -1709,11 +1742,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "STATUS": {
-                                _queryStatus(response);
+                                _queryStatus(parameters, response);
                             } break;
 
                             case "NODES": {
-                                _listNodes(response);
+                                _listNodes(parameters, response);
                             } break;
 
                             case "BALANCE": {
@@ -1725,7 +1758,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "BLOCKCHAIN": {
-                                _queryBlockchainMetadata(response);
+                                _queryBlockchainMetadata(parameters, response);
                             } break;
 
                             case "IS_SLP_TRANSACTION": {

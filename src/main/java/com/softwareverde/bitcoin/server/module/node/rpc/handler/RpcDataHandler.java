@@ -1,7 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
@@ -17,8 +20,9 @@ import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
-import com.softwareverde.bitcoin.inflater.TransactionInflaters;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -40,6 +44,7 @@ import com.softwareverde.bitcoin.slp.validator.SlpTransactionValidator;
 import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -48,13 +53,20 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.type.time.SystemTime;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
-    protected final TransactionInflaters _transactionInflaters;
+    protected final Integer _extraNonceByteCount = 4;
+    protected final Integer _extraNonce2ByteCount = 4;
+    protected final Integer _totalExtraNonceByteCount = (_extraNonceByteCount + _extraNonce2ByteCount);
+
+    protected final SystemTime _systemTime;
+    protected final MasterInflater _masterInflater;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
@@ -90,8 +102,69 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return returnedTransactions;
     }
 
-    public RpcDataHandler(final TransactionInflaters transactionInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
-        _transactionInflaters = transactionInflaters;
+    protected Difficulty _getDifficulty(final DatabaseManager databaseManager) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+        final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+        final Long nextBlockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
+
+        final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
+        return difficultyCalculator.calculateRequiredDifficulty(nextBlockHeight);
+    }
+
+    protected List<Transaction> _getUnconfirmedTransactions(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+        final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+
+        final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getCount());
+        for (final TransactionId transactionId : unconfirmedTransactionIds) {
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            unconfirmedTransactionsListBuilder.add(transaction);
+        }
+
+        return unconfirmedTransactionsListBuilder.build();
+    }
+
+    protected List<TransactionWithFee> _getUnconfirmedTransactionsWithFees(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+        final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+
+        final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getCount());
+        for (final TransactionId transactionId : unconfirmedTransactionIds) {
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (transaction == null) {
+                Logger.debug("Unable to load Unconfirmed Transaction: " + transactionId);
+                continue;
+            }
+            final Long transactionFee = transactionDatabaseManager.calculateTransactionFee(transaction);
+
+            final TransactionWithFee transactionWithFee = new TransactionWithFee(transaction, transactionFee);
+            listBuilder.add(transactionWithFee);
+        }
+
+        return listBuilder.build();
+    }
+
+    protected Long _getBlockReward(final DatabaseManager databaseManager) throws DatabaseException {
+        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+        final BlockId blockId = blockDatabaseManager.getHeadBlockId();
+        if (blockId == null) { return 0L; }
+
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+
+        return BlockHeader.calculateBlockReward(blockHeight);
+    }
+
+    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
+        _systemTime = systemTime;
+        _masterInflater = masterInflater;
         _databaseManagerFactory = databaseManagerFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
 
@@ -339,16 +412,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public Difficulty getDifficulty() {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
-            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-            final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-            final Long nextBlockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
-
-            final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
-            return difficultyCalculator.calculateRequiredDifficulty(nextBlockHeight);
+            return _getDifficulty(databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -359,17 +423,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public List<Transaction> getUnconfirmedTransactions() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-            final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
-
-            final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getCount());
-            for (final TransactionId transactionId : unconfirmedTransactionIds) {
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                unconfirmedTransactionsListBuilder.add(transaction);
-            }
-
-            return unconfirmedTransactionsListBuilder.build();
+            return _getUnconfirmedTransactions(databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -380,24 +434,56 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public List<TransactionWithFee> getUnconfirmedTransactionsWithFees() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            return _getUnconfirmedTransactionsWithFees(databaseManager);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
 
-            final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
+    @Override
+    public Block getPrototypeBlock() {
+        final PrivateKey privateKey = PrivateKey.fromHexString("0000000000000000000000000000000000000000000000000000000000000001");
 
-            final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getCount());
-            for (final TransactionId transactionId : unconfirmedTransactionIds) {
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                if (transaction == null) {
-                    Logger.debug("Unable to load Unconfirmed Transaction: " + transactionId);
-                    continue;
-                }
-                final Long transactionFee = transactionDatabaseManager.calculateTransactionFee(transaction);
+        final MutableBlock mutableBlock = new MutableBlock();
+        final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
-                final TransactionWithFee transactionWithFee = new TransactionWithFee(transaction, transactionFee);
-                listBuilder.add(transactionWithFee);
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
+        final Address address = addressInflater.fromPrivateKey(privateKey);
+
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+
+            final BlockHeader previousBlockHeader = blockHeaderDatabaseManager.getBlockHeader(headBlockId);
+
+            final Long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
+            final Difficulty difficulty = _getDifficulty(databaseManager);
+            final Long blockReward = _getBlockReward(databaseManager);
+
+            final List<TransactionWithFee> transactions = _getUnconfirmedTransactionsWithFees(databaseManager);
+
+            // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
+            final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
+
+            final Long timestamp = _systemTime.getCurrentTimeInSeconds();
+
+            mutableBlock.setVersion(BlockHeader.VERSION);
+            mutableBlock.setPreviousBlockHash(previousBlockHeader.getHash());
+            mutableBlock.setDifficulty(difficulty);
+            mutableBlock.setTimestamp(timestamp);
+            mutableBlock.setNonce(0L);
+
+            mutableBlock.addTransaction(coinbaseTransaction);
+            for (final TransactionWithFee transaction : transactions) {
+                mutableBlock.addTransaction(transaction.transaction);
             }
 
-            return listBuilder.build();
+            return mutableBlock;
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -408,15 +494,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     @Override
     public Long getBlockReward() {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
-            final BlockId blockId = blockDatabaseManager.getHeadBlockId();
-            if (blockId == null) { return 0L; }
-
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-
-            return BlockHeader.calculateBlockReward(blockHeight);
+            return _getBlockReward(databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
@@ -487,7 +565,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet();
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }
@@ -513,7 +591,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final CachingMedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(blockchainSegmentId, databaseManager);
             final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
-            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_transactionInflaters, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             try {
