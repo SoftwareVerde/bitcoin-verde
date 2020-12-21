@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
-import com.softwareverde.bitcoin.bip.HF20201115;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -22,8 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AsertReferenceBlockLoaderTests extends UnitTest {
 
     protected static final BlockchainSegmentId BLOCKCHAIN_SEGMENT_ID = BlockchainSegmentId.wrap(1L);
-    protected static final MedianBlockTime NOT_ACTIVATED_BLOCK_TIME = MedianBlockTime.fromSeconds(HF20201115.ACTIVATION_BLOCK_TIME - 1L);
-    protected static final MedianBlockTime ACTIVATION_BLOCK_TIME = MedianBlockTime.fromSeconds(HF20201115.ACTIVATION_BLOCK_TIME);
+    protected static final MedianBlockTime NOT_ACTIVATED_BLOCK_TIME = MedianBlockTime.fromSeconds(1605441600L - 1L);
+    protected static final MedianBlockTime ACTIVATION_BLOCK_TIME = MedianBlockTime.fromSeconds(1605441600L);
 
     protected static final AtomicInteger TOTAL_LOOKUP_COUNT = new AtomicInteger(0);
     protected static final AtomicInteger TOTAL_MTP_CALCULATION_COUNT = new AtomicInteger(0);

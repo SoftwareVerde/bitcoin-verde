@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -67,7 +68,7 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1).getBytes()));
 
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
@@ -95,7 +96,7 @@ public class ScriptRunnerTests {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
@@ -134,7 +135,7 @@ public class ScriptRunnerTests {
     @Test
     public void should_allow_segwit_recovery_after_20190515HF() {
         // Setup
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
@@ -189,7 +190,7 @@ public class ScriptRunnerTests {
     @Test
     public void should_not_allow_invalid_segwit_recovery_after_20190515HF() {
         // Setup
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
@@ -267,7 +268,7 @@ public class ScriptRunnerTests {
         final UnlockingScript unlockingScript = UnlockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E020802")));
         final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(ByteArray.fromHexString("80100102030405060708090A0B0C0D0E0F10767E767E767E767E767E0801020304050607087E87")));
 
-        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final UpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(0L);

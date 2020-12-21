@@ -2,12 +2,18 @@ package com.softwareverde.bitcoin.test.fake;
 
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.util.Util;
 
 /**
  * Wraps an UpgradeSchedule object which is used unless a relevant "set" method was called to enable/disable a certain feature.
+ *
+ * For consistency with the historical upgrade implementations, this also ensures that if a value that would be
+ * passed into the parent upgrade schedule is null, it is converted to the highest value possible, to ensure it is enabled.
+ * Note that if the value is set explicitly, that value will be returned.  It is only in the unset case that the parent
+ * upgrade schedule value is used.
  */
 public class FakeUpgradeSchedule implements UpgradeSchedule {
-    protected final UpgradeSchedule _coreUpgradeSchedule;
+    protected final UpgradeSchedule _parentUpgradeSchedule;
     protected Boolean _isMinimalNumberEncodingRequired;
     protected Boolean _isBitcoinCashSignatureHashTypeEnabled;
     protected Boolean _areOnlyPushOperationsAllowedWithinUnlockingScript;
@@ -35,7 +41,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     protected Boolean _isReverseBytesOperationEnabled;
 
     public FakeUpgradeSchedule(final UpgradeSchedule upgradeSchedule) {
-        _coreUpgradeSchedule = upgradeSchedule;
+        _parentUpgradeSchedule = upgradeSchedule;
     }
 
     protected Boolean _isOverriddenOrEnabled(final Boolean override, final Boolean isEnabled) {
@@ -46,7 +52,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isMinimalNumberEncodingRequired(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(
                 _isMinimalNumberEncodingRequired,
-                _coreUpgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)
+                _parentUpgradeSchedule.isMinimalNumberEncodingRequired(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE))
         );
     }
 
@@ -54,7 +60,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isBitcoinCashSignatureHashTypeEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isBitcoinCashSignatureHashTypeEnabled,
-                _coreUpgradeSchedule.isBitcoinCashSignatureHashTypeEnabled(blockHeight)
+                _parentUpgradeSchedule.isBitcoinCashSignatureHashTypeEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -62,7 +68,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areOnlyPushOperationsAllowedWithinUnlockingScript(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areOnlyPushOperationsAllowedWithinUnlockingScript,
-                _coreUpgradeSchedule.areOnlyPushOperationsAllowedWithinUnlockingScript(blockHeight)
+                _parentUpgradeSchedule.areOnlyPushOperationsAllowedWithinUnlockingScript(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -70,7 +76,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isPayToScriptHashEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isPayToScriptHashEnabled,
-                _coreUpgradeSchedule.isPayToScriptHashEnabled(blockHeight)
+                _parentUpgradeSchedule.isPayToScriptHashEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -78,7 +84,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isAsertDifficultyAdjustmentAlgorithmEnabled(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(
                 _isAsertDifficultyAdjustmentAlgorithmEnabled,
-                _coreUpgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianBlockTime)
+                _parentUpgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE))
         );
     }
 
@@ -86,7 +92,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isCw144DifficultyAdjustmentAlgorithmEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isCw144DifficultyAdjustmentAlgorithmEnabled,
-                _coreUpgradeSchedule.isCw144DifficultyAdjustmentAlgorithmEnabled(blockHeight)
+                _parentUpgradeSchedule.isCw144DifficultyAdjustmentAlgorithmEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -94,7 +100,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isEmergencyDifficultyAdjustmentAlgorithmEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isEmergencyDifficultyAdjustmentAlgorithmEnabled,
-                _coreUpgradeSchedule.isEmergencyDifficultyAdjustmentAlgorithmEnabled(blockHeight)
+                _parentUpgradeSchedule.isEmergencyDifficultyAdjustmentAlgorithmEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -102,7 +108,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isBlockHeightWithinCoinbaseRequired(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isBlockHeightWithinCoinbaseRequired,
-                _coreUpgradeSchedule.isBlockHeightWithinCoinbaseRequired(blockHeight)
+                _parentUpgradeSchedule.isBlockHeightWithinCoinbaseRequired(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -110,7 +116,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isRelativeLockTimeEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isRelativeLockTimeEnabled,
-                _coreUpgradeSchedule.isRelativeLockTimeEnabled(blockHeight)
+                _parentUpgradeSchedule.isRelativeLockTimeEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -118,7 +124,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean shouldUseMedianBlockTimeForTransactionLockTime(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _shouldUseMedianBlockTimeForTransactionLockTime,
-                _coreUpgradeSchedule.shouldUseMedianBlockTimeForTransactionLockTime(blockHeight)
+                _parentUpgradeSchedule.shouldUseMedianBlockTimeForTransactionLockTime(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -126,7 +132,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean shouldUseMedianBlockTimeForBlockTimestamp(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _shouldUseMedianBlockTimeForBlockTimestamp,
-                _coreUpgradeSchedule.shouldUseMedianBlockTimeForBlockTimestamp(blockHeight)
+                _parentUpgradeSchedule.shouldUseMedianBlockTimeForBlockTimestamp(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -134,7 +140,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isCheckLockTimeOperationEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isCheckLockTimeOperationEnabled,
-                _coreUpgradeSchedule.isCheckLockTimeOperationEnabled(blockHeight)
+                _parentUpgradeSchedule.isCheckLockTimeOperationEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -142,7 +148,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isCheckSequenceNumberOperationEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isCheckSequenceNumberOperationEnabled,
-                _coreUpgradeSchedule.isCheckSequenceNumberOperationEnabled(blockHeight)
+                _parentUpgradeSchedule.isCheckSequenceNumberOperationEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -150,7 +156,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areAllInvalidSignaturesRequiredToBeEmpty(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areAllInvalidSignaturesRequiredToBeEmpty,
-                _coreUpgradeSchedule.areAllInvalidSignaturesRequiredToBeEmpty(blockHeight)
+                _parentUpgradeSchedule.areAllInvalidSignaturesRequiredToBeEmpty(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -158,7 +164,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areCanonicalSignatureEncodingsRequired(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areCanonicalSignatureEncodingsRequired,
-                _coreUpgradeSchedule.areCanonicalSignatureEncodingsRequired(blockHeight)
+                _parentUpgradeSchedule.areCanonicalSignatureEncodingsRequired(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -166,7 +172,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areSignaturesRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areSignaturesRequiredToBeStrictlyEncoded,
-                _coreUpgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(blockHeight)
+                _parentUpgradeSchedule.areSignaturesRequiredToBeStrictlyEncoded(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -174,7 +180,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean arePublicKeysRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _arePublicKeysRequiredToBeStrictlyEncoded,
-                _coreUpgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(blockHeight)
+                _parentUpgradeSchedule.arePublicKeysRequiredToBeStrictlyEncoded(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -182,7 +188,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areDerSignaturesRequiredToBeStrictlyEncoded(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areDerSignaturesRequiredToBeStrictlyEncoded,
-                _coreUpgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(blockHeight)
+                _parentUpgradeSchedule.areDerSignaturesRequiredToBeStrictlyEncoded(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -190,7 +196,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areUnusedValuesAfterScriptExecutionDisallowed(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areUnusedValuesAfterScriptExecutionDisallowed,
-                _coreUpgradeSchedule.areUnusedValuesAfterScriptExecutionDisallowed(blockHeight)
+                _parentUpgradeSchedule.areUnusedValuesAfterScriptExecutionDisallowed(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -198,7 +204,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areTransactionsLessThanOneHundredBytesDisallowed(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _areTransactionsLessThanOneHundredBytesDisallowed,
-                _coreUpgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)
+                _parentUpgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -206,7 +212,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areUnusedValuesAfterSegwitScriptExecutionAllowed(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(
                 _areUnusedValuesAfterSegwitScriptExecutionAllowed,
-                _coreUpgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(medianBlockTime)
+                _parentUpgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE))
         );
     }
 
@@ -214,7 +220,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isSignatureOperationCountingVersionTwoEnabled(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(
                 _isSignatureOperationCountingVersionTwoEnabled,
-                _coreUpgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)
+                _parentUpgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE))
         );
     }
 
@@ -222,7 +228,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isCheckDataSignatureOperationEnabled(final Long blockHeight) {
         return _isOverriddenOrEnabled(
                 _isCheckDataSignatureOperationEnabled,
-                _coreUpgradeSchedule.isCheckDataSignatureOperationEnabled(blockHeight)
+                _parentUpgradeSchedule.isCheckDataSignatureOperationEnabled(Util.coalesce(blockHeight, Long.MAX_VALUE))
         );
     }
 
@@ -230,7 +236,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean areSchnorrSignaturesEnabledWithinMultiSignature(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(
                 _areSchnorrSignaturesEnabledWithinMultiSignature,
-                _coreUpgradeSchedule.areSchnorrSignaturesEnabledWithinMultiSignature(medianBlockTime)
+                _parentUpgradeSchedule.areSchnorrSignaturesEnabledWithinMultiSignature(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE))
         );
     }
 
@@ -238,7 +244,7 @@ public class FakeUpgradeSchedule implements UpgradeSchedule {
     public Boolean isReverseBytesOperationEnabled(final MedianBlockTime medianBlockTime) {
         return _isOverriddenOrEnabled(
                 _isReverseBytesOperationEnabled,
-                _coreUpgradeSchedule.isReverseBytesOperationEnabled(medianBlockTime)
+                _parentUpgradeSchedule.isReverseBytesOperationEnabled(Util.coalesce(medianBlockTime, MedianBlockTime.MAX_VALUE))
         );
     }
 
