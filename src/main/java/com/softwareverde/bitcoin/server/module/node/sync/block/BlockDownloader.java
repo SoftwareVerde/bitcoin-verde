@@ -122,9 +122,9 @@ public class BlockDownloader extends GracefulSleepyService {
         _lastCacheUpdate = now;
     }
 
-    protected Long _calculateTimeout() {
+    protected Long _calculateTimeoutInMilliseconds() {
         final float buffer = 2.0F;
-        return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_MEGABYTES_PER_SECOND) * buffer * 1000L);
+        return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_BYTES_PER_SECOND) * buffer * 1000L);
     }
 
     protected void _storePendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
@@ -163,7 +163,7 @@ public class BlockDownloader extends GracefulSleepyService {
     //  Items exceeding the timeout have their onFailure method called.
     //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
     protected void _checkForStalledDownloads() {
-        final Long maxRequestDurationInMilliseconds = _calculateTimeout();
+        final Long maxRequestDurationInMilliseconds = _calculateTimeoutInMilliseconds();
         Logger.trace("Max download request duration: " + maxRequestDurationInMilliseconds + "ms");
 
         final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<Sha256Hash>();
@@ -206,7 +206,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
-        final long maxTimeoutMs = _calculateTimeout();
+        final long maxTimeoutMs = _calculateTimeoutInMilliseconds();
         final AtomicBoolean didRespond = new AtomicBoolean(false);
         final Pin pin = new Pin();
 
