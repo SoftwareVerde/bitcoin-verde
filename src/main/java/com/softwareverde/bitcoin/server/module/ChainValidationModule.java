@@ -184,7 +184,7 @@ public class ChainValidationModule {
                     };
 
                     final TransactionInflaters transactionInflaters = masterInflater;
-                    final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
+                    final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManager);
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, transactionValidatorFactory, databaseManager, networkTime);
                     blockValidator = new BlockValidator(blockValidatorContext);
                     blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());

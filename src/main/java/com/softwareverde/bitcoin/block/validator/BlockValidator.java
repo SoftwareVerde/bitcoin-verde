@@ -147,6 +147,8 @@ public class BlockValidator {
                     transactionValidationTaskSpawner.abort();
                     return BlockValidationResult.invalid("Block coinbase does not contain block height.", coinbaseTransaction);
                 }
+
+                // TODO: BCHN requires canonical encoding, BU does not.
                 final PushOperation pushOperation = (PushOperation) operation;
                 final Long coinbaseBlockHeight = pushOperation.getValue().asLong();
                 if (blockHeight.longValue() != coinbaseBlockHeight.longValue()) {

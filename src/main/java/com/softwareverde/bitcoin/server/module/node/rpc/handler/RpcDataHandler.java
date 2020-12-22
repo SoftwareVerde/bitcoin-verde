@@ -562,7 +562,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-                    final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet();
+                    final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManager);
                     unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
 
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);

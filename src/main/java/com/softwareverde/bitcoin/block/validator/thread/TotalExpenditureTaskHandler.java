@@ -90,7 +90,8 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
             final TransactionOutput transactionOutput = _getUnspentTransactionOutput(transactionOutputIdentifier);
 
             if (transactionOutput == null) {
-                Logger.debug("Tx Input, Output Not Found: " + transactionOutputIdentifier);
+                final Sha256Hash transactionHash = transaction.getHash();
+                Logger.debug("Tx " + transactionHash + ":" + i + ", Output Not Found: " + transactionOutputIdentifier);
                 return -1L;
             }
 
