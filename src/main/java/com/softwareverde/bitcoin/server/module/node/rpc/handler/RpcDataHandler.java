@@ -14,11 +14,11 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyDifficultyCalculatorContext;
-import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -562,8 +562,11 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-                    final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManager);
-                    unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+                    final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+                    final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
+                    if (! utxosAreAvailable) {
+                        return BlockValidationResult.invalid("Missing UTXOs for block.");
+                    }
 
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);

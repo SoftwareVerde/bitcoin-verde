@@ -6,9 +6,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
-import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -70,10 +68,9 @@ public class PendingBlockLoader {
                         unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
                         Logger.trace("Loaded UTXOs for " + blockHeight);
                     }
-                    else { // NOTE: Outputs are available upon demand via LazyLoading.
-                        unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManager);
-                        unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Operation is only executed on demand, including blockHeight lookup if null...
-                        Logger.trace("Lazy-loading UTXOs for " + block.getHash() + "(" + blockHeight + ")");
+                    else { // NOTE: blockHeight may be null if the pendingBlock's header has not been processed yet.
+                        // If the unspentTransactionOutputSet is later required, it is loaded on-demand (i.e. within BlockProcessor).
+                        unspentTransactionOutputSet = null;
                     }
 
                     pendingBlockFuture.setLoadedPendingBlock(blockHeight, pendingBlock, unspentTransactionOutputSet);
@@ -90,12 +87,17 @@ public class PendingBlockLoader {
         return pendingBlockFuture;
     }
 
-    protected Long _getBlockHeight(final Sha256Hash blockHash, final DatabaseManager databaseManager) throws DatabaseException {
+    protected Long _getBlockHeight(final Sha256Hash blockHash, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         return blockHeaderDatabaseManager.getBlockHeight(blockId);
     }
 
+    /**
+     * Returns false when the blockHeight is below the configured validation blockHeight.
+     *  Since UTXOs are not used in non-validated blocks, the preloader should not bother loading
+     *  the UTXOs into memory.
+     */
     protected Boolean _shouldLoadUnspentOutputs(final Long blockHeight) {
         final long loadUnspentOutputsAfterBlockHeight = Util.coalesce(_loadUnspentOutputsAfterBlockHeight, 0L);
         if (loadUnspentOutputsAfterBlockHeight < 1L) {

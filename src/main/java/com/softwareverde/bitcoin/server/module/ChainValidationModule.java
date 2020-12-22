@@ -8,8 +8,8 @@ import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
-import com.softwareverde.bitcoin.context.lazy.LazyMutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
@@ -184,7 +184,7 @@ public class ChainValidationModule {
                     };
 
                     final TransactionInflaters transactionInflaters = masterInflater;
-                    final LazyMutableUnspentTransactionOutputSet unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManager);
+                    final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, transactionValidatorFactory, databaseManager, networkTime);
                     blockValidator = new BlockValidator(blockValidatorContext);
                     blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
