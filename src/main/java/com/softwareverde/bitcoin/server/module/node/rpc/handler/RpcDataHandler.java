@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
@@ -446,7 +446,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public Block getPrototypeBlock() {
         final PrivateKey privateKey = PrivateKey.fromHexString("0000000000000000000000000000000000000000000000000000000000000001");
 
-        final MutableBlock mutableBlock = new MutableBlock();
+        final CanonicalMutableBlock mutableBlock = new CanonicalMutableBlock();
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();

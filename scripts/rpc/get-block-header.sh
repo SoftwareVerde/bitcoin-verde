@@ -13,12 +13,12 @@ echo -n "HASH: "
 read HASH
 
 if [[ ! -z "${HASH}" ]]; then
-    (echo "{\"method\":\"GET\",\"query\":\"BLOCK_HEADER\",\"parameters\":{\"hash\":\"${HASH}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | nc localhost 8334
+    (echo "{\"method\":\"GET\",\"query\":\"BLOCK_HEADER\",\"parameters\":{\"hash\":\"${HASH}\",\"rawFormat\":\"${RAW_FORMAT}\"}}" && sleep 1) | nc localhost 8334
     exit
 fi
 
 echo -n "HEIGHT: "
 read HEIGHT
 
-(echo "{\"method\":\"GET\",\"query\":\"BLOCK_HEADER\",\"parameters\":{\"blockHeight\":\"${HEIGHT}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | nc localhost 8334
+(echo "{\"method\":\"GET\",\"query\":\"BLOCK_HEADER\",\"parameters\":{\"blockHeight\":\"${HEIGHT}\",\"rawFormat\":\"${RAW_FORMAT}\"}}" && sleep 1) | nc localhost 8334
 

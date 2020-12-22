@@ -1728,7 +1728,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                                 _calculateNextDifficulty(parameters, response);
                             } break;
 
-                            case "BLOCK_TEMPLATE": {
+                            case "PROTOTYPE_BLOCK": {
                                 _getPrototypeBlock(parameters, response);
                             } break;
 
