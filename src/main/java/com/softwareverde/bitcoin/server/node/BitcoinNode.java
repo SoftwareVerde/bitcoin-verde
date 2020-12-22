@@ -91,7 +91,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinNode extends Node {
-    public static final Long MIN_BYTES_PER_SECOND = ByteUtil.Unit.Binary.MEBIBYTES; // 1mbps, slower than 3G.
+    public static final Long MIN_BYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mbps, slower than 3G.
     public static final Long REQUEST_TIME_BUFFER = 1000L; // Max time, in ms, assumed it takes to respond to a request, ignoring ping.
 
     protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
