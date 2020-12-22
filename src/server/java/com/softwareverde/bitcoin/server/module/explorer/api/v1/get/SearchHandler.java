@@ -49,6 +49,7 @@ public class SearchHandler implements RequestHandler<Environment> {
 
             SearchApi.SearchResult.ObjectType objectType = null;
             Jsonable object = null;
+            String rawObject = null;
             {
                 final int hashCharacterLength = 64;
 
@@ -81,24 +82,29 @@ public class SearchHandler implements RequestHandler<Environment> {
                     final Json queryBlockResponseJson;
                     if (queryParam.length() == hashCharacterLength) {
                         final Sha256Hash blockHash = Sha256Hash.fromHexString(queryParam);
-                        queryBlockResponseJson = nodeJsonRpcConnection.getBlockHeader(blockHash, rawFormat);
-                        if ( (queryBlockResponseJson != null) && queryBlockResponseJson.hasKey("block") ) {
-                            final Json blockTransactionsJson;
-                            try (final NodeJsonRpcConnection secondNodeJsonRpcConnection = environment.getNodeJsonRpcConnection()) {
-                                if (secondNodeJsonRpcConnection == null) {
-                                    final SearchApi.SearchResult result = new SearchApi.SearchResult();
-                                    result.setWasSuccess(false);
-                                    result.setErrorMessage("Unable to connect to node.");
-                                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
+                        if (Util.coalesce(rawFormat)) {
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHash, true);
+                        }
+                        else {
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlockHeader(blockHash, false);
+                            if ( (queryBlockResponseJson != null) && queryBlockResponseJson.hasKey("block") ) {
+                                final Json blockTransactionsJson;
+                                try (final NodeJsonRpcConnection secondNodeJsonRpcConnection = environment.getNodeJsonRpcConnection()) {
+                                    if (secondNodeJsonRpcConnection == null) {
+                                        final SearchApi.SearchResult result = new SearchApi.SearchResult();
+                                        result.setWasSuccess(false);
+                                        result.setErrorMessage("Unable to connect to node.");
+                                        return new JsonResponse(Response.Codes.SERVER_ERROR, result);
+                                    }
+
+                                    final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHash, 32, 0);
+                                    blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
                                 }
 
-                                final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHash, 32, 0);
-                                blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
+                                final Json blockJson = queryBlockResponseJson.get("block");
+                                blockJson.put("transactions", blockTransactionsJson);
+                                queryBlockResponseJson.put("block", blockJson);
                             }
-
-                            final Json blockJson = queryBlockResponseJson.get("block");
-                            blockJson.put("transactions", blockTransactionsJson);
-                            queryBlockResponseJson.put("block", blockJson);
                         }
                     }
                     else {
@@ -107,24 +113,29 @@ public class SearchHandler implements RequestHandler<Environment> {
                             return new JsonResponse(Response.Codes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
                         }
                         final Long blockHeight = Util.parseLong(queryParam);
-                        queryBlockResponseJson = nodeJsonRpcConnection.getBlockHeader(blockHeight, rawFormat);
-                        if ( (queryBlockResponseJson != null) && queryBlockResponseJson.hasKey("block") ) {
-                            final Json blockTransactionsJson;
-                            try (final NodeJsonRpcConnection secondNodeJsonRpcConnection = environment.getNodeJsonRpcConnection()) {
-                                if (secondNodeJsonRpcConnection == null) {
-                                    final SearchApi.SearchResult result = new SearchApi.SearchResult();
-                                    result.setWasSuccess(false);
-                                    result.setErrorMessage("Unable to connect to node.");
-                                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
+                        if (Util.coalesce(rawFormat)) {
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHeight, true);
+                        }
+                        else {
+                            queryBlockResponseJson = nodeJsonRpcConnection.getBlockHeader(blockHeight, false);
+                            if ( (queryBlockResponseJson != null) && queryBlockResponseJson.hasKey("block") ) {
+                                final Json blockTransactionsJson;
+                                try (final NodeJsonRpcConnection secondNodeJsonRpcConnection = environment.getNodeJsonRpcConnection()) {
+                                    if (secondNodeJsonRpcConnection == null) {
+                                        final SearchApi.SearchResult result = new SearchApi.SearchResult();
+                                        result.setWasSuccess(false);
+                                        result.setErrorMessage("Unable to connect to node.");
+                                        return new JsonResponse(Response.Codes.SERVER_ERROR, result);
+                                    }
+
+                                    final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHeight, 32, 0);
+                                    blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
                                 }
 
-                                final Json queryBlockTransactionsJson = secondNodeJsonRpcConnection.getBlockTransactions(blockHeight, 32, 0);
-                                blockTransactionsJson = queryBlockTransactionsJson.get("transactions");
+                                final Json blockJson = queryBlockResponseJson.get("block");
+                                blockJson.put("transactions", blockTransactionsJson);
+                                queryBlockResponseJson.put("block", blockJson);
                             }
-
-                            final Json blockJson = queryBlockResponseJson.get("block");
-                            blockJson.put("transactions", blockTransactionsJson);
-                            queryBlockResponseJson.put("block", blockJson);
                         }
                     }
 
@@ -136,8 +147,8 @@ public class SearchHandler implements RequestHandler<Environment> {
                         if (Util.coalesce(rawFormat)) {
                             final String blockHex = queryBlockResponseJson.getString("block");
 
-                            object = SearchApi.makeRawObjectJson(blockHex);
-                            objectType = SearchApi.SearchResult.ObjectType.BLOCK;
+                            rawObject = blockHex;
+                            objectType = SearchApi.SearchResult.ObjectType.RAW_BLOCK;
                         }
                         else {
                             final Json blockJson = queryBlockResponseJson.get("block");
@@ -161,8 +172,8 @@ public class SearchHandler implements RequestHandler<Environment> {
                         if (Util.coalesce(rawFormat)) {
                             final String transactionHex = queryTransactionResponseJson.getString("transaction");
 
-                            object = SearchApi.makeRawObjectJson(transactionHex);
-                            objectType = SearchApi.SearchResult.ObjectType.TRANSACTION;
+                            rawObject = transactionHex;
+                            objectType = SearchApi.SearchResult.ObjectType.RAW_TRANSACTION;
                         }
                         else {
                             final Json transactionJson = queryTransactionResponseJson.get("transaction");
@@ -178,7 +189,12 @@ public class SearchHandler implements RequestHandler<Environment> {
             final SearchApi.SearchResult searchResult = new SearchApi.SearchResult();
             searchResult.setWasSuccess(wasSuccess);
             searchResult.setObjectType(objectType);
-            searchResult.setObject(object);
+            if (rawObject != null) {
+                searchResult.setRawObject(rawObject);
+            }
+            else {
+                searchResult.setObject(object);
+            }
             return new JsonResponse(Response.Codes.OK, searchResult);
         }
     }
