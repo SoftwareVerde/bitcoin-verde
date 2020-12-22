@@ -16,14 +16,12 @@ import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContex
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
-import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
 import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
@@ -40,7 +38,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.pending.fulln
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
@@ -127,7 +124,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -764,8 +760,7 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final TransactionInflaters transactionInflaters = _masterInflater;
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(transactionInflaters, databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);

@@ -568,6 +568,18 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json getPrototypeBlock(final Boolean returnRawData) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("rawFormat", (returnRawData ? 1 : 0));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "PROTOTYPE_BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public Json submitTransaction(final Transaction transaction) {
         final Json rpcParametersJson = new Json();
         final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();

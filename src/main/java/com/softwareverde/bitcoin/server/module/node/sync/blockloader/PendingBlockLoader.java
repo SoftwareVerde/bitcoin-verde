@@ -71,7 +71,7 @@ public class PendingBlockLoader {
                         Logger.trace("Loaded UTXOs for " + blockHeight);
                     }
                     else { // NOTE: Outputs are available upon demand via LazyLoading.
-                        unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManagerFactory);
+                        unspentTransactionOutputSet = new LazyMutableUnspentTransactionOutputSet(databaseManager);
                         unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Operation is only executed on demand, including blockHeight lookup if null...
                         Logger.trace("Lazy-loading UTXOs for " + block.getHash() + "(" + blockHeight + ")");
                     }

@@ -135,7 +135,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        if (blockId == null) { return false; }
+        if (blockId == null) {
+            Logger.debug("Unable to find BlockId for: " + blockHash);
+            return false;
+        }
 
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
         final BlockchainSegmentId utxoSetBlockchainSegmentId;
@@ -183,6 +186,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                     if (! isUnique) { // Two inputs cannot spent the same output...
                         final boolean isAllowedDuplicate = ALLOWED_DUPLICATE_TRANSACTION_HASHES.contains(previousTransactionHash);
                         if (! isAllowedDuplicate) {
+                            Logger.debug("Attempted to double-spend Transaction within same Block: " + previousTransactionHash);
                             return false;
                         }
                     }
