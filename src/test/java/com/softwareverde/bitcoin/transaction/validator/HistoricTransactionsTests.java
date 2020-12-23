@@ -162,7 +162,7 @@ public class HistoricTransactionsTests extends UnitTest {
         final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
 
         // Assert
-        Assert.assertEquals(inputIsUnlocked, expectedResult);
+        Assert.assertEquals(expectedResult, inputIsUnlocked);
     }
 
     @After
@@ -1095,6 +1095,26 @@ public class HistoricTransactionsTests extends UnitTest {
         testConfig.medianBlockTime = 1501589615L;
 
         // Network Time: 1608530831
+
+        HistoricTransactionsTests.runScripts(testConfig, upgradeSchedule);
+    }
+
+    @Test
+    public void should_verify_testnet_transaction_B3FA07C78A2EC7CEF75E0FD558FD60756287B31B9AC810F6B5A06D9FACE060BD_0() {
+        final TestNetUpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule();
+
+        final HistoricTransactionsTests.TestConfig testConfig = new HistoricTransactionsTests.TestConfig();
+        testConfig.transactionBytes = "0100000001F268EE57BC5C2D7191709C34C3D119F36494340DA178C4EFFCCB9F6BB7E1C7E80000000023220020A8C4BBE5EFA86519468CB1188565E481860FD8DDCC1F5242AD737E72230D0434FFFFFFFF01C37352000000000017A9141516811D888D572AE963E048D17CC76C7DFB431D8700000000";
+        testConfig.transactionInputBytes = "F268EE57BC5C2D7191709C34C3D119F36494340DA178C4EFFCCB9F6BB7E1C7E80000000023220020A8C4BBE5EFA86519468CB1188565E481860FD8DDCC1F5242AD737E72230D0434FFFFFFFF";
+        testConfig.transactionOutputIndex = 1;
+        testConfig.transactionOutputBytes = "D39A52000000000017A9141FBA0A1055D1035F798F83D08E7DD3383C0378AE87";
+        testConfig.blockHeight = 1304881L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A9141FBA0A1055D1035F798F83D08E7DD3383C0378AE87";
+        testConfig.unlockingScriptBytes = "220020A8C4BBE5EFA86519468CB1188565E481860FD8DDCC1F5242AD737E72230D0434";
+        testConfig.medianBlockTime = 1558462233L;
+
+        // Network Time: 1608674729
 
         HistoricTransactionsTests.runScripts(testConfig, upgradeSchedule);
     }

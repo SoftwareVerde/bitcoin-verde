@@ -16,7 +16,7 @@ public class TestNetUpgradeSchedule implements UpgradeSchedule {
     private static final long HF20171113_ACTIVATION_BLOCK_HEIGHT = 1188698L;
     private static final long HF20181115_ACTIVATION_BLOCK_HEIGHT = 1267997L;
 
-    private static final long HF20190515_ACTIVATION_TIME = 1573820238L;
+    private static final long HF20190515_ACTIVATION_TIME = 1557921600L;
     private static final long HF20191115_ACTIVATION_TIME = 1573820238L;
     private static final long HF20200515_ACTIVATION_TIME = 1589544294L;
     private static final long HF20201115_ACTIVATION_TIME = 1605441600L;
