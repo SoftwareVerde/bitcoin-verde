@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
@@ -148,13 +149,19 @@ public class BlockValidator {
                     return BlockValidationResult.invalid("Block coinbase does not contain block height.", coinbaseTransaction);
                 }
 
-                // TODO: BCHN requires canonical encoding, BU does not.
                 final PushOperation pushOperation = (PushOperation) operation;
-                final Long coinbaseBlockHeight = pushOperation.getValue().asLong();
-                if (blockHeight.longValue() != coinbaseBlockHeight.longValue()) {
+                final Value coinbaseBlockHeightValue = pushOperation.getValue();
+                if (! coinbaseBlockHeightValue.isMinimallyEncodedLong()) {
                     totalExpenditureValidationTaskSpawner.abort();
                     transactionValidationTaskSpawner.abort();
-                    return BlockValidationResult.invalid("Invalid block height within coinbase.", coinbaseTransaction);
+                    return BlockValidationResult.invalid("Invalid block height encoding within coinbase.");
+                }
+
+                final Long coinbaseBlockHeight = coinbaseBlockHeightValue.asLong();
+                if (! Util.areEqual(blockHeight, coinbaseBlockHeight)) {
+                    totalExpenditureValidationTaskSpawner.abort();
+                    transactionValidationTaskSpawner.abort();
+                    return BlockValidationResult.invalid("Invalid block height within coinbase. (found " + coinbaseBlockHeight + ", expected " + blockHeight + ")", coinbaseTransaction);
                 }
             }
         }
