@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -446,7 +447,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public Block getPrototypeBlock() {
         final PrivateKey privateKey = PrivateKey.fromHexString("0000000000000000000000000000000000000000000000000000000000000001");
 
-        final CanonicalMutableBlock mutableBlock = new CanonicalMutableBlock();
+        final MutableBlockHeader blockHeader = new MutableBlockHeader();
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
         final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
@@ -465,25 +466,24 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final Difficulty difficulty = _getDifficulty(databaseManager);
             final Long blockReward = _getBlockReward(databaseManager);
 
-            final List<TransactionWithFee> transactions = _getUnconfirmedTransactionsWithFees(databaseManager);
+            final List<Transaction> unconfirmedTransactions = _getUnconfirmedTransactions(databaseManager);
 
             // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
             final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
 
             final Long timestamp = _systemTime.getCurrentTimeInSeconds();
 
-            mutableBlock.setVersion(BlockHeader.VERSION);
-            mutableBlock.setPreviousBlockHash(previousBlockHeader.getHash());
-            mutableBlock.setDifficulty(difficulty);
-            mutableBlock.setTimestamp(timestamp);
-            mutableBlock.setNonce(0L);
+            blockHeader.setVersion(BlockHeader.VERSION);
+            blockHeader.setPreviousBlockHash(previousBlockHeader.getHash());
+            blockHeader.setDifficulty(difficulty);
+            blockHeader.setTimestamp(timestamp);
+            blockHeader.setNonce(0L);
 
-            mutableBlock.addTransaction(coinbaseTransaction);
-            for (final TransactionWithFee transaction : transactions) {
-                mutableBlock.addTransaction(transaction.transaction);
-            }
+            final MutableList<Transaction> blockTransactions = new MutableList<>(1);
+            blockTransactions.add(coinbaseTransaction);
+            blockTransactions.addAll(unconfirmedTransactions);
 
-            return mutableBlock;
+            return new CanonicalMutableBlock(blockHeader, blockTransactions);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);

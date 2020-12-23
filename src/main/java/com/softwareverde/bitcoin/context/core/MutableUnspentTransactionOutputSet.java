@@ -152,11 +152,6 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         final HashSet<Sha256Hash> transactionsWithUnknownBlockHeights = new HashSet<Sha256Hash>();
 
-        for (final Transaction transaction : transactions) { // NOTE: adding the TransactionBlockHeights is done in its own loop so unknownTransactionBlockHeights may exclude this Block's Transactions in a single pass...
-            final Sha256Hash transactionHash = transaction.getHash();
-            _transactionBlockHeights.put(transactionHash, blockHeight);
-        }
-
         Transaction coinbaseTransaction = null;
         final HashSet<TransactionOutputIdentifier> requiredTransactionOutputs = new HashSet<TransactionOutputIdentifier>();
         final HashSet<TransactionOutputIdentifier> newOutputs = new HashSet<TransactionOutputIdentifier>();
