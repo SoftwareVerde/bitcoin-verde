@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.HF20201115;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -20,8 +21,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AsertReferenceBlockLoaderTests extends UnitTest {
 
     protected static final BlockchainSegmentId BLOCKCHAIN_SEGMENT_ID = BlockchainSegmentId.wrap(1L);
-    protected static final MedianBlockTime NOT_ACTIVATED_BLOCK_TIME = MedianBlockTime.fromSeconds(HF20201115.ACTIVATION_BLOCK_TIME - 1L);
-    protected static final MedianBlockTime ACTIVATION_BLOCK_TIME = MedianBlockTime.fromSeconds(HF20201115.ACTIVATION_BLOCK_TIME);
+    protected static final MedianBlockTime NOT_ACTIVATED_BLOCK_TIME = MedianBlockTime.fromSeconds(1605441600L - 1L);
+    protected static final MedianBlockTime ACTIVATION_BLOCK_TIME = MedianBlockTime.fromSeconds(1605441600L);
 
     protected static final AtomicInteger TOTAL_LOOKUP_COUNT = new AtomicInteger(0);
     protected static final AtomicInteger TOTAL_MTP_CALCULATION_COUNT = new AtomicInteger(0);
@@ -36,7 +37,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_return_null_reference_block_before_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final long blockHeight = (699998L - i);
@@ -73,7 +75,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_at_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final long blockHeight = (699999L - i);
@@ -116,7 +119,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_one_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final Long blockHeight = (699999L - i);
@@ -167,7 +171,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_shortly_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         final int afterCount = 128;
 
@@ -220,7 +225,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_well_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         final int afterCount = 10000;
 
@@ -273,7 +279,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
     @Test
     public void should_load_reference_block_excessively_past_activation_time() throws Exception {
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         final int afterCount = 100000;
 
@@ -328,7 +335,8 @@ public class AsertReferenceBlockLoaderTests extends UnitTest {
         // This test is designed to ensure the correct anchor block is selected if the ActivationBlock+1 shares the same MTP as the ActivationBlock.
 
         // Setup
-        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final FakeReferenceBlockLoaderContext context = new FakeReferenceBlockLoaderContext(upgradeSchedule);
 
         for (int i = 0; i < 10000; ++i) {
             final Long blockHeight = (699999L - i);

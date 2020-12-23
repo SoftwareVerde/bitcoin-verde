@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.HF20200515;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.test.UnitTest;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -22,7 +24,8 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
         context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP));
         stack.push(Value.ZERO);
@@ -41,9 +44,9 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
-
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
         // Action
         final Boolean result = opReverseBytes.applyTo(stack, controlState, context);
@@ -59,9 +62,10 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.ZERO);
 
         // Action
@@ -80,9 +84,10 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("DEAD")));
 
         // Action
@@ -100,9 +105,10 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("DEADA1")));
 
         // Action
@@ -120,9 +126,10 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("DEADBEEF")));
 
         // Action
@@ -140,9 +147,10 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
         stack.push(Value.fromBytes(ByteArray.fromHexString("123456")));
 
         // Action
@@ -162,9 +170,9 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
-
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
         for (int n = 0; n < 520; ++n) {
             stack.clearStack();
@@ -199,9 +207,9 @@ public class StringOperationTests extends UnitTest {
 
         final Stack stack = new Stack();
         final ControlState controlState = new ControlState();
-        final MutableTransactionContext context = new MutableTransactionContext();
-
-        context.setMedianBlockTime(ImmutableMedianBlockTime.fromSeconds(HF20200515.ACTIVATION_BLOCK_TIME));
+        final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+        upgradeSchedule.setReverseBytesOperationEnabled(true);
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
 
         for (int n = 0; n < 520; ++n) {
             stack.clearStack();

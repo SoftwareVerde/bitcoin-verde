@@ -1,14 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.bip.Bip65;
-import com.softwareverde.bitcoin.bip.Buip55;
-import com.softwareverde.bitcoin.bip.HF20190515;
-import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
-import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeMedianBlockTime;
+import com.softwareverde.bitcoin.test.fake.FakeUpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
@@ -19,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -238,9 +236,17 @@ public class AbcScriptRunnerTests extends UnitTest {
             }
 
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-            byteArrayBuilder.appendByte((byte) 0x4E); // PUSH_DATA_INTEGER
-            byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
-            byteArrayBuilder.appendBytes(contentBytes);
+            if (contentByteCount < (1 << 16)) {
+                byteArrayBuilder.appendByte(Opcode.PUSH_DATA_SHORT.getValue());
+                byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.getTailBytes(ByteUtil.integerToBytes(contentByteCount), 2)));
+                byteArrayBuilder.appendBytes(contentBytes);
+                return MutableByteArray.wrap(byteArrayBuilder.build());
+            }
+            else {
+                byteArrayBuilder.appendByte(Opcode.PUSH_DATA_INTEGER.getValue());
+                byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
+                byteArrayBuilder.appendBytes(contentBytes);
+            }
             return MutableByteArray.wrap(byteArrayBuilder.build());
         }
 
@@ -412,12 +418,6 @@ public class AbcScriptRunnerTests extends UnitTest {
 
     protected static Boolean originalNativeSecp256k1Value = null;
 
-    protected void _reconfigureProductionConstants() {
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
-    }
-
     @Override @Before
     public void before() throws Exception {
         super.before();
@@ -427,9 +427,6 @@ public class AbcScriptRunnerTests extends UnitTest {
         }
 
         try {
-            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
-            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
-            BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", true);
             BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
         }
         catch (final Exception exception) {
@@ -438,13 +435,11 @@ public class AbcScriptRunnerTests extends UnitTest {
             Logger.debug("Unable to set volatile modifier.", exception);
         }
 
-        _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
     }
 
     @After
     public void after() throws Exception {
-        _reconfigureProductionConstants();
         BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
 
         super.after();
@@ -541,8 +536,10 @@ public class AbcScriptRunnerTests extends UnitTest {
                 // System.out.println(i + ": " + testVector + "(" + testVector.getHash() + ")");
             }
 
+            final FakeUpgradeSchedule upgradeSchedule = new FakeUpgradeSchedule(new CoreUpgradeSchedule());
+
             final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime(MedianBlockTime.GENESIS_BLOCK_TIMESTAMP);
-            final ScriptRunner scriptRunner = new ScriptRunner();
+            final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);
             transactionOutputBeingSpent.setAmount(testVector.amount);
@@ -555,48 +552,60 @@ public class AbcScriptRunnerTests extends UnitTest {
             transactionInput.setPreviousOutputTransactionHash(transactionBeingSpent.getHash());
             transaction.setTransactionInput(0, transactionInput);
 
-            final MutableTransactionContext context = new MutableTransactionContext();
+            final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
             context.setTransaction(transaction); // Set the LockTime to zero...
             context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
             context.setTransactionInput(transactionInput);
             context.setTransactionInputIndex(0);
 
-            context.setBlockHeight(0L);
+            context.setBlockHeight(1L);
             context.setMedianBlockTime(medianBlockTime);
+
+            if (testVector.flagsString.contains("MINIMALDATA")) {
+                upgradeSchedule.setMinimalNumberEncodingRequired(true);
+            }
             if (testVector.flagsString.contains("P2SH")) {
-                context.setBlockHeight(Math.max(173805L, context.getBlockHeight()));
+                upgradeSchedule.setPayToScriptHashEnabled(true);
             }
             if (testVector.flagsString.contains("CHECKSEQUENCEVERIFY")) {
-                context.setBlockHeight(Math.max(419328L, context.getBlockHeight())); // Enable Bip112...
+                upgradeSchedule.setCheckSequenceNumberOperationEnabled(true);
             }
             if (testVector.flagsString.contains("CHECKLOCKTIMEVERIFY")) {
-                context.setBlockHeight(Math.max(Bip65.ACTIVATION_BLOCK_HEIGHT, context.getBlockHeight())); // Enable Bip65...
-            }
-            if ( (i > 1000) && (testVector.flagsString.contains("STRICTENC") || testVector.flagsString.contains("DERSIG") || testVector.flagsString.contains("LOW_S")) ) {
-                context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55...
-                context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
-            }
-            if (testVector.flagsString.contains("NULLFAIL") || testVector.flagsString.contains("SIGHASH_FORKID")) {
-                context.setBlockHeight(Math.max(Buip55.ACTIVATION_BLOCK_HEIGHT, context.getBlockHeight())); // Enable BCH HF...
+                upgradeSchedule.setCheckLockTimeOperationEnabled(true);
             }
             if (testVector.flagsString.contains("STRICTENC")) {
-                medianBlockTime.setMedianBlockTime(Math.max(HF20190515.ACTIVATION_BLOCK_TIME, medianBlockTime.getCurrentTimeInSeconds()));
+                upgradeSchedule.setSignaturesRequiredToBeStrictlyEncoded(true);
+                upgradeSchedule.setDerSignaturesRequiredToBeStrictlyEncoded(true);
+                upgradeSchedule.setPublicKeysRequiredToBeStrictlyEncoded(true);
             }
-            if (testVector.flagsString.contains("SIGPUSHONLY") || testVector.flagsString.contains("CLEANSTACK")) {
-                context.setBlockHeight(Math.max(556767L, context.getBlockHeight())); // Enable BCH HF20190505...
+            if (testVector.flagsString.contains("DERSIG")) {
+                upgradeSchedule.setDerSignaturesRequiredToBeStrictlyEncoded(true);
             }
-            if ( (i >= 1189) && (testVector.lockingScriptString.contains("CHECKDATASIG")) ) {
-                context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
+            if (testVector.flagsString.contains("LOW_S")) {
+                upgradeSchedule.setCanonicalSignatureEncodingsRequired(true);
+            }
+            if (testVector.flagsString.contains("NULLFAIL")) {
+                upgradeSchedule.setAllInvalidSignaturesRequiredToBeEmpty(true);
+            }
+            if (testVector.flagsString.contains("SIGHASH_FORKID")) {
+                upgradeSchedule.setBitcoinCashSignatureHashTypeEnabled(true);
+            }
+            if (testVector.flagsString.contains("SIGPUSHONLY")) {
+                upgradeSchedule.setOnlyPushOperationsAllowedWithinUnlockingScript(true);
+            }
+            if (testVector.lockingScriptString.contains("CHECKDATASIG")) {
+                upgradeSchedule.setCheckDataSignatureOperationEnabled(true);
             }
             if (testVector.flagsString.contains("SCHNORR_MULTISIG")) {
-                context.setBlockHeight(Math.max(Buip55.ACTIVATION_BLOCK_HEIGHT, context.getBlockHeight()));
-                medianBlockTime.setMedianBlockTime(Math.max(HF20191115.ACTIVATION_BLOCK_TIME, medianBlockTime.getCurrentTimeInSeconds()));
+                upgradeSchedule.setAreSchnorrSignaturesEnabledWithinMultiSignature(true);
             }
-
-            // Reconfigure the BitcoinConstants to mimic some of the reference client's feature-flags...
-            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", testVector.flagsString.contains("NULLFAIL"));
-            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", testVector.flagsString.contains("SIGHASH_FORKID"));
-            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_MINIMAL_ENCODED_VALUES", testVector.flagsString.contains("MINIMALDATA"));
+            if (testVector.flagsString.contains("CLEANSTACK")) {
+                upgradeSchedule.setUnusedValuesAfterScriptExecutionDisallowed(true);
+                upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(true);
+            }
+            if (testVector.flagsString.contains("DISALLOW_SEGWIT_RECOVERY")) {
+                upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
+            }
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
 
@@ -611,7 +620,6 @@ public class AbcScriptRunnerTests extends UnitTest {
             }
             else {
                 // Retry with production values to assess severity...
-                _reconfigureProductionConstants();
                 context.setBlockHeight(Long.MAX_VALUE);
                 medianBlockTime.setMedianBlockTime(Long.MAX_VALUE);
                 final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context);
@@ -619,9 +627,9 @@ public class AbcScriptRunnerTests extends UnitTest {
 
                 if (! skipTest) {
                     failCount += 1;
-                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + ")");
+                    System.out.println("FAILED" + (isPossiblyImportant ? " [WARN]" : "") + ": " + i + " (" + testVector.getHash() + " - " + testVector.flagsString + " - " + testVector.expectedResultString + " - \"" + testVector.comments + "\")");
                     System.out.println("Expected: " + expectedResult + " Actual: " + wasValid + " (Production: " + isValidInProduction + ")");
-                    break;
+                    //break;
                 }
             }
         }

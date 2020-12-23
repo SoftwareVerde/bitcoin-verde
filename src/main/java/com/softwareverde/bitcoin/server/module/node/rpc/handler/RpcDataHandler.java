@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
@@ -14,6 +15,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
@@ -68,7 +70,9 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
     protected final SystemTime _systemTime;
     protected final MasterInflater _masterInflater;
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final VolatileNetworkTime _networkTime;
     protected final TransactionDownloader _transactionDownloader;
@@ -111,8 +115,9 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
         final Long nextBlockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
 
-        final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager);
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(difficultyCalculatorContext);
+        final LazyDifficultyCalculatorContext difficultyCalculatorContext = new LazyDifficultyCalculatorContext(blockchainSegmentId, databaseManager, _difficultyCalculatorFactory, _upgradeSchedule);
+        final DifficultyCalculator difficultyCalculator = difficultyCalculatorContext.newDifficultyCalculator();
+
         return difficultyCalculator.calculateRequiredDifficulty(nextBlockHeight);
     }
 
@@ -163,10 +168,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return BlockHeader.calculateBlockReward(blockHeight);
     }
 
-    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime) {
+    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
         _systemTime = systemTime;
         _masterInflater = masterInflater;
+        _upgradeSchedule = upgradeSchedule;
         _databaseManagerFactory = databaseManagerFactory;
+        _difficultyCalculatorFactory = difficultyCalculatorFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
 
         _transactionDownloader = transactionDownloader;
@@ -568,7 +575,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                         return BlockValidationResult.invalid("Missing UTXOs for block.");
                     }
 
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _transactionValidatorFactory, databaseManager, _networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, _networkTime, _upgradeSchedule);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
                     return blockValidator.validatePrototypeBlock(block, blockHeight);
                 }
@@ -594,7 +601,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final CachingMedianBlockTimeContext medianBlockTimeContext = new CachingMedianBlockTimeContext(blockchainSegmentId, databaseManager);
             final LazyUnconfirmedTransactionUtxoSet unconfirmedTransactionUtxoSet = new LazyUnconfirmedTransactionUtxoSet(databaseManager);
-            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet);
+            final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(_masterInflater, _networkTime, medianBlockTimeContext, unconfirmedTransactionUtxoSet, _upgradeSchedule);
             final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
             try {

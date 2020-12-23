@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.wallet;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SlpValidity;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
@@ -76,6 +78,7 @@ public class Wallet {
 
     protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(new MutableByteArray(Address.BYTE_COUNT));
 
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
     protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
     protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
@@ -807,7 +810,7 @@ public class Wallet {
                     useCompressedPublicKey = publicKey.isCompressed();
                 }
 
-                final SignatureContext signatureContext = new SignatureContext(transactionBeingSigned, new HashType(Mode.SIGNATURE_HASH_ALL, true, true));
+                final SignatureContext signatureContext = new SignatureContext(transactionBeingSigned, new HashType(Mode.SIGNATURE_HASH_ALL, true, true), _upgradeSchedule);
                 signatureContext.setInputIndexBeingSigned(i);
                 signatureContext.setShouldSignInputScript(i, true, transactionOutputBeingSpent);
                 transactionBeingSigned = transactionSigner.signTransaction(signatureContext, privateKey, useCompressedPublicKey);
@@ -816,7 +819,7 @@ public class Wallet {
             signedTransaction = transactionBeingSigned;
         }
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         for (int i = 0; i < signedTransactionInputs.getCount(); ++i) {
             final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);
@@ -827,7 +830,7 @@ public class Wallet {
                 transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
             }
 
-            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime);
+            final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule);
             final Boolean outputIsUnlocked = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
 
             if (! outputIsUnlocked) {
@@ -963,10 +966,12 @@ public class Wallet {
 
     public Wallet() {
         _medianBlockTime = null; // Only necessary for instances near impending hard forks...
+        _upgradeSchedule = new CoreUpgradeSchedule();
     }
 
-    public Wallet(final MedianBlockTime medianBlockTime) {
+    public Wallet(final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
         _medianBlockTime = medianBlockTime;
+        _upgradeSchedule = upgradeSchedule;
     }
 
     public void setSatoshisPerByteFee(final Double satoshisPerByte) {

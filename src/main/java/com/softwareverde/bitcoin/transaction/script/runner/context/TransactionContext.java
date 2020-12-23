@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -52,4 +53,11 @@ public interface TransactionContext extends Constable<ImmutableTransactionContex
      * Returns the total number of Signature operations executed thus far, as defined by HF20200515.
      */
     Integer getSignatureOperationCount();
+
+    /**
+     * Returns the total number of counted operations executed thus far.
+     */
+    Integer getOperationCount();
+
+    UpgradeSchedule getUpgradeSchedule();
 }

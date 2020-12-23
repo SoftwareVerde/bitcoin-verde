@@ -1,12 +1,15 @@
 package com.softwareverde.bitcoin.context.lazy;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.core.AsertReferenceBlockLoader;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -15,15 +18,20 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 
 public class LazyDifficultyCalculatorContext implements DifficultyCalculatorContext {
+    protected final UpgradeSchedule _upgradeSchedule;
     protected final BlockchainSegmentId _blockchainSegmentId;
     protected final DatabaseManager _databaseManager;
     protected final AsertReferenceBlockLoader _asertReferenceBlockLoader;
+    protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
-    public LazyDifficultyCalculatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager) {
+
+    public LazyDifficultyCalculatorContext(final BlockchainSegmentId blockchainSegmentId, final DatabaseManager databaseManager, final DifficultyCalculatorFactory difficultyCalculatorFactory, final UpgradeSchedule upgradeSchedule) {
         _blockchainSegmentId = blockchainSegmentId;
         _databaseManager = databaseManager;
+        _difficultyCalculatorFactory = difficultyCalculatorFactory;
+        _upgradeSchedule = upgradeSchedule;
 
-        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager);
+        final LazyReferenceBlockLoaderContext referenceBlockLoaderContext = new LazyReferenceBlockLoaderContext(databaseManager, _upgradeSchedule);
         _asertReferenceBlockLoader = new AsertReferenceBlockLoader(referenceBlockLoaderContext);
     }
 
@@ -75,5 +83,15 @@ public class LazyDifficultyCalculatorContext implements DifficultyCalculatorCont
     @Override
     public AsertReferenceBlock getAsertReferenceBlock() {
         return BitcoinConstants.getAsertReferenceBlock();
+    }
+
+    @Override
+    public DifficultyCalculator newDifficultyCalculator() {
+        return _difficultyCalculatorFactory.newDifficultyCalculator(this);
+    }
+
+    @Override
+    public UpgradeSchedule getUpgradeSchedule() {
+        return _upgradeSchedule;
     }
 }

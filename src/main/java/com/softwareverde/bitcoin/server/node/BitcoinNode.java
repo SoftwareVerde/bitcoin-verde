@@ -91,7 +91,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BitcoinNode extends Node {
-    public static final Long MIN_MEGABYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mpbs, slower than 3G.
+    public static final Long MIN_BYTES_PER_SECOND = (ByteUtil.Unit.Binary.MEBIBYTES / 8L); // 1mbps, slower than 3G.
     public static final Long REQUEST_TIME_BUFFER = 1000L; // Max time, in ms, assumed it takes to respond to a request, ignoring ping.
 
     protected static final AddressInflater DEFAULT_ADDRESS_INFLATER = new AddressInflater();
@@ -331,7 +331,7 @@ public class BitcoinNode extends Node {
     protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
         if (callback instanceof DownloadBlockCallback) {
             final float buffer = 2.0F;
-            return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_MEGABYTES_PER_SECOND) * buffer * 1000L);
+            return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_BYTES_PER_SECOND) * buffer * 1000L);
         }
 
         return (30L * 1000L); // 30 seconds...
@@ -494,14 +494,15 @@ public class BitcoinNode extends Node {
                     final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
                     final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
                     final long bytesPerMs = (bytesReceiveSinceRequested / requestAgeMs);
-                    final double megabytesPerSecond = (bytesPerMs * 1000L / 1024D / 1024D);
+                    final double bytesPerSecond = (bytesPerMs * 1000L);
+                    final double megabytesPerSecond = (bytesPerSecond / ByteUtil.Unit.Binary.MEBIBYTES);
 
                     if (Logger.isTraceEnabled()) {
-                        Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + BitcoinNode.MIN_MEGABYTES_PER_SECOND + " - " + this.getConnectionString());
+                        Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + this.getConnectionString());
                     }
 
-                    if (megabytesPerSecond < BitcoinNode.MIN_MEGABYTES_PER_SECOND) {
-                        Logger.info("Detected stalled download from " + this.getConnectionString() + ". (" + megabytesPerSecond + "MB/s)");
+                    if (bytesPerSecond < BitcoinNode.MIN_BYTES_PER_SECOND) {
+                        Logger.info("Detected stalled download from " + this.getConnectionString() + ". (" + megabytesPerSecond + " MB/s)");
 
                         iterator.remove();
 
@@ -1608,9 +1609,18 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
-        if (blockFinder.isEmpty()) { return null; }
-
         final RequestId requestId = _newRequestId();
+
+        if (blockFinder.isEmpty()) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    downloadBlockHeaderCallback.onFailure(requestId, BitcoinNode.this, null);
+                }
+            });
+            return requestId;
+        }
+
         final Sha256Hash firstBlockHash = blockFinder.get(0);
         BitcoinNodeUtil.storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, new PendingRequest<>(requestId, downloadBlockHeaderCallback));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
@@ -1629,9 +1639,18 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
-        if (transactionHashes.isEmpty()) { return null; }
-
         final RequestId requestId = _newRequestId();
+
+        if (transactionHashes.isEmpty()) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    downloadTransactionCallback.onFailure(requestId, BitcoinNode.this, null);
+                }
+            });
+            return requestId;
+        }
+
         for (final Sha256Hash transactionHash : transactionHashes) {
             BitcoinNodeUtil.storeInMapSet(_downloadTransactionRequests, transactionHash, new PendingRequest<>(requestId, downloadTransactionCallback));
             final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();

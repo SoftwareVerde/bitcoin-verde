@@ -290,6 +290,10 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                     previousChainWork.value = _getChainWork(blockId);
                     blockIds.add(blockId);
 
+                    // medianTimePast for this block was calculated in _insertBlockHeader
+                    // but we need to keep medianTimePast up-to-date for the upcoming blocks
+                    medianTimePast.addBlock(blockHeader);
+
                     i += 1;
                 }
 

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.HF20191115;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
@@ -163,16 +163,35 @@ public abstract class Operation implements Const {
         return ( (value <= Integer.MAX_VALUE) && (value > Integer.MIN_VALUE) ); // MIP-Encoding -2147483648 requires 5 bytes...
     }
 
-    protected static Boolean isMinimallyEncoded(final ByteArray byteArray) {
-        final ByteArray minimallyEncodedByteArray = Value.minimallyEncodeBytes(byteArray);
-        if (minimallyEncodedByteArray == null) { return false; }
+    protected static Boolean isMinimallyEncoded(final ByteArray littleEndianByteArray) {
+        if (littleEndianByteArray == null) { return false; }
+        if (littleEndianByteArray.getByteCount() == 0) { return true; }
 
-        return (byteArray.getByteCount() == minimallyEncodedByteArray.getByteCount());
+        int finalByteIndex = littleEndianByteArray.getByteCount() - 1;
+        if (littleEndianByteArray.getByteCount() >= 1) {
+            // if the highest bit (sign bit) is not set, but other bits are, this value is minimally encoded
+            final byte leadingByte = littleEndianByteArray.getByte(finalByteIndex);
+            if (leadingByte > 0) {
+                return true;
+            }
+        }
+
+        if (littleEndianByteArray.getByteCount() >= 2) {
+            // the highest bit of the second-highest-order byte is set, this value is minimally encoded
+            if (littleEndianByteArray.getByte(finalByteIndex - 1) < 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected static Boolean validateMinimalEncoding(final Value value, final TransactionContext transactionContext) {
-        final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
-        if (! HF20191115.isEnabled(medianBlockTime)) { return true; }
+        {
+            final UpgradeSchedule upgradeSchedule = transactionContext.getUpgradeSchedule();
+            final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+            if (! upgradeSchedule.isMinimalNumberEncodingRequired(medianBlockTime)) { return true; }
+        }
 
         return Operation.isMinimallyEncoded(value);
     }

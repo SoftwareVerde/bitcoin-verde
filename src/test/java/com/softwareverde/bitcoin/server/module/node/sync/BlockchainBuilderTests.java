@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -141,7 +143,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
@@ -204,8 +207,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
@@ -263,7 +267,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
                 unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 2L, false);
 
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(3L, signedTransactionSpendingCoinbase);
@@ -430,8 +434,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final TransactionInflaters transactionInflaters = _masterInflater;
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
@@ -490,7 +495,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
                 unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 2L, false);
 
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 final TransactionValidationResult transactionValidationResult = transactionValidator.validateTransaction(3L, signedTransactionSpendingFakeBlock3aCoinbase);
@@ -562,8 +567,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final TransactionInflaters transactionInflaters = _masterInflater;
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
-        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _transactionValidatorFactory);
+        final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
         final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
 
@@ -649,7 +655,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final FakeUnspentTransactionOutputContext unspentTransactionOutputContext = new FakeUnspentTransactionOutputContext();
                 unspentTransactionOutputContext.addTransaction(transactionToSpend, null, 4L, false);
 
-                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext);
+                final TransactionValidatorContext transactionValidatorContext = new TransactionValidatorContext(transactionInflaters, new MutableNetworkTime(), FakeStaticMedianBlockTimeContext.MAX_MEDIAN_BLOCK_TIME, unspentTransactionOutputContext, upgradeSchedule);
                 final TransactionValidator transactionValidator = new TransactionValidatorCore(transactionValidatorContext);
 
                 {

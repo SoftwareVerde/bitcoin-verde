@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -18,7 +20,8 @@ public class BitwiseOperationTests {
         stack.push(Value.fromBytes(HexUtil.hexStringToByteArray(startingValueHexString)));
         stack.push(Value.fromInteger(bitShiftCount));
 
-        final MutableTransactionContext context = new MutableTransactionContext();
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+        final MutableTransactionContext context = new MutableTransactionContext(upgradeSchedule);
         context.setBlockHeight(556767L);
         final ControlState controlState = new ControlState();
 

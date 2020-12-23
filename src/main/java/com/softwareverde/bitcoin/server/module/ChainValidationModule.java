@@ -1,12 +1,17 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.MutableUnspentTransactionOutputSet;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
@@ -183,9 +188,21 @@ public class ChainValidationModule {
                         }
                     };
 
+                    final DifficultyCalculatorFactory difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+
+                        @Override
+                        public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                            return new DifficultyCalculator(context);
+                        }
+                    };
+
+                    final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
+
                     final TransactionInflaters transactionInflaters = masterInflater;
+
                     final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, transactionValidatorFactory, databaseManager, networkTime);
+                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputSet, difficultyCalculatorFactory, transactionValidatorFactory, databaseManager, networkTime, upgradeSchedule);
+
                     blockValidator = new BlockValidator(blockValidatorContext);
                     blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
                     blockValidator.setShouldLogValidBlocks(true);

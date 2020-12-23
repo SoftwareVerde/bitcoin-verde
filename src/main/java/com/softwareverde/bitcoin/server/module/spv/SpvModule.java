@@ -2,15 +2,21 @@ package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.bip.CoreUpgradeSchedule;
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
+import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCalculator;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
+import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
-import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
+import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -100,7 +106,7 @@ public class SpvModule {
     protected final Integer _maxPeerCount;
     protected Boolean _isInitialized = false;
 
-    protected final SeedNodeProperties[] _seedNodes;
+    protected final List<NodeProperties> _seedNodes;
     protected final Environment _environment;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
@@ -108,6 +114,7 @@ public class SpvModule {
 
     protected final Wallet _wallet;
 
+    protected final Boolean _isTestNet;
     protected final SpvRequestDataHandler _spvRequestDataHandler = new SpvRequestDataHandler();
     protected BitcoinNodeManager _bitcoinNodeManager;
     protected BlockHeaderDownloader _blockHeaderDownloader;
@@ -159,8 +166,8 @@ public class SpvModule {
     }
 
     protected void _connectToSeedNodes() {
-        for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
-            final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
+        for (final NodeProperties nodeProperties : _seedNodes) {
+            final NodeIpAddress nodeIpAddress = NodeProperties.toNodeIpAddress(nodeProperties);
             if (nodeIpAddress == null) { continue; }
 
             final boolean isAlreadyConnectedToNode = _bitcoinNodeManager.isConnectedToNode(nodeIpAddress);
@@ -319,7 +326,12 @@ public class SpvModule {
         }
     }
 
-    public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Integer maxPeerCount, final Wallet wallet) {
+    public SpvModule(final Environment environment, final List<NodeProperties> seedNodes, final Integer maxPeerCount, final Wallet wallet) {
+        this(environment, seedNodes, maxPeerCount, wallet, false);
+    }
+
+    public SpvModule(final Environment environment, final List<NodeProperties> seedNodes, final Integer maxPeerCount, final Wallet wallet, final Boolean isTestNet) {
+        _isTestNet = isTestNet;
         _masterInflater = new CoreInflater();
         _seedNodes = seedNodes;
         _wallet = wallet;
@@ -357,6 +369,8 @@ public class SpvModule {
             final Database database = _environment.getDatabase();
             maxQueryBatchSize = database.getMaxQueryBatchSize();
         }
+
+        final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -688,16 +702,36 @@ public class SpvModule {
             _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
 
-            for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
-                final NodeIpAddress nodeIpAddress = SeedNodeProperties.toNodeIpAddress(seedNodeProperties);
+            for (final NodeProperties nodeProperties : _seedNodes) {
+                final NodeIpAddress nodeIpAddress = NodeProperties.toNodeIpAddress(nodeProperties);
                 if (nodeIpAddress == null) { continue; }
 
                 _bitcoinNodeManager.defineSeedNode(nodeIpAddress);
             }
         }
 
+        final DifficultyCalculatorFactory difficultyCalculatorFactory;
+        { // Initialize DifficultyCalculatorFactory...
+            if (_isTestNet) {
+                difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                        return new TestNetDifficultyCalculator(context);
+                    }
+                };
+            }
+            else {
+                difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                        return new DifficultyCalculator(context);
+                    }
+                };
+            }
+        }
+
         { // Initialize BlockHeaderDownloader...
-            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _mutableNetworkTime, _systemTime, _mainThreadPool);
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _mainThreadPool, upgradeSchedule);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
