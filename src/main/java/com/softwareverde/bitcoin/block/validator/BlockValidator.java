@@ -227,12 +227,14 @@ public class BlockValidator {
         final StringBuilder errorMessage = new StringBuilder("Transactions failed to unlock inputs.");
         final int totalSignatureOperationCount;
         {
+            boolean allTransactionsAreValid = true;
             int signatureOperationCount = 0;
             for (final TransactionValidationTaskHandler.TransactionValidationTaskResult transactionValidationTaskResult : transactionValidationTaskResults) {
                 if (transactionValidationTaskResult.isValid()) {
                     signatureOperationCount += transactionValidationTaskResult.getSignatureOperationCount();
                 }
                 else {
+                    allTransactionsAreValid = false;
                     for (final Sha256Hash invalidTransactionHash : transactionValidationTaskResult.getInvalidTransactions()) {
                         invalidTransactions.add(invalidTransactionHash);
 
@@ -245,11 +247,17 @@ public class BlockValidator {
                 }
             }
             totalSignatureOperationCount = signatureOperationCount;
+
+            if (! allTransactionsAreValid) {
+                return BlockValidationResult.invalid(errorMessage.toString(), invalidTransactions);
+            }
         }
-        if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid(errorMessage.toString(), invalidTransactions); }
 
         if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
-            final int maximumSignatureOperationCount = (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
+            // NOTE: Technically, checking the block's maxSigOp count should be checked "live" instead of at the end, but this check is redundant due to
+            //  Transactions having a maximum signature operation count, and blocks having a maximum Transaction count.
+            final int maximumSignatureOperationCount = (BlockInflater.MAX_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
+            Logger.trace("Signature Operations: " + totalSignatureOperationCount + " / " + maximumSignatureOperationCount);
             if (totalSignatureOperationCount > maximumSignatureOperationCount) {
                 return BlockValidationResult.invalid("Too many signature operations.");
             }

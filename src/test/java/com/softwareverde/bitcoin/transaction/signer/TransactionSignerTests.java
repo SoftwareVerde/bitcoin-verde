@@ -101,7 +101,7 @@ public class TransactionSignerTests {
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertTrue(inputIsUnlocked);

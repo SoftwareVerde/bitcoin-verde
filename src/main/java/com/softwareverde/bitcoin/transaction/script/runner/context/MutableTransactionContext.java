@@ -65,6 +65,9 @@ public class MutableTransactionContext implements TransactionContext {
         _currentScript = ConstUtil.asConstOrNull(currentScript);
         _currentScriptIndex = transactionContext.getScriptIndex();
         _scriptLastCodeSeparatorIndex = transactionContext.getScriptLastCodeSeparatorIndex();
+
+        _signatureOperationCount = transactionContext.getSignatureOperationCount();
+        _operationCount = transactionContext.getOperationCount();
     }
 
     public void setBlockHeight(final Long blockHeight) {
@@ -107,6 +110,10 @@ public class MutableTransactionContext implements TransactionContext {
 
     public void setCurrentScriptLastCodeSeparatorIndex(final Integer codeSeparatorIndex) {
         _scriptLastCodeSeparatorIndex = codeSeparatorIndex;
+    }
+
+    public void clearSignatureOperationCount() {
+        _signatureOperationCount = 0;
     }
 
     public void incrementSignatureOperationCount(final Integer operationCount) {

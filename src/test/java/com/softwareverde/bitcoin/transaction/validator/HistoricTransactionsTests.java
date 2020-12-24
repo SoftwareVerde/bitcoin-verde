@@ -159,7 +159,7 @@ public class HistoricTransactionsTests extends UnitTest {
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         // Action
-        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext).isValid;
 
         // Assert
         Assert.assertEquals(expectedResult, inputIsUnlocked);

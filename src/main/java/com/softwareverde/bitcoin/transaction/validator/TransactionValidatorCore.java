@@ -282,7 +282,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
         final long totalTransactionInputValue;
         {
-            long totalInputValue = 0L;
+            long totalInputValueCounter = 0L;
 
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
@@ -303,7 +303,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     return TransactionValidationResult.invalid(errorJson);
                 }
 
-                { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
+                { // Enforce Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
                     final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = _isTransactionOutputCoinbase(transactionOutputIdentifierBeingSpent);
                     if (transactionOutputBeingSpentIsCoinbaseTransaction == null) {
                         final Json errorJson = _createInvalidTransactionReport("Previous output does not exist.", transaction, transactionContext);
@@ -327,7 +327,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                     return TransactionValidationResult.invalid(errorJson);
                 }
 
-                totalInputValue += transactionOutputBeingSpent.getAmount();
+                totalInputValueCounter += transactionOutputBeingSpent.getAmount();
 
                 final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
                 final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -336,14 +336,19 @@ public class TransactionValidatorCore implements TransactionValidator {
                 transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
                 transactionContext.setTransactionInputIndex(i);
 
-                final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
+                final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
+                final boolean inputIsUnlocked = scriptRunnerResult.isValid;
                 if (! inputIsUnlocked) {
                     final Json errorJson = _createInvalidTransactionReport("Transaction failed to unlock inputs.", transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
+
+                final Integer signatureOperationCount = scriptRunnerResult.signatureOperationCount;
+                transactionContext.incrementSignatureOperationCount(signatureOperationCount);
             }
 
-            totalTransactionInputValue = totalInputValue;
+            totalTransactionInputValue = totalInputValueCounter;
+
         }
 
         { // Validate that the total input value is greater than or equal to the output value...
@@ -373,15 +378,15 @@ public class TransactionValidatorCore implements TransactionValidator {
             }
         }
 
-        final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
+        final Integer transactionSignatureOperationCount = transactionContext.getSignatureOperationCount();
         if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operations per Transaction...
             final Integer maximumSignatureOperationCount = _getMaximumSignatureOperations();
-            if (signatureOperationCount > maximumSignatureOperationCount) {
+            if (transactionSignatureOperationCount > maximumSignatureOperationCount) {
                 final Json errorJson = _createInvalidTransactionReport("Transaction exceeds maximum signature operation count.", transaction, transactionContext);
                 return TransactionValidationResult.invalid(errorJson);
             }
         }
 
-        return TransactionValidationResult.valid(signatureOperationCount);
+        return TransactionValidationResult.valid(transactionSignatureOperationCount);
     }
 }

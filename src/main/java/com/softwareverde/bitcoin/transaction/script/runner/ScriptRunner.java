@@ -29,21 +29,47 @@ public class ScriptRunner {
     public static final Integer MAX_SCRIPT_BYTE_COUNT = 10000;
     public static final Integer MAX_OPERATION_COUNT = 201;
 
+    public static class ScriptRunnerResult {
+        public static ScriptRunnerResult valid(final TransactionContext transactionContext) {
+            final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
+            return new ScriptRunnerResult(true, signatureOperationCount);
+        }
+
+        public static ScriptRunnerResult invalid(final TransactionContext transactionContext) {
+            final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
+            return new ScriptRunnerResult(false, signatureOperationCount);
+        }
+
+        public final Boolean isValid;
+        public final Integer signatureOperationCount;
+
+        public ScriptRunnerResult(final Boolean isValid, final Integer signatureOperationCount) {
+            this.isValid = isValid;
+            this.signatureOperationCount = signatureOperationCount;
+        }
+    }
+
     protected final UpgradeSchedule _upgradeSchedule;
 
     public ScriptRunner(final UpgradeSchedule upgradeSchedule) {
         _upgradeSchedule = upgradeSchedule;
     }
 
-    public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final TransactionContext transactionContext) {
+    public ScriptRunnerResult runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final TransactionContext transactionContext) {
         final Long blockHeight = transactionContext.getBlockHeight();
         final MedianBlockTime medianBlockTime = transactionContext.getMedianBlockTime();
+
         final MutableTransactionContext mutableContext = new MutableTransactionContext(transactionContext);
+        mutableContext.clearSignatureOperationCount();
 
         final ControlState controlState = new ControlState();
 
-        if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) { return false; }
-        if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) { return false; }
+        if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
+            return ScriptRunnerResult.invalid(mutableContext);
+        }
+        if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
+            return ScriptRunnerResult.invalid(mutableContext);
+        }
 
         final Stack traditionalStack;
         final Stack payToScriptHashStack;
@@ -53,62 +79,88 @@ public class ScriptRunner {
             traditionalStack.setMaxItemCount(1000);
             try {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
-                if (unlockingScriptOperations == null) { return false; }
+                if (unlockingScriptOperations == null) {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
 
                 if (_upgradeSchedule.areOnlyPushOperationsAllowedWithinUnlockingScript(blockHeight)) {
                     final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
-                    if (unlockingScriptContainsNonPushOperations) { return false; } // Only push operations are allowed in the unlocking script. (BIP 62)
+                    if (unlockingScriptContainsNonPushOperations) { // Only push operations are allowed in the unlocking script. (BIP 62)
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                 }
 
                 mutableContext.setCurrentScript(unlockingScript);
                 for (final Operation operation : unlockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
-                    if (! _incrementAndCheckOperationCount(operation, mutableContext)) { return false; }
+                    if (! _incrementAndCheckOperationCount(operation, mutableContext)) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
 
-                    if (operation.failIfPresent()) { return false; }
+                    if (operation.failIfPresent()) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
 
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
                     final Boolean wasSuccessful = operation.applyTo(traditionalStack, controlState, mutableContext);
-                    if (! wasSuccessful) { return false; }
+                    if (! wasSuccessful) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                 }
 
-                if (controlState.isInCodeBlock()) { return false; } // IF/ELSE blocks cannot span scripts.
+                if (controlState.isInCodeBlock()) { // IF/ELSE blocks cannot span scripts.
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
 
                 traditionalStack.clearAltStack(); // Clear the alt stack for the unlocking script, and for the payToScriptHash script...
 
                 payToScriptHashStack = new Stack(traditionalStack);
 
                 final List<Operation> lockingScriptOperations = lockingScript.getOperations();
-                if (lockingScriptOperations == null) { return false; }
+                if (lockingScriptOperations == null) {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
 
                 mutableContext.setCurrentScript(lockingScript);
                 for (final Operation operation : lockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
-                    if (! _incrementAndCheckOperationCount(operation, mutableContext)) { return false; }
+                    if (! _incrementAndCheckOperationCount(operation, mutableContext)) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
 
-                    if (operation.failIfPresent()) { return false; }
+                    if (operation.failIfPresent()) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
 
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
                     final Boolean wasSuccessful = operation.applyTo(traditionalStack, controlState, mutableContext);
-                    if (! wasSuccessful) { return false; }
+                    if (! wasSuccessful) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                 }
             }
             catch (final Exception exception) {
                 Logger.warn(exception);
-                return false;
+                return ScriptRunnerResult.invalid(mutableContext);
             }
 
             { // Validate Stack...
-                if (traditionalStack.didOverflow()) { return false; }
-                if (traditionalStack.isEmpty()) { return false; }
+                if (traditionalStack.didOverflow()) {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
+                if (traditionalStack.isEmpty()) {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
                 final Value topStackValue = traditionalStack.pop();
-                if (! topStackValue.asBoolean()) { return false; }
+                if (! topStackValue.asBoolean()) {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
             }
         }
 
@@ -130,45 +182,63 @@ public class ScriptRunner {
 
             if (shouldRunPayToScriptHashScript) {
                 final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
-                if (unlockingScriptContainsNonPushOperations) { return false; }
+                if (unlockingScriptContainsNonPushOperations) {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
 
                 try {
                     final Value redeemScriptValue = payToScriptHashStack.pop();
-                    if (payToScriptHashStack.didOverflow()) { return false; }
+                    if (payToScriptHashStack.didOverflow()) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                     final Script redeemScript = new ImmutableScript(redeemScriptValue);
 
                     mutableContext.setCurrentScript(redeemScript);
                     final List<Operation> redeemScriptOperations = redeemScript.getOperations();
-                    if (redeemScriptOperations == null) { return false; }
+                    if (redeemScriptOperations == null) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
 
                     for (final Operation operation : redeemScriptOperations) {
                         mutableContext.incrementCurrentScriptIndex();
 
-                        if (! _incrementAndCheckOperationCount(operation, mutableContext)) { return false; }
+                        if (! _incrementAndCheckOperationCount(operation, mutableContext)) {
+                            return ScriptRunnerResult.invalid(mutableContext);
+                        }
 
-                        if (operation.failIfPresent()) { return false; }
+                        if (operation.failIfPresent()) {
+                            return ScriptRunnerResult.invalid(mutableContext);
+                        }
 
                         final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
                         if (! shouldExecute) { continue; }
 
                         final Boolean wasSuccessful = operation.applyTo(payToScriptHashStack, controlState, mutableContext);
-                        if (! wasSuccessful) { return false; }
+                        if (! wasSuccessful) {
+                            return ScriptRunnerResult.invalid(mutableContext);
+                        }
                     }
                 }
                 catch (final Exception exception) {
                     Logger.warn(exception);
-                    return false;
+                    return ScriptRunnerResult.invalid(mutableContext);
                 }
 
                 { // Validate P2SH Stack...
-                    if (payToScriptHashStack.isEmpty()) { return false; }
+                    if (payToScriptHashStack.isEmpty()) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                     final Value topStackValue = payToScriptHashStack.pop();
-                    if (! topStackValue.asBoolean()) { return false; }
+                    if (! topStackValue.asBoolean()) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                 }
             }
         }
 
-        if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
+        if (controlState.isInCodeBlock()) { // All CodeBlocks must be closed before the end of the script...
+            return ScriptRunnerResult.invalid(mutableContext);
+        }
 
         // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
         if (_upgradeSchedule.areUnusedValuesAfterScriptExecutionDisallowed(blockHeight)) {
@@ -177,13 +247,17 @@ public class ScriptRunner {
                 if (_upgradeSchedule.areUnusedValuesAfterSegwitScriptExecutionAllowed(medianBlockTime)) {
                     final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
                     final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
-                    if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }
+                    if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) {
+                        return ScriptRunnerResult.invalid(mutableContext);
+                    }
                 }
-                else { return false; }
+                else {
+                    return ScriptRunnerResult.invalid(mutableContext);
+                }
             }
         }
 
-        return true;
+        return ScriptRunnerResult.valid(mutableContext);
     }
 
     private Boolean _incrementAndCheckOperationCount(final Operation operation, final MutableTransactionContext mutableContext) {

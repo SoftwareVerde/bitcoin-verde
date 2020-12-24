@@ -831,7 +831,8 @@ public class Wallet {
             }
 
             final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule);
-            final Boolean outputIsUnlocked = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
+            final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(transactionOutputBeingSpent.getLockingScript(), signedTransactionInput.getUnlockingScript(), context);
+            final boolean outputIsUnlocked = scriptRunnerResult.isValid;
 
             if (! outputIsUnlocked) {
                 Logger.warn("Error signing transaction.");

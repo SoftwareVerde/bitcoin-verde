@@ -171,6 +171,7 @@ public class TransactionDownloader extends SleepyService {
                     timer.start();
                 }
 
+                if (pendingTransactionHashes.isEmpty()) { continue; }
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
                 final RequestId requestId = bitcoinNode.requestTransactions(pendingTransactionHashes, _transactionDownloadedCallback);
 
@@ -231,6 +232,7 @@ public class TransactionDownloader extends SleepyService {
 
             @Override
             public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash transactionHash) {
+                if (transactionHash == null) { return; }
                 _pendingRequestInformation.remove(transactionHash);
 
                 try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {

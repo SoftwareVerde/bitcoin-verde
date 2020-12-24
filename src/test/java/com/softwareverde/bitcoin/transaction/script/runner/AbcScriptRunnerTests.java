@@ -607,7 +607,7 @@ public class AbcScriptRunnerTests extends UnitTest {
                 upgradeSchedule.setUnusedValuesAfterSegwitScriptExecutionAllowed(false);
             }
 
-            final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             executedCount += 1;
 
@@ -622,7 +622,7 @@ public class AbcScriptRunnerTests extends UnitTest {
                 // Retry with production values to assess severity...
                 context.setBlockHeight(Long.MAX_VALUE);
                 medianBlockTime.setMedianBlockTime(Long.MAX_VALUE);
-                final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context);
+                final boolean isValidInProduction = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
                 final boolean isPossiblyImportant = ( (! expectedResult) && isValidInProduction);
 
                 if (! skipTest) {

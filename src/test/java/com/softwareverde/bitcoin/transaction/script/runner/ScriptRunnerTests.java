@@ -85,7 +85,7 @@ public class ScriptRunnerTests {
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
         // Action
-        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
         // Assert
         Assert.assertTrue(inputIsUnlocked);
@@ -125,7 +125,7 @@ public class ScriptRunnerTests {
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertTrue(inputIsUnlocked);
@@ -180,7 +180,7 @@ public class ScriptRunnerTests {
             final UnlockingScript unlockingScript = new MutableUnlockingScript(ByteArray.fromHexString(unlockingScriptString));
 
             // Action
-            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertTrue(outputIsUnlocked);
@@ -251,7 +251,7 @@ public class ScriptRunnerTests {
             final UnlockingScript unlockingScript = new MutableUnlockingScript(ByteArray.fromHexString(unlockingScriptString));
 
             // Action
-            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            final Boolean outputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
             // Assert
             Assert.assertFalse(outputIsUnlocked);
@@ -276,7 +276,7 @@ public class ScriptRunnerTests {
         final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
 
         // Action
-        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
+        final Boolean isValid = scriptRunner.runScript(lockingScript, unlockingScript, context).isValid;
 
         // Assert
         Assert.assertTrue(isValid);

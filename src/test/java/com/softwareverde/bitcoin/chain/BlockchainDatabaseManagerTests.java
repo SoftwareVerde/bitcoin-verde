@@ -1265,7 +1265,7 @@ class Void {
             context.setTransactionOutputBeingSpent(outputBeingSpent);
             context.setCurrentScriptLastCodeSeparatorIndex(0);
             final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
-            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
+            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context).isValid;
             Assert.assertTrue(outputIsUnlocked);
 
             mutableBlock.addTransaction(signedTransaction);
