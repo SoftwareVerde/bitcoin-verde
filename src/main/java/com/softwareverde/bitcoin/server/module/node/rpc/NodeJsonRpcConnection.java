@@ -51,7 +51,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
     protected Json _executeJsonRequest(final Json rpcRequestJson) {
         if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to a hook-upgraded socket."); }
-        if (! _jsonSocket.isConnected()) { throw new RuntimeException("Attempted to invoke Json request to a closed socket."); }
+        if ( (_jsonSocket == null) || (! _jsonSocket.isConnected()) ) { throw new RuntimeException("Attempted to invoke Json request to a closed socket."); }
 
         _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
         _jsonSocket.beginListening();
@@ -224,8 +224,12 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final java.net.Socket javaSocket;
         {
             java.net.Socket socket = null;
-            try { socket = new java.net.Socket(hostname, port); }
-            catch (final Exception exception) { Logger.debug(exception); }
+            try {
+                socket = new java.net.Socket(hostname, port);
+            }
+            catch (final Exception exception) {
+                Logger.debug("Unable to connect to endpoint: " + hostname + ":" + port);
+            }
             javaSocket = socket;
         }
 
@@ -255,6 +259,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockHeaders(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("blockHeight", blockHeight);
         rpcParametersJson.put("maxBlockCount", maxBlockCount);
@@ -269,6 +275,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockHeaders(final Integer maxBlockCount, final Boolean returnRawFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("maxBlockCount", maxBlockCount);
         rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
@@ -282,6 +290,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getDifficulty() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "DIFFICULTY");
@@ -290,6 +300,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockReward() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "BLOCK_REWARD");
@@ -298,6 +310,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getUnconfirmedTransactions(final Boolean returnRawFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
 
@@ -310,6 +324,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockHeight() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "BLOCK_HEIGHT");
@@ -318,6 +334,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockHeaderHeight(final Sha256Hash blockHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("hash", blockHash.toString());
 
@@ -329,6 +347,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockchainMetadata() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         {
             rpcRequestJson.put("method", "GET");
@@ -339,6 +359,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getNodes() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         {
             rpcRequestJson.put("method", "GET");
@@ -349,6 +371,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getAddressTransactions(final Address address) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("address", address.toBase58CheckEncoded());
 
@@ -361,54 +385,80 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlock(final Sha256Hash blockHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlock(blockHash, null);
     }
 
     public Json getBlock(final Sha256Hash blockHash, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlock(blockHash, hexFormat);
     }
 
     public Json getBlock(final Long blockHeight) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlock(blockHeight, null);
     }
 
     public Json getBlock(final Long blockHeight, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlock(blockHeight, hexFormat);
     }
 
     public Json getBlockHeader(final Sha256Hash blockHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlockHeader(blockHash, null);
     }
 
     public Json getBlockHeader(final Sha256Hash blockHash, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlockHeader(blockHash, hexFormat);
     }
 
     public Json getBlockHeader(final Long blockHeight) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlockHeader(blockHeight, null);
     }
 
     public Json getBlockHeader(final Long blockHeight, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlockHeader(blockHeight, hexFormat);
     }
 
     public Json getBlockTransactions(final Sha256Hash blockHash, final Integer pageSize, final Integer pageNumber) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlockTransactions(blockHash, pageSize, pageNumber);
     }
 
     public Json getBlockTransactions(final Long blockHeight, final Integer pageSize, final Integer pageNumber) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getBlockTransactions(blockHeight, pageSize, pageNumber);
     }
 
     public Json getTransaction(final Sha256Hash transactionHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getTransaction(transactionHash, null);
     }
 
     public Json getTransaction(final Sha256Hash transactionHash, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         return _getTransaction(transactionHash, hexFormat);
     }
 
     public Json getStatus() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "STATUS");
@@ -417,6 +467,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getUtxoCacheStatus() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "UTXO_CACHE");
@@ -425,6 +477,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json commitUtxoCache() {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "POST");
         rpcRequestJson.put("query", "COMMIT_UTXO_CACHE");
@@ -442,6 +496,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Attempted to create AnnouncementHook without a callback."); }
+        if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 
         final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true, addressesFilter);
 
@@ -478,6 +533,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
     public Boolean replaceAnnouncementHookAddressFilter(final List<Address> addressesFilter) {
         if (! _isUpgradedToHook) { return false; }
+        if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 
         final boolean returnRawData = _announcementHookExpectsRawTransactionData;
         final Json rpcRequestJson = _createRegisterHookRpcJson(returnRawData, true, addressesFilter);
@@ -491,6 +547,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
     public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
+        if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 
         final Json registerHookRpcJson = _createRegisterHookRpcJson(true, true, addressesFilter);
 
@@ -556,6 +613,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json validatePrototypeBlock(final Block block) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
         rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
@@ -569,6 +628,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getPrototypeBlock(final Boolean returnRawData) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("rawFormat", (returnRawData ? 1 : 0));
 
@@ -581,6 +642,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json submitTransaction(final Transaction transaction) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
         rpcParametersJson.put("transactionData", transactionDeflater.toBytes(transaction));
@@ -594,6 +657,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json submitBlock(final Block block) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
         rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
@@ -607,6 +672,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json isSlpTransaction(final Sha256Hash transactionHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("hash", transactionHash);
 
@@ -619,6 +686,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json isValidSlpTransaction(final Sha256Hash transactionHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("hash", transactionHash);
 
@@ -631,6 +700,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json validateTransaction(final Transaction transaction, final Boolean enableSlpValidation) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
 
@@ -647,6 +718,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getSlpTokenId(final Sha256Hash transactionHash) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
         final Json rpcParametersJson = new Json();
         rpcParametersJson.put("hash", transactionHash);
 
@@ -662,8 +735,14 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _jsonSocket;
     }
 
+    public Boolean isConnected() {
+        return ( (_jsonSocket != null) && _jsonSocket.isConnected() );
+    }
+
     @Override
     public void close() {
-        _jsonSocket.close();
+        if (_jsonSocket != null) {
+            _jsonSocket.close();
+        }
     }
 }
