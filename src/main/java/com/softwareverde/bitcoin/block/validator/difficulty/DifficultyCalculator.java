@@ -213,9 +213,10 @@ public class DifficultyCalculator {
         final Boolean isFirstBlock = (Util.areEqual(0L, blockHeight));
         if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
-        final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
+        // final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
+        final MedianBlockTime medianTimePast = _context.getMedianBlockTime(blockHeight - 1L);
 
-        if (upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianBlockTime)) {
+        if (upgradeSchedule.isAsertDifficultyAdjustmentAlgorithmEnabled(medianTimePast)) {
             return _calculateAserti32dBitcoinCashTarget(blockHeight);
         }
 

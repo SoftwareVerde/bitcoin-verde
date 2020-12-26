@@ -301,7 +301,7 @@ public class BlockValidatorTests extends UnitTest {
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
         }
 
-        blockValidatorContext.addBlockHeader(inflateBlockHeader(blockHeaderInflater, "0100000049C1DAAB3B6536FF1B2633C3A316A6E06EC287676CDEEC4CA7BAAE6B00000000AC10B36B8F354B3353207DE15940A5EDBC05BB8364AF75B4B5409E7823F2B48923EC3A4BFFFF001DBD5FA412"), 32255L);
+        blockValidatorContext.addBlockHeader(inflateBlockHeader(blockHeaderInflater, "0100000049C1DAAB3B6536FF1B2633C3A316A6E06EC287676CDEEC4CA7BAAE6B00000000AC10B36B8F354B3353207DE15940A5EDBC05BB8364AF75B4B5409E7823F2B48923EC3A4BFFFF001DBD5FA412"), 32255L, MedianBlockTime.fromSeconds(1262150129L), null);
 
         final Difficulty expectedDifficulty = new ImmutableDifficulty(ByteArray.fromHexString("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
         final float expectedDifficultyRatio = 1.18F;

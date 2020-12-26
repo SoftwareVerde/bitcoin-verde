@@ -230,6 +230,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
             final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString("000000204EC6D6C4A07F0D351A48DAA35E684B2ADC806D3F4C0397000000000000000000C67013C6B366AF5A19A8DB92187427384A097950E9E21B0F4BA3A3E271955ACF2370055DEA3D03188963EFB2"));
             blockHeaders.put(blockHeight, blockHeader);
             chainWorks.put(blockHeight, ChainWork.fromHexString("000000000000000000000000000000000000000000F0589957593E319806C814"));
+            medianBlockTimes.put(blockHeight, MedianBlockTime.fromSeconds(1560637142L));
         }
 
         final BlockHeader blockHeader;
