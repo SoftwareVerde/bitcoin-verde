@@ -93,6 +93,7 @@ CREATE VIEW IF NOT EXISTS "head_block" AS
         blocks
         INNER JOIN ( SELECT chain_work FROM blocks WHERE has_transactions = 1 ORDER BY chain_work DESC LIMIT 1 ) AS best_block_work
             ON blocks.chain_work = best_block_work.chain_work
+    WHERE blocks.has_transactions = 1
     ORDER BY
         blocks.id ASC
     LIMIT 1
@@ -100,32 +101,11 @@ CREATE VIEW IF NOT EXISTS "head_block" AS
 
 -- UTXO Tables
 
-CREATE TABLE IF NOT EXISTS "unspent_transaction_outputs" (
-	"transaction_hash" BLOB NOT NULL,
-	"index" INTEGER NOT NULL,
-	"is_spent" TINYINT NULL DEFAULT 0,
-	"block_height" INTEGER NULL,
-	PRIMARY KEY ("transaction_hash", "index")
-);
-CREATE TABLE IF NOT EXISTS "unspent_transaction_outputs_buffer" (
-	"transaction_hash" BLOB NOT NULL,
-	"index" INTEGER NOT NULL,
-	"is_spent" TINYINT NULL DEFAULT 0,
-	"block_height" INTEGER NULL,
-	PRIMARY KEY ("transaction_hash", "index")
-);
-
 CREATE TABLE IF NOT EXISTS "committed_unspent_transaction_outputs" (
 	"transaction_hash" BLOB NOT NULL,
 	"index" INTEGER NOT NULL,
 	"is_spent" TINYINT NOT NULL,
 	"block_height" INTEGER NOT NULL,
-	PRIMARY KEY ("transaction_hash", "index")
-);
-
-CREATE TABLE IF NOT EXISTS "stale_committed_unspent_transaction_outputs" (
-	"transaction_hash" BLOB NOT NULL,
-	"index" INTEGER NOT NULL,
 	PRIMARY KEY ("transaction_hash", "index")
 );
 
@@ -221,6 +201,8 @@ CREATE TABLE IF NOT EXISTS "nodes" (
 	"connection_count" INTEGER NOT NULL DEFAULT 1,
 	"last_handshake_timestamp" BIGINT NULL,
 	"user_agent" VARCHAR(255) NULL,
+	"head_block_height" INTEGER UNSIGNED NOT NULL,
+    "head_block_hash" BLOB NOT NULL,
 	PRIMARY KEY ("id"),
 	FOREIGN KEY("host_id") REFERENCES "hosts" ("id") ON UPDATE RESTRICT ON DELETE RESTRICT
 );
@@ -287,10 +269,8 @@ CREATE TABLE IF NOT EXISTS "validated_slp_transactions" (
 -- Misc
 
 CREATE TABLE IF NOT EXISTS "properties" (
-	"id" INTEGER NOT NULL,
 	"key" VARCHAR(255) NOT NULL,
-	"value" VARCHAR(255) NOT NULL,
-	PRIMARY KEY ("id")
+	"value" VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "metadata" (
@@ -344,3 +324,4 @@ CREATE INDEX "unconfirmed_transaction_inputs_unconfirmed_transaction_inputs_tx_h
 CREATE UNIQUE INDEX "unconfirmed_transaction_outputs_unconfirmed_transaction_output_tx_id_index_uq" ON "unconfirmed_transaction_outputs" ("transaction_id", "index");
 CREATE INDEX "unspent_transaction_outputs_utxo_block_height_ix" ON "unspent_transaction_outputs" ("block_height");
 CREATE UNIQUE INDEX "validated_slp_transactions_valid_slp_transactions_uq" ON "validated_slp_transactions" ("transaction_id");
+CREATE UNIQUE INDEX "properties_uq" ON "properties" ("key");

@@ -56,6 +56,7 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -688,7 +689,8 @@ public class SpvModule {
                 context.systemTime = _systemTime;
                 context.databaseManagerFactory = databaseManagerFactory;
                 context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
-                context.maxNodeCount = _maxPeerCount;
+                context.minNodeCount = Math.max(1, _maxPeerCount);
+                context.maxNodeCount = Math.max(1, _maxPeerCount);
                 context.networkTime = _mutableNetworkTime;
                 context.nodeInitializer = nodeInitializer;
                 context.banFilter = _banFilter;
@@ -707,7 +709,11 @@ public class SpvModule {
                 if (nodeIpAddress == null) { continue; }
 
                 _bitcoinNodeManager.defineSeedNode(nodeIpAddress);
+                Logger.debug("Defined Seed Node: " + nodeIpAddress);
             }
+
+            final List<String> dnsSeeds = new ImmutableList<String>("seed.bchd.cash", "seed-bch.bitcoinforks.org", "btccash-seeder.bitcoinunlimited.info", "seed.flowee.cash");
+            _bitcoinNodeManager.defineDnsSeeds(dnsSeeds);
         }
 
         final DifficultyCalculatorFactory difficultyCalculatorFactory;
@@ -813,7 +819,10 @@ public class SpvModule {
         _blockHeaderDownloader.start();
 
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
-            try { Thread.sleep(50000); } catch (final Exception exception) { break; }
+            try { Thread.sleep(15000); } catch (final Exception exception) { break; }
+
+            _blockHeaderDownloader.wakeUp();
+            _spvSlpTransactionValidator.wakeUp();
         }
 
         Logger.info("[SPV Module Exiting]");

@@ -142,7 +142,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         }
 
         final HashMap<TransactionId, MutableList<Integer>> spentOutputs = new HashMap<TransactionId, MutableList<Integer>>();
-        { // Load debits, with input_indexes...
+        if (! rows.isEmpty()) { // Load debits, with input_indexes...
             final java.util.List<Row> transactionInputRows = databaseConnection.query(
                 new Query("SELECT blocks.blockchain_segment_id, indexed_transaction_inputs.transaction_id, indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index FROM indexed_transaction_inputs LEFT OUTER JOIN block_transactions ON block_transactions.transaction_id = indexed_transaction_inputs.transaction_id LEFT OUTER JOIN blocks ON blocks.id = block_transactions.block_id WHERE (indexed_transaction_inputs.spends_transaction_id, indexed_transaction_inputs.spends_output_index) IN (?)")
                     .setInClauseParameters(rows, new ValueExtractor<Row>() {

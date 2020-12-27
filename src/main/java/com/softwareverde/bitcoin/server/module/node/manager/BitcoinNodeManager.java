@@ -994,7 +994,7 @@ public class BitcoinNodeManager {
     public BitcoinNode getNode(final NodeFilter nodeFilter) {
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         final List<BitcoinNode> filteredNodes = _filterNodes(allNodes, nodeFilter);
-        if (filteredNodes == null) { return null; }
+        if ( (filteredNodes == null) || filteredNodes.isEmpty() ) { return null; }
         return filteredNodes.get(0);
     }
 

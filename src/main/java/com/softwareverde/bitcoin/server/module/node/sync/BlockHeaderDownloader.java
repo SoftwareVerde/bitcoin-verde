@@ -468,7 +468,10 @@ public class BlockHeaderDownloader extends SleepyService {
 
         final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
         final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getPreferredNodes();
-        if (bitcoinNodes.isEmpty()) { return false; }
+        if (bitcoinNodes.isEmpty()) {
+            Logger.debug("No peers available.");
+            return false;
+        }
 
         final int index = (int) (Math.random() * bitcoinNodes.getCount());
         final BitcoinNode bitcoinNode = bitcoinNodes.get(index);

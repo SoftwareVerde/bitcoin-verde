@@ -149,7 +149,7 @@ public class BitcoinNodeDatabaseManagerCore implements BitcoinNodeDatabaseManage
 
         final Long hostId = _storeHost(ip);
         databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, NULL, ?, ?) ON DUPLICATE KEY UPDATE last_seen_timestamp = VALUES (last_seen_timestamp)")
+            new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent, head_block_height, head_block_hash) VALUES (?, ?, ?, ?, NULL, ?, ?) ON DUPLICATE KEY UPDATE last_seen_timestamp = VALUES (last_seen_timestamp)")
                 .setParameter(hostId)
                 .setParameter(port)
                 .setParameter(now)
