@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
@@ -132,6 +133,8 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+        if (blockId == null) { return new MutableList<NodeId>(0); }
+
         final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
@@ -142,8 +145,8 @@ public class FullNodeBitcoinNodeDatabaseManagerCore extends BitcoinNodeDatabaseM
 
             final BlockId nodeBlockId = blockHeaderDatabaseManager.getBlockHeaderId(nodeBlockHash);
             final BlockchainSegmentId nodeBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(nodeBlockId);
-            final Boolean nodeIsOnSameBlockchain = (blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, nodeBlockchainSegmentId, BlockRelationship.ANY));
-            final boolean nodeHasBlock = ((nodeBlockHeight >= blockHeight) && nodeIsOnSameBlockchain);
+            final Boolean nodeIsOnSameBlockchain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, nodeBlockchainSegmentId, BlockRelationship.ANY);
+            final boolean nodeHasBlock = ((nodeBlockHeight >= blockHeight) && Util.coalesce(nodeIsOnSameBlockchain, false));
             // TODO: Nodes that diverged after the desired blockHeight could still serve the block...
 
             if (filterType == FilterType.KEEP_NODES_WITH_INVENTORY) {
