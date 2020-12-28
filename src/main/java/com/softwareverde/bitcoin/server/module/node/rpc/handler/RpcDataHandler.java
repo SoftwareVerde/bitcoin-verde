@@ -461,40 +461,42 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.fromPrivateKey(privateKey);
 
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
 
-            final BlockHeader previousBlockHeader = blockHeaderDatabaseManager.getBlockHeader(headBlockId);
+                final BlockHeader previousBlockHeader = blockHeaderDatabaseManager.getBlockHeader(headBlockId);
 
-            final Long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
-            final Difficulty difficulty = _getDifficulty(databaseManager);
-            final Long blockReward = _getBlockReward(databaseManager);
+                final Long blockHeight = (blockHeaderDatabaseManager.getBlockHeight(headBlockId) + 1L);
+                final Difficulty difficulty = _getDifficulty(databaseManager);
+                final Long blockReward = _getBlockReward(databaseManager);
 
-            final List<Transaction> unconfirmedTransactions = _getUnconfirmedTransactions(databaseManager);
+                final List<Transaction> unconfirmedTransactions = _getUnconfirmedTransactions(databaseManager);
 
-            // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
-            final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
+                // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
+                final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
 
-            final Long timestamp = _systemTime.getCurrentTimeInSeconds();
+                final Long timestamp = _systemTime.getCurrentTimeInSeconds();
 
-            blockHeader.setVersion(BlockHeader.VERSION);
-            blockHeader.setPreviousBlockHash(previousBlockHeader.getHash());
-            blockHeader.setDifficulty(difficulty);
-            blockHeader.setTimestamp(timestamp);
-            blockHeader.setNonce(0L);
+                blockHeader.setVersion(BlockHeader.VERSION);
+                blockHeader.setPreviousBlockHash(previousBlockHeader.getHash());
+                blockHeader.setDifficulty(difficulty);
+                blockHeader.setTimestamp(timestamp);
+                blockHeader.setNonce(0L);
 
-            final MutableList<Transaction> blockTransactions = new MutableList<>(1);
-            blockTransactions.add(coinbaseTransaction);
-            blockTransactions.addAll(unconfirmedTransactions);
+                final MutableList<Transaction> blockTransactions = new MutableList<>(1);
+                blockTransactions.add(coinbaseTransaction);
+                blockTransactions.addAll(unconfirmedTransactions);
 
-            return new CanonicalMutableBlock(blockHeader, blockTransactions);
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-            return null;
+                return new CanonicalMutableBlock(blockHeader, blockTransactions);
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+                return null;
+            }
         }
     }
 
@@ -572,12 +574,17 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                     final MutableUnspentTransactionOutputSet unspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
                     final Boolean utxosAreAvailable = unspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight);
                     if (! utxosAreAvailable) {
-                        return BlockValidationResult.invalid("Missing UTXOs for block.");
+                        final BlockValidationResult blockValidationResult = BlockValidationResult.invalid("Missing UTXOs for block.");
+                        Logger.info("Prototype Block: " + block.getHash() + " INVALID " + blockValidationResult.errorMessage);
+                        return blockValidationResult;
                     }
 
                     final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(_masterInflater, blockchainSegmentId, unspentTransactionOutputSet, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, _networkTime, _upgradeSchedule);
                     final BlockValidator blockValidator = new BlockValidator(blockValidatorContext);
-                    return blockValidator.validatePrototypeBlock(block, blockHeight);
+
+                    final BlockValidationResult blockValidationResult = blockValidator.validatePrototypeBlock(block, blockHeight);
+                    Logger.info("Prototype Block: " + block.getHash() + " " + (blockValidationResult.isValid ? "VALID" : ("INVALID " + blockValidationResult.errorMessage)));
+                    return blockValidationResult;
                 }
             }
             finally {
@@ -585,7 +592,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             }
         }
         catch (final Exception exception) {
-            Logger.debug(exception);
+            Logger.debug("Error validating Prototype Block: " + block.getHash(), exception);
             return BlockValidationResult.invalid("An internal error occurred.");
         }
     }

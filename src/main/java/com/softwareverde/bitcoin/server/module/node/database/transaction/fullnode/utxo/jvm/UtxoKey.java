@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm;
 
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ByteArrayCore;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -16,7 +17,7 @@ public class UtxoKey implements Comparable<UtxoKey> {
                     final byte b0 = utxo0.transactionHash[i];
                     final byte b1 = utxo1.transactionHash[i];
 
-                    final int compare = Byte.compare(b0, b1);
+                    final int compare = ByteUtil.compare(b0, b1);
                     if (compare != 0) { return compare; }
                 }
             }
