@@ -366,7 +366,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                             unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
                         }
                         nanoTimer.stop();
-                        Logger.trace("Pending block " + blockHash + "loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                        Logger.trace("Pending block " + blockHash + " loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                     }
 
                     final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.
