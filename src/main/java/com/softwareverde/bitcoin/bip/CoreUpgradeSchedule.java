@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 
 public class CoreUpgradeSchedule implements UpgradeSchedule {
     private static final long BIP16_ACTIVATION_BLOCK_HEIGHT = 173805L; // Pay to Script Hash - https://github.com/bitcoin/bips/blob/master/bip-0016.mediawiki
-    private static final long BIP34_ACTIVATION_BLOCK_HEIGHT = 227835L; // Block v2. Height in Coinbase - https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+    private static final long BIP34_ACTIVATION_BLOCK_HEIGHT = 227836L; // Block v2. Height in Coinbase - https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
     private static final long BIP65_ACTIVATION_BLOCK_HEIGHT = 388167L; // OP_CHECKLOCKTIMEVERIFY -- https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki
     private static final long BIP66_ACTIVATION_BLOCK_HEIGHT = 363725L; // Strict DER signatures -- https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki
     private static final long BIP68_ACTIVATION_BLOCK_HEIGHT = 419328L; // Relative Lock-Time Using Consensus-Enforced Sequence Numbers - https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki
