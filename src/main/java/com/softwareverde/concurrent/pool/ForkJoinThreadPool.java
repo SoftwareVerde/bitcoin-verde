@@ -59,7 +59,7 @@ public class ForkJoinThreadPool implements ThreadPool {
         final Thread.UncaughtExceptionHandler uncaughtExceptionHandler = _createExceptionHandler();
         final ForkJoinPool.ForkJoinWorkerThreadFactory threadFactory = _createThreadFactory(uncaughtExceptionHandler);
 
-        return new ForkJoinPool(_maxConcurrentThreadCount, threadFactory, uncaughtExceptionHandler, false);
+        return new ForkJoinPool(_maxConcurrentThreadCount, threadFactory, uncaughtExceptionHandler, true);
     }
 
     public ForkJoinThreadPool() {

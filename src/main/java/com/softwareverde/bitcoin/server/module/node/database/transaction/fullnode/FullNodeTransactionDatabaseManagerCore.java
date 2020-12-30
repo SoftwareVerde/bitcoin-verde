@@ -31,9 +31,11 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -42,6 +44,7 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.ArrayList;
@@ -50,6 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
@@ -176,7 +180,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Row row = rows.get(0);
         final Long version = row.getLong("version");
         final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
-        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("hash"));
 
         final MutableTransaction transaction = new MutableTransaction();
         transaction.setVersion(version);
@@ -216,7 +220,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
+        final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("block_hash"));
         final Long blockHeight = row.getLong("block_height");
         final Long diskOffset = row.getLong("disk_offset");
         final Integer byteCount = row.getInteger("byte_count");
@@ -306,7 +310,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
                     for (final Row row : rows) {
                         final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+                        final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("hash"));
 
                         transactionHashMap.put(transactionHash, transactionId);
                     }
@@ -389,63 +393,162 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(0);
+        final int transactionCount = transactionHashes.getCount();
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionCount);
 
-        final Container<Boolean> errorContainer = new Container<>(false);
-        final int batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
-        final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<Sha256Hash>(batchSize, false);
-        batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
-            @Override
-            public void run(final List<Sha256Hash> batchItems) throws Exception {
-                if (errorContainer.value) { return; }
+        final MainThreadPool threadPool = new MainThreadPool(256, 15000L); // TODO: Consider providing a ThreadPool to the DatabaseManager object.
 
-                // TODO: remove non-deterministic group-by clause.
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.disk_offset, transactions.byte_count FROM transactions INNER JOIN block_transactions ON transactions.id = block_transactions.transaction_id INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE transactions.hash IN (?) GROUP BY transactions.hash")
-                        .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
-                );
+        try {
+            final Container<Boolean> errorContainer = new Container<>(false);
+            final int batchSize = Math.min(1024, _databaseManager.getMaxQueryBatchSize());
 
-                for (final Row row : rows) {
-                    final Sha256Hash blockHash = Sha256Hash.copyOf(row.getBytes("block_hash"));
-                    final Long blockHeight = row.getLong("block_height");
-                    final Long diskOffset = row.getLong("disk_offset");
-                    final Integer byteCount = row.getInteger("byte_count");
+            final HashMap<TransactionId, Sha256Hash> transactionHashIds = new HashMap<>(transactionCount);
+            final HashMap<TransactionId, Integer> transactionByteCounts = new HashMap<>(transactionCount);
+            { // Collect the Transaction Ids and sizes for the required Transactions.
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
 
-                    final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
-                    if (transactionData == null) {
-                        Logger.debug("Unable to load transaction from block.");
-                        errorContainer.value = true;
-                        return;
+                final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<>(batchSize, threadPool);
+                batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
+                    @Override
+                    public void run(final List<Sha256Hash> transactionHashes) throws Exception {
+                        if (errorContainer.value) { return; }
+
+                        final java.util.List<Row> rows = databaseConnection.query(
+                            new Query("SELECT id, hash, byte_count FROM transactions WHERE hash IN (?)")
+                                .setInClauseParameters(transactionHashes, ValueExtractor.SHA256_HASH)
+                        );
+
+                        for (final Row row : rows) {
+                            final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("hash"));
+                            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                            final Integer byteCount = row.getInteger("byte_count");
+
+                            transactionHashIds.put(transactionId, transactionHash);
+                            transactionByteCounts.put(transactionId, byteCount);
+                        }
                     }
+                });
 
-                    final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
-                    final Transaction transaction = ConstUtil.asConstOrNull(transactionInflater.fromBytes(transactionData)); // To ensure Transaction::getHash is constant-time...
-                    if (transaction == null) {
-                        Logger.debug("Unable to load transaction from block.");
-                        errorContainer.value = true;
-                        return;
+                nanoTimer.stop();
+                Logger.trace("Acquired " + transactionHashes.getCount() + " TransactionIds in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            }
+
+            {
+                final BatchRunner<TransactionId> batchRunner = new BatchRunner<>(batchSize, threadPool);
+                batchRunner.run(new ImmutableList<TransactionId>(transactionByteCounts.keySet()), new BatchRunner.Batch<TransactionId>() {
+                    @Override
+                    public void run(final List<TransactionId> transactionIds) throws Exception {
+                        if (errorContainer.value) { return; }
+
+                        final NanoTimer queryNanoTimer = new NanoTimer();
+                        queryNanoTimer.start();
+
+                        final java.util.List<Row> rows;
+                        synchronized (databaseConnection) {
+                            rows = databaseConnection.query(
+                                new Query("SELECT blocks.hash AS block_hash, blocks.block_height, block_transactions.transaction_id, block_transactions.disk_offset FROM block_transactions INNER JOIN blocks ON blocks.id = block_transactions.block_id WHERE block_transactions.transaction_id IN (?) ORDER BY blocks.block_height ASC, block_transactions.disk_offset ASC")
+                                    .setInClauseParameters(transactionIds, ValueExtractor.IDENTIFIER)
+                            );
+                        }
+
+                        queryNanoTimer.stop();
+                        Logger.trace("Load Transactions query completed " + transactionIds.getCount() + " in " + queryNanoTimer.getMillisecondsElapsed() + "ms.");
+
+                        final NanoTimer diskNanoTimer = new NanoTimer();
+                        diskNanoTimer.start();
+
+                        final AtomicInteger pendingResultCount = new AtomicInteger(0);
+                        for (final Row row : rows) {
+                            if (errorContainer.value) { return; }
+
+                            pendingResultCount.incrementAndGet();
+
+                            threadPool.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+                                        final Sha256Hash transactionHash = transactionHashIds.get(transactionId);
+                                        if (transactions.containsKey(transactionHash)) { return; } // Transaction was already loaded from a separate block.
+
+                                        final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("block_hash"));
+                                        final Long blockHeight = row.getLong("block_height");
+                                        final Long diskOffset = row.getLong("disk_offset");
+                                        final Integer byteCount = transactionByteCounts.get(transactionId);
+
+                                        final ByteArray transactionData = _blockStore.readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+                                        if (transactionData == null) {
+                                            Logger.warn("Unable to load transaction from block.");
+                                            errorContainer.value = true;
+                                            return;
+                                        }
+
+                                        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+                                        final Transaction transaction = ConstUtil.asConstOrNull(transactionInflater.fromBytes(transactionData)); // To ensure Transaction::getHash is constant-time...
+                                        if (transaction == null) {
+                                            Logger.warn("Unable to load transaction from block.");
+                                            errorContainer.value = true;
+                                            return;
+                                        }
+
+                                        final Sha256Hash inflatedTransactionHash = transaction.getHash();
+                                        if (! Util.areEqual(transactionHash, inflatedTransactionHash)) {
+                                            Logger.warn("Transaction corrupted: expected " + transactionHash + ", found " + inflatedTransactionHash + ", within Block " + blockHash + " @ " + diskOffset + " +" + byteCount);
+                                            errorContainer.value = true;
+                                            return;
+                                        }
+
+                                        synchronized (transactions) {
+                                            transactions.put(transactionHash, transaction);
+                                        }
+                                    }
+                                    finally {
+                                        synchronized (pendingResultCount) {
+                                            final int pendingJobCount = pendingResultCount.decrementAndGet();
+                                            if (pendingJobCount < 1) {
+                                                pendingResultCount.notifyAll();
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Wait for the load-transactions jobs to finish...
+                        try {
+                            synchronized (pendingResultCount) {
+                                pendingResultCount.wait();
+                            }
+                        }
+                        catch (final InterruptedException exception) {
+                            errorContainer.value = true;
+                        }
+
+                        diskNanoTimer.stop();
+                        Logger.trace("Load Transactions from disk completed " + rows.size() + " in " + diskNanoTimer.getMillisecondsElapsed() + "ms.");
                     }
+                });
+            }
 
-                    final Sha256Hash transactionHash = transaction.getHash();
-                    transactions.put(transactionHash, transaction);
+            if (errorContainer.value) { return null; }
+
+            // Check for unconfirmed Transactions...
+            for (final Sha256Hash transactionHash : transactionHashes) {
+                if (transactions.containsKey(transactionHash)) { continue; }
+
+                final TransactionId transactionId = _getTransactionId(transactionHash);
+                final Transaction unconfirmedTransaction = _getUnconfirmedTransaction(transactionId);
+                if (unconfirmedTransaction != null) {
+                    transactions.put(transactionHash, unconfirmedTransaction);
                 }
             }
-        });
 
-        if (errorContainer.value) { return null; }
-
-        // Check for unconfirmed Transactions...
-        for (final Sha256Hash transactionHash : transactionHashes) {
-            if (transactions.containsKey(transactionHash)) { continue; }
-
-            final TransactionId transactionId = _getTransactionId(transactionHash);
-            final Transaction unconfirmedTransaction = _getUnconfirmedTransaction(transactionId);
-            if (unconfirmedTransaction != null) {
-                transactions.put(transactionHash, unconfirmedTransaction);
-            }
+            return transactions;
         }
-
-        return transactions;
+        finally {
+            threadPool.stop();
+        }
     }
 
     @Override
@@ -806,7 +909,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final HashMap<Sha256Hash, TransactionId> transactionIds = new HashMap<Sha256Hash, TransactionId>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("hash"));
+            final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("hash"));
             transactionIds.put(transactionHash, transactionId);
         }
         return transactionIds;
@@ -823,7 +926,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.copyOf(row.getBytes("hash"));
+        return Sha256Hash.wrap(row.getBytes("hash"));
     }
 
     @Override
@@ -869,7 +972,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
         final HashMap<Sha256Hash, BlockId> transactionBlockIds = new HashMap<Sha256Hash, BlockId>();
         for (final Row row : rows) {
-            final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+            final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
             final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             final BlockchainSegmentId rowBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
 

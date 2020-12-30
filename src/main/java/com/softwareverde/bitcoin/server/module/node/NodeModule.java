@@ -103,7 +103,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.concurrent.pool.ForkJoinThreadPool;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
@@ -173,7 +172,7 @@ public class NodeModule {
 
     protected final MainThreadPool _generalThreadPool;
     protected final MainThreadPool _networkThreadPool;
-    protected final ForkJoinThreadPool _blockProcessingThreadPool;
+    protected final MainThreadPool _blockProcessingThreadPool;
     protected final MainThreadPool _rpcThreadPool;
 
     protected final MilliTimer _uptimeTimer = new MilliTimer();
@@ -331,10 +330,10 @@ public class NodeModule {
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
-        _generalThreadPool = new MainThreadPool(256, 5000L);
-        _networkThreadPool = new MainThreadPool((16 + (maxPeerCount * 8)), 5000L);
-        _blockProcessingThreadPool = new ForkJoinThreadPool();
-        _rpcThreadPool = new MainThreadPool(32, 15000L);
+        _generalThreadPool = new MainThreadPool(256, 60000L);
+        _networkThreadPool = new MainThreadPool((16 + (maxPeerCount * 8)), 60000L);
+        _blockProcessingThreadPool = new MainThreadPool(256, 60000L);
+        _rpcThreadPool = new MainThreadPool(32, 60000L);
 
         final Runnable onThreadPoolShutdownCallback = new Runnable() {
             @Override
