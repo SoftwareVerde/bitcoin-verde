@@ -436,6 +436,10 @@ public class FullNodePendingBlockDatabaseManager {
         _deletePendingBlock(pendingBlockId);
     }
 
+    public void deletePendingBlocks(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        _deletePendingBlocks(pendingBlockIds);
+    }
+
     /**
      * Deletes any pending blocks that have been completely processed.
      *  This can happen (rarely) due to a race condition between the InventoryHandler and the BlockchainBuilder...

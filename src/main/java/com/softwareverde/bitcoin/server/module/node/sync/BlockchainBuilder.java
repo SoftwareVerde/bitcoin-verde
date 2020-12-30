@@ -33,6 +33,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
@@ -41,6 +42,7 @@ import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockchainBuilder extends GracefulSleepyService {
     public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext { }
@@ -61,6 +63,68 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
 
+    protected final Object _pendingBlockIdDeleteQueueMutex = new Object();
+    protected MutableList<PendingBlockId> _pendingBlockIdDeleteQueue = new MutableList<>(1024);
+
+    protected final Thread _deletePendingBlockThread = new Thread(new Runnable() {
+        @Override
+        public void run() {
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
+            final Thread thread = Thread.currentThread();
+            while (! thread.isInterrupted()) {
+                try {
+                    final List<PendingBlockId> pendingBlockIds;
+                    synchronized (_pendingBlockIdDeleteQueueMutex) {
+                        try {
+                            _pendingBlockIdDeleteQueueMutex.wait();
+                        }
+                        catch (final InterruptedException exception) {
+                            Logger.debug("Interrupt received, finishing iteration before exiting.");
+                            thread.interrupt(); // Maintain the interrupted state in order to exit the loop after this round...
+                        }
+
+                        pendingBlockIds = _pendingBlockIdDeleteQueue;
+                        _pendingBlockIdDeleteQueue = new MutableList<>(1024);
+                    }
+
+                    if (! pendingBlockIds.isEmpty()) {
+                        final NanoTimer nanoTimer = new NanoTimer();
+                        nanoTimer.start();
+
+                        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+                            TransactionUtil.startTransaction(databaseConnection);
+                            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+                            pendingBlockDatabaseManager.deletePendingBlocks(pendingBlockIds);
+                            TransactionUtil.commitTransaction(databaseConnection);
+                        }
+                        catch (final Exception exception) {
+                            Logger.debug(exception);
+                            _pendingBlockIdDeleteQueue.addAll(pendingBlockIds);
+                        }
+
+                        nanoTimer.stop();
+                        Logger.debug("Deleted " + pendingBlockIds.getCount() + " pending blocks in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                    }
+                }
+                catch (final Exception exception) {
+                    Logger.debug(exception);
+                }
+            }
+        }
+    });
+
+    protected void _deletePendingBlock(final PendingBlockId pendingBlockId) {
+        synchronized (_pendingBlockIdDeleteQueueMutex) {
+            _pendingBlockIdDeleteQueue.add(pendingBlockId);
+
+            if (_pendingBlockIdDeleteQueue.getCount() >= 512) {
+                _pendingBlockIdDeleteQueueMutex.notifyAll();
+            }
+        }
+    }
+
     /**
      * Stores and validates the pending Block.
      *  If not provided, the transactionOutputSet is loaded from the database.
@@ -70,8 +134,12 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputContext transactionOutputSet) {
         if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
 
+        final NanoTimer nanoTimer = new NanoTimer();
+        nanoTimer.start();
         final BlockInflater blockInflater = _context.getBlockInflater();
         final Block block = pendingBlock.inflateBlock(blockInflater);
+        nanoTimer.stop();
+        Logger.trace("Block inflated in " + nanoTimer.getMillisecondsElapsed() + "ms.");
 
         if (block == null) {
             Logger.debug("Pending Block Corrupted: " + pendingBlock.getBlockHash() + " " + pendingBlock.getData());
@@ -196,8 +264,15 @@ public class BlockchainBuilder extends GracefulSleepyService {
             final MilliTimer milliTimer = new MilliTimer();
             milliTimer.start();
 
-            // Select the first pending block to process; if none are found, request one to be downloaded...
-            final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
+            final PendingBlockId candidatePendingBlockId;
+            { // Select the first pending block to process; if none are found, request one to be downloaded...
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+                candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
+                nanoTimer.stop();
+                Logger.trace("Obtained next pendingBlockId in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            }
+
             if (candidatePendingBlockId == null) {
                 // Request the next head block be downloaded... (depends on BlockHeaders)
                 //  Traverse from the head blockHeader to the first processed block, then select its child blockHeader along the head blockchainSegment path.
@@ -236,30 +311,36 @@ public class BlockchainBuilder extends GracefulSleepyService {
             final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
             final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
             if (! processCandidateBlockWasSuccessful) {
-                TransactionUtil.startTransaction(databaseConnection);
-                pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
-                TransactionUtil.commitTransaction(databaseConnection);
-                Logger.debug("Deleted failed pending block.");
-
                 final Sha256Hash blockHash = candidatePendingBlock.getBlockHash();
+                Logger.debug("Deleting failed pending block: " + blockHash);
+
+                _deletePendingBlock(candidatePendingBlockId);
                 blockHeaderDatabaseManager.markBlockAsInvalid(blockHash);
 
                 continue;
             }
 
-            TransactionUtil.startTransaction(databaseConnection);
-            pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
-            TransactionUtil.commitTransaction(databaseConnection);
+            _deletePendingBlock(candidatePendingBlockId);
 
             milliTimer.stop();
             _blockProcessingTimes.push(milliTimer.getMillisecondsElapsed());
             milliTimer.start();
+
             _updateAverageBlockProcessingTime();
 
             // Process the any viable descendant blocks of the candidate block...
             PendingBlock previousPendingBlock = candidatePendingBlock;
             while (! _shouldAbort()) {
-                final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
+                final Sha256Hash blockHash = previousPendingBlock.getBlockHash();
+
+                final List<PendingBlockId> pendingBlockIds;
+                {
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
+                    pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(blockHash);
+                    nanoTimer.stop();
+                    Logger.trace("Obtained child candidates of " + blockHash + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                }
                 if (pendingBlockIds.isEmpty()) { break; }
 
                 for (int i = 0; i < pendingBlockIds.getCount(); ++i) {
@@ -271,6 +352,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
                     final PendingBlock pendingBlock;
                     final UnspentTransactionOutputContext unspentTransactionOutputContext;
                     {
+                        final NanoTimer nanoTimer = new NanoTimer();
+                        nanoTimer.start();
                         final PreloadedPendingBlock preloadedPendingBlock = _pendingBlockLoader.getBlock(pendingBlockHash, pendingBlockId);
                         if (preloadedPendingBlock == null) {
                             pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
@@ -282,13 +365,21 @@ public class BlockchainBuilder extends GracefulSleepyService {
                             pendingBlock = preloadedPendingBlock.getPendingBlock();
                             unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
                         }
+                        nanoTimer.stop();
+                        Logger.trace("Pending block " + blockHash + "loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                     }
 
                     final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.
 
-                    TransactionUtil.startTransaction(databaseConnection);
-                    pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
-                    TransactionUtil.commitTransaction(databaseConnection);
+                    { // Queue the pending block for deletion...
+                        final NanoTimer nanoTimer = new NanoTimer();
+                        nanoTimer.start();
+
+                        _deletePendingBlock(pendingBlockId);
+
+                        nanoTimer.stop();
+                        Logger.trace("Pending block queued for deletion in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                    }
 
                     if (! processBlockWasSuccessful) {
                         blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash);
@@ -328,6 +419,13 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
     @Override
     protected void _onSleep() {
+        // Complete any queued deletions upon service sleep...
+        synchronized (_pendingBlockIdDeleteQueueMutex) {
+            if (! _pendingBlockIdDeleteQueue.isEmpty()) {
+                _pendingBlockIdDeleteQueueMutex.notifyAll();
+            }
+        }
+
         if (_shouldAbort()) { return; }
 
         final Status blockDownloaderStatus = _blockDownloaderStatusMonitor.getStatus();
@@ -363,6 +461,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
             Logger.debug(exception);
             _hasGenesisBlock = false;
         }
+
+        _deletePendingBlockThread.start();
     }
 
     /**
@@ -382,5 +482,16 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
     public Container<Float> getAverageBlocksPerSecondContainer() {
         return _averageBlocksPerSecond;
+    }
+
+    @Override
+    public void stop() {
+        super.stop();
+
+        _deletePendingBlockThread.interrupt(); // Finishes any queued items before exiting...
+        try {
+            _deletePendingBlockThread.join(_stopTimeoutMs);
+        }
+        catch (final Exception exception) { }
     }
 }

@@ -151,7 +151,7 @@ CREATE TABLE pending_blocks (
     INDEX pending_blocks_ix1 (priority) USING BTREE,
     INDEX pending_blocks_ix2 (was_downloaded, failed_download_count) USING BTREE,
     INDEX pending_blocks_ix3 (previous_block_hash) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE pending_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -229,7 +229,7 @@ CREATE TABLE node_transactions_inventory (
     UNIQUE KEY node_transactions_uq (node_id, hash),
     FOREIGN KEY node_transactions_node_id_fk (node_id) REFERENCES nodes (id),
     INDEX node_transactions_tx_ix (hash) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 -- Optional Indexing Tables
 

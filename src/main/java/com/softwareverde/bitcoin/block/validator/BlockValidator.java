@@ -28,7 +28,6 @@ import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.pool.ForkJoinThreadPool;
-import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
