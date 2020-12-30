@@ -27,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.concurrent.pool.ForkJoinThreadPool;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
@@ -80,7 +81,7 @@ public class BlockValidator {
         }
 
         final BlockOutputs blockOutputs = BlockOutputs.fromBlock(block);
-        final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
+        final ForkJoinThreadPool threadPool = new ForkJoinThreadPool(_maxThreadCount);
         threadPool.setThreadPriority(currentThread.getPriority());
 
         final int threadCount;

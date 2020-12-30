@@ -61,6 +61,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class RpcDataHandler implements NodeRpcHandler.DataHandler {
@@ -452,6 +453,10 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Block getPrototypeBlock() {
+        Logger.debug("Generating prototype block.");
+        final NanoTimer nanoTimer = new NanoTimer();
+
+        nanoTimer.start();
         final PrivateKey privateKey = PrivateKey.fromHexString("0000000000000000000000000000000000000000000000000000000000000001");
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
@@ -491,7 +496,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 blockTransactions.add(coinbaseTransaction);
                 blockTransactions.addAll(unconfirmedTransactions);
 
-                return new CanonicalMutableBlock(blockHeader, blockTransactions);
+                final Block prototypeBlock = new CanonicalMutableBlock(blockHeader, blockTransactions);
+
+                nanoTimer.stop();
+                Logger.debug("Generated prototype block " + prototypeBlock.getHash() + "in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+                return prototypeBlock;
             }
             catch (final DatabaseException exception) {
                 Logger.debug(exception);

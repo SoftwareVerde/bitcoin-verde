@@ -11,60 +11,71 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainThreadPool implements ThreadPool {
+    protected final AtomicInteger _nextThreadId = new AtomicInteger(0);
     protected final LinkedBlockingQueue<Runnable> _queue;
+    protected final Integer _minThreadCount;
     protected final Integer _maxThreadCount;
+    protected final Boolean _shouldTimeoutCoreThreads;
     protected final Long _threadKeepAliveMilliseconds;
     protected ThreadPoolExecutor _executorService;
     protected Runnable _shutdownCallback;
     protected Integer _threadPriority = Thread.NORM_PRIORITY;
 
-    final AtomicInteger _nextThreadId = new AtomicInteger(0);
+    protected void _configureThread(final Integer nextThreadId, final Thread thread) {
+        thread.setName("MainThreadPool - " + nextThreadId);
+        thread.setDaemon(false);
+        thread.setPriority(_threadPriority);
+        thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable throwable) {
+                try {
+                    Logger.error("Uncaught exception in Thread Pool.", throwable);
+                }
+                catch (final Throwable exception) { }
+
+                if (throwable instanceof Error) {
+                    final Runnable shutdownCallback = _shutdownCallback;
+                    if (shutdownCallback != null) {
+                        try {
+                            shutdownCallback.run();
+                        }
+                        catch (final Throwable shutdownError) { }
+                    }
+                }
+            }
+        });
+    }
+
+    protected ThreadFactory _createThreadFactory() {
+        return new ThreadFactory() {
+            @Override
+            public Thread newThread(final Runnable runnable) {
+                final int nextThreadId = _nextThreadId.incrementAndGet();
+                final Thread thread = new Thread(runnable);
+                _configureThread(nextThreadId, thread);
+                return thread;
+            }
+        };
+    }
 
     protected ThreadPoolExecutor _createExecutorService() {
         if (_maxThreadCount < 1) { return null; }
 
-        final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(_maxThreadCount, _maxThreadCount, _threadKeepAliveMilliseconds, TimeUnit.MILLISECONDS, _queue, new ThreadFactory() {
-            @Override
-            public Thread newThread(final Runnable runnable) {
-                final int nextThreadId = _nextThreadId.incrementAndGet();
-
-                final Thread thread = new Thread(runnable);
-                thread.setName("MainThreadPool - " + nextThreadId);
-                thread.setDaemon(false);
-                thread.setPriority(_threadPriority);
-                thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                    @Override
-                    public void uncaughtException(final Thread thread, final Throwable throwable) {
-                        try {
-                            Logger.error("Uncaught exception in Thread Pool.", throwable);
-                        }
-                        catch (final Throwable exception) { }
-
-                        if (throwable instanceof Error) {
-                            final Runnable shutdownCallback = _shutdownCallback;
-                            if (shutdownCallback != null) {
-                                try {
-                                    shutdownCallback.run();
-                                }
-                                catch (final Throwable shutdownError) { }
-                            }
-                        }
-                    }
-                });
-                return thread;
-            }
-        });
-
-        if (_threadKeepAliveMilliseconds > 0L) {
-            threadPoolExecutor.allowCoreThreadTimeOut(true);
-        }
-
+        final ThreadFactory threadFactory = _createThreadFactory();
+        final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(_minThreadCount, _maxThreadCount, _threadKeepAliveMilliseconds, TimeUnit.MILLISECONDS, _queue, threadFactory);
+        threadPoolExecutor.allowCoreThreadTimeOut(_shouldTimeoutCoreThreads);
         return threadPoolExecutor;
     }
 
     public MainThreadPool(final Integer maxThreadCount, final Long threadKeepAliveMilliseconds) {
+        this(0, maxThreadCount, threadKeepAliveMilliseconds, false);
+    }
+
+    public MainThreadPool(final Integer minThreadCount, final Integer maxThreadCount, final Long threadKeepAliveMilliseconds, final Boolean shouldTimeoutCoreThreads) {
         _queue = new LinkedBlockingQueue<Runnable>();
+        _minThreadCount = minThreadCount;
         _maxThreadCount = maxThreadCount;
+        _shouldTimeoutCoreThreads = shouldTimeoutCoreThreads;
         _threadKeepAliveMilliseconds = threadKeepAliveMilliseconds;
         _executorService = _createExecutorService();
     }

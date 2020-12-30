@@ -103,6 +103,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
+import com.softwareverde.concurrent.pool.ForkJoinThreadPool;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
@@ -170,7 +171,9 @@ public class NodeModule {
 
     protected final String _transactionBloomFilterFilename;
 
-    protected final MainThreadPool _mainThreadPool;
+    protected final MainThreadPool _generalThreadPool;
+    protected final MainThreadPool _networkThreadPool;
+    protected final ForkJoinThreadPool _blockProcessingThreadPool;
     protected final MainThreadPool _rpcThreadPool;
 
     protected final MilliTimer _uptimeTimer = new MilliTimer();
@@ -250,7 +253,9 @@ public class NodeModule {
         }
 
         Logger.info("[Shutting Down Thread Server]");
-        _mainThreadPool.stop();
+        _networkThreadPool.stop();
+        _blockProcessingThreadPool.stop();
+        _generalThreadPool.stop();
         _rpcThreadPool.stop();
 
         if (_jsonRpcSocketServer != null) {
@@ -326,10 +331,12 @@ public class NodeModule {
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
-        _mainThreadPool = new MainThreadPool(Math.max(32 + (maxPeerCount * 8), 256), 5000L);
+        _generalThreadPool = new MainThreadPool(256, 5000L);
+        _networkThreadPool = new MainThreadPool((16 + (maxPeerCount * 8)), 5000L);
+        _blockProcessingThreadPool = new ForkJoinThreadPool();
         _rpcThreadPool = new MainThreadPool(32, 15000L);
 
-        _mainThreadPool.setShutdownCallback(new Runnable() {
+        final Runnable onThreadPoolShutdownCallback = new Runnable() {
             @Override
             public void run() {
                 try {
@@ -337,7 +344,11 @@ public class NodeModule {
                 }
                 catch (final Throwable ignored) { }
             }
-        });
+        };
+
+        _generalThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
+        _networkThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
+        _blockProcessingThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
 
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -383,7 +394,7 @@ public class NodeModule {
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
-                final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _mainThreadPool);
+                final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _networkThreadPool);
                 threadPoolThrottle.start();
                 return threadPoolThrottle;
             }
@@ -505,13 +516,13 @@ public class NodeModule {
                 context.banFilter = _banFilter;
                 context.memoryPoolEnquirer = memoryPoolEnquirer;
                 context.synchronizationStatusHandler = synchronizationStatusHandler;
-                context.threadPool = _mainThreadPool;
+                context.threadPool = _generalThreadPool;
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
 
-            final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _mainThreadPool, _banFilter);
+            final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _generalThreadPool, _banFilter);
             _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
                 @Override
                 public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
@@ -548,7 +559,7 @@ public class NodeModule {
         }
 
         final BlockProcessor blockProcessor;
-        { // Initialize BlockSynchronizer...
+        { // Initialize BlockProcessor...
             final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory, _upgradeSchedule);
             blockProcessor = new BlockProcessor(blockProcessorContext);
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
@@ -558,20 +569,20 @@ public class NodeModule {
 
         final BlockDownloadRequester blockDownloadRequester;
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
-            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _mainThreadPool, _upgradeSchedule);
+            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _generalThreadPool, _upgradeSchedule);
             _blockDownloader = new BlockDownloader(blockDownloaderContext);
             blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockDownloaderContext, blockDownloadRequester);
         }
 
         { // Initialize BlockchainBuilder...
-            final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, databaseManagerFactory, _mainThreadPool);
+            final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, databaseManagerFactory, _blockProcessingThreadPool);
             final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 8);
             final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
             pendingBlockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
 
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
-            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _mainThreadPool);
+            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _blockProcessingThreadPool);
             _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, blockDownloaderStatusMonitor, blockDownloadRequester);
         }
 
@@ -761,7 +772,7 @@ public class NodeModule {
             });
         }
 
-        _socketServer = new BinarySocketServer(bitcoinProperties.getBitcoinPort(), binaryPacketFormat, _mainThreadPool);
+        _socketServer = new BinarySocketServer(bitcoinProperties.getBitcoinPort(), binaryPacketFormat, _generalThreadPool);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
@@ -807,7 +818,7 @@ public class NodeModule {
                 final UtxoCacheHandler utxoCacheHandler = new UtxoCacheHandler(databaseManagerFactory);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _bitcoinNodeFactory);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
-                final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
+                final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_generalThreadPool); // TODO: Should combine _generalThreadPool and _networkThreadPool, and/or refactor completely.
 
                 final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime, _upgradeSchedule);
 
@@ -1050,7 +1061,7 @@ public class NodeModule {
                 final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
 
-                final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, _mainThreadPool);
+                final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, _blockProcessingThreadPool);
 
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");
