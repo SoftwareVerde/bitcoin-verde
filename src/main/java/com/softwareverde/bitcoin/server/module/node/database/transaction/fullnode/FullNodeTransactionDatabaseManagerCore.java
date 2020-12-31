@@ -397,6 +397,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionCount);
 
         final MainThreadPool threadPool = new MainThreadPool(256, 15000L); // TODO: Consider providing a ThreadPool to the DatabaseManager object.
+        threadPool.start();
 
         try {
             final Container<Boolean> errorContainer = new Container<>(false);
@@ -408,7 +409,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
 
-                final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<>(batchSize, threadPool);
+                final BatchRunner<Sha256Hash> batchRunner = new BatchRunner<>(batchSize);
                 batchRunner.run(transactionHashes, new BatchRunner.Batch<Sha256Hash>() {
                     @Override
                     public void run(final List<Sha256Hash> transactionHashes) throws Exception {
@@ -435,7 +436,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             }
 
             {
-                final BatchRunner<TransactionId> batchRunner = new BatchRunner<>(batchSize, threadPool);
+                final BatchRunner<TransactionId> batchRunner = new BatchRunner<>(batchSize);
                 batchRunner.run(new ImmutableList<TransactionId>(transactionByteCounts.keySet()), new BatchRunner.Batch<TransactionId>() {
                     @Override
                     public void run(final List<TransactionId> transactionIds) throws Exception {
@@ -468,6 +469,10 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                                 @Override
                                 public void run() {
                                     try {
+                                        Logger.trace("Load Tx from disk starting.");
+                                        final NanoTimer nanoTimer = new NanoTimer();
+                                        nanoTimer.start();
+
                                         final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
                                         final Sha256Hash transactionHash = transactionHashIds.get(transactionId);
                                         if (transactions.containsKey(transactionHash)) { return; } // Transaction was already loaded from a separate block.
@@ -502,6 +507,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                                         synchronized (transactions) {
                                             transactions.put(transactionHash, transaction);
                                         }
+
+                                        Logger.trace("Load Tx from disk finished in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                                     }
                                     finally {
                                         synchronized (pendingResultCount) {
@@ -518,7 +525,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                         // Wait for the load-transactions jobs to finish...
                         try {
                             synchronized (pendingResultCount) {
-                                pendingResultCount.wait();
+                                while (pendingResultCount.get() > 0) {
+                                    pendingResultCount.wait();
+                                }
                             }
                         }
                         catch (final InterruptedException exception) {
