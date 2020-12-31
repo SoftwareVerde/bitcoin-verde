@@ -2,19 +2,37 @@ package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.util.Util;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.math.BigInteger;
 
 public class TestNetDifficultyCalculator extends DifficultyCalculator {
+    protected final SystemTime _systemTime = new SystemTime();
+
     protected static final Long TWENTY_MINUTES = (20L * 60L);
     protected static final Long TEST_NET_ASERT_HALF_LIFE = (60L * 60L);
 
     protected Long _getSecondsElapsed(final Long blockHeight) {
-        final BlockHeader previousBlockHeader = _context.getBlockHeader(blockHeight - 1L);
+        final Long previousBlockHeight = (blockHeight - 1L);
+        final BlockHeader previousBlockHeader = _context.getBlockHeader(previousBlockHeight);
         final BlockHeader blockHeader = _context.getBlockHeader(blockHeight);
-        return (blockHeader.getTimestamp() - previousBlockHeader.getTimestamp());
+
+        final Long blockHeaderTimestamp;
+        if (blockHeader != null) {
+            blockHeaderTimestamp = blockHeader.getTimestamp();
+        }
+        else {
+            final MedianBlockTime medianTimePast = _context.getMedianBlockTime(previousBlockHeight);
+            final Long medianTimePastInSeconds = medianTimePast.getCurrentTimeInSeconds();
+            final Long currentTime = _systemTime.getCurrentTimeInSeconds();
+            blockHeaderTimestamp = Math.max((medianTimePastInSeconds + 1L), currentTime);
+        }
+
+        final Long previousBlockHeaderTimestamp = previousBlockHeader.getTimestamp();
+        return (blockHeaderTimestamp - previousBlockHeaderTimestamp);
     }
 
     protected TestNetDifficultyCalculator(final DifficultyCalculatorContext blockchainContext, final MedianBlockHeaderSelector medianBlockHeaderSelector, final AsertDifficultyCalculator asertDifficultyCalculator) {

@@ -1,7 +1,5 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
@@ -24,7 +22,6 @@ import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.LineNumberAnnotatedLog;
 import com.softwareverde.logging.Log;
 import com.softwareverde.logging.LogLevel;
@@ -32,7 +29,6 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.logging.filelog.AnnotatedFileLog;
 import com.softwareverde.logging.log.SystemLog;
 import com.softwareverde.util.Container;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -199,16 +195,7 @@ public class Main {
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 if (bitcoinProperties.isTestNet()) {
-                    BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet.genesisBlockHash);
-                    BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet.genesisBlockTimestamp);
-                    BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet.netMagicNumber);
-                    BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet.defaultNetworkPort);
-                    BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet.defaultRpcPort);
-                    BitcoinConstants.setAsertReferenceBlock(new AsertReferenceBlock(
-                        1421481L,
-                        1605445400L,
-                        Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1d00ffff")))
-                    ));
+                    BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
                 }
 
                 { // Set Log Level...

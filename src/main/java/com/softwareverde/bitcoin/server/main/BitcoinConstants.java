@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.main;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
@@ -14,29 +15,17 @@ public class BitcoinConstants {
         public final Integer defaultNetworkPort;
         public final String netMagicNumber;
         public final Integer defaultRpcPort;
+        public final AsertReferenceBlock asertReferenceBlock;
 
-        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber) {
+        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber, final AsertReferenceBlock asertReferenceBlock) {
             this.genesisBlockHash = genesisBlockHash;
             this.genesisBlockTimestamp = genesisBlockTimestamp;
             this.defaultNetworkPort = defaultNetworkPort;
             this.netMagicNumber = netMagicNumber;
             this.defaultRpcPort = 8334;
+            this.asertReferenceBlock = asertReferenceBlock;
         }
     }
-
-    public static final Default MainNet = new Default(
-        "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
-        1231006505L, // In seconds.
-        8333,
-        "E8F3E1E3"
-    );
-
-    public static final Default TestNet = new Default(
-        "000000000933EA01AD0EE984209779BAAEC3CED90FA3F408719526F8D77F4943",
-        1296688602L, // In seconds.
-        18333,
-        "F4F3E5F4"
-    );
 
     private static final String LOCKED_ERROR_MESSAGE = "Attempting to set SystemProperty after initialization.";
     private static Boolean LOCKED = false;
@@ -55,9 +44,35 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
-    protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK;
+    protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+        661647L,
+        1605447844L,
+        Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
+    );
+
+    protected static AsertReferenceBlock TEST_NET_ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
+        1421481L,
+        1605445400L,
+        Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
+    );
 
     protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
+
+    public static final Default MainNet = new Default(
+        "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
+        1231006505L, // In seconds.
+        8333,
+        "E8F3E1E3",
+        ASERT_REFERENCE_BLOCK
+    );
+
+    public static final Default TestNet = new Default(
+        "000000000933EA01AD0EE984209779BAAEC3CED90FA3F408719526F8D77F4943",
+        1296688602L, // In seconds.
+        18333,
+        "F4F3E5F4",
+        TEST_NET_ASERT_REFERENCE_BLOCK
+    );
 
     static {
         final Long defaultBlockVersion = 0x04L;
@@ -79,13 +94,28 @@ public class BitcoinConstants {
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
 
-        ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
-                661647L,
-                1605447844L,
-                Difficulty.decode(ByteArray.fromHexString("1804DAFE"))
-        );
-
         BITCOIN_SIGNATURE_MESSAGE_MAGIC = "Bitcoin Signed Message:\n";
+    }
+
+    public static void configureForNetwork(final NetworkType networkType) {
+        switch (networkType) {
+            case TEST_NET: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.TestNet.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.TestNet.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.TestNet.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.TestNet.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.TestNet.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.TestNet.asertReferenceBlock);
+            } break;
+            default: {
+                BitcoinConstants.setGenesisBlockHash(BitcoinConstants.MainNet.genesisBlockHash);
+                BitcoinConstants.setGenesisBlockTimestamp(BitcoinConstants.MainNet.genesisBlockTimestamp);
+                BitcoinConstants.setNetMagicNumber(BitcoinConstants.MainNet.netMagicNumber);
+                BitcoinConstants.setDefaultNetworkPort(BitcoinConstants.MainNet.defaultNetworkPort);
+                BitcoinConstants.setDefaultRpcPort(BitcoinConstants.MainNet.defaultRpcPort);
+                BitcoinConstants.setAsertReferenceBlock(BitcoinConstants.MainNet.asertReferenceBlock);
+            }
+        }
     }
 
     public static String getGenesisBlockHash() {
