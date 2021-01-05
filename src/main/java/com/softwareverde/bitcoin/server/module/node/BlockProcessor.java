@@ -380,7 +380,7 @@ public class BlockProcessor {
             // if the full Block has already been processed then abort processing it...
             if (blockHeaderResult.wasBlockAlreadyProcessed()) {
                 blockHeight = blockHeaderResult.getBlockHeight();
-                return ProcessBlockResult.valid(block, blockHeight, false);
+                return ProcessBlockResult.valid(block, blockHeight, false, true);
             }
 
             blockId = blockHeaderResult.getBlockId();
@@ -587,7 +587,7 @@ public class BlockProcessor {
         processBlockTimer.stop();
         Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
         Logger.debug("Block Height: " + blockHeight);
-        return ProcessBlockResult.valid(block, blockHeight, bestBlockchainHasChanged);
+        return ProcessBlockResult.valid(block, blockHeight, bestBlockchainHasChanged, false);
     }
 
     /**

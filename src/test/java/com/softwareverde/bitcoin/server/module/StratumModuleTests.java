@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.server.stratum.task.ConfigurableStratumMineBlockTaskBuilder;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumUtil;
+import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -29,12 +30,25 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.ReflectionUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.net.Socket;
 
-public class StratumModuleTests {
+public class StratumModuleTests extends UnitTest {
+    @Before
+    public void before() throws Exception {
+        super.before();
+    }
+
+    @After
+    public void after() throws Exception {
+        super.after();
+    }
+
     @Test
     public void should_mine_valid_prototype_block() {
         // Setup
@@ -167,7 +181,8 @@ class StratumServerPartialMock extends StratumServer {
 
     @Override
     protected NodeJsonRpcConnection _getNodeJsonRpcConnection() {
-        return new NodeJsonRpcConnection(null, null) {
+        final Socket javaSocket = new Socket(); // Dummy socket, not connected to anything.
+        return new NodeJsonRpcConnection(javaSocket, null) {
             @Override
             protected Json _executeJsonRequest(final Json rpcRequestJson) {
                 System.out.println("Stratum Sent: " + rpcRequestJson.toString());

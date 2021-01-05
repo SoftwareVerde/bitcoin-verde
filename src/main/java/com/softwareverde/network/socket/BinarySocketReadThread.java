@@ -26,8 +26,9 @@ public class BinarySocketReadThread extends Thread implements Socket.ReadThread 
 
     @Override
     public void run() {
-        while (true) {
-            try {
+        final Thread thread = Thread.currentThread();
+        try {
+            while (! thread.isInterrupted()) {
                 final byte[] buffer = _protocolMessageBuffer.getRecycledBuffer();
                 final int bytesRead = _rawInputStream.read(buffer);
 
@@ -58,25 +59,25 @@ public class BinarySocketReadThread extends Thread implements Socket.ReadThread 
                         }
                     }
                 }
-
-                if (this.isInterrupted()) { break; }
-            }
-            catch (final Exception exception) {
-                LOG.debug(exception);
-                break;
             }
         }
-
-        if (_callback != null) {
-            _callback.onExit();
+        catch (final Exception exception) {
+            LOG.debug(exception);
+        }
+        finally {
+            final Callback callback = _callback;
+            if (callback != null) {
+                callback.onExit();
+            }
         }
     }
 
     @Override
-    public void setInputStream(final InputStream inputStream) {
-        if (_rawInputStream != null) {
+    public synchronized void setInputStream(final InputStream inputStream) {
+        final InputStream rawInputStream = _rawInputStream;
+        if (rawInputStream != null) {
             try {
-                _rawInputStream.close();
+                rawInputStream.close();
             }
             catch (final Exception exception) { }
         }
@@ -104,5 +105,19 @@ public class BinarySocketReadThread extends Thread implements Socket.ReadThread 
     @Override
     public Long getTotalBytesReceived() {
         return _totalBytesReceived;
+    }
+
+    @Override
+    public synchronized void close() {
+        this.interrupt();
+
+        final InputStream rawInputStream = _rawInputStream;
+        if (rawInputStream != null) {
+            try {
+                rawInputStream.close();
+            }
+            catch (final Exception exception) { }
+        }
+        _rawInputStream = null;
     }
 }

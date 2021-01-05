@@ -2,6 +2,7 @@ package com.softwareverde.network.socket;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.json.Json;
+import com.softwareverde.logging.Logger;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -9,14 +10,16 @@ import java.io.InputStreamReader;
 
 public class JsonSocket extends Socket {
     protected static class ReadThread extends Thread implements Socket.ReadThread {
+        private InputStream _rawInputStream;
         private BufferedReader _bufferedReader;
         private Callback _callback;
         private Long _totalBytesReceived = 0L;
 
         @Override
         public void run() {
-            while (true) {
-                try {
+            final Thread thread = Thread.currentThread();
+            try {
+                while (! thread.isInterrupted()) {
                     final String string = _bufferedReader.readLine();
                     if (string == null) { break; }
 
@@ -29,29 +32,40 @@ public class JsonSocket extends Socket {
                             _callback.onNewMessage(message);
                         }
                     }
-
-                    if (this.isInterrupted()) { break; }
-                }
-                catch (final Exception exception) {
-                    break;
                 }
             }
-
-            if (_callback != null) {
-                _callback.onExit();
+            catch (final Exception exception) { }
+            finally {
+                Logger.debug("Closing Json socket.");
+                final Callback callback = _callback;
+                if (callback != null) {
+                    callback.onExit();
+                }
             }
         }
 
         @Override
-        public void setInputStream(final InputStream inputStream) {
-            if (_bufferedReader != null) {
+        public synchronized void setInputStream(final InputStream inputStream) {
+            final InputStream rawInputStream = _rawInputStream;
+            if (rawInputStream != null) {
                 try {
-                    _bufferedReader.close();
+                    rawInputStream.close();
                 }
                 catch (final Exception exception) { }
             }
 
-            _bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+            final BufferedReader bufferedReader = _bufferedReader;
+            if (bufferedReader != null) {
+                try {
+                    bufferedReader.close();
+                }
+                catch (final Exception exception) { }
+            }
+
+            if (inputStream != null) {
+                _rawInputStream = inputStream;
+                _bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+            }
         }
 
         @Override
@@ -62,6 +76,32 @@ public class JsonSocket extends Socket {
         @Override
         public Long getTotalBytesReceived() {
             return _totalBytesReceived;
+        }
+
+        @Override
+        public synchronized void close() {
+            this.interrupt();
+
+            // NOTE: the raw InputStream must be held and must be closed before the BufferedReader because the
+            //  BufferedReader::close method is synchronized with the BufferedReader::readLine method, which would
+            //  cause a deadlock 100% of the time.  Instead, the raw InputStream is closed, which causes the readLine
+            //  function to except, so that the BufferedReader may be closed.
+            final InputStream rawInputStream = _rawInputStream;
+            if (rawInputStream != null) {
+                try {
+                    rawInputStream.close();
+                }
+                catch (final Exception exception) { }
+            }
+
+            final BufferedReader bufferedReader = _bufferedReader;
+            if (bufferedReader != null) {
+                try {
+                    bufferedReader.close();
+                }
+                catch (final Exception exception) { }
+            }
+            _bufferedReader = null;
         }
     }
 

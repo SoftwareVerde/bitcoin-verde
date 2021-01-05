@@ -12,11 +12,11 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public abstract class Socket {
+public abstract class Socket implements AutoCloseable {
     private static final Object _nextIdMutex = new Object();
     private static Long _nextId = 0L;
 
-    protected interface ReadThread {
+    protected interface ReadThread extends AutoCloseable {
         interface Callback {
             void onNewMessage(ProtocolMessage protocolMessage);
             void onExit();
@@ -30,6 +30,9 @@ public abstract class Socket {
         void start();
 
         Long getTotalBytesReceived();
+
+        @Override
+        void close();
     }
 
     protected final Long _id;
@@ -93,7 +96,7 @@ public abstract class Socket {
 
         _isClosed = true;
 
-        _readThread.interrupt();
+        _readThread.close();
 
         try {
             _rawInputStream.close();
@@ -229,6 +232,7 @@ public abstract class Socket {
      * Ceases all reads, and closes the socket.
      *  Invoking any write functions after this call throws a runtime exception.
      */
+    @Override
     public void close() {
         _closeSocket();
     }

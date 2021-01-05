@@ -19,6 +19,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class NodeJsonRpcConnection implements AutoCloseable {
     public interface AnnouncementHookCallback {
@@ -56,19 +57,29 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
         _jsonSocket.beginListening();
 
+        double totalWaitTimeMs = 0L;
         JsonProtocolMessage jsonProtocolMessage;
-        synchronized (_newMessageNotifier) {
+        {
             jsonProtocolMessage = _jsonSocket.popMessage();
-            if (jsonProtocolMessage == null) {
+            while ((jsonProtocolMessage == null) && (totalWaitTimeMs < RPC_DURATION_TIMEOUT_MS)) {
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
                 try {
-                    _newMessageNotifier.wait(RPC_DURATION_TIMEOUT_MS);
+                    synchronized (_newMessageNotifier) {
+                        _newMessageNotifier.wait(100L);
+                    }
                 }
-                catch (final InterruptedException exception) { }
+                catch (final InterruptedException exception) { break; }
+
+                nanoTimer.stop();
+                final Double msElapsed = nanoTimer.getMillisecondsElapsed();
+                totalWaitTimeMs += Math.max(1L, msElapsed.longValue());
 
                 jsonProtocolMessage = _jsonSocket.popMessage();
             }
         }
 
+        Logger.trace("Finished JSON request in " + totalWaitTimeMs + "ms. - " + rpcRequestJson);
         return (jsonProtocolMessage != null ? jsonProtocolMessage.getMessage() : null);
     }
 

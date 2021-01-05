@@ -159,7 +159,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
             }
         }
 
-        if (processBlockResult.isValid) {
+        // Execute callbacks...
+        if ( processBlockResult.isValid && (! processBlockResult.wasAlreadyProcessed) ) {
             final NewBlockProcessedCallback synchronousNewBlockProcessedCallback = _synchronousNewBlockProcessedCallback;
             if (synchronousNewBlockProcessedCallback != null) {
                 synchronousNewBlockProcessedCallback.onNewBlock(processBlockResult);
