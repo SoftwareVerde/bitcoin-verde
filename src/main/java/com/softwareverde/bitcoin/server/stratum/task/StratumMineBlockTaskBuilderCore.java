@@ -6,21 +6,17 @@ import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class StratumMineBlockTaskBuilderCore implements ConfigurableStratumMineBlockTaskBuilder {
+public abstract class StratumMineBlockTaskBuilderCore implements MutableStratumMineBlockTaskBuilder {
     final static Object _mutex = new Object();
     private static Long _nextId = 1L;
     protected static Long getNextId() {
@@ -34,7 +30,6 @@ public class StratumMineBlockTaskBuilderCore implements ConfigurableStratumMineB
     protected final SystemTime _systemTime = new SystemTime();
     protected final TransactionDeflater _transactionDeflater;
 
-    protected final ConcurrentHashMap<Sha256Hash, TransactionWithFee> _transactionsWithFee = new ConcurrentHashMap<Sha256Hash, TransactionWithFee>();
     protected final CanonicalMutableBlock _prototypeBlock = new CanonicalMutableBlock();
     protected final Integer _totalExtraNonceByteCount;
 
@@ -74,7 +69,7 @@ public class StratumMineBlockTaskBuilderCore implements ConfigurableStratumMineB
             //      0x08    |                       |
             //
 
-            final Integer headByteCountExcludingExtraNonces = (coinbaseTransactionParts.headBytes.length - _totalExtraNonceByteCount);
+            final int headByteCountExcludingExtraNonces = (coinbaseTransactionParts.headBytes.length - _totalExtraNonceByteCount);
             _coinbaseTransactionHead = HexUtil.toHexString(ByteUtil.copyBytes(coinbaseTransactionParts.headBytes, 0, headByteCountExcludingExtraNonces));
             _coinbaseTransactionTail = HexUtil.toHexString(coinbaseTransactionParts.tailBytes);
 
@@ -146,73 +141,8 @@ public class StratumMineBlockTaskBuilderCore implements ConfigurableStratumMineB
     }
 
     @Override
-    public void addTransaction(final TransactionWithFee transactionWithFee) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            final Transaction transaction = transactionWithFee.transaction;
-            final Long transactionFee = transactionWithFee.transactionFee;
-
-            _prototypeBlock.addTransaction(transaction);
-            _transactionsWithFee.put(transaction.getHash(), transactionWithFee);
-
-            final CoinbaseTransaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
-            final MutableCoinbaseTransaction mutableCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
-            final Long currentBlockReward = coinbaseTransaction.getBlockReward();
-            mutableCoinbaseTransaction.setBlockReward(currentBlockReward + transactionFee);
-
-            _setCoinbaseTransaction(mutableCoinbaseTransaction);
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
-    @Override
     public CoinbaseTransaction getCoinbaseTransaction() {
         return _prototypeBlock.getCoinbaseTransaction();
-    }
-
-    @Override
-    public void removeTransaction(final Sha256Hash transactionHash) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            _prototypeBlock.removeTransaction(transactionHash);
-
-            final TransactionWithFee transactionWithFee = _transactionsWithFee.get(transactionHash);
-            if (transactionWithFee == null) {
-                Logger.warn("Unable to remove transaction from prototype block: " + transactionHash);
-                return;
-            }
-
-            final Long transactionFee = transactionWithFee.transactionFee;
-
-            final CoinbaseTransaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
-            final MutableCoinbaseTransaction mutableCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
-            final Long currentBlockReward = coinbaseTransaction.getBlockReward();
-            mutableCoinbaseTransaction.setBlockReward(currentBlockReward - transactionFee);
-
-            _setCoinbaseTransaction(mutableCoinbaseTransaction);
-
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
-    @Override
-    public void clearTransactions() {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            final Transaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
-            _prototypeBlock.clearTransactions();
-            _prototypeBlock.addTransaction(coinbaseTransaction);
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
     }
 
     @Override

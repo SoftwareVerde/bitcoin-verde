@@ -35,6 +35,7 @@ import java.io.File;
 
 public class StratumModule {
     protected final SystemTime _systemTime = new SystemTime();
+    protected final Boolean useBitcoinCoreStratumServer = true;
 
     protected final Environment _environment;
     protected final StratumProperties _stratumProperties;
@@ -60,8 +61,14 @@ public class StratumModule {
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
-        _stratumServer = new StratumServer(_stratumProperties, _stratumThreadPool);
-        _stratumServer.setWorkerShareCallback(new StratumServer.WorkerShareCallback() {
+        if (useBitcoinCoreStratumServer) {
+            _stratumServer = new BitcoinCoreStratumServer(_stratumProperties, _stratumThreadPool);
+        }
+        else {
+            _stratumServer = new BitcoinVerdeStratumServer(_stratumProperties, _stratumThreadPool);
+        }
+
+        _stratumServer.setWorkerShareCallback(new WorkerShareCallback() {
             @Override
             public void onNewWorkerShare(final String workerUsername, final Integer shareDifficulty) {
                 try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {

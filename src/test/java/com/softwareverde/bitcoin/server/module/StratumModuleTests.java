@@ -7,9 +7,9 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
-import com.softwareverde.bitcoin.server.module.stratum.StratumServer;
+import com.softwareverde.bitcoin.server.module.stratum.BitcoinVerdeStratumServer;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.server.stratum.task.ConfigurableStratumMineBlockTaskBuilder;
+import com.softwareverde.bitcoin.server.stratum.task.MutableStratumMineBlockTaskBuilder;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumUtil;
 import com.softwareverde.bitcoin.test.UnitTest;
@@ -52,7 +52,7 @@ public class StratumModuleTests extends UnitTest {
     @Test
     public void should_mine_valid_prototype_block() {
         // Setup
-        final StratumServerPartialMock stratumServer = new StratumServerPartialMock();
+        final BitcoinVerdeStratumServerPartialMock stratumServer = new BitcoinVerdeStratumServerPartialMock();
         stratumServer.setValidatePrototypeBlockBeforeMining(false);
 
         stratumServer.queueFakeJsonResponse(Json.parse("{\"blockHeaders\":[\"00000020491C708BADFD38F0B38A6EDD6FDD949C9A4D109C037EAB010000000000000000093CC8AEF901A2BF304DC6949439AAC6942F75BE376E14E7C38EEA8F0D2B696360C6555C3C9B051848B94556\"],\"errorMessage\":null,\"wasSuccess\":1}"));
@@ -62,7 +62,7 @@ public class StratumModuleTests extends UnitTest {
         stratumServer.queueFakeJsonResponse(Json.parse("{\"unconfirmedTransactions\":[{\"transactionFee\":243,\"transactionData\":\"0100000001D0ADDDF36837842BF09B8C699DABB01923D6CA5224975863880637E4BFA355ED010000006A47304402203AF85025DBC1EC2318C9C463041502F61115B7BB002373DD6A88A2E3D7ED2D01022001C6E527F76508CA9C76ACF7EDBF5B00049BA1A96CD77A20EEBAB41D35AC4CF1412102F7A672CD7516D4E76D34D68DB1492DD5DD7121DDBD6FAE6FAC49F431BF36E26AFFFFFFFF0289CE0200000000001976A9147A12CF7834A18154377FD50A38C78E7725C0486F88ACAA3B0300000000001976A9148B80501D56D20C1BF8AA94F25CE9EAFADE545E0E88AC00000000\"},{\"transactionFee\":390,\"transactionData\":\"010000000226D4509F9709D74EE7CB4EEE608280CCAC94CB5B259B2DC9C8083A81A42189CD000000006A47304402207FBB1AA623F2F1DB9EE78666BF8150C74883494E5F60AA88E88162AED3D5AAD002204C4E933B791E1332A4518FA2B19B1FC941E6A7C761C97A0296BB013A72A0D314412102353C7984935825F70C60ECF0543892CEFED310B55629E1E5C9A4D23685DD7DE5FFFFFFFF6DEC6DB7021E83B5470D73263854F5B7A609AFB21EF05F2498A418C98F18226B010000006B483045022100DB11AF4F4731D8B453E87BCEED56A28DBFE35FBFE99666B2B8FE546BED32828802207F7A89655E24D60FA8189B4D9EE049590616C3AB8B5D0E588BB272C03D543D8C412103788A855A936EA41414713D0D4F83B20DE49B9D892D4BB3AB52AED8EA2A9E32A1FFFFFFFF021DB90900000000001976A9148B80506A2D60464710BD359AC82400C2BF23E5FE88AC260B0600000000001976A914DB77613B90CA4FFC8DF46422B0021854B9B4C9AE88AC00000000\"},{\"transactionFee\":280,\"transactionData\":\"0100000001970E0DEF3A463DB2CD124FCE1CEC2B0A09129B4D7DC50F1C51A3BB9EB2B4A410000000006B483045022100883CBCBC0781CCF1F4DA8C40E7887B4E863661CC11A83C9C34C0F028AA2150E0022053B2F7DB5362D22BBC7857600B594834F6D8440081784481FE87993A4566772741210337433E3CD5B7B46006D7DF31261FB1EC8679E116072357FDDC05D491E05E7ADFFFFFFFFF020000000000000000216A040101010104343339301501DB673B6C83CF1BEB747A8F5C2AE7FBC50F6A0D001A290200000000001976A9149A43A4319077B6DB6B3F8EC27E756A75F41672CC88AC00000000\"}],\"errorMessage\":null,\"wasSuccess\":1}"));
         stratumServer.queueFakeJsonResponse(Json.parse("{\"errorMessage\":\"\",\"wasSuccess\":0}")); // Fail the ADD_HOOK upgrade since the socket is not real...
 
-        final ConfigurableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = stratumServer.createStratumMineBlockTask();
+        final MutableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = stratumServer.createStratumMineBlockTask();
         final StratumMineBlockTask stratumMineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();
 
         // Action
@@ -157,7 +157,7 @@ class FakeStratumServerSocket extends StratumServerSocket {
     }
 }
 
-class StratumServerPartialMock extends StratumServer {
+class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
     protected static Configuration configuration;
 
     static {
@@ -173,7 +173,7 @@ class StratumServerPartialMock extends StratumServer {
 
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<Json>();
 
-    public StratumServerPartialMock() {
+    public BitcoinVerdeStratumServerPartialMock() {
         super(configuration.getStratumProperties(), new MainThreadPool(1, 1L));
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());
@@ -198,7 +198,7 @@ class StratumServerPartialMock extends StratumServer {
         _fakeJsonResponses.add(json);
     }
 
-    public ConfigurableStratumMineBlockTaskBuilder createStratumMineBlockTask() {
+    public MutableStratumMineBlockTaskBuilder createStratumMineBlockTask() {
         _rebuildNewMiningTask();
         return _stratumMineBlockTaskBuilder;
     }

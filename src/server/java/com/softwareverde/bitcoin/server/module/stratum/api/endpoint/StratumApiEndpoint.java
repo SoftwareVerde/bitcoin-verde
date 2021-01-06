@@ -15,7 +15,9 @@ public abstract class StratumApiEndpoint implements Servlet {
 
     public StratumApiEndpoint(final StratumProperties stratumProperties) {
         _stratumProperties = stratumProperties;
-        _sessionManager = new SessionManager(_stratumProperties.getCookiesDirectory() + "/");
+        final Boolean enableSecureCookies = stratumProperties.areSecureCookiesEnabled();
+        final String cookiesDirectory = (_stratumProperties.getCookiesDirectory() + "/");
+        _sessionManager = new SessionManager(cookiesDirectory, enableSecureCookies);
     }
 
     protected abstract Response _onRequest(final Request request);

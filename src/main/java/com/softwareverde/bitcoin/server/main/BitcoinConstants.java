@@ -79,7 +79,7 @@ public class BitcoinConstants {
         final Long defaultTransactionVersion = 0x02L;
         final Integer defaultProtocolVersion = 70015;
         final String defaultUserAgent = "/Bitcoin Verde:2.0.1/";
-        final String coinbaseMessage = "/pool.bitcoinverde.org/";
+        final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
