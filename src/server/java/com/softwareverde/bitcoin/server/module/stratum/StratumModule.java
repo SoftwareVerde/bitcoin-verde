@@ -35,7 +35,6 @@ import java.io.File;
 
 public class StratumModule {
     protected final SystemTime _systemTime = new SystemTime();
-    protected final Boolean useBitcoinCoreStratumServer = true;
 
     protected final Environment _environment;
     protected final StratumProperties _stratumProperties;
@@ -55,6 +54,10 @@ public class StratumModule {
     }
 
     public StratumModule(final StratumProperties stratumProperties, final Environment environment) {
+        this(stratumProperties, environment, true);
+    }
+
+    public StratumModule(final StratumProperties stratumProperties, final Environment environment, final Boolean useBitcoinCoreStratumServer) {
         _stratumProperties = stratumProperties;
         _environment = environment;
 
