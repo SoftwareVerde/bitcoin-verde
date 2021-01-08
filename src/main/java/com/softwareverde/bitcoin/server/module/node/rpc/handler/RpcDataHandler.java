@@ -479,10 +479,18 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 final Difficulty difficulty = _getDifficulty(databaseManager);
                 final Long blockReward = _getBlockReward(databaseManager);
 
-                final List<Transaction> unconfirmedTransactions = _getUnconfirmedTransactions(databaseManager);
+                final List<TransactionWithFee> unconfirmedTransactions = _getUnconfirmedTransactionsWithFees(databaseManager);
+                final Long totalTransactionFees;
+                {
+                    long feeSum = 0L;
+                    for (final TransactionWithFee transactionWithFee : unconfirmedTransactions) {
+                        feeSum += transactionWithFee.transactionFee;
+                    }
+                    totalTransactionFees = feeSum;
+                }
 
-                // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
-                final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
+                final Long coinbaseAmount = (blockReward + totalTransactionFees);
+                final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, coinbaseAmount);
 
                 final Long timestamp = _systemTime.getCurrentTimeInSeconds();
 
@@ -492,9 +500,11 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
                 blockHeader.setTimestamp(timestamp);
                 blockHeader.setNonce(0L);
 
-                final MutableList<Transaction> blockTransactions = new MutableList<>(1);
+                final MutableList<Transaction> blockTransactions = new MutableList<>(unconfirmedTransactions.getCount() + 1);
                 blockTransactions.add(coinbaseTransaction);
-                blockTransactions.addAll(unconfirmedTransactions);
+                for (final TransactionWithFee transactionWithFee : unconfirmedTransactions) {
+                    blockTransactions.add(transactionWithFee.transaction);
+                }
 
                 final Block prototypeBlock = new CanonicalMutableBlock(blockHeader, blockTransactions);
 

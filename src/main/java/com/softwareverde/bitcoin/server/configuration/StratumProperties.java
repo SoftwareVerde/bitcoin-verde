@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
+import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.util.Util;
 
@@ -13,6 +14,7 @@ public class StratumProperties {
     protected Integer _rpcPort;
     protected String _bitcoinRpcUrl;
     protected Integer _bitcoinRpcPort;
+    protected RpcCredentials _rpcCredentials;
 
     protected Integer _httpPort;
     protected String _rootDirectory;
@@ -20,6 +22,7 @@ public class StratumProperties {
     protected String _tlsKeyFile;
     protected String _tlsCertificateFile;
     protected String _cookiesDirectory;
+    protected Boolean _useSecureCookies;
 
     public Integer getPort() { return _port; }
     public Integer getRpcPort() { return _rpcPort; }
@@ -28,6 +31,9 @@ public class StratumProperties {
         final Integer defaultRpcPort = BitcoinConstants.getDefaultRpcPort();
         return Util.coalesce(_bitcoinRpcPort, defaultRpcPort);
     }
+    public RpcCredentials getRpcCredentials() {
+        return _rpcCredentials;
+    }
 
     public Integer getHttpPort() { return _httpPort; }
     public String getRootDirectory() { return _rootDirectory; }
@@ -35,4 +41,5 @@ public class StratumProperties {
     public String getTlsKeyFile() { return _tlsKeyFile; }
     public String getTlsCertificateFile() { return _tlsCertificateFile; }
     public String getCookiesDirectory() { return _cookiesDirectory; }
+    public Boolean areSecureCookiesEnabled() { return _useSecureCookies; }
 }

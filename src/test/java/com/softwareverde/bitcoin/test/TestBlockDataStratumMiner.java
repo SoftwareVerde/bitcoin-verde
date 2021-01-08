@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
+import com.softwareverde.bitcoin.server.stratum.task.LiveStratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -171,7 +172,7 @@ class StratumMiner {
     }
 
     protected void _buildMiningTask() {
-        final StratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, new TransactionDeflater());
+        final LiveStratumMineBlockTaskBuilderCore stratumMineBlockTaskBuilder = new LiveStratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, new TransactionDeflater());
 
         stratumMineBlockTaskBuilder.setBlockVersion(_blockConfiguration.blockVersion);
         stratumMineBlockTaskBuilder.setPreviousBlockHash(_blockConfiguration.previousBlockHash);

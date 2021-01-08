@@ -94,7 +94,7 @@ public class StratumServerSocket {
 
                             final JsonSocket connection = new JsonSocket(_socket.accept(), _threadPool);
 
-                            final Boolean shouldPurgeConnections = (_nextConnectionId % _purgeEveryCount == 0L);
+                            final boolean shouldPurgeConnections = (_nextConnectionId % _purgeEveryCount == 0L);
                             if (shouldPurgeConnections) {
                                 _purgeDisconnectedConnections();
                             }
