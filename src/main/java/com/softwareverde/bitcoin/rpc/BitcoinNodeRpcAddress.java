@@ -1,15 +1,15 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc;
 
-public class BitcoinNodeAddress {
+public class BitcoinNodeRpcAddress {
     protected final String _host;
     protected final Integer _port;
     protected final Boolean _isSecure;
 
-    public BitcoinNodeAddress(final String host, final Integer port) {
+    public BitcoinNodeRpcAddress(final String host, final Integer port) {
         this(host, port, false);
     }
 
-    public BitcoinNodeAddress(final String host, final Integer port, final Boolean isSecure) {
+    public BitcoinNodeRpcAddress(final String host, final Integer port, final Boolean isSecure) {
         _host = host;
         _port = port;
         _isSecure = isSecure;

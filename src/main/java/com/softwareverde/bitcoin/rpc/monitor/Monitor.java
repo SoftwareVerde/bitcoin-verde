@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc.monitor;
 
 public interface Monitor {
     Boolean isComplete();

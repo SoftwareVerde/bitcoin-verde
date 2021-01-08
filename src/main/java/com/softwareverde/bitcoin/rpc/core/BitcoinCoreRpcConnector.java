@@ -1,11 +1,20 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc.core;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.rpc.BitcoinMiningRpcConnector;
+import com.softwareverde.bitcoin.rpc.BitcoinNodeRpcAddress;
+import com.softwareverde.bitcoin.rpc.BlockTemplate;
+import com.softwareverde.bitcoin.rpc.MutableBlockTemplate;
+import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.bitcoin.rpc.RpcNotificationCallback;
+import com.softwareverde.bitcoin.rpc.RpcNotificationType;
+import com.softwareverde.bitcoin.rpc.core.zmq.ZmqMessageTypeConverter;
+import com.softwareverde.bitcoin.rpc.core.zmq.ZmqNotificationThread;
+import com.softwareverde.bitcoin.rpc.monitor.Monitor;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -17,6 +26,8 @@ import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 import java.util.Collection;
@@ -24,31 +35,63 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
-    public static Map<NotificationType, String> getZmqEndpoints(final String host, final Map<NotificationType, Integer> zmqPorts) {
-        final HashMap<NotificationType, String> zmqEndpoints = new HashMap<>();
+public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
+    public static Map<RpcNotificationType, String> getZmqEndpoints(final String host, final Map<RpcNotificationType, Integer> zmqPorts) {
+        final HashMap<RpcNotificationType, String> zmqEndpoints = new HashMap<>();
         if (zmqPorts == null) { return zmqEndpoints; }
 
         final String baseEndpointUri = ("tcp://" + host + ":");
-        for (final NotificationType notificationType : NotificationType.values()) {
-            final Integer zmqPort = zmqPorts.get(notificationType);
+        for (final RpcNotificationType rpcNotificationType : RpcNotificationType.values()) {
+            final Integer zmqPort = zmqPorts.get(rpcNotificationType);
             if (zmqPort == null) { continue; }
 
             final String endpointUri = (baseEndpointUri + zmqPort);
-            zmqEndpoints.put(notificationType, endpointUri);
+            zmqEndpoints.put(rpcNotificationType, endpointUri);
         }
         return zmqEndpoints;
     }
 
+    public static Boolean isSuccessfulResponse(final Response response, final Json preParsedResponse, final Container<String> errorStringContainer) {
+        errorStringContainer.value = null;
+        if (response == null) { return false; }
+
+        if (! com.softwareverde.bitcoin.util.Util.areEqual(Response.Codes.OK, response.getCode())) {
+            return false;
+        }
+
+        final Json responseJson;
+        if (preParsedResponse != null) {
+            responseJson = preParsedResponse;
+        }
+        else {
+            final String rawResponse = StringUtil.bytesToString(response.getContent());
+            responseJson = Json.parse(rawResponse);
+        }
+
+        final String errorString = responseJson.getString("error");
+        if (! com.softwareverde.bitcoin.util.Util.isBlank(errorString)) {
+            errorStringContainer.value = errorString;
+            return false;
+        }
+
+        return true;
+    }
+
+    public static final String IDENTIFIER = "CORE";
+
     protected final AtomicInteger _nextRequestId = new AtomicInteger(1);
-    protected final BitcoinNodeAddress _bitcoinNodeAddress;
+    protected final BitcoinNodeRpcAddress _bitcoinNodeRpcAddress;
     protected final RpcCredentials _rpcCredentials;
 
-    protected final Map<NotificationType, ZmqNotificationThread> _zmqNotificationThreads = new HashMap<>();
-    protected Map<NotificationType, String> _zmqEndpoints = null;
+    protected final Map<RpcNotificationType, ZmqNotificationThread> _zmqNotificationThreads = new HashMap<>();
+    protected Map<RpcNotificationType, String> _zmqEndpoints = null;
 
-    protected Map<NotificationType, String> _getZmqEndpoints() {
-        final String host = _bitcoinNodeAddress.getHost();
+    protected String _toString() {
+        return (this.getHost() + ":" + this.getPort());
+    }
+
+    protected Map<RpcNotificationType, String> _getZmqEndpoints() {
+        final String host = _bitcoinNodeRpcAddress.getHost();
         final String baseEndpointUri = ("tcp://" + host + ":");
 
         final byte[] requestPayload;
@@ -71,7 +114,7 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
         request.setMethod(HttpMethod.POST);
         request.setRawPostData(requestPayload);
 
-        final HashMap<NotificationType, String> zmqEndpoints = new HashMap<>();
+        final HashMap<RpcNotificationType, String> zmqEndpoints = new HashMap<>();
         final Json resultJson;
         {
             final Response response = this.handleRequest(request);
@@ -94,7 +137,7 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
         for (int i = 0; i < resultJson.length(); ++i) {
             final Json configJson = resultJson.get(i);
             final String messageTypeString = configJson.getString("type");
-            final NotificationType notificationType = ZmqMessageTypeConverter.fromPublishString(messageTypeString);
+            final RpcNotificationType rpcNotificationType = ZmqMessageTypeConverter.fromPublishString(messageTypeString);
             final String address = configJson.getString("address");
 
             final Integer port;
@@ -109,33 +152,41 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
             }
 
             final String endpointUri = (baseEndpointUri + port);
-            zmqEndpoints.put(notificationType, endpointUri);
+            zmqEndpoints.put(rpcNotificationType, endpointUri);
         }
 
         return zmqEndpoints;
     }
 
-    protected String _toString() {
-        return (this.getHost() + ":" + this.getPort());
+    public BitcoinCoreRpcConnector(final BitcoinNodeRpcAddress bitcoinNodeRpcAddress) {
+        this(bitcoinNodeRpcAddress, null);
     }
 
-    public BitcoinCoreRpcConnector(final BitcoinNodeAddress bitcoinNodeAddress) {
-        this(bitcoinNodeAddress, null);
-    }
-
-    public BitcoinCoreRpcConnector(final BitcoinNodeAddress bitcoinNodeAddress, final RpcCredentials rpcCredentials) {
-        _bitcoinNodeAddress = bitcoinNodeAddress;
+    public BitcoinCoreRpcConnector(final BitcoinNodeRpcAddress bitcoinNodeRpcAddress, final RpcCredentials rpcCredentials) {
+        _bitcoinNodeRpcAddress = bitcoinNodeRpcAddress;
         _rpcCredentials = rpcCredentials;
+    }
+
+    public void setZmqEndpoint(final RpcNotificationType rpcNotificationType, final String endpointUri) {
+        if (_zmqEndpoints == null) {
+            _zmqEndpoints = new HashMap<>();
+        }
+
+        _zmqEndpoints.put(rpcNotificationType, endpointUri);
+    }
+
+    public void clearZmqEndpoints() {
+        _zmqEndpoints = null;
     }
 
     @Override
     public String getHost() {
-        return _bitcoinNodeAddress.getHost();
+        return _bitcoinNodeRpcAddress.getHost();
     }
 
     @Override
     public Integer getPort() {
-        return _bitcoinNodeAddress.getPort();
+        return _bitcoinNodeRpcAddress.getPort();
     }
 
     @Override
@@ -151,7 +202,7 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
         final ByteArray proxiedResult;
         { // Proxy the request to the target node...
             final HttpRequest webRequest = new HttpRequest();
-            webRequest.setUrl("http" + (_bitcoinNodeAddress.isSecure() ? "s" : "") + "://" + _bitcoinNodeAddress.getHost() + ":" + _bitcoinNodeAddress.getPort());
+            webRequest.setUrl("http" + (_bitcoinNodeRpcAddress.isSecure() ? "s" : "") + "://" + _bitcoinNodeRpcAddress.getHost() + ":" + _bitcoinNodeRpcAddress.getPort());
             webRequest.setAllowWebSocketUpgrade(false);
             webRequest.setFollowsRedirects(false);
             webRequest.setValidateSslCertificates(false);
@@ -203,10 +254,7 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
         return response;
     }
 
-    public BlockTemplate getBlockTemplate() {
-        return this.getBlockTemplate(null);
-    }
-
+    @Override
     public BlockTemplate getBlockTemplate(final Monitor monitor) {
         final byte[] requestPayload;
         { // Build request payload
@@ -245,7 +293,7 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
             blockTemplateJson = responseJson.get("result");
         }
 
-        final BlockTemplate blockTemplate = new BlockTemplate();
+        final MutableBlockTemplate blockTemplate = new MutableBlockTemplate();
         final TransactionInflater transactionInflater = new TransactionInflater();
 
         blockTemplate.setBlockVersion(blockTemplateJson.getLong("version"));
@@ -292,10 +340,44 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
         return blockTemplate;
     }
 
-    public Boolean submitBlock(final Block block) {
-        return this.submitBlock(block, null);
+    @Override
+    public Boolean validateBlockTemplate(final BlockTemplate blockTemplate, final Monitor monitor) {
+        final byte[] requestPayload;
+        { // Build request payload
+            final Json json = new Json(false);
+            json.put("id", _nextRequestId.getAndIncrement());
+            json.put("method", "validateblocktemplate");
+
+            { // Method Parameters
+                final BlockDeflater blockDeflater = new BlockDeflater();
+                final Block block = blockTemplate.toBlock();
+                final ByteArray blockTemplateBytes = blockDeflater.toBytes(block);
+
+                final Json paramsJson = new Json(true);
+                paramsJson.add(blockTemplateBytes);
+
+                json.put("params", paramsJson);
+            }
+
+            requestPayload = StringUtil.stringToBytes(json.toString());
+        }
+
+        final MutableRequest request = new MutableRequest();
+        request.setMethod(HttpMethod.POST);
+        request.setRawPostData(requestPayload);
+
+        final Response response = this.handleRequest(request, monitor);
+        final String rawResponse = StringUtil.bytesToString(response.getContent());
+        if (! Json.isJson(rawResponse)) {
+            Logger.debug("Received error from " + _toString() +": " + rawResponse.replaceAll("[\\n\\r]+", "/"));
+            return false;
+        }
+
+        final Json responseJson = Json.parse(rawResponse);
+        return responseJson.get("result", false);
     }
 
+    @Override
     public Boolean submitBlock(final Block block, final Monitor monitor) {
         final byte[] requestPayload;
         { // Build request payload
@@ -335,9 +417,14 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
             return false;
         }
 
-        return true;
+        // Result is considered valid according to the C++ code. (string "null" or actual null are both accepted)
+        // {"result": null}
+        final String resultValue = responseJson.getOrNull("result", Json.Types.STRING);
+        if (resultValue == null) { return true; }
+        return Util.areEqual("null", resultValue.toLowerCase());
     }
 
+    @Override
     public Boolean supportsNotifications() {
         if (_zmqEndpoints == null) {
             _zmqEndpoints = _getZmqEndpoints();
@@ -346,29 +433,32 @@ public class BitcoinCoreRpcConnector implements BitcoinRpcConnector {
         return (! _zmqEndpoints.isEmpty());
     }
 
-    public Boolean supportsNotification(final NotificationType notificationType) {
-        final Map<NotificationType, String> zmqEndpoints = _zmqEndpoints;
+    @Override
+    public Boolean supportsNotification(final RpcNotificationType rpcNotificationType) {
+        final Map<RpcNotificationType, String> zmqEndpoints = _zmqEndpoints;
         if (zmqEndpoints == null) { return false; }
 
-        return (zmqEndpoints.get(notificationType) != null);
+        return (zmqEndpoints.get(rpcNotificationType) != null);
     }
 
-    public void subscribeToNotifications(final NotificationCallback notificationCallback) {
-        Map<NotificationType, String> zmqEndpoints = _zmqEndpoints;
+    @Override
+    public void subscribeToNotifications(final RpcNotificationCallback notificationCallback) {
+        Map<RpcNotificationType, String> zmqEndpoints = _zmqEndpoints;
         if (zmqEndpoints == null) {
             zmqEndpoints = _getZmqEndpoints();
             _zmqEndpoints = zmqEndpoints;
         }
         if (zmqEndpoints == null) { return; }
 
-        for (final NotificationType notificationType : zmqEndpoints.keySet()) {
-            final String endpointUri = zmqEndpoints.get(notificationType);
-            final ZmqNotificationThread zmqNotificationThread = new ZmqNotificationThread(notificationType, endpointUri, notificationCallback);
-            _zmqNotificationThreads.put(notificationType, zmqNotificationThread);
+        for (final RpcNotificationType rpcNotificationType : zmqEndpoints.keySet()) {
+            final String endpointUri = zmqEndpoints.get(rpcNotificationType);
+            final ZmqNotificationThread zmqNotificationThread = new ZmqNotificationThread(rpcNotificationType, endpointUri, notificationCallback);
+            _zmqNotificationThreads.put(rpcNotificationType, zmqNotificationThread);
             zmqNotificationThread.start();
         }
     }
 
+    @Override
     public void unsubscribeToNotifications() {
         for (final ZmqNotificationThread zmqNotificationThread : _zmqNotificationThreads.values()) {
             zmqNotificationThread.interrupt();

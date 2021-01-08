@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc.monitor;
 
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.timer.NanoTimer;
@@ -70,7 +70,7 @@ public abstract class RpcMonitor<T> implements Monitor {
     /**
      * Caller must always invoke afterRequestEnd if beforeRequestStart is invoked.
      */
-    void beforeRequestStart(final T connection) {
+    protected void beforeRequestStart(final T connection) {
         _connection = connection;
         _timer.start();
 
@@ -80,7 +80,7 @@ public abstract class RpcMonitor<T> implements Monitor {
     /**
      * Must always be called if beforeRequestStart is invoked.
      */
-    void afterRequestEnd() {
+    protected void afterRequestEnd() {
         _isComplete.set(true);
         _timer.stop();
 

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.configuration;
 
-import com.softwareverde.bitcoin.server.module.node.rpc.core.RpcCredentials;
+import com.softwareverde.bitcoin.rpc.RpcCredentials;
 import com.softwareverde.util.Util;
 
 import java.util.Properties;

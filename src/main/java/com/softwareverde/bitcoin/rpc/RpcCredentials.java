@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc;
 
 import com.softwareverde.util.Base64Util;
 import com.softwareverde.util.StringUtil;

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
+import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
-import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.http.server.servlet.WebSocketServlet;
 import com.softwareverde.http.server.servlet.request.WebSocketRequest;

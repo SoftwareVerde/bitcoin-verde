@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
@@ -14,8 +14,6 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
-import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 
@@ -45,82 +43,6 @@ public class BlockTemplate implements Jsonable {
     protected String _longPollId;
     protected final MutableList<String> _capabilities = new MutableList<>(0);
     protected final MutableList<String> _mutableFields = new MutableList<>(0);
-
-    protected void setBlockHeight(final Long blockHeight) {
-        _blockHeight = blockHeight;
-    }
-
-    protected void setBlockVersion(final Long blockVersion) {
-        _blockVersion = blockVersion;
-    }
-
-    protected void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
-        _previousBlockHash = previousBlockHash;
-    }
-
-    protected void setDifficulty(final Difficulty difficulty) {
-        _difficulty = difficulty;
-    }
-
-    protected void setCoinbaseAmount(final Long coinbaseAmount) {
-        _coinbaseAmount = coinbaseAmount;
-    }
-
-    protected void setNonceRange(final ByteArray nonceRange) {
-        if (nonceRange.getByteCount() != 8) {
-            Logger.debug("Invalid byte count for nonceRange: " + nonceRange);
-        }
-
-        _nonceRange = nonceRange;
-    }
-
-    protected void setCurrentTime(final Long currentTime) {
-        _currentTime = currentTime;
-    }
-
-    protected void setMinimumBlockTime(final Long minimumBlockTime) {
-        _minimumBlockTime = minimumBlockTime;
-    }
-
-    protected void setMaxSignatureOperationCount(final Long maxSignatureOperationCount) {
-        _maxSignatureOperationCount = maxSignatureOperationCount;
-    }
-
-    protected void setMaxBlockByteCount(final Long maxBlockByteCount) {
-        _maxBlockByteCount = maxBlockByteCount;
-    }
-
-    protected void setTarget(final ByteArray target) {
-        if (! Util.areEqual(Sha256Hash.BYTE_COUNT, target.getByteCount())) {
-            Logger.warn("Invalid target byte count: " + target.getByteCount());
-            return;
-        }
-
-        _target = target;
-    }
-
-    protected void setCoinbaseAuxFlags(final String coinbaseAuxFlags) {
-        _coinbaseAuxFlags = coinbaseAuxFlags;
-    }
-
-    protected void setLongPollId(final String longPollId) {
-        _longPollId = longPollId;
-    }
-
-    protected void addTransaction(final Transaction transaction, final Long fee, final Integer signatureOperationCount) {
-        final Sha256Hash transactionHash = transaction.getHash();
-        _transactions.add(transaction);
-        _transactionFees.put(transactionHash, fee);
-        _transactionSignatureOperationCounts.put(transactionHash, signatureOperationCount);
-    }
-
-    protected void addCapability(final String capability) {
-        _capabilities.add(capability);
-    }
-
-    protected void addMutableField(final String mutableField) {
-        _mutableFields.add(mutableField);
-    }
 
     public Long getBlockHeight() {
         return _blockHeight;

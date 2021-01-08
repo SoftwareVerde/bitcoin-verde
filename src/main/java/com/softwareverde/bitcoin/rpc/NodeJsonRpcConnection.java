@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.rpc;
+package com.softwareverde.bitcoin.rpc;
 
 import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;

@@ -1,5 +1,8 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc.core.zmq;
 
+import com.softwareverde.bitcoin.rpc.RpcNotification;
+import com.softwareverde.bitcoin.rpc.RpcNotificationCallback;
+import com.softwareverde.bitcoin.rpc.RpcNotificationType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.logging.Logger;
 import org.zeromq.SocketType;
@@ -9,10 +12,10 @@ import org.zeromq.ZMQ;
 import org.zeromq.ZMsg;
 
 public class ZmqNotificationThread extends Thread {
-    protected final NotificationType _notificationType;
-    protected NotificationCallback _callback;
+    protected final RpcNotificationType _rpcNotificationType;
+    protected RpcNotificationCallback _callback;
 
-    public ZmqNotificationThread(final NotificationType notificationType, final String endpointUri, final NotificationCallback callback) {
+    public ZmqNotificationThread(final RpcNotificationType rpcNotificationType, final String endpointUri, final RpcNotificationCallback callback) {
         super(new Runnable() {
             @Override
             public void run() {
@@ -20,11 +23,11 @@ public class ZmqNotificationThread extends Thread {
                     final SocketType socketType = SocketType.type(zmq.ZMQ.ZMQ_SUB);
                     final ZMQ.Socket socket = context.createSocket(socketType);
 
-                    Logger.trace("Listening to: " + endpointUri + " for " + notificationType);
+                    Logger.trace("Listening to: " + endpointUri + " for " + rpcNotificationType);
                     socket.connect(endpointUri); // eg: "tcp://host:port"
 
-                    for (final NotificationType notificationType : NotificationType.values()) {
-                        final String subscriptionString = ZmqMessageTypeConverter.toSubscriptionString(notificationType);
+                    for (final RpcNotificationType rpcNotificationType : RpcNotificationType.values()) {
+                        final String subscriptionString = ZmqMessageTypeConverter.toSubscriptionString(rpcNotificationType);
                         if (subscriptionString != null) {
                             socket.subscribe(subscriptionString.getBytes());
                         }
@@ -35,14 +38,14 @@ public class ZmqNotificationThread extends Thread {
                         final ZMsg zMsg = ZMsg.recvMsg(socket);
                         if (zMsg == null) { break; }
 
-                        NotificationType notificationType = null;
+                        RpcNotificationType rpcNotificationType = null;
                         ByteArray payload = null;
 
                         int frameIndex = 0;
                         for (final ZFrame zFrame : zMsg) {
                             final ByteArray bytes = ByteArray.wrap(zFrame.getData());
                             if (frameIndex == 0) {
-                                notificationType = ZmqMessageTypeConverter.fromMessageBytes(bytes);
+                                rpcNotificationType = ZmqMessageTypeConverter.fromMessageBytes(bytes);
                             }
                             else if (frameIndex == 1) {
                                 payload = bytes;
@@ -53,10 +56,10 @@ public class ZmqNotificationThread extends Thread {
                             ++frameIndex;
                         }
 
-                        if ( (notificationType != null) && (payload != null) ) {
-                            Logger.trace(endpointUri + " - " + notificationType + ": " + payload);
-                            final Notification notification = new Notification(notificationType, payload);
-                            callback.onNewNotification(notification);
+                        if ( (rpcNotificationType != null) && (payload != null) ) {
+                            Logger.trace(endpointUri + " - " + rpcNotificationType + ": " + payload);
+                            final RpcNotification rpcNotification = new RpcNotification(rpcNotificationType, payload);
+                            callback.onNewNotification(rpcNotification);
                         }
                     }
                 }
@@ -72,11 +75,11 @@ public class ZmqNotificationThread extends Thread {
         });
         this.setDaemon(true);
 
-        _notificationType = notificationType;
+        _rpcNotificationType = rpcNotificationType;
         _callback = callback;
     }
 
-    public NotificationType getMessageType() {
-        return _notificationType;
+    public RpcNotificationType getMessageType() {
+        return _rpcNotificationType;
     }
 }

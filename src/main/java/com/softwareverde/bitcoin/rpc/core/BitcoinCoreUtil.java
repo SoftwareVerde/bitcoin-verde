@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.rpc.core;
+package com.softwareverde.bitcoin.rpc.core;
 
 import com.softwareverde.http.server.servlet.response.Response;
 

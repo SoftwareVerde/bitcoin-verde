@@ -9,15 +9,15 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
+import com.softwareverde.bitcoin.rpc.BitcoinNodeRpcAddress;
+import com.softwareverde.bitcoin.rpc.BlockTemplate;
+import com.softwareverde.bitcoin.rpc.RpcCredentials;
+import com.softwareverde.bitcoin.rpc.RpcNotification;
+import com.softwareverde.bitcoin.rpc.RpcNotificationCallback;
+import com.softwareverde.bitcoin.rpc.RpcNotificationType;
+import com.softwareverde.bitcoin.rpc.core.BitcoinCoreRpcConnector;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.BitcoinCoreRpcConnector;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.BitcoinNodeAddress;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.BlockTemplate;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.Notification;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.NotificationCallback;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.NotificationType;
-import com.softwareverde.bitcoin.server.module.node.rpc.core.RpcCredentials;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
@@ -122,9 +122,9 @@ public class BitcoinCoreStratumServer implements StratumServer {
         final Integer bitcoinRpcPort = _stratumProperties.getBitcoinRpcPort();
 
         final RpcCredentials rpcCredentials = _stratumProperties.getRpcCredentials();
-        final BitcoinNodeAddress bitcoinNodeAddress = new BitcoinNodeAddress(bitcoinRpcUrl, bitcoinRpcPort, false);
+        final BitcoinNodeRpcAddress bitcoinNodeRpcAddress = new BitcoinNodeRpcAddress(bitcoinRpcUrl, bitcoinRpcPort, false);
 
-        return new BitcoinCoreRpcConnector(bitcoinNodeAddress, rpcCredentials);
+        return new BitcoinCoreRpcConnector(bitcoinNodeRpcAddress, rpcCredentials);
     }
 
     protected Block _assemblePrototypeBlock(final StratumMineBlockTaskBuilder stratumMineBlockTaskBuilder) {
@@ -512,12 +512,12 @@ public class BitcoinCoreStratumServer implements StratumServer {
         _rebuildNewMiningTask();
 
         final BitcoinCoreRpcConnector notificationBitcoinRpcConnector = _getBitcoinRpcConnector();
-        notificationBitcoinRpcConnector.subscribeToNotifications(new NotificationCallback() {
+        notificationBitcoinRpcConnector.subscribeToNotifications(new RpcNotificationCallback() {
             @Override
-            public void onNewNotification(final Notification notification) {
-                final Boolean useBlockHashAsAnnouncementHook = notificationBitcoinRpcConnector.supportsNotification(NotificationType.BLOCK_HASH);
+            public void onNewNotification(final RpcNotification rpcNotification) {
+                final Boolean useBlockHashAsAnnouncementHook = notificationBitcoinRpcConnector.supportsNotification(RpcNotificationType.BLOCK_HASH);
 
-                switch (notification.notificationType) {
+                switch (rpcNotification._rpcNotificationType) {
                     case BLOCK: {
                         if (useBlockHashAsAnnouncementHook) {
                             break;
