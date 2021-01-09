@@ -517,7 +517,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
             public void onNewNotification(final RpcNotification rpcNotification) {
                 final Boolean useBlockHashAsAnnouncementHook = notificationBitcoinRpcConnector.supportsNotification(RpcNotificationType.BLOCK_HASH);
 
-                switch (rpcNotification._rpcNotificationType) {
+                switch (rpcNotification.rpcNotificationType) {
                     case BLOCK: {
                         if (useBlockHashAsAnnouncementHook) {
                             break;
