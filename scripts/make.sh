@@ -10,6 +10,10 @@ rm -rf out 2>/dev/null
 mkdir -p out/conf
 cp -R conf/* out/conf/.
 
+# Copy Daemon Scripts
+mkdir -p out/daemons
+cp -R daemons/* out/daemons/.
+
 # Copy README
 cp README.md out/.
 
