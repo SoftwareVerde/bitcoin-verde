@@ -15,6 +15,8 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptType;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.slp.commit.SlpCommitScript;
@@ -22,6 +24,7 @@ import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript
 import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -42,6 +45,7 @@ public class BlockchainIndexer extends SleepyService {
         ScriptType scriptType;
         Address address;
         TransactionId slpTransactionId;
+        ByteArray memoActionType;
     }
 
     protected static class InputIndexData {
@@ -128,17 +132,17 @@ public class BlockchainIndexer extends SleepyService {
         return inputIndexDataList;
     }
 
-    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final AtomicTransactionOutputIndexerContext context, final TransactionId transactionId, final Transaction transaction) throws ContextException {
+    protected Map<TransactionOutputIdentifier, OutputIndexData> _indexTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws ContextException {
         final HashMap<TransactionOutputIdentifier, OutputIndexData> outputIndexData = new HashMap<TransactionOutputIdentifier, OutputIndexData>();
 
         final Sha256Hash transactionHash = transaction.getHash();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final int transactionOutputCount = transactionOutputs.getCount();
 
-        final LockingScript slpLockingScript;
+        final LockingScript firstOutputLockingScript;
         {
             final TransactionOutput transactionOutput = transactionOutputs.get(0);
-            slpLockingScript = transactionOutput.getLockingScript();
+            firstOutputLockingScript = transactionOutput.getLockingScript();
         }
 
         for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
@@ -146,34 +150,53 @@ public class BlockchainIndexer extends SleepyService {
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
             if (! outputIndexData.containsKey(transactionOutputIdentifier)) {
 
+                final ScriptType scriptType;
                 final Address address;
                 {
                     final LockingScript lockingScript = transactionOutput.getLockingScript();
-                    final ScriptType scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
+                    scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
                     address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                }
+
+                final ByteArray memoActionType;
+                {
+                    final boolean isMemoScriptType = (scriptType == ScriptType.MEMO_SCRIPT);
+                    if (isMemoScriptType) {
+                        // Mark the Receiving Output as a Memo-Action Output.
+                        // Unlike SLP, any output may be an Memo-Action Output (i.e. not necessarily the first).
+                        // NOTE: Memo actions are applied to ALL INPUTS of a Transaction, not the Outputs.
+                        //  Confirmed via: 3971682E94E08AABA660D1D16DDF6F582656FD6BE9C4FA8F360856D982481C39
+                        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(firstOutputLockingScript);
+                        memoActionType = (memoScriptType != null ? memoScriptType.getBytes() : null);
+                    }
+                    else {
+                        memoActionType = null;
+                    }
                 }
 
                 final OutputIndexData indexData = new OutputIndexData();
                 indexData.transactionId = transactionId;
                 indexData.outputIndex = outputIndex;
                 indexData.amount = transactionOutput.getAmount();
-                indexData.scriptType = ScriptType.UNKNOWN;
+                indexData.scriptType = scriptType;
                 indexData.address = address;
-                indexData.slpTransactionId = null;
+                indexData.slpTransactionId = null; // Handled later within this function...
+                indexData.memoActionType = memoActionType;
 
                 outputIndexData.put(transactionOutputIdentifier, indexData);
             }
         }
 
-        final ScriptType scriptType = _scriptPatternMatcher.getScriptType(slpLockingScript);
-        if (! ScriptType.isSlpScriptType(scriptType)) {
+        final ScriptType scriptType = _scriptPatternMatcher.getScriptType(firstOutputLockingScript);
+        final boolean isSlpScriptType = ScriptType.isSlpScriptType(scriptType);
+        if (! isSlpScriptType) {
             return outputIndexData;
         }
 
         boolean slpTransactionIsValid;
         { // Validate SLP Transaction...
             // NOTE: Inflating the whole transaction is mildly costly, but typically this only happens once per SLP transaction, which is required anyway.
-            final SlpScript slpScript = _slpScriptInflater.fromLockingScript(slpLockingScript);
+            final SlpScript slpScript = _slpScriptInflater.fromLockingScript(firstOutputLockingScript);
 
             slpTransactionIsValid = ( (slpScript != null) && (transactionOutputCount >= slpScript.getMinimumTransactionOutputCount()) );
 
@@ -299,9 +322,9 @@ public class BlockchainIndexer extends SleepyService {
             return null;
         }
 
-        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(context, transactionId, transaction);
+        final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transaction);
         for (final OutputIndexData indexData : outputIndexData.values()) {
-            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId);
+            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId, indexData.memoActionType);
         }
 
         final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);

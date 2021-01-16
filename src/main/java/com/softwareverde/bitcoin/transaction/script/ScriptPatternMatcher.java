@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptType;
 import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -287,6 +289,11 @@ public class ScriptPatternMatcher {
                     }
                 }
             }
+        }
+
+        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
+        if (memoScriptType != null) {
+            return ScriptType.MEMO_SCRIPT;
         }
 
         return ScriptType.CUSTOM_SCRIPT;

@@ -247,6 +247,7 @@ CREATE TABLE IF NOT EXISTS "indexed_transaction_outputs" (
 	"address" BLOB NULL,
 	"script_type_id" INTEGER NOT NULL DEFAULT 1,
 	"slp_transaction_id" INTEGER NULL,
+	"memo_action_type" BLOB NULL,
 	PRIMARY KEY ("transaction_id", "output_index")
 );
 
@@ -280,7 +281,7 @@ CREATE TABLE IF NOT EXISTS "metadata" (
 	PRIMARY KEY ("id")
 );
 
-INSERT INTO metadata (version, timestamp) VALUES (3, strftime('%s', 'now'));
+INSERT INTO metadata (version, timestamp) VALUES (4, STRFTIME('%s', 'now'));
 
 CREATE UNIQUE INDEX "block_merkle_trees_block_merkle_trees_uq" ON "block_merkle_trees" ("block_id");
 CREATE INDEX "block_transactions_block_transactions_fk2" ON "block_transactions" ("transaction_id");

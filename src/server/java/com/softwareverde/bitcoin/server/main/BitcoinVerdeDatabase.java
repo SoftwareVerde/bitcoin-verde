@@ -7,17 +7,22 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
+import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.DatabaseInitializer;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
+import com.softwareverde.database.mysql.SqlScriptRunner;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.properties.DatabaseCredentials;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
+import java.io.StringReader;
 import java.sql.Connection;
 
 public class BitcoinVerdeDatabase implements Database {
@@ -31,8 +36,8 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
-    public static final InitFile BITCOIN = new InitFile("/sql/full_node/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
-    public static final InitFile STRATUM = new InitFile("/sql/stratum/init_mysql.sql", BitcoinConstants.DATABASE_VERSION);
+    public static final InitFile BITCOIN = new InitFile("/sql/node/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
+    public static final InitFile STRATUM = new InitFile("/sql/stratum/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
 
     public static final Integer MAX_DATABASE_CONNECTION_COUNT = 64; // Increasing too much may cause MySQL to use excessive memory...
 
@@ -52,11 +57,22 @@ public class BitcoinVerdeDatabase implements Database {
     public static final DatabaseInitializer.DatabaseUpgradeHandler<Connection> DATABASE_UPGRADE_HANDLER = new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
         @Override
         public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
-            if ( (currentVersion < 3) && (requiredVersion <= 3) ) {
+            if ( (currentVersion == 1) || (currentVersion == 2) ) {
                 return false; // Upgrading from Verde v1 (DB v1-v2) is not supported.
             }
 
-            return false;
+            int upgradedVersion = currentVersion;
+
+            // v3 -> v4 (Memo Support)
+            if ( (currentVersion == 3) && (requiredVersion >= 4) ) {
+                Logger.info("[Upgrading DB to v4]");
+                final Boolean wasSuccessful = _upgradeDatabaseMemoSupport(maintenanceDatabaseConnection);
+                if (! wasSuccessful) { return false; }
+
+                upgradedVersion = 4;
+            }
+
+            return (upgradedVersion >= requiredVersion);
         }
     };
 
@@ -124,6 +140,24 @@ public class BitcoinVerdeDatabase implements Database {
         final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(databaseProperties);
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties, maintenanceCredentials);
         return new MysqlDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
+    }
+
+    protected static Boolean _upgradeDatabaseMemoSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/memo_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
     }
 
     protected final MysqlDatabase _core;

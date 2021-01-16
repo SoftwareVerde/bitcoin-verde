@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -339,7 +340,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<TransactionId> slpTransactionIds) throws DatabaseException {
+    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<TransactionId> slpTransactionIds, final List<ByteArray> memoActionTypes) throws DatabaseException {
         final int itemCount = transactionIds.getCount();
         if (transactionIds.getCount()       != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "     + itemCount + " got " + transactionIds.getCount()); }
         if (outputIndexes.getCount()        != itemCount) { throw new DatabaseException("Mismatch parameter count outputIndexes expected "      + itemCount + " got " + outputIndexes.getCount()); }
@@ -347,6 +348,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         if (scriptTypes.getCount()          != itemCount) { throw new DatabaseException("Mismatch parameter count scriptTypes expected "        + itemCount + " got " + scriptTypes.getCount()); }
         if (addresses.getCount()            != itemCount) { throw new DatabaseException("Mismatch parameter count addresses expected "          + itemCount + " got " + addresses.getCount()); }
         if (slpTransactionIds.getCount()    != itemCount) { throw new DatabaseException("Mismatch parameter count slpTransactionIds expected "  + itemCount + " got " + slpTransactionIds.getCount()); }
+        if (memoActionTypes.getCount()      != itemCount) { throw new DatabaseException("Mismatch parameter count memoActionTypes expected "    + itemCount + " got " + memoActionTypes.getCount()); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -361,7 +363,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_type_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_type_id, slp_transaction_id, memo_action_type) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id), memo_action_type = VALUES(memo_action_type)");
                 for (final Integer itemIndex : batchItems) {
                     final TransactionId transactionId = transactionIds.get(itemIndex);
                     final Integer outputIndex = outputIndexes.get(itemIndex);
@@ -369,6 +371,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                     final Address address = addresses.get(itemIndex);
                     final ScriptType scriptType = scriptTypes.get(itemIndex);
                     final TransactionId slpTransactionId = slpTransactionIds.get(itemIndex);
+                    final ByteArray memoActionType = memoActionTypes.get(itemIndex);
 
                     final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
 
@@ -378,7 +381,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                         .setParameter(amount)
                         .setParameter(address)
                         .setParameter(scriptTypeId)
-                        .setParameter(slpTransactionId);
+                        .setParameter(slpTransactionId)
+                        .setParameter(memoActionType);
                 }
 
                 databaseConnection.executeSql(batchedInsertQuery);
