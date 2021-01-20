@@ -132,7 +132,11 @@ public class BlockchainBuilder extends GracefulSleepyService {
      */
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock) { return _processPendingBlock(pendingBlock, null); }
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock, final UnspentTransactionOutputContext transactionOutputSet) {
-        if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
+        if (pendingBlock == null) {
+            // NOTE: Can happen due to race condition...
+            Logger.trace("Unable to process pending block, pendingBlock was null.");
+            return false;
+        }
 
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
@@ -269,7 +273,9 @@ public class BlockchainBuilder extends GracefulSleepyService {
             { // Select the first pending block to process; if none are found, request one to be downloaded...
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
-                candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
+                synchronized (_pendingBlockIdDeleteQueueMutex) {
+                    candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId(_pendingBlockIdDeleteQueue);
+                }
                 nanoTimer.stop();
                 Logger.trace("Obtained next pendingBlockId in " + nanoTimer.getMillisecondsElapsed() + "ms.");
             }
