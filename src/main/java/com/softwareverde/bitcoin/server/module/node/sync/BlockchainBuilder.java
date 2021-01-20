@@ -277,7 +277,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                     candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId(_pendingBlockIdDeleteQueue);
                 }
                 nanoTimer.stop();
-                Logger.trace("Obtained next pendingBlockId in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                Logger.trace("Obtained next pendingBlockId (" + candidatePendingBlockId + ") in " + nanoTimer.getMillisecondsElapsed() + "ms.");
             }
 
             if (candidatePendingBlockId == null) {
