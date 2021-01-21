@@ -344,7 +344,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 {
                     final NanoTimer nanoTimer = new NanoTimer();
                     nanoTimer.start();
-                    pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(blockHash);
+                    pendingBlockIds = pendingBlockDatabaseManager.selectCandidatePendingBlockIdsWithPreviousBlockHash(blockHash, _pendingBlockIdDeleteQueue);
                     nanoTimer.stop();
                     Logger.trace("Obtained child candidates of " + blockHash + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                 }
@@ -373,7 +373,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                             unspentTransactionOutputContext = preloadedPendingBlock.getUnspentTransactionOutputSet();
                         }
                         nanoTimer.stop();
-                        Logger.trace("Pending block " + blockHash + " loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                        Logger.trace("Pending block " + pendingBlockHash + " loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                     }
 
                     final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.

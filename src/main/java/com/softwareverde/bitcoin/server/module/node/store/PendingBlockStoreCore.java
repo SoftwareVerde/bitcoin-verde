@@ -92,9 +92,15 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         if (_pendingBlockDataDirectory == null) { return null; }
 
         final String blockPath = _getPendingBlockDataPath(blockHash);
-        if (blockPath == null) { return null; }
+        if (blockPath == null) {
+            Logger.trace("Unable to create block path for block: " + blockHash);
+            return null;
+        }
 
-        if (! IoUtil.fileExists(blockPath)) { return null; }
+        if (! IoUtil.fileExists(blockPath)) {
+            Logger.trace("Block file does not exist: " + blockPath);
+            return null;
+        }
         return MutableByteArray.wrap(IoUtil.getFileContents(blockPath));
     }
 
