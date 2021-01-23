@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.configuration;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 
+import java.io.File;
 import java.util.Properties;
 
 public class DatabasePropertiesLoader {
@@ -19,6 +20,8 @@ public class DatabasePropertiesLoader {
         final Long maxMemoryByteCount = Util.parseLong(properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.Binary.GIBIBYTES)));
         final Long logFileByteCount = Util.parseLong(properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(512 * ByteUtil.Unit.Binary.MEBIBYTES)));
 
+        final File dataDirectoryFile = new File(dataDirectory);
+
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
         databaseProperties.setHostname(hostname);
@@ -26,10 +29,14 @@ public class DatabasePropertiesLoader {
         databaseProperties.setPassword(password);
         databaseProperties.setSchema(schema);
         databaseProperties.setPort(port);
-        databaseProperties.setDataDirectory(dataDirectory);
+        databaseProperties.setDataDirectory(dataDirectoryFile);
         databaseProperties._useEmbeddedDatabase = useEmbeddedDatabase;
         databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         databaseProperties._logFileByteCount = logFileByteCount;
+
+        final File installationDirectory = new File("mysql");
+        databaseProperties.setInstallationDirectory(installationDirectory);
+
         return databaseProperties;
     }
 

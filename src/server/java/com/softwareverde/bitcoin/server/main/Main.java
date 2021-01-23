@@ -224,15 +224,7 @@ public class Main {
                 }
 
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties, new Runnable() {
-                    @Override
-                    public void run() {
-                        final NodeModule nodeModule = nodeModuleContainer.value;
-                        if (nodeModule != null) {
-                            nodeModule.shutdown();
-                        }
-                    }
-                });
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
@@ -295,7 +287,7 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();

@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.main;
 
-import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -15,8 +14,8 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.MysqlDatabaseInitializer;
 import com.softwareverde.database.mysql.SqlScriptRunner;
-import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
+import com.softwareverde.database.mysql.embedded.MysqlDatabaseConfiguration;
 import com.softwareverde.database.properties.DatabaseCredentials;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
@@ -41,19 +40,6 @@ public class BitcoinVerdeDatabase implements Database {
 
     public static final Integer MAX_DATABASE_CONNECTION_COUNT = 64; // Increasing too much may cause MySQL to use excessive memory...
 
-    public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties) {
-        return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, null);
-    }
-
-    public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties, final BitcoinProperties bitcoinProperties) {
-        return BitcoinVerdeDatabase.newInstance(initFile, databaseProperties, bitcoinProperties, new Runnable() {
-            @Override
-            public void run() {
-                // Nothing.
-            }
-        });
-    }
-
     public static final DatabaseInitializer.DatabaseUpgradeHandler<Connection> DATABASE_UPGRADE_HANDLER = new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
         @Override
         public Boolean onUpgrade(final com.softwareverde.database.DatabaseConnection<Connection> maintenanceDatabaseConnection, final Integer currentVersion, final Integer requiredVersion) {
@@ -76,21 +62,20 @@ public class BitcoinVerdeDatabase implements Database {
         }
     };
 
-    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties, final BitcoinProperties bitcoinProperties, final Runnable onShutdownCallback) {
+    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties) {
         final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
 
         try {
             if (databaseProperties.useEmbeddedDatabase()) {
                 // Initialize the embedded database...
-                final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, MAX_DATABASE_CONNECTION_COUNT, databaseProperties, bitcoinProperties);
+                final MysqlDatabaseConfiguration databaseConfiguration = DatabaseConfigurer.configureCommandLineArguments(MAX_DATABASE_CONNECTION_COUNT, databaseProperties);
 
                 Logger.info("[Initializing Database]");
-                final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
-
-                if (onShutdownCallback != null) {
-                    embeddedMysqlDatabase.setShutdownCallback(onShutdownCallback);
+                final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, databaseConfiguration);
+                if (! embeddedMysqlDatabase.wasInstalled()) {
+                    embeddedMysqlDatabase.install();
                 }
+                embeddedMysqlDatabase.start();
 
                 final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(databaseProperties);
                 final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties, maintenanceCredentials);
@@ -127,7 +112,7 @@ public class BitcoinVerdeDatabase implements Database {
                 return new BitcoinVerdeDatabase(new MysqlDatabase(databaseProperties, credentials), maintenanceDatabaseConnectionFactory);
             }
         }
-        catch (final DatabaseException exception) {
+        catch (final Exception exception) {
             Logger.error(exception);
         }
 
@@ -135,7 +120,6 @@ public class BitcoinVerdeDatabase implements Database {
     }
 
     public static DatabaseConnectionFactory getMaintenanceDatabaseConnectionFactory(final DatabaseProperties databaseProperties) {
-
         final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer();
         final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(databaseProperties);
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties, maintenanceCredentials);
@@ -182,7 +166,14 @@ public class BitcoinVerdeDatabase implements Database {
     }
 
     @Override
-    public void close() { }
+    public void close() {
+        if (_core instanceof EmbeddedMysqlDatabase) {
+            try {
+                ((EmbeddedMysqlDatabase) _core).stop();
+            }
+            catch (final Exception exception) { }
+        }
+    }
 
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
