@@ -350,62 +350,6 @@ public class FullNodePendingBlockDatabaseManager {
         return pendingBlockIds;
     }
 
-    public PendingBlockId selectCandidatePendingBlockId(final MutableList<PendingBlockId> excludedPendingBlockIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows;
-        if (excludedPendingBlockIds.getCount() > 0) {
-            rows = databaseConnection.query(
-                new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash WHERE pending_blocks.was_downloaded = 1 AND blocks.has_transactions = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash AND process_count > 2) AND NOT EXISTS (SELECT 1 FROM blocks WHERE blocks.hash = pending_blocks.hash AND blocks.has_transactions = 1) AND pending_blocks.id NOT IN (?) ORDER BY pending_blocks.priority ASC LIMIT 128")
-                    .setInClauseParameters(excludedPendingBlockIds, ValueExtractor.IDENTIFIER)
-            );
-        }
-        else {
-            rows = databaseConnection.query(
-                new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash WHERE pending_blocks.was_downloaded = 1 AND blocks.has_transactions = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash AND process_count > 2) AND NOT EXISTS (SELECT 1 FROM blocks WHERE blocks.hash = pending_blocks.hash AND blocks.has_transactions = 1) ORDER BY pending_blocks.priority ASC LIMIT 128")
-            );
-        }
-
-        for (final Row row : rows) {
-            final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-            if (_hasBlockData(pendingBlockId)) {
-                return pendingBlockId;
-            }
-        }
-
-        return null;
-    }
-
-    public List<PendingBlockId> selectCandidatePendingBlockIdsWithPreviousBlockHash(final Sha256Hash previousBlockHash, final MutableList<PendingBlockId> excludedPendingBlockIds) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-        final java.util.List<Row> rows;
-        if (excludedPendingBlockIds.getCount() > 0) {
-            rows = databaseConnection.query(
-                    new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks WHERE pending_blocks.previous_block_hash = ? AND pending_blocks.was_downloaded = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash AND process_count > 2) AND NOT EXISTS (SELECT 1 FROM blocks WHERE blocks.hash = pending_blocks.hash AND blocks.has_transactions = 1) AND pending_blocks.id NOT IN (?) ORDER BY pending_blocks.priority ASC LIMIT 128")
-                            .setParameter(previousBlockHash)
-                            .setInClauseParameters(excludedPendingBlockIds, ValueExtractor.IDENTIFIER)
-            );
-        }
-        else {
-            rows = databaseConnection.query(
-                    new Query("SELECT pending_blocks.id, pending_blocks.hash FROM pending_blocks WHERE pending_blocks.previous_block_hash = ? AND pending_blocks.was_downloaded = 1 AND NOT EXISTS (SELECT 1 FROM invalid_blocks WHERE hash = pending_blocks.hash AND process_count > 2) AND NOT EXISTS (SELECT 1 FROM blocks WHERE blocks.hash = pending_blocks.hash AND blocks.has_transactions = 1) ORDER BY pending_blocks.priority ASC LIMIT 128")
-                            .setParameter(previousBlockHash)
-            );
-        }
-
-        final MutableList<PendingBlockId> pendingBlockIds = new MutableList<>();
-        for (final Row row : rows) {
-            final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-            if (_hasBlockData(pendingBlockId)) {
-                pendingBlockIds.add(pendingBlockId);
-            }
-        }
-
-        return pendingBlockIds;
-    }
-
-
     public Sha256Hash getPendingBlockHash(final PendingBlockId pendingBlockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -501,5 +445,20 @@ public class FullNodePendingBlockDatabaseManager {
                 );
             }
         }
+    }
+
+    public List<BlockchainSegmentId> getLeafBlockchainSegmentsByChainWork() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT blockchain_segments.id FROM blockchain_segments INNER JOIN (SELECT blockchain_segment_id, MAX(chain_work) AS chain_work FROM blocks GROUP BY blockchain_segment_id) AS segment_head_block WHERE nested_set_right = nested_set_left + 1 AND segment_head_block.blockchain_segment_id = blockchain_segments.id ORDER BY segment_head_block.chain_work DESC")
+        );
+
+        final MutableList<BlockchainSegmentId> orderedSegments = new MutableList<>();
+        for (final Row row : rows) {
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
+            orderedSegments.add(blockchainSegmentId);
+        }
+        return orderedSegments;
     }
 }
