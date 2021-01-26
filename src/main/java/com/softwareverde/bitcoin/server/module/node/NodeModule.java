@@ -114,6 +114,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -269,6 +270,13 @@ public class NodeModule {
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
+        }
+        final Database database = _environment.getDatabase();
+        if (database instanceof EmbeddedMysqlDatabase) {
+            try {
+                ((EmbeddedMysqlDatabase) database).stop();
+            }
+            catch (final Exception exception) { }
         }
 
         try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }

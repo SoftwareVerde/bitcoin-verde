@@ -68,7 +68,7 @@ public class BitcoinVerdeDatabase implements Database {
         try {
             if (databaseProperties.useEmbeddedDatabase()) {
                 // Initialize the embedded database...
-                final MysqlDatabaseConfiguration databaseConfiguration = DatabaseConfigurer.configureCommandLineArguments(MAX_DATABASE_CONNECTION_COUNT, databaseProperties);
+                final MysqlDatabaseConfiguration databaseConfiguration = DatabaseConfigurer.configureDatabase(MAX_DATABASE_CONNECTION_COUNT, databaseProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, databaseConfiguration);

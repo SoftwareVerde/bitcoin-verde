@@ -10,7 +10,7 @@ public class DatabaseConfigurer {
         return ((byteCount / ByteUtil.Unit.Binary.MEBIBYTES) * ByteUtil.Unit.Binary.MEBIBYTES);
     }
 
-    public static MysqlDatabaseConfiguration configureCommandLineArguments(final Integer maxDatabaseThreadCount, final DatabaseProperties databaseProperties) {
+    public static MysqlDatabaseConfiguration configureDatabase(final Integer maxDatabaseThreadCount, final DatabaseProperties databaseProperties) {
         final MysqlDatabaseConfiguration databaseConfiguration = new MysqlDatabaseConfiguration();
         databaseConfiguration.addArgument("--sql-mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'"); // Disable ONLY_FULL_GROUP_BY.
 
@@ -81,7 +81,7 @@ public class DatabaseConfigurer {
 
             // databaseConfiguration.enableSlowQueryLog("slow-query.log", 1L);
             // databaseConfiguration.enableGeneralQueryLog("query.log");
-            databaseConfiguration.setPerformanceSchemaEnable(false);
+            databaseConfiguration.enablePerformanceSchema(false);
         }
 
         return databaseConfiguration;
