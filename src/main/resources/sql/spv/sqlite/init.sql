@@ -215,56 +215,11 @@ CREATE TABLE IF NOT EXISTS "node_features" (
 	FOREIGN KEY("node_id") REFERENCES "nodes" ("id") ON UPDATE RESTRICT ON DELETE RESTRICT
 );
 
-CREATE TABLE IF NOT EXISTS "node_blocks_inventory" (
-	"id" INTEGER NOT NULL,
-	"node_id" INTEGER NOT NULL,
-	"hash" BLOB NOT NULL,
-	PRIMARY KEY ("id")
-);
-
 CREATE TABLE IF NOT EXISTS "node_transactions_inventory" (
 	"id" INTEGER NOT NULL,
 	"node_id" INTEGER NOT NULL,
 	"hash" BLOB NOT NULL,
 	PRIMARY KEY ("id")
-);
-
--- Optional Indexing Tables
-
-CREATE TABLE IF NOT EXISTS "script_types" (
-	"id" INTEGER NOT NULL,
-	"type" VARCHAR(255) NOT NULL,
-	PRIMARY KEY ("id")
-);
-INSERT INTO script_types (id, type) VALUES
-    (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'), (3, 'PAY_TO_PUBLIC_KEY'), (4, 'PAY_TO_PUBLIC_KEY_HASH'), (5, 'PAY_TO_SCRIPT_HASH'),
-    (6, 'SLP_GENESIS_SCRIPT'), (7, 'SLP_SEND_SCRIPT'), (8, 'SLP_MINT_SCRIPT'), (9, 'SLP_COMMIT_SCRIPT');
-
-CREATE TABLE IF NOT EXISTS "indexed_transaction_outputs" (
-	"transaction_id" INTEGER NOT NULL,
-	"output_index" INTEGER NOT NULL,
-	"amount" BIGINT NOT NULL,
-	"address" BLOB NULL,
-	"script_type_id" INTEGER NOT NULL DEFAULT 1,
-	"slp_transaction_id" INTEGER NULL,
-	"memo_action_type" BLOB NULL,
-	PRIMARY KEY ("transaction_id", "output_index")
-);
-
-CREATE TABLE IF NOT EXISTS "indexed_transaction_inputs" (
-	"transaction_id" INTEGER NOT NULL,
-	"input_index" INTEGER NOT NULL,
-	"spends_transaction_id" INTEGER NULL,
-	"spends_output_index" INTEGER NULL,
-	PRIMARY KEY ("transaction_id", "input_index")
-);
-
-CREATE TABLE IF NOT EXISTS "validated_slp_transactions" (
-	"id" INTEGER NOT NULL,
-	"transaction_id" INTEGER NOT NULL,
-	"is_valid" TINYINT NOT NULL DEFAULT 0,
-	PRIMARY KEY ("id"),
-	FOREIGN KEY("transaction_id") REFERENCES "transactions" ("id") ON UPDATE RESTRICT ON DELETE CASCADE
 );
 
 -- Misc
@@ -295,14 +250,8 @@ CREATE UNIQUE INDEX "blocks_block_hash_uq" ON "blocks" ("hash");
 CREATE UNIQUE INDEX "blocks_block_hash_uq2" ON "blocks" ("blockchain_segment_id", "block_height");
 CREATE INDEX "blocks_block_previous_block_id_fk" ON "blocks" ("previous_block_id");
 CREATE UNIQUE INDEX "hosts_hosts_uq" ON "hosts" ("host");
-CREATE INDEX "indexed_transaction_inputs_indexed_transaction_inputs_prevout_ix" ON "indexed_transaction_inputs" ("spends_transaction_id", "spends_output_index");
-CREATE INDEX "indexed_transaction_outputs_indexed_transaction_outputs_addr_ix" ON "indexed_transaction_outputs" ("address");
-CREATE INDEX "indexed_transaction_outputs_indexed_transaction_outputs_scripts_type_ix" ON "indexed_transaction_outputs" ("script_type_id");
-CREATE INDEX "indexed_transaction_outputs_indexed_transaction_outputs_slp_tx_ix" ON "indexed_transaction_outputs" ("slp_transaction_id");
 CREATE UNIQUE INDEX "invalid_blocks_invalid_blocks_uq" ON "invalid_blocks" ("hash");
 CREATE UNIQUE INDEX "metadata_metadata_version_uq" ON "metadata" ("version");
-CREATE INDEX "node_blocks_inventory_node_blocks_tx_ix" ON "node_blocks_inventory" ("hash");
-CREATE UNIQUE INDEX "node_blocks_inventory_node_blocks_uq" ON "node_blocks_inventory" ("node_id", "hash");
 CREATE UNIQUE INDEX "node_features_node_features_uq" ON "node_features" ("node_id", "feature");
 CREATE INDEX "node_transactions_inventory_node_transactions_tx_ix" ON "node_transactions_inventory" ("hash");
 CREATE UNIQUE INDEX "node_transactions_inventory_node_transactions_uq" ON "node_transactions_inventory" ("node_id", "hash");
@@ -317,12 +266,11 @@ CREATE INDEX "pending_transactions_pending_transactions_ix2" ON "pending_transac
 CREATE UNIQUE INDEX "pending_transactions_pending_transactions_uq" ON "pending_transactions" ("hash");
 CREATE UNIQUE INDEX "pending_transactions_dependent_transactions_pending_transaction_prevout_uq" ON "pending_transactions_dependent_transactions" ("pending_transaction_id", "hash");
 CREATE UNIQUE INDEX "properties_properties_uq" ON "properties" ("key");
-CREATE UNIQUE INDEX "script_types_script_types_uq" ON "script_types" ("type");
 CREATE UNIQUE INDEX "transaction_data_transaction_data_uq" ON "transaction_data" ("transaction_id");
 CREATE UNIQUE INDEX "transactions_transactions_uq" ON "transactions" ("hash");
 CREATE INDEX "unconfirmed_transaction_inputs_transaction_inputs_tx_id_fk" ON "unconfirmed_transaction_inputs" ("transaction_id");
 CREATE INDEX "unconfirmed_transaction_inputs_unconfirmed_transaction_inputs_tx_hash_ix" ON "unconfirmed_transaction_inputs" ("previous_transaction_hash", "previous_transaction_output_index");
 CREATE UNIQUE INDEX "unconfirmed_transaction_outputs_unconfirmed_transaction_output_tx_id_index_uq" ON "unconfirmed_transaction_outputs" ("transaction_id", "index");
 CREATE INDEX "unspent_transaction_outputs_utxo_block_height_ix" ON "unspent_transaction_outputs" ("block_height");
-CREATE UNIQUE INDEX "validated_slp_transactions_valid_slp_transactions_uq" ON "validated_slp_transactions" ("transaction_id");
 CREATE UNIQUE INDEX "properties_uq" ON "properties" ("key");
+CREATE INDEX "node_head_block_ix" ON "nodes" ("head_block_height", "head_block_hash");

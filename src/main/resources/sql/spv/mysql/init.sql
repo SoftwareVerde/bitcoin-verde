@@ -246,9 +246,12 @@ CREATE TABLE nodes (
     connection_count INT UNSIGNED NOT NULL DEFAULT 1,
     last_handshake_timestamp BIGINT UNSIGNED,
     user_agent VARCHAR(255) NULL,
+    head_block_height INT UNSIGNED NOT NULL,
+    head_block_hash BINARY(32) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY nodes_uq (host_id, port),
-    FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id)
+    FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id),
+    INDEX node_head_block_ix (head_block_height, head_block_hash) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE node_features (
@@ -260,16 +263,6 @@ CREATE TABLE node_features (
     FOREIGN KEY node_features_fk (node_id) REFERENCES nodes (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-CREATE TABLE node_blocks_inventory (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    node_id INT UNSIGNED NOT NULL,
-    hash BINARY(32) NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY node_blocks_uq (node_id, hash),
-    FOREIGN KEY node_blocks_node_id_fk (node_id) REFERENCES nodes (id),
-    INDEX node_blocks_tx_ix (hash) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
-
 CREATE TABLE node_transactions_inventory (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     node_id INT UNSIGNED NOT NULL,
@@ -278,17 +271,6 @@ CREATE TABLE node_transactions_inventory (
     UNIQUE KEY node_transactions_uq (node_id, hash),
     FOREIGN KEY node_transactions_node_id_fk (node_id) REFERENCES nodes (id),
     INDEX node_transactions_tx_ix (hash) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=LATIN1;
-
--- Optional Indexing Tables
-
-CREATE TABLE validated_slp_transactions (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    transaction_id INT UNSIGNED NOT NULL,
-    is_valid TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY valid_slp_transactions_uq (transaction_id),
-    FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 -- Misc
@@ -302,18 +284,3 @@ CREATE TABLE properties (
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO metadata (version, timestamp) VALUES (4, UNIX_TIMESTAMP());
-
--- Dev Tokens
-
-CREATE TABLE donation_addresses (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    private_key VARCHAR(255) NOT NULL,
-    address VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
-
-CREATE TABLE processed_transactions (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    hash VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
