@@ -46,8 +46,4 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
         ByteUtil.setBytes(bytes, variableLengthString.getBytes(), variableLengthIntegerBytes.length);
         return bytes;
     }
-
-    public static int compare(final byte b0, final byte b1) {
-        return (Byte.toUnsignedInt(b0) - Byte.toUnsignedInt(b1));
-    }
 }

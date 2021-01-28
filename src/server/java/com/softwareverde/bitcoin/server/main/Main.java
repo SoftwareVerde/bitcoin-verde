@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
-import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
@@ -192,7 +192,7 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 if (bitcoinProperties.isTestNet()) {
                     BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
@@ -285,7 +285,7 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
@@ -313,7 +313,7 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
                 final StratumProperties stratumProperties = configuration.getStratumProperties();
-                final DatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
@@ -356,7 +356,7 @@ public class Main {
                 final String configurationFilename = _arguments[1];
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {

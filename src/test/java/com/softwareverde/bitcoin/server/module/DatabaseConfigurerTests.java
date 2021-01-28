@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
+import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.main.DatabaseConfigurer;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.database.mysql.embedded.MysqlDatabaseConfiguration;
+import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProperties;
 import com.softwareverde.util.Util;
 import org.junit.After;
 import org.junit.Assert;
@@ -30,7 +30,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long systemByteCount = (64L * ByteUtil.Unit.Binary.GIBIBYTES);
         final long logFileByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties() {
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -47,7 +47,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        final MysqlDatabaseConfiguration databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
@@ -69,7 +69,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long systemByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
         final long logFileByteCount = (512L * ByteUtil.Unit.Binary.MEBIBYTES);
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties() {
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -86,7 +86,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        final MysqlDatabaseConfiguration databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {
@@ -107,7 +107,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         // Setup
         final long systemByteCount = (ByteUtil.Unit.Binary.GIBIBYTES + 1L);
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties() {
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -124,7 +124,7 @@ public class DatabaseConfigurerTests extends UnitTest {
         final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        final MysqlDatabaseConfiguration databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
         for (final String string : databaseConfiguration.getCommandlineArguments()) {

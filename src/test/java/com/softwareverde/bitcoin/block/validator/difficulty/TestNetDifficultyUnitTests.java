@@ -14,11 +14,11 @@ import com.softwareverde.bitcoin.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.test.fake.FakeDifficultyCalculatorContext;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -8,11 +8,11 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.util.Util;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
+import com.softwareverde.util.Util;
 
 public class FullNodeHeadersBootstrapper extends HeadersBootstrapper {
     protected final Boolean _shouldInsertPendingBlocks;

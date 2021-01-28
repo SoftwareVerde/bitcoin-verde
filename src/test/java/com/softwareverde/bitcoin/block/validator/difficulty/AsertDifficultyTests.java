@@ -2,10 +2,10 @@ package com.softwareverde.bitcoin.block.validator.difficulty;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.test.UnitTest;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import org.junit.Assert;
 import org.junit.Test;

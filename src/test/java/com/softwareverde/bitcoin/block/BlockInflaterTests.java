@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.test.UnitTest;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Test;
 

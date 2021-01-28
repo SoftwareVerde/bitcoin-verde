@@ -7,7 +7,7 @@ import java.io.File;
 import java.util.Properties;
 
 public class DatabasePropertiesLoader {
-    public static DatabaseProperties loadDatabaseProperties(final String prefix, final Properties properties) {
+    public static BitcoinVerdeDatabaseProperties loadDatabaseProperties(final String prefix, final Properties properties) {
         final String propertyPrefix = (prefix == null ? "" : (prefix + "."));
         final String rootPassword = properties.getProperty(propertyPrefix + "database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
         final String hostname = properties.getProperty(propertyPrefix + "database.hostname", "");
@@ -22,7 +22,7 @@ public class DatabasePropertiesLoader {
 
         final File dataDirectoryFile = new File(dataDirectory);
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties();
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
         databaseProperties.setHostname(hostname);
         databaseProperties.setUsername(username);
@@ -30,7 +30,7 @@ public class DatabasePropertiesLoader {
         databaseProperties.setSchema(schema);
         databaseProperties.setPort(port);
         databaseProperties.setDataDirectory(dataDirectoryFile);
-        databaseProperties._useEmbeddedDatabase = useEmbeddedDatabase;
+        databaseProperties._shouldUseEmbeddedDatabase = useEmbeddedDatabase;
         databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         databaseProperties._logFileByteCount = logFileByteCount;
 

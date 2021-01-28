@@ -48,7 +48,6 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -60,6 +59,7 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.LogLevel;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.IoUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;

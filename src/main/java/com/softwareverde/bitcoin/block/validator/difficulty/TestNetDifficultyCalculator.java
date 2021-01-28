@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
-import com.softwareverde.bitcoin.util.Util;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.math.BigInteger;

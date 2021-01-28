@@ -8,12 +8,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
-import com.softwareverde.bitcoin.util.ByteBuffer;
-import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.ByteBuffer;
+import com.softwareverde.util.IoUtil;
 
 import java.io.File;
 import java.io.RandomAccessFile;
