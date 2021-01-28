@@ -37,11 +37,11 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 import java.util.Map;
 
-public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
+public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManager {
     protected final DatabaseManager _databaseManager;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
-    public FullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
+    public BlockHeaderDatabaseManagerCore(final DatabaseManager databaseManager, final CheckpointConfiguration checkpointConfiguration) {
         _databaseManager = databaseManager;
         _checkpointConfiguration = checkpointConfiguration;
     }

@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
@@ -37,7 +37,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected FullNodeBlockDatabaseManager _blockDatabaseManager;
-    protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
+    protected BlockHeaderDatabaseManagerCore _blockHeaderDatabaseManager;
     protected FullNodePendingBlockDatabaseManager _pendingBlockDatabaseManager;
     protected BlockchainIndexerDatabaseManager _blockchainIndexerDatabaseManager;
     protected FullNodeTransactionDatabaseManager _transactionDatabaseManager;
@@ -94,9 +94,9 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
+    public BlockHeaderDatabaseManagerCore getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this, _checkpointConfiguration);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration);
         }
 
         return _blockHeaderDatabaseManager;
