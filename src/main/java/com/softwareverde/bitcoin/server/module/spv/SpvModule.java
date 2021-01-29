@@ -20,6 +20,8 @@ import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
+import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -41,7 +43,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.SpvSlpTransactionValidator;
 import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
-import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
+import com.softwareverde.bitcoin.server.module.spv.handler.SpvSynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.RequestId;
@@ -63,7 +65,6 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Tuple;
@@ -127,11 +128,13 @@ public class SpvModule {
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final SpvDatabaseManagerFactory _databaseManagerFactory;
-    protected final MainThreadPool _mainThreadPool;
+    protected final MainThreadPool _generalThreadPool;
+    protected final MainThreadPool _networkThreadPool;
     protected final BanFilter _banFilter;
     protected MerkleBlockDownloader _merkleBlockDownloader;
 
     protected BitcoinNodeFactory _bitcoinNodeFactory;
+    protected DifficultyCalculatorFactory _difficultyCalculatorFactory;
 
     protected Long _minimumMerkleBlockHeight = 575000L;
 
@@ -166,22 +169,6 @@ public class SpvModule {
         }
     }
 
-    protected void _connectToSeedNodes() {
-        for (final NodeProperties nodeProperties : _seedNodes) {
-            final NodeIpAddress nodeIpAddress = NodeProperties.toNodeIpAddress(nodeProperties);
-            if (nodeIpAddress == null) { continue; }
-
-            final boolean isAlreadyConnectedToNode = _bitcoinNodeManager.isConnectedToNode(nodeIpAddress);
-            if (isAlreadyConnectedToNode) { continue; }
-
-            final Ip ip = nodeIpAddress.getIp();
-            final Integer port = nodeIpAddress.getPort();
-
-            final BitcoinNode node = _bitcoinNodeFactory.newNode(String.valueOf(ip), port);
-            _bitcoinNodeManager.addNode(node);
-        }
-    }
-
     protected void _synchronizeSlpValidity() {
         _spvSlpTransactionValidator.wakeUp();
     }
@@ -190,7 +177,7 @@ public class SpvModule {
         final MerkleBlockSyncUpdateCallback merkleBlockSyncUpdateCallback = _merkleBlockSyncUpdateCallback;
         if (merkleBlockSyncUpdateCallback == null) { return; }
 
-        _mainThreadPool.execute(new Runnable() {
+        _generalThreadPool.execute(new Runnable() {
             @Override
             public void run() {
                 final Database database = _environment.getDatabase();
@@ -256,7 +243,8 @@ public class SpvModule {
         }
 
         Logger.info("[Shutting Down Thread Server]");
-        _mainThreadPool.stop();
+        _networkThreadPool.stop();
+        _generalThreadPool.stop();
 
         Logger.flush();
         _setStatus(Status.OFFLINE);
@@ -336,17 +324,22 @@ public class SpvModule {
         _masterInflater = new CoreInflater();
         _seedNodes = seedNodes;
         _wallet = wallet;
-        _mainThreadPool = new MainThreadPool(Math.min(maxPeerCount * 8, 256), 5000L);
+        _generalThreadPool = new MainThreadPool(256, 60000L);
+        _networkThreadPool = new MainThreadPool((16 + (maxPeerCount * 8)), 60000L);
         _maxPeerCount = maxPeerCount;
 
-        _mainThreadPool.setShutdownCallback(new Runnable() {
+        final Runnable onThreadPoolShutdownCallback = new Runnable() {
             @Override
             public void run() {
                 try {
                     _shutdown();
-                } catch (final Throwable ignored) { }
+                }
+                catch (final Throwable ignored) { }
             }
-        });
+        };
+
+        _generalThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
+        _networkThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
 
         _environment = environment;
         _checkpointConfiguration = new CheckpointConfiguration();
@@ -386,12 +379,12 @@ public class SpvModule {
 
         _setStatus(Status.LOADING);
 
-        final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(_databaseManagerFactory);
+        final SpvSynchronizationStatusHandler synchronizationStatusHandler = new SpvSynchronizationStatusHandler(_databaseManagerFactory);
 
         final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
-                final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(64, _mainThreadPool);
+                final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(64, _networkThreadPool);
                 threadPoolThrottle.start();
                 return threadPoolThrottle;
             }
@@ -466,7 +459,7 @@ public class SpvModule {
 
                 final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
                 if (newTransactionCallback != null) {
-                    _mainThreadPool.execute(new Runnable() {
+                    _generalThreadPool.execute(new Runnable() {
                         @Override
                         public void run() {
                             for (final Transaction transaction : transactions) {
@@ -528,7 +521,7 @@ public class SpvModule {
 
                         final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
                         if (newTransactionCallback != null) {
-                            _mainThreadPool.execute(new Runnable() {
+                            _generalThreadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
                                     newTransactionCallback.onNewTransactionReceived(transaction);
@@ -629,6 +622,8 @@ public class SpvModule {
                 }
             };
 
+            final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
             final NodeInitializer.Context nodeInitializerContext = new NodeInitializer.Context();
             nodeInitializerContext.synchronizationStatus = synchronizationStatusHandler;
             nodeInitializerContext.blockInventoryMessageHandler = new BitcoinNode.BlockInventoryAnnouncementHandler() {
@@ -653,12 +648,15 @@ public class SpvModule {
             };
             nodeInitializerContext.threadPoolFactory = threadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
-            nodeInitializerContext._transactionsAnnouncementHandlerFactory = transactionsAnnouncementHandlerFactory;
+            nodeInitializerContext.transactionsAnnouncementHandlerFactory = transactionsAnnouncementHandlerFactory;
             nodeInitializerContext.requestBlockHashesHandler = null;
             nodeInitializerContext.requestBlockHeadersHandler = requestBlockHeadersHandler;
             nodeInitializerContext.requestDataHandler = _spvRequestDataHandler;
-            nodeInitializerContext.requestPeersHandler = requestPeersHandler;
+            nodeInitializerContext.requestSpvBlocksHandler = null;
+            nodeInitializerContext.requestSlpTransactionsHandler = null;
             nodeInitializerContext.requestUnconfirmedTransactionsHandler = null;
+
+            nodeInitializerContext.requestPeersHandler = requestPeersHandler;
             nodeInitializerContext.spvBlockInventoryAnnouncementHandler = _merkleBlockDownloader;
 
             nodeInitializerContext.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
@@ -677,10 +675,32 @@ public class SpvModule {
                 }
             };
 
-            nodeInitializerContext.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+            nodeInitializerContext.binaryPacketFormat = binaryPacketFormat;
+            nodeInitializerContext.newBloomFilterHandler = null;
 
-            _bitcoinNodeFactory = new BitcoinNodeFactory(nodeInitializerContext.binaryPacketFormat, threadPoolFactory, localNodeFeatures);
+
             nodeInitializer = new NodeInitializer(nodeInitializerContext);
+        }
+
+        _bitcoinNodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
+
+        { // Initialize DifficultyCalculatorFactory...
+            if (_isTestNet) {
+                _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                        return new TestNetDifficultyCalculator(context);
+                    }
+                };
+            }
+            else {
+                _difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
+                    @Override
+                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
+                        return new DifficultyCalculator(context);
+                    }
+                };
+            }
         }
 
         { // Initialize NodeManager...
@@ -688,7 +708,7 @@ public class SpvModule {
             {
                 context.systemTime = _systemTime;
                 context.databaseManagerFactory = databaseManagerFactory;
-                context.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
+                context.nodeFactory = _bitcoinNodeFactory;
                 context.minNodeCount = Math.max(1, _maxPeerCount);
                 context.maxNodeCount = Math.max(1, _maxPeerCount);
                 context.networkTime = _mutableNetworkTime;
@@ -696,10 +716,12 @@ public class SpvModule {
                 context.banFilter = _banFilter;
                 context.memoryPoolEnquirer = null;
                 context.synchronizationStatusHandler = synchronizationStatusHandler;
-                context.threadPool = _mainThreadPool;
+                context.threadPool = _generalThreadPool;
             }
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
+            final Integer externalPort = (_isTestNet ? BitcoinConstants.getDefaultTestNetworkPort() : BitcoinConstants.getDefaultNetworkPort());
+            _bitcoinNodeManager.setDefaultExternalPort(externalPort);
             _bitcoinNodeManager.enableTransactionRelay(false);
             _bitcoinNodeManager.enableSlpValidityChecking(true);
             _bitcoinNodeManager.setShouldOnlyConnectToSeedNodes(_shouldOnlyConnectToSeedNodes);
@@ -716,28 +738,8 @@ public class SpvModule {
             _bitcoinNodeManager.defineDnsSeeds(dnsSeeds);
         }
 
-        final DifficultyCalculatorFactory difficultyCalculatorFactory;
-        { // Initialize DifficultyCalculatorFactory...
-            if (_isTestNet) {
-                difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
-                    @Override
-                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
-                        return new TestNetDifficultyCalculator(context);
-                    }
-                };
-            }
-            else {
-                difficultyCalculatorFactory = new DifficultyCalculatorFactory() {
-                    @Override
-                    public DifficultyCalculator newDifficultyCalculator(final DifficultyCalculatorContext context) {
-                        return new DifficultyCalculator(context);
-                    }
-                };
-            }
-        }
-
         { // Initialize BlockHeaderDownloader...
-            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _mainThreadPool, upgradeSchedule);
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _generalThreadPool, upgradeSchedule);
             _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, null);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
@@ -810,8 +812,6 @@ public class SpvModule {
         Logger.info("[Starting Node Manager]");
         _bitcoinNodeManager.start();
 
-        _connectToSeedNodes();
-
         Logger.info("[Starting SPV SLP Validator]");
         _spvSlpTransactionValidator.start();
 
@@ -847,10 +847,6 @@ public class SpvModule {
 
     public BitcoinNodeManager getBitcoinNodeManager() {
         return _bitcoinNodeManager;
-    }
-
-    public void connectToSeedNodes() {
-        _connectToSeedNodes();
     }
 
     public void storeTransaction(final Transaction transaction) throws DatabaseException {

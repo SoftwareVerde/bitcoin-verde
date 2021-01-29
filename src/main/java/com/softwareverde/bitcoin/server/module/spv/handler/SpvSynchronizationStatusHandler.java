@@ -9,20 +9,23 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFact
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class SynchronizationStatusHandler implements SynchronizationStatus {
+public class SpvSynchronizationStatusHandler implements SynchronizationStatus {
     protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManagerFactory _databaseManagerFactory;
 
     protected State _state = State.ONLINE;
 
-    public SynchronizationStatusHandler(final DatabaseManagerFactory databaseManagerFactory) {
+    public SpvSynchronizationStatusHandler(final DatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
     public void setState(final State state) {
-        Logger.debug("Synchronization State: " + state);
+        if (! Util.areEqual(_state, state)) {
+            Logger.info("Synchronization State: " + state);
+        }
         _state = state;
     }
 

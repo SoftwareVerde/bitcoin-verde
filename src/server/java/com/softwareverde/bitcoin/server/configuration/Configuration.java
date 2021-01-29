@@ -13,6 +13,8 @@ public class Configuration {
     protected final BitcoinProperties _bitcoinProperties;
     protected final BitcoinVerdeDatabaseProperties _bitcoinDatabaseProperties;
 
+    protected final BitcoinVerdeDatabaseProperties _spvDatabaseProperties;
+
     protected final ExplorerProperties _explorerProperties;
 
     protected final StratumProperties _stratumProperties;
@@ -33,6 +35,7 @@ public class Configuration {
 
         _bitcoinDatabaseProperties = DatabasePropertiesLoader.loadDatabaseProperties("bitcoin", _properties);
         _stratumDatabaseProperties = DatabasePropertiesLoader.loadDatabaseProperties("stratum", _properties);
+        _spvDatabaseProperties = DatabasePropertiesLoader.loadDatabaseProperties("spv", _properties);
 
         _bitcoinProperties = BitcoinPropertiesLoader.loadBitcoinProperties(_properties);
         _stratumProperties = StratumPropertiesLoader.loadStratumProperties(_properties);
@@ -43,6 +46,8 @@ public class Configuration {
 
     public BitcoinProperties getBitcoinProperties() { return _bitcoinProperties; }
     public BitcoinVerdeDatabaseProperties getBitcoinDatabaseProperties() { return _bitcoinDatabaseProperties; }
+
+    public BitcoinVerdeDatabaseProperties getSpvDatabaseProperties() { return _spvDatabaseProperties; }
 
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
 

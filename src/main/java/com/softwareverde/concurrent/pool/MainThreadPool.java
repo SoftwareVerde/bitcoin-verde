@@ -1,10 +1,13 @@
 package com.softwareverde.concurrent.pool;
 
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -12,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainThreadPool implements ThreadPool {
     protected final AtomicInteger _nextThreadId = new AtomicInteger(0);
-    protected final LinkedBlockingQueue<Runnable> _queue;
+    protected final BlockingQueue<Runnable> _queue;
     protected final Integer _minThreadCount;
     protected final Integer _maxThreadCount;
     protected final Boolean _shouldTimeoutCoreThreads;
@@ -72,7 +75,7 @@ public class MainThreadPool implements ThreadPool {
     }
 
     public MainThreadPool(final Integer minThreadCount, final Integer maxThreadCount, final Long threadKeepAliveMilliseconds, final Boolean shouldTimeoutCoreThreads) {
-        _queue = new LinkedBlockingQueue<Runnable>();
+        _queue = (Util.areEqual(minThreadCount, maxThreadCount) ? new LinkedBlockingDeque<>() : new SynchronousQueue<Runnable>());
         _minThreadCount = minThreadCount;
         _maxThreadCount = maxThreadCount;
         _shouldTimeoutCoreThreads = shouldTimeoutCoreThreads;

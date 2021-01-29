@@ -455,7 +455,7 @@ public class NodeModule {
             nodeInitializerContext.blockInventoryMessageHandler = blockInventoryMessageHandler;
             nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
-            nodeInitializerContext._transactionsAnnouncementHandlerFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
+            nodeInitializerContext.transactionsAnnouncementHandlerFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
             nodeInitializerContext.requestBlockHashesHandler = new RequestBlockHashesHandler(databaseManagerFactory);
             nodeInitializerContext.requestBlockHeadersHandler = new RequestBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;

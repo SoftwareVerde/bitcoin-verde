@@ -36,6 +36,7 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
+    public static final InitFile SPV = new InitFile("/sql/spv/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile BITCOIN = new InitFile("/sql/node/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile STRATUM = new InitFile("/sql/stratum/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
 
