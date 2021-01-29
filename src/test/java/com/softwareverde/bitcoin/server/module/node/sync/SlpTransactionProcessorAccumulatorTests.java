@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
@@ -48,10 +49,15 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
         final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
                 final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(block);
+                }
+
                 pendingBlockDatabaseManager.storeBlock(block);
             }
 

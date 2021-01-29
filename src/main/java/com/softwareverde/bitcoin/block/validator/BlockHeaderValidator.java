@@ -10,8 +10,8 @@ import com.softwareverde.bitcoin.context.ChainWorkContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
-import com.softwareverde.bitcoin.util.Util;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.util.Util;
 
 public class BlockHeaderValidator {
     public interface Context extends BlockHeaderContext, ChainWorkContext, MedianBlockTimeContext, NetworkTimeContext, DifficultyCalculatorContext { }

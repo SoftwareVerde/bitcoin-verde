@@ -3,10 +3,11 @@ package com.softwareverde.bitcoin.server.configuration;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 
+import java.io.File;
 import java.util.Properties;
 
 public class DatabasePropertiesLoader {
-    public static DatabaseProperties loadDatabaseProperties(final String prefix, final Properties properties) {
+    public static BitcoinVerdeDatabaseProperties loadDatabaseProperties(final String prefix, final Properties properties) {
         final String propertyPrefix = (prefix == null ? "" : (prefix + "."));
         final String rootPassword = properties.getProperty(propertyPrefix + "database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
         final String hostname = properties.getProperty(propertyPrefix + "database.hostname", "");
@@ -19,17 +20,23 @@ public class DatabasePropertiesLoader {
         final Long maxMemoryByteCount = Util.parseLong(properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.Binary.GIBIBYTES)));
         final Long logFileByteCount = Util.parseLong(properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(512 * ByteUtil.Unit.Binary.MEBIBYTES)));
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties();
+        final File dataDirectoryFile = new File(dataDirectory);
+
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
         databaseProperties.setHostname(hostname);
         databaseProperties.setUsername(username);
         databaseProperties.setPassword(password);
         databaseProperties.setSchema(schema);
         databaseProperties.setPort(port);
-        databaseProperties.setDataDirectory(dataDirectory);
-        databaseProperties._useEmbeddedDatabase = useEmbeddedDatabase;
+        databaseProperties.setDataDirectory(dataDirectoryFile);
+        databaseProperties._shouldUseEmbeddedDatabase = useEmbeddedDatabase;
         databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         databaseProperties._logFileByteCount = logFileByteCount;
+
+        final File installationDirectory = new File("mysql");
+        databaseProperties.setInstallationDirectory(installationDirectory);
+
         return databaseProperties;
     }
 

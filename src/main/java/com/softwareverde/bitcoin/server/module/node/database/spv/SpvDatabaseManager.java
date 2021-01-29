@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.database.spv;
 import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.BlockHeaderDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
@@ -19,7 +19,7 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected BitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected SpvBlockDatabaseManager _blockDatabaseManager;
-    protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
+    protected BlockHeaderDatabaseManagerCore _blockHeaderDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
     public SpvDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final CheckpointConfiguration checkpointConfiguration) {
@@ -61,9 +61,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
+    public BlockHeaderDatabaseManagerCore getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this, _checkpointConfiguration);
+            _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration);
         }
 
         return _blockHeaderDatabaseManager;

@@ -47,7 +47,7 @@ public interface BlockHeaderDatabaseManager {
     ChainWork getChainWork(BlockId blockId) throws DatabaseException;
     BlockId getBlockIdAtHeight(BlockchainSegmentId blockchainSegmentId, Long blockHeight) throws DatabaseException;
 
-    Boolean isBlockInvalid(Sha256Hash blockHash) throws DatabaseException;
-    void markBlockAsInvalid(Sha256Hash blockHash) throws DatabaseException;
-    void clearBlockAsInvalid(Sha256Hash blockHash) throws DatabaseException;
+    Boolean isBlockInvalid(Sha256Hash blockHash, Integer maxFailedProcessedCount) throws DatabaseException;
+    void markBlockAsInvalid(Sha256Hash blockHash, Integer processIncrement) throws DatabaseException;
+    void clearBlockAsInvalid(Sha256Hash blockHash, Integer processDecrement) throws DatabaseException;
 }

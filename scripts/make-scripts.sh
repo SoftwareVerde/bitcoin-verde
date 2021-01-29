@@ -9,6 +9,7 @@ JVM_PARAMS='-XX:+UseG1GC -XX:NewSize=128M -XX:MaxNewSize=128M -XX:+UnlockExperim
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"\$@\"\n" > out/run.sh
 echo -e "#!/bin/bash\n\nexec java ${JVM_PARAMS} -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node.sh
 echo -e "#!/bin/bash\n\nexec java ${JVM_PARAMS} -jar bin/main.jar \"EXPLORER\" \"conf/server.conf\"\n" > out/run-explorer.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SPV\" \"conf/server.conf\"\n" > out/run-spv.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"WALLET\" \"conf/server.conf\"\n" > out/run-wallet.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"VALIDATE\" \"conf/server.conf\" \"\$1\"\n" > out/run-validation.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"STRATUM\" \"conf/server.conf\"\n" > out/run-stratum.sh

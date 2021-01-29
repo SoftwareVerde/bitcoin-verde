@@ -14,7 +14,7 @@ public class NodeInitializer {
     public static class Context {
         public SynchronizationStatus synchronizationStatus;
         public BitcoinNode.BlockInventoryAnnouncementHandler blockInventoryMessageHandler;
-        public TransactionsAnnouncementHandlerFactory _transactionsAnnouncementHandlerFactory;
+        public TransactionsAnnouncementHandlerFactory transactionsAnnouncementHandlerFactory;
         public BitcoinNode.RequestBlockHashesHandler requestBlockHashesHandler;
         public BitcoinNode.RequestBlockHeadersHandler requestBlockHeadersHandler;
         public BitcoinNode.RequestDataHandler requestDataHandler;
@@ -71,7 +71,7 @@ public class NodeInitializer {
     public NodeInitializer(final Context properties) {
         _synchronizationStatus = properties.synchronizationStatus;
         blockInventoryAnnouncementHandler = properties.blockInventoryMessageHandler;
-        _transactionsAnnouncementHandlerFactory = properties._transactionsAnnouncementHandlerFactory;
+        _transactionsAnnouncementHandlerFactory = properties.transactionsAnnouncementHandlerFactory;
         _requestBlockHashesHandler = properties.requestBlockHashesHandler;
         _requestBlockHeadersHandler = properties.requestBlockHeadersHandler;
         _requestDataHandler = properties.requestDataHandler;

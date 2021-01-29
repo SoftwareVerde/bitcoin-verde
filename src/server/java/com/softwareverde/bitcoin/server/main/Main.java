@@ -2,9 +2,10 @@ package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
-import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
+import com.softwareverde.bitcoin.server.configuration.NodeProperties;
 import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
@@ -19,9 +20,12 @@ import com.softwareverde.bitcoin.server.module.SignatureModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
+import com.softwareverde.bitcoin.server.module.spv.SpvModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.wallet.Wallet;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.LineNumberAnnotatedLog;
 import com.softwareverde.logging.Log;
 import com.softwareverde.logging.LogLevel;
@@ -73,7 +77,7 @@ public class Main {
 
         _printError("\tModule: NODE");
         _printError("\tArguments: <Configuration File>");
-        _printError("\tDescription: Connects to a remote node and begins downloading and validating the block chain.");
+        _printError("\tDescription: Connects to the BCH network and begins downloading and validating the block chain.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
         _printError("\t----------------");
@@ -83,6 +87,14 @@ public class Main {
         _printError("\tArguments: <Configuration File>");
         _printError("\tDescription: Starts a web server that provides an interface to explore the block chain.");
         _printError("\t\tThe explorer does not synchronize with the network, therefore NODE should be executed beforehand or in parallel.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: SPV");
+        _printError("\tArguments: <Configuration File>");
+        _printError("\tDescription: Connects to the BCH network as a simple payment verification node.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
         _printError("\t----------------");
@@ -192,7 +204,7 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 if (bitcoinProperties.isTestNet()) {
                     BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
@@ -224,15 +236,7 @@ public class Main {
                 }
 
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties, new Runnable() {
-                    @Override
-                    public void run() {
-                        final NodeModule nodeModule = nodeModuleContainer.value;
-                        if (nodeModule != null) {
-                            nodeModule.shutdown();
-                        }
-                    }
-                });
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
@@ -245,6 +249,67 @@ public class Main {
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
+                Logger.flush();
+            } break;
+
+            case "SPV": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFilename = _arguments[1];
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+
+                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getSpvDatabaseProperties();
+
+                if (bitcoinProperties.isTestNet()) {
+                    BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
+                }
+
+                { // Set Log Level...
+                    Logger.setLog(LineNumberAnnotatedLog.getInstance());
+                    final LogLevel logLevel = bitcoinProperties.getLogLevel();
+                    if (logLevel != null) {
+                        Logger.setLogLevel(logLevel);
+                    }
+                }
+
+                final Container<SpvModule> spvModuleContainer = new Container<>();
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.SPV, databaseProperties);
+                if (database == null) {
+                    Logger.error("Error initializing database.");
+                    BitcoinUtil.exitFailure();
+                    throw new RuntimeException("");
+                }
+                Logger.info("[Database Online]");
+
+                final DatabaseConnectionPool databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
+                final Environment environment = new Environment(database, databaseConnectionFactory);
+
+                final List<NodeProperties> seedNodes = bitcoinProperties.getSeedNodeProperties();
+                final Boolean isTestNet = bitcoinProperties.isTestNet();
+
+                final Wallet wallet = new Wallet();
+
+                final Thread mainThread = Thread.currentThread();
+                final Runtime runtime = Runtime.getRuntime();
+                runtime.addShutdownHook(new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            mainThread.interrupt();
+                            mainThread.join();
+                        }
+                        catch (final Exception exception) { }
+                    }
+                }));
+
+                spvModuleContainer.value = new SpvModule(environment, seedNodes, 8, wallet, isTestNet);
+                spvModuleContainer.value.initialize();
+                spvModuleContainer.value.loop();
                 Logger.flush();
             } break;
 
@@ -293,9 +358,9 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
@@ -321,7 +386,7 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
                 final StratumProperties stratumProperties = configuration.getStratumProperties();
-                final DatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
@@ -364,7 +429,7 @@ public class Main {
                 final String configurationFilename = _arguments[1];
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
-                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
+                final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {

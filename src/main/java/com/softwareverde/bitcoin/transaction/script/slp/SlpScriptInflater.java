@@ -17,11 +17,11 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.MutableSlpSendScrip
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.MutableSha256Hash;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 public class SlpScriptInflater {

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -130,8 +131,8 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId) {
-        final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, address, slpTransactionId);
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType) {
+        final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, address, slpTransactionId, memoActionType);
         _indexedOutputs.add(indexedOutput);
     }
 

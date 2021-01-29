@@ -7,7 +7,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
-    protected static final Integer DATABASE_VERSION = 3;
+    protected static final Integer DATABASE_VERSION = 4;
 
     public static class Default {
         public final String genesisBlockHash;

@@ -9,6 +9,8 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class NothingOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_NOTHING;
 
+    public static final NothingOperation NOTHING_OPERATION = new NothingOperation(Opcode.NO_OPERATION.getValue(), Opcode.NO_OPERATION);
+
     protected static NothingOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
 

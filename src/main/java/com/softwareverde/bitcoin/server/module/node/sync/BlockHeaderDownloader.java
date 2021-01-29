@@ -344,7 +344,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                 for (final Sha256Hash invalidBlockHash : invalidBlockHashes) {
                     Logger.info("Marking " + invalidBlockHash + " as invalid.");
-                    blockHeaderDatabaseManager.markBlockAsInvalid(invalidBlockHash);
+                    blockHeaderDatabaseManager.markBlockAsInvalid(invalidBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD); // Auto-ban any invalid headers...
                 }
                 return;
             }

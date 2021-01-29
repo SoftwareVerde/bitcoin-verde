@@ -8,10 +8,10 @@ import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript
 import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
 import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 public class SlpScriptBuilder {

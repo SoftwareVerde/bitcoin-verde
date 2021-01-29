@@ -1,23 +1,36 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
+import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
 import com.softwareverde.bitcoin.server.main.DatabaseConfigurer;
+import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
+import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProperties;
 import com.softwareverde.util.Util;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.HashMap;
 
-public class DatabaseConfigurerTests {
+public class DatabaseConfigurerTests extends UnitTest {
+    @Before
+    public void before() throws Exception {
+        super.before();
+    }
+
+    @After
+    public void after() throws Exception {
+        super.after();
+    }
+
     @Test
     public void should_configure_linux_database_with_large_memory_available() {
         // Setup
-        final Long systemByteCount = (64L * ByteUtil.Unit.Binary.GIBIBYTES);
+        final long systemByteCount = (64L * ByteUtil.Unit.Binary.GIBIBYTES);
         final long logFileByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties() {
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -29,16 +42,15 @@ public class DatabaseConfigurerTests {
             }
         };
 
-        final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-        final Integer maxDatabaseThreadCount = 5000; // Reasonably large number of connections. (MySQL allows up to 10k)
-        final Long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
-        final Long usableSystemMemory = (systemByteCount - overhead);
+        final int maxDatabaseThreadCount = 5000; // Reasonably large number of connections. (MySQL allows up to 10k)
+        final long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
+        final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
-        for (final String string : commandLineArguments.getArguments()) {
+        for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
 
@@ -57,7 +69,7 @@ public class DatabaseConfigurerTests {
         final long systemByteCount = ByteUtil.Unit.Binary.GIBIBYTES;
         final long logFileByteCount = (512L * ByteUtil.Unit.Binary.MEBIBYTES);
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties() {
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -69,16 +81,15 @@ public class DatabaseConfigurerTests {
             }
         };
 
-        final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-        final Integer maxDatabaseThreadCount = 32; // Maximum supported by MySql...
-        final Long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
-        final Long usableSystemMemory = (systemByteCount - overhead);
+        final int maxDatabaseThreadCount = 32; // Maximum supported by MySql...
+        final long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
+        final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
-        for (final String string : commandLineArguments.getArguments()) {
+        for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
 
@@ -96,7 +107,7 @@ public class DatabaseConfigurerTests {
         // Setup
         final long systemByteCount = (ByteUtil.Unit.Binary.GIBIBYTES + 1L);
 
-        final DatabaseProperties databaseProperties = new DatabaseProperties() {
+        final BitcoinVerdeDatabaseProperties databaseProperties = new BitcoinVerdeDatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -108,16 +119,15 @@ public class DatabaseConfigurerTests {
             }
         };
 
-        final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-        final Integer maxDatabaseThreadCount = 64;
-        final Long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
-        final Long usableSystemMemory = (systemByteCount - overhead);
+        final int maxDatabaseThreadCount = 64;
+        final long overhead = (maxDatabaseThreadCount * (11L * ByteUtil.Unit.Binary.MEBIBYTES)); // 3MB overhead + 8 max packet
+        final long usableSystemMemory = (systemByteCount - overhead);
 
         // Action
-        DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties, null);
+        final EmbeddedDatabaseProperties databaseConfiguration = DatabaseConfigurer.configureDatabase(maxDatabaseThreadCount, databaseProperties);
 
         final HashMap<String, String> arguments = new HashMap<String, String>();
-        for (final String string : commandLineArguments.getArguments()) {
+        for (final String string : databaseConfiguration.getCommandlineArguments()) {
             final String[] splitArgument = string.split("=");
             if (splitArgument.length != 2) { continue; } // Ignore flags...
 

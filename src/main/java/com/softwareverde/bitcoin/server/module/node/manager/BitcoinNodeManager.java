@@ -751,7 +751,7 @@ public class BitcoinNodeManager {
         bitcoinNode.connect();
         bitcoinNode.handshake();
 
-        _threadPool.execute(timeoutRunnable);
+        _threadPool.execute(timeoutRunnable); // TODO: Make the timeouts handled by a single managed thread.
     }
 
     protected void _pingIdleNodes() {

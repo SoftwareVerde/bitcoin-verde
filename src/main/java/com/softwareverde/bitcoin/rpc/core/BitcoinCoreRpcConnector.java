@@ -55,7 +55,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
         errorStringContainer.value = null;
         if (response == null) { return false; }
 
-        if (! com.softwareverde.bitcoin.util.Util.areEqual(Response.Codes.OK, response.getCode())) {
+        if (! Util.areEqual(Response.Codes.OK, response.getCode())) {
             return false;
         }
 
@@ -69,7 +69,7 @@ public class BitcoinCoreRpcConnector implements BitcoinMiningRpcConnector {
         }
 
         final String errorString = responseJson.getString("error");
-        if (! com.softwareverde.bitcoin.util.Util.isBlank(errorString)) {
+        if (! Util.isBlank(errorString)) {
             errorStringContainer.value = errorString;
             return false;
         }
