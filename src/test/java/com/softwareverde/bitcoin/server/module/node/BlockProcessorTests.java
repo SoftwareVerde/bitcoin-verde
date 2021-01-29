@@ -860,7 +860,7 @@ public class BlockProcessorTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
             final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
 
@@ -868,10 +868,17 @@ public class BlockProcessorTests extends IntegrationTest {
                 pendingBlockDatabaseManager.storeBlock(block);
             }
 
-            // Process 750A normally.
-            _runBlockchainBuilder(blockchainBuilder);
+            { // Process 750A normally.
+                // Temporarily mark the main chain as invalid so the blockchainBuilder is forced to process the shorter chain...
+                blockHeaderDatabaseManager.markBlockAsInvalid(block663750_B.getHash(), BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
 
-            Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
+                // Process 750A normally.
+                _runBlockchainBuilder(blockchainBuilder);
+                Assert.assertTrue(blockDatabaseManager.hasTransactions(block663750_A.getHash()));
+
+                // Unmark the main chain as invalid...
+                blockHeaderDatabaseManager.clearBlockAsInvalid(block663750_B.getHash(), Integer.MAX_VALUE);
+            }
 
             // Action
 

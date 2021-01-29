@@ -92,13 +92,13 @@ public class FakeDatabaseManager implements com.softwareverde.bitcoin.test.fake.
             }
 
             @Override
-            public Boolean isBlockInvalid(final Sha256Hash blockHash) throws DatabaseException { return false; }
+            public Boolean isBlockInvalid(final Sha256Hash blockHash, final Integer maxProcessedCount) throws DatabaseException { return false; }
 
             @Override
-            public void markBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException { }
+            public void markBlockAsInvalid(final Sha256Hash blockHash, final Integer processIncrement) throws DatabaseException { }
 
             @Override
-            public void clearBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException { }
+            public void clearBlockAsInvalid(final Sha256Hash blockHash, final Integer processDecrement) throws DatabaseException { }
 
             @Override
             public BlockHeader getBlockHeader(final BlockId blockId) {

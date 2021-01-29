@@ -268,10 +268,16 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 return;
             }
 
+            int completedBlockchainSegmentCount = 0;
             for (final BlockchainSegmentId blockchainSegmentIdToSync : blockchainSegmentIds) {
                 final Boolean shouldContinueToNextSegment = _assembleBlockchainSegment(databaseManager, blockchainSegmentIdToSync);
                 if (! shouldContinueToNextSegment) { return; }
+
+                completedBlockchainSegmentCount += 1;
             }
+
+            // All available work is completed.
+            if (completedBlockchainSegmentCount >= blockchainSegmentIds.getCount()) { break; }
         }
     }
 
@@ -314,11 +320,27 @@ public class BlockchainBuilder extends GracefulSleepyService {
         while (! _shouldAbort()) {
             final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
             if (nextBlockId == null) {
-                // reached the end of the chain
+                // If the nextBlockId is null then the end of the chain has been reached or the pending block's header hasn't been processed.
+                // Check if there is a pending block with the head block hash before quitting.
+                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
+                final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(headBlockHash);
+                if (pendingBlockIds.isEmpty()) { return true; } // The the end of the chain was reached.
+
+                // Store the pending block(s) header(s) and try again.
+                for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+                    synchronized (_pendingBlockIdDeleteQueueMutex) {
+                        final boolean pendingBlockIsMarkedForDeletion = _pendingBlockIdDeleteQueue.contains(pendingBlockId);
+                        if (pendingBlockIsMarkedForDeletion) { continue; }
+                    }
+
+                    final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
+                    Logger.info("Pending Block still available without header: " + pendingBlockHash);
+                }
                 return true;
             }
             final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-            final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash);
+            final Boolean isInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+            Logger.debug("NextBlockHash: " + nextBlockHash);
             if (isInvalid) { // Do not request blocks that have failed to process multiple times...
                 return true;
             }
@@ -332,7 +354,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 }
             }
 
-            if (pendingBlockId == null || ! pendingBlockDatabaseManager.hasBlockData(pendingBlockId)) {
+            if ( (pendingBlockId == null) || (! pendingBlockDatabaseManager.hasBlockData(pendingBlockId)) ) {
                 Logger.debug("Requesting Block: " + nextBlockHash);
                 final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
                 _blockDownloadRequester.requestBlock(nextBlockHash, headBlockHash);
@@ -372,7 +394,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
             }
 
             if (! processBlockWasSuccessful) {
-                blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash);
+                blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash, 1);
                 Logger.debug("Pending block failed during processing: " + pendingBlockHash);
                 return false;
             }

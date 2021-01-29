@@ -847,7 +847,7 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     }
 
     @Override
-    public Boolean isBlockInvalid(final Sha256Hash blockHash) throws DatabaseException {
+    public Boolean isBlockInvalid(final Sha256Hash blockHash, final Integer maxFailedProcessedCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -862,21 +862,29 @@ public class BlockHeaderDatabaseManagerCore implements BlockHeaderDatabaseManage
     }
 
     @Override
-    public void markBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException {
+    public void markBlockAsInvalid(final Sha256Hash blockHash, final Integer processIncrement) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO invalid_blocks (hash, process_count) VALUES (?, 1) ON DUPLICATE KEY UPDATE process_count = process_count + 1")
+            new Query("INSERT INTO invalid_blocks (hash, process_count) VALUES (?, ?) ON DUPLICATE KEY UPDATE process_count = process_count + ?")
                 .setParameter(blockHash)
+                .setParameter(processIncrement)
+                .setParameter(processIncrement)
         );
     }
 
     @Override
-    public void clearBlockAsInvalid(final Sha256Hash blockHash) throws DatabaseException {
+    public void clearBlockAsInvalid(final Sha256Hash blockHash, final Integer processDecrement) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM invalid_blocks WHERE hash = ?")
+            new Query("UPDATE invalid_blocks SET process_count = GREATEST(0, CAST(process_count AS SIGNED) - ?) WHERE hash = ?")
+                .setParameter(processDecrement)
+                .setParameter(blockHash)
+        );
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM invalid_blocks WHERE hash = ? AND process_count < 1")
                 .setParameter(blockHash)
         );
     }

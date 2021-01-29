@@ -676,7 +676,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     public void reconsiderBlock(final Sha256Hash blockHash) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            blockHeaderDatabaseManager.clearBlockAsInvalid(blockHash);
+            blockHeaderDatabaseManager.clearBlockAsInvalid(blockHash, Integer.MAX_VALUE);
             _blockchainBuilder.wakeUp();
         }
         catch (final Exception exception) {
