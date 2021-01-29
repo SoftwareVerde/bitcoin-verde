@@ -41,7 +41,6 @@ public class BlockValidator {
     public interface Context extends BlockHeaderValidator.Context, TransactionValidator.Context, TransactionValidatorFactory { }
 
     public static final Long DO_NOT_TRUST_BLOCKS = -1L;
-    public static final Integer MIN_BYTES_PER_SIGNATURE_OPERATION = 141;
 
     protected final Context _context;
 
@@ -255,7 +254,7 @@ public class BlockValidator {
         if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
             // NOTE: Technically, checking the block's maxSigOp count should be checked "live" instead of at the end, but this check is redundant due to
             //  Transactions having a maximum signature operation count, and blocks having a maximum Transaction count.
-            final int maximumSignatureOperationCount = (BlockInflater.MAX_BYTE_COUNT / BlockValidator.MIN_BYTES_PER_SIGNATURE_OPERATION);
+            final int maximumSignatureOperationCount = (BlockInflater.MAX_BYTE_COUNT / Block.MIN_BYTES_PER_SIGNATURE_OPERATION);
             Logger.trace("Signature Operations: " + totalSignatureOperationCount + " / " + maximumSignatureOperationCount);
             if (totalSignatureOperationCount > maximumSignatureOperationCount) {
                 return BlockValidationResult.invalid("Too many signature operations.");

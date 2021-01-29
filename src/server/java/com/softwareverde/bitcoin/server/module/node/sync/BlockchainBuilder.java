@@ -278,10 +278,6 @@ public class BlockchainBuilder extends GracefulSleepyService {
     /**
      * Returns true to indicate that work on this blockchain segment is complete.  This may be due to reaching the head
      * or finding an invalid block.
-     * @param databaseManager
-     * @param blockchainSegmentId
-     * @return
-     * @throws DatabaseException
      */
     protected Boolean _assembleBlockchainSegment(final FullNodeDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
