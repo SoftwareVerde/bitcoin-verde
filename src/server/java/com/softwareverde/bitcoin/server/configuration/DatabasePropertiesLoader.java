@@ -15,7 +15,8 @@ public class DatabasePropertiesLoader {
         final String password = properties.getProperty(propertyPrefix + "database.password", "");
         final String schema = (properties.getProperty(propertyPrefix + "database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
         final Integer port = Util.parseInt(properties.getProperty(propertyPrefix + "database.port", "8336"));
-        final String dataDirectory = properties.getProperty(propertyPrefix + "database.dataDirectory", "data");
+        final String dataDirectory = properties.getProperty(propertyPrefix + "database.dataDirectory", "data/db");
+        final String mysqlInstallationDirectory = properties.getProperty(propertyPrefix + "database.installationDirectory", "mysql");
         final Boolean useEmbeddedDatabase = Util.parseBool(properties.getProperty(propertyPrefix + "database.useEmbeddedDatabase", "1"));
         final Long maxMemoryByteCount = Util.parseLong(properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.Binary.GIBIBYTES)));
         final Long logFileByteCount = Util.parseLong(properties.getProperty(propertyPrefix + "database.logFileByteCount", String.valueOf(512 * ByteUtil.Unit.Binary.MEBIBYTES)));
@@ -34,7 +35,7 @@ public class DatabasePropertiesLoader {
         databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         databaseProperties._logFileByteCount = logFileByteCount;
 
-        final File installationDirectory = new File("mysql");
+        final File installationDirectory = new File(mysqlInstallationDirectory);
         databaseProperties.setInstallationDirectory(installationDirectory);
 
         return databaseProperties;
