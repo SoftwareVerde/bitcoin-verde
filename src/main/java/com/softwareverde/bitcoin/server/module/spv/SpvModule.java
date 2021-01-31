@@ -53,10 +53,10 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.wallet.Wallet;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -128,8 +128,8 @@ public class SpvModule {
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final SpvDatabaseManagerFactory _databaseManagerFactory;
-    protected final MainThreadPool _generalThreadPool;
-    protected final MainThreadPool _networkThreadPool;
+    protected final CachedThreadPool _generalThreadPool;
+    protected final CachedThreadPool _networkThreadPool;
     protected final BanFilter _banFilter;
     protected MerkleBlockDownloader _merkleBlockDownloader;
 
@@ -324,22 +324,9 @@ public class SpvModule {
         _masterInflater = new CoreInflater();
         _seedNodes = seedNodes;
         _wallet = wallet;
-        _generalThreadPool = new MainThreadPool(256, 60000L);
-        _networkThreadPool = new MainThreadPool((16 + (maxPeerCount * 8)), 60000L);
+        _generalThreadPool = new CachedThreadPool(256, 60000L);
+        _networkThreadPool = new CachedThreadPool((16 + (maxPeerCount * 8)), 60000L);
         _maxPeerCount = maxPeerCount;
-
-        final Runnable onThreadPoolShutdownCallback = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    _shutdown();
-                }
-                catch (final Throwable ignored) { }
-            }
-        };
-
-        _generalThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
-        _networkThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
 
         _environment = environment;
         _checkpointConfiguration = new CheckpointConfiguration();
@@ -357,6 +344,9 @@ public class SpvModule {
     public void initialize() {
         final Thread mainThread = Thread.currentThread();
         _setStatus(Status.INITIALIZING);
+
+        _generalThreadPool.start();
+        _networkThreadPool.start();
 
         final Integer maxQueryBatchSize;
         {

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.http.server.servlet.WebSocketServlet;
 import com.softwareverde.http.server.servlet.request.WebSocketRequest;
 import com.softwareverde.http.server.servlet.response.WebSocketResponse;
@@ -133,7 +133,7 @@ public class AnnouncementsApi implements WebSocketServlet {
         _explorerProperties = explorerProperties;
     }
 
-    protected final MainThreadPool _threadPool = new MainThreadPool(256, 1000L);
+    protected final CachedThreadPool _threadPool = new CachedThreadPool(256, 1000L);
 
     protected void _broadcastNewBlockHeader(final Json blockHeaderJson) {
         final String message;
@@ -257,6 +257,8 @@ public class AnnouncementsApi implements WebSocketServlet {
     }
 
     public void start() {
+        _threadPool.start();
+
         synchronized (_rpcConnectionThreadRunnable) {
             final Thread existingRpcConnectionThread = _rpcConnectionThread;
             if (existingRpcConnectionThread != null) {

@@ -22,7 +22,7 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPro
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
@@ -42,8 +42,8 @@ public class StratumModule {
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
 
-    protected final MainThreadPool _stratumThreadPool = new MainThreadPool(256, 60000L);
-    protected final MainThreadPool _rpcThreadPool = new MainThreadPool(256, 60000L);
+    protected final CachedThreadPool _stratumThreadPool = new CachedThreadPool(256, 60000L);
+    protected final CachedThreadPool _rpcThreadPool = new CachedThreadPool(256, 60000L);
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
         final Endpoint endpoint = new Endpoint(servlet);
@@ -158,6 +158,9 @@ public class StratumModule {
     }
 
     public void loop() {
+        _rpcThreadPool.start();
+        _stratumThreadPool.start();
+
         _stratumRpcServer.start();
         _stratumServer.start();
         _apiServer.start();
@@ -169,5 +172,8 @@ public class StratumModule {
         _apiServer.stop();
         _stratumServer.stop();
         _stratumRpcServer.stop();
+
+        _stratumThreadPool.stop();
+        _rpcThreadPool.stop();
     }
 }

@@ -31,7 +31,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnconfirmedTransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.JavaListWrapper;
 import com.softwareverde.constable.list.List;
@@ -396,7 +396,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final int transactionCount = transactionHashes.getCount();
         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionCount);
 
-        final MainThreadPool threadPool = new MainThreadPool(256, 15000L); // TODO: Consider providing a ThreadPool to the DatabaseManager object.
+        final CachedThreadPool threadPool = new CachedThreadPool(256, 15000L); // TODO: Consider providing a ThreadPool to the DatabaseManager object.
         threadPool.start();
 
         try {

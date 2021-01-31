@@ -13,8 +13,8 @@ import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -75,7 +75,8 @@ public class BitcoinNodeTests extends UnitTest {
     @Test
     public void should_timeout_request_after_no_response() throws Exception {
         // Setup
-        final MainThreadPool mainThreadPool = new MainThreadPool(32, 1000L);
+        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
+        mainThreadPool.start();
 
         final long REQUEST_TIMEOUT_MS = 3000L;
 
@@ -194,7 +195,8 @@ public class BitcoinNodeTests extends UnitTest {
     @Test
     public void should_close_monitor_thread_after_failed_connection() throws Exception {
         // Setup
-        final MainThreadPool mainThreadPool = new MainThreadPool(32, 1000L);
+        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
+        mainThreadPool.start();
 
         final long REQUEST_TIMEOUT_MS = 3000L;
 
@@ -244,7 +246,8 @@ public class BitcoinNodeTests extends UnitTest {
     @Test
     public void should_not_timeout_after_successful_response() throws Exception {
         // Setup
-        final MainThreadPool mainThreadPool = new MainThreadPool(32, 1000L);
+        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
+        mainThreadPool.start();
 
         final long REQUEST_TIMEOUT_MS = 3000L;
 
@@ -342,12 +345,14 @@ public class BitcoinNodeTests extends UnitTest {
 
         bitcoinNode.disconnect();
         socketServer.stop();
+        mainThreadPool.stop();
     }
 
     @Test
     public void should_fail_request_after_disconnect() throws Exception {
         // Setup
-        final MainThreadPool mainThreadPool = new MainThreadPool(32, 1000L);
+        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
+        mainThreadPool.start();
 
         final long REQUEST_TIMEOUT_MS = 3000L;
         final long DISCONNECT_AFTER_MS = 500L;

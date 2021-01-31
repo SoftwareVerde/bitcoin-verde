@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -23,10 +23,11 @@ public class BatchRunner<T> {
         final int batchCount = runnables.length;
         final int threadCount = Math.min(runnables.length, _maxConcurrentThreadCount);
 
-        final MainThreadPool createdThreadPool;
+        final CachedThreadPool createdThreadPool;
         final ThreadPool threadPool;
         if (_threadPool == null) {
-            createdThreadPool = new MainThreadPool(threadCount, 0L);
+            createdThreadPool = new CachedThreadPool(threadCount, 0L);
+            createdThreadPool.start();
             threadPool = createdThreadPool;
         }
         else {

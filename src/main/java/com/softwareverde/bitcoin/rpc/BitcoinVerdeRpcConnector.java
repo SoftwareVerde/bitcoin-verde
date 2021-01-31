@@ -4,8 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.rpc.monitor.Monitor;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.server.servlet.request.Request;
@@ -17,7 +16,7 @@ import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
+public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, AutoCloseable {
     public static final String IDENTIFIER = "VERDE";
 
     public static BlockTemplate toBlockTemplate(final Block block, final Long blockHeight, final SystemTime systemTime) {
@@ -70,7 +69,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     }
 
     protected final SystemTime _systemTime;
-    protected final ThreadPool _threadPool;
+    protected final CachedThreadPool _threadPool;
     protected final BitcoinNodeRpcAddress _bitcoinNodeRpcAddress;
     protected final RpcCredentials _rpcCredentials;
 
@@ -85,7 +84,8 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
         _bitcoinNodeRpcAddress = bitcoinNodeRpcAddress;
         _rpcCredentials = rpcCredentials;
 
-        _threadPool = new MainThreadPool(32, 5000L);
+        _threadPool = new CachedThreadPool(32, 5000L);
+        _threadPool.start();
     }
 
     @Override
@@ -259,5 +259,10 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector {
     @Override
     public String toString() {
         return _toString();
+    }
+
+    @Override
+    public void close() throws Exception {
+        _threadPool.stop();
     }
 }

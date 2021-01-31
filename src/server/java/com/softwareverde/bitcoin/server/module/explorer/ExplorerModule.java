@@ -9,8 +9,7 @@ import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.NodesApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.SearchApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.StatusApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.TransactionsApi;
-import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
@@ -22,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 public class ExplorerModule {
     protected final HttpServer _apiServer = new HttpServer();
-    protected final ThreadPool _threadPool = new MainThreadPool(512, 1000L);
+    protected final CachedThreadPool _threadPool = new CachedThreadPool(512, 1000L);
     protected final ExplorerProperties _explorerProperties;
     protected final AnnouncementsApi _announcementsApi;
 
@@ -88,6 +87,7 @@ public class ExplorerModule {
     }
 
     public void start() {
+        _threadPool.start();
         _apiServer.start();
         _announcementsApi.start();
     }
@@ -95,6 +95,7 @@ public class ExplorerModule {
     public void stop() {
         _announcementsApi.stop();
         _apiServer.stop();
+        _threadPool.stop();
     }
 
     public void loop() {

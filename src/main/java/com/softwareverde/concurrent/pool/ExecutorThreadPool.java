@@ -1,31 +1,47 @@
 package com.softwareverde.concurrent.pool;
 
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Util;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MainThreadPool implements ThreadPool {
+public class ExecutorThreadPool implements MutableThreadPool {
+    public static ExecutorThreadPool newCachedThreadInstance(final Integer maxThreadCount, final Long threadKeepAliveMilliseconds) {
+        final Runtime runtime = Runtime.getRuntime();
+        final int processorCount = runtime.availableProcessors();
+        final Integer desiredThreadCount = Math.min(processorCount * 2, maxThreadCount);
+
+        final BlockingQueue<Runnable> blockingQueue = new SynchronousQueue<>();
+        final RejectedExecutionHandler blockUntilAvailablePolicy = new ThreadPoolExecutor.CallerRunsPolicy();
+        return new ExecutorThreadPool(desiredThreadCount, maxThreadCount, threadKeepAliveMilliseconds, true, blockingQueue, blockUntilAvailablePolicy);
+    }
+
+    public static ExecutorThreadPool newFixedThreadInstance(final Integer threadCount) {
+        final BlockingQueue<Runnable> blockingQueue = new SynchronousQueue<>();
+        final RejectedExecutionHandler blockUntilAvailablePolicy = new ThreadPoolExecutor.CallerRunsPolicy();
+        return new ExecutorThreadPool(threadCount, threadCount, 0L, false, blockingQueue, blockUntilAvailablePolicy);
+    }
+
     protected final AtomicInteger _nextThreadId = new AtomicInteger(0);
     protected final BlockingQueue<Runnable> _queue;
     protected final Integer _minThreadCount;
     protected final Integer _maxThreadCount;
     protected final Boolean _shouldTimeoutCoreThreads;
     protected final Long _threadKeepAliveMilliseconds;
+    protected final RejectedExecutionHandler _rejectedExecutionHandler;
     protected ThreadPoolExecutor _executorService;
     protected Runnable _shutdownCallback;
     protected Integer _threadPriority = Thread.NORM_PRIORITY;
 
     protected void _configureThread(final Integer nextThreadId, final Thread thread) {
-        thread.setName("MainThreadPool - " + nextThreadId);
+        thread.setName("ExecutorThreadPool - " + nextThreadId);
         thread.setDaemon(false);
         thread.setPriority(_threadPriority);
         thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
@@ -66,21 +82,23 @@ public class MainThreadPool implements ThreadPool {
 
         final ThreadFactory threadFactory = _createThreadFactory();
         final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(_minThreadCount, _maxThreadCount, _threadKeepAliveMilliseconds, TimeUnit.MILLISECONDS, _queue, threadFactory);
+
         threadPoolExecutor.allowCoreThreadTimeOut(_shouldTimeoutCoreThreads);
+
+        if (_rejectedExecutionHandler != null) {
+            threadPoolExecutor.setRejectedExecutionHandler(_rejectedExecutionHandler);
+        }
+
         return threadPoolExecutor;
     }
 
-    public MainThreadPool(final Integer maxThreadCount, final Long threadKeepAliveMilliseconds) {
-        this(0, maxThreadCount, threadKeepAliveMilliseconds, false);
-    }
-
-    public MainThreadPool(final Integer minThreadCount, final Integer maxThreadCount, final Long threadKeepAliveMilliseconds, final Boolean shouldTimeoutCoreThreads) {
-        _queue = (Util.areEqual(minThreadCount, maxThreadCount) ? new LinkedBlockingDeque<>() : new SynchronousQueue<Runnable>());
+    public ExecutorThreadPool(final Integer minThreadCount, final Integer maxThreadCount, final Long threadKeepAliveMilliseconds, final Boolean shouldTimeoutCoreThreads, final BlockingQueue<Runnable> blockingQueue, final RejectedExecutionHandler rejectedExecutionHandler) {
+        _queue = blockingQueue;
         _minThreadCount = minThreadCount;
         _maxThreadCount = maxThreadCount;
         _shouldTimeoutCoreThreads = shouldTimeoutCoreThreads;
         _threadKeepAliveMilliseconds = threadKeepAliveMilliseconds;
-        _executorService = _createExecutorService();
+        _rejectedExecutionHandler = rejectedExecutionHandler;
     }
 
     public void setThreadPriority(final Integer threadPriority) {
@@ -124,6 +142,7 @@ public class MainThreadPool implements ThreadPool {
      * Invoking ThreadPool::start without invoking ThreadPool::stop is safe but does nothing.
      *  It is not necessary to invoke ThreadPool::start after instantiation.
      */
+    @Override
     public void start() {
         if (_executorService != null) { return; }
 
@@ -134,6 +153,7 @@ public class MainThreadPool implements ThreadPool {
      * Immediately interrupts all pending threads and awaits termination for up to 1 minute.
      *  Any calls to ThreadPool::execute after invoking ThreadPool::stop are ignored until ThreadPool::start is called.
      */
+    @Override
     public void stop() {
         final ExecutorService executorService = _executorService;
         if (executorService == null) { return; }

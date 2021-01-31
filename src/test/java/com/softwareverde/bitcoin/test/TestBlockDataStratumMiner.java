@@ -22,7 +22,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -135,7 +135,7 @@ class StratumMiner {
     public static final Integer totalExtraNonceByteCount = (extraNonceByteCount + extraNonce2ByteCount);
 
     protected final StratumServerSocket _stratumServerSocket;
-    protected final MainThreadPool _threadPool = new MainThreadPool(256, 60000L);
+    protected final CachedThreadPool _threadPool = new CachedThreadPool(256, 60000L);
 
     protected final ByteArray _extraNonce;
 
@@ -261,7 +261,7 @@ class StratumMiner {
         final String stratumExtraNonce2 = messageParameters.getString(2);
         final String stratumTimestamp = messageParameters.getString(3);
 
-        Boolean submissionWasAccepted = true;
+        boolean submissionWasAccepted = true;
 
         final Long taskIdLong = ByteUtil.bytesToLong(taskId.getBytes());
         final StratumMineBlockTask mineBlockTask = _currentMineBlockTask;
@@ -269,7 +269,7 @@ class StratumMiner {
             submissionWasAccepted = false;
         }
 
-        Boolean shouldExit = false;
+        boolean shouldExit = false;
 
         if (mineBlockTask != null) {
             final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(_shareDifficulty);
@@ -380,6 +380,7 @@ class StratumMiner {
 
     public void loop() {
         _mainThread = Thread.currentThread();
+        _threadPool.start();
 
         _buildMiningTask();
 
@@ -392,5 +393,6 @@ class StratumMiner {
         }
 
         _stratumServerSocket.stop();
+        _threadPool.stop();
     }
 }

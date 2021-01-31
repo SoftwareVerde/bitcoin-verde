@@ -25,12 +25,24 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Map;
 
 public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
+    @Before
+    public void before() throws Exception {
+        super.before();
+    }
+
+    @After
+    public void after() throws Exception {
+        super.after();
+    }
+
     @Test
     public void accumulator_should_load_existing_confirmed_transaction() throws Exception {
         // Setup

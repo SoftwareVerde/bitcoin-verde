@@ -28,7 +28,7 @@ import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -52,7 +52,7 @@ import java.util.List;
 public class IntegrationTest extends UnitTest {
     protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
 
-    protected final MainThreadPool _threadPool = new MainThreadPool(1, 1L);
+    protected final CachedThreadPool _threadPool = new CachedThreadPool(1, 1L);
 
     protected final MasterInflater _masterInflater;
     protected final FakeBlockStore _blockStore;
@@ -157,6 +157,7 @@ public class IntegrationTest extends UnitTest {
     public void before() throws Exception {
         IntegrationTest.resetDatabase();
 
+        _threadPool.start();
         _synchronizationStatus.setState(State.ONLINE);
         _synchronizationStatus.setCurrentBlockHeight(Long.MAX_VALUE);
         _blockStore.clear();
@@ -182,6 +183,7 @@ public class IntegrationTest extends UnitTest {
     @Override
     public void after() throws Exception {
         Thread.sleep(500L); // Allow Integration DB to complete cleanup before next test.
+        _threadPool.stop();
     }
 
     protected static final String INSERT_BLOCK_QUERY = "INSERT INTO blocks (hash, previous_block_id, block_height, blockchain_segment_id, merkle_root, version, timestamp, median_block_time, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";

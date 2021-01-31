@@ -20,7 +20,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -174,7 +174,8 @@ class BitcoinVerdeStratumServerPartialMock extends BitcoinVerdeStratumServer {
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<Json>();
 
     public BitcoinVerdeStratumServerPartialMock() {
-        super(configuration.getStratumProperties(), new MainThreadPool(1, 1L));
+        super(configuration.getStratumProperties(), new CachedThreadPool(1, 1L));
+        ((CachedThreadPool) _threadPool).start();
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());
     }

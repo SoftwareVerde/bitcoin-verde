@@ -27,7 +27,8 @@ import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.SpentOutputsTracker;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -50,7 +51,7 @@ public class BlockValidator {
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = DO_NOT_TRUST_BLOCKS;
 
-    protected BlockValidationResult _validateTransactions(final Block block, final Long blockHeight) {
+    protected BlockValidationResult _validateTransactions(final Block block, final Long blockHeight, final ThreadPool threadPool) {
         final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(blockHeight);
         final Thread currentThread = Thread.currentThread();
@@ -79,8 +80,6 @@ public class BlockValidator {
         }
 
         final BlockOutputs blockOutputs = BlockOutputs.fromBlock(block);
-        final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 60000L);
-        threadPool.setThreadPriority(currentThread.getPriority());
 
         final int threadCount;
         final boolean executeBothTasksAsynchronously;
@@ -203,8 +202,6 @@ public class BlockValidator {
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
         if (transactionValidationTaskResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
 
-        threadPool.stop();
-
         final MutableList<Sha256Hash> invalidTransactions = new MutableList<Sha256Hash>();
 
         final long totalTransactionFees;
@@ -309,8 +306,17 @@ public class BlockValidator {
             final NanoTimer validateBlockTimer = new NanoTimer();
             validateBlockTimer.start();
 
-            final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockHeight);
-            if (! transactionsValidationResult.isValid) { return transactionsValidationResult; }
+            final Thread currentThread = Thread.currentThread();
+            final Integer threadPriority = currentThread.getPriority();
+            final CachedThreadPool threadPool = new CachedThreadPool(_maxThreadCount, 60000L, Long.MAX_VALUE, CachedThreadPool.newThreadFactoryWithPriority(threadPriority));
+            try {
+                threadPool.start();
+                final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockHeight, threadPool);
+                if (! transactionsValidationResult.isValid) { return transactionsValidationResult; }
+            }
+            finally {
+                threadPool.stop();
+            }
 
             validateBlockTimer.stop();
             if (_shouldLogValidBlocks) {

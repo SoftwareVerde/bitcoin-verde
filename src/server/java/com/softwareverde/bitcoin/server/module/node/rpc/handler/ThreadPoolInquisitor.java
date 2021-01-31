@@ -1,12 +1,12 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 
 public class ThreadPoolInquisitor implements NodeRpcHandler.ThreadPoolInquisitor {
-    protected final MainThreadPool _threadPool;
+    protected final CachedThreadPool _threadPool;
 
-    public ThreadPoolInquisitor(final MainThreadPool threadPool) {
+    public ThreadPoolInquisitor(final CachedThreadPool threadPool) {
         _threadPool = threadPool;
     }
 

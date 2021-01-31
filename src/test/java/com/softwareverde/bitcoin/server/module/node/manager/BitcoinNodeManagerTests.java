@@ -7,9 +7,9 @@ import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterC
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -33,7 +33,9 @@ public class BitcoinNodeManagerTests extends IntegrationTest {
     @Test
     public void should_ban_node_after_multiple_failed_inbound_connections() throws Exception {
         // Setup
-        final MainThreadPool threadPool = new MainThreadPool(32, 1L);
+        final CachedThreadPool threadPool = new CachedThreadPool(32, 1L);
+        threadPool.start();
+
         final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {

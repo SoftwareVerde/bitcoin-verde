@@ -30,7 +30,7 @@ import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilder
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
-import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -60,7 +60,7 @@ public class BitcoinCoreStratumServer implements StratumServer {
     protected final MasterInflater _masterInflater;
     protected final StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
-    protected final MainThreadPool _threadPool;
+    protected final ThreadPool _threadPool;
     protected final StagnantStratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
 
     protected final PrivateKey _privateKey;
@@ -359,18 +359,18 @@ public class BitcoinCoreStratumServer implements StratumServer {
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool) {
+    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool) {
         this(
             stratumProperties,
-            mainThreadPool,
+            threadPool,
             new CoreInflater()
         );
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater) {
+    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool, final MasterInflater masterInflater) {
         this(
             stratumProperties,
-            mainThreadPool,
+            threadPool,
             masterInflater,
             new StagnantStratumMineBlockTaskBuilderFactory() {
                 @Override
@@ -381,11 +381,11 @@ public class BitcoinCoreStratumServer implements StratumServer {
         );
     }
 
-    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater, final StagnantStratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
+    public BitcoinCoreStratumServer(final StratumProperties stratumProperties, final ThreadPool threadPool, final MasterInflater masterInflater, final StagnantStratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
         _stratumMineBlockTaskBuilderFactory = stratumMineBlockTaskBuilderFactory;
         _masterInflater = masterInflater;
         _stratumProperties = stratumProperties;
-        _threadPool = mainThreadPool;
+        _threadPool = threadPool;
 
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 

@@ -16,8 +16,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -51,7 +50,8 @@ public class PartialMerkleTreeTests {
             i += 1;
         }
 
-        final ThreadPool threadPool = new MainThreadPool(1, 1000L);
+        final CachedThreadPool threadPool = new CachedThreadPool(1, 1000L);
+        threadPool.start();
 
         final BitcoinNode bitcoinNode = new BitcoinNode("btc.softwareverde.com", 8333, threadPool, new LocalNodeFeatures() {
             @Override
@@ -75,6 +75,7 @@ public class PartialMerkleTreeTests {
         Thread.sleep(3000L);
 
         bitcoinNode.disconnect();
+        threadPool.stop();
     }
 
     @Test
@@ -185,7 +186,8 @@ public class PartialMerkleTreeTests {
             }
         }
 
-        final ThreadPool threadPool = new MainThreadPool(1, 1000L);
+        final CachedThreadPool threadPool = new CachedThreadPool(1, 1000L);
+        threadPool.start();
 
         final BitcoinNode bitcoinNode = new BitcoinNode("btc.softwareverde.com", 8333, threadPool, new LocalNodeFeatures() {
             @Override
@@ -215,6 +217,7 @@ public class PartialMerkleTreeTests {
         Thread.sleep(3000L);
 
         bitcoinNode.disconnect();
+        threadPool.stop();
 
         final List<Sha256Hash> merkleHashes = merkleBlockContainer.value.getPartialMerkleTree().getHashes();
         final ByteArray flags = merkleBlockContainer.value.getPartialMerkleTree().getFlags();

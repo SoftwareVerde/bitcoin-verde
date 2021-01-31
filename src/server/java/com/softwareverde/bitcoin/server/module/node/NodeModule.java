@@ -103,10 +103,10 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
-import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
+import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -171,10 +171,10 @@ public class NodeModule {
 
     protected final String _transactionBloomFilterFilename;
 
-    protected final MainThreadPool _generalThreadPool;
-    protected final MainThreadPool _networkThreadPool;
-    protected final MainThreadPool _blockProcessingThreadPool;
-    protected final MainThreadPool _rpcThreadPool;
+    protected final CachedThreadPool _generalThreadPool;
+    protected final CachedThreadPool _networkThreadPool;
+    protected final CachedThreadPool _blockProcessingThreadPool;
+    protected final CachedThreadPool _rpcThreadPool;
 
     protected final MilliTimer _uptimeTimer = new MilliTimer();
     protected final Thread _databaseMaintenanceThread;
@@ -338,24 +338,10 @@ public class NodeModule {
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
         final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
-        _generalThreadPool = new MainThreadPool(256, 60000L);
-        _networkThreadPool = new MainThreadPool((16 + (maxPeerCount * 8)), 60000L);
-        _blockProcessingThreadPool = new MainThreadPool(256, 60000L);
-        _rpcThreadPool = new MainThreadPool(32, 60000L);
-
-        final Runnable onThreadPoolShutdownCallback = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    _shutdown();
-                }
-                catch (final Throwable ignored) { }
-            }
-        };
-
-        _generalThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
-        _networkThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
-        _blockProcessingThreadPool.setShutdownCallback(onThreadPoolShutdownCallback);
+        _generalThreadPool = new CachedThreadPool(256, 60000L);
+        _networkThreadPool = new CachedThreadPool((16 + (maxPeerCount * 8)), 60000L);
+        _blockProcessingThreadPool = new CachedThreadPool(256, 60000L);
+        _rpcThreadPool = new CachedThreadPool(32, 60000L);
 
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
@@ -971,6 +957,11 @@ public class NodeModule {
     }
 
     public void loop() {
+        _networkThreadPool.start();
+        _blockProcessingThreadPool.start();
+        _generalThreadPool.start();
+        _rpcThreadPool.start();
+
         _loggerFlushThread.start();
 
         final MilliTimer timer = new MilliTimer();
