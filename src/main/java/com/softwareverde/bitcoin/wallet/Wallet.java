@@ -71,24 +71,25 @@ public class Wallet {
     }
 
     protected static class SlpTokenTransactionConfiguration {
-        public final MutableList<PaymentAmount> mutablePaymentAmounts = new MutableList<PaymentAmount>();
-        public final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend = new MutableList<TransactionOutputIdentifier>();
+        public final MutableList<PaymentAmount> mutablePaymentAmounts = new MutableList<>();
+        public final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend = new MutableList<>();
         public final MutableSlpSendScript slpSendScript = new MutableSlpSendScript();
     }
 
     protected static final Address DUMMY_ADDRESS = (new AddressInflater()).fromBytes(new MutableByteArray(Address.BYTE_COUNT));
 
     protected final UpgradeSchedule _upgradeSchedule;
-    protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
-    protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
-    protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
-    protected final HashSet<Sha256Hash> _confirmedTransactions = new HashSet<Sha256Hash>();
-    protected final HashSet<Sha256Hash> _notYetValidatedSlpTransactions = new HashSet<Sha256Hash>();
-    protected final HashSet<Sha256Hash> _invalidSlpTransactions = new HashSet<Sha256Hash>();
-    protected final HashSet<Sha256Hash> _validSlpTransactions = new HashSet<Sha256Hash>();
+    protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<>();
+    protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<>();
+    protected final HashSet<Address> _watchedAddresses = new HashSet<>();
+    protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<>();
+    protected final HashSet<Sha256Hash> _confirmedTransactions = new HashSet<>();
+    protected final HashSet<Sha256Hash> _notYetValidatedSlpTransactions = new HashSet<>();
+    protected final HashSet<Sha256Hash> _invalidSlpTransactions = new HashSet<>();
+    protected final HashSet<Sha256Hash> _validSlpTransactions = new HashSet<>();
 
-    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
-    protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
+    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<>();
     protected final Map<TransactionOutputIdentifier, Sha256Hash> _externallySpentTransactionOutputs = new HashMap<>();
     protected BloomFilter _cachedBloomFilter = null;
 
@@ -303,7 +304,7 @@ public class Wallet {
             final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
             if (address == null) { continue; }
 
-            if (_publicKeys.containsKey(address)) {
+            if ( _publicKeys.containsKey(address) || _watchedAddresses.contains(address) ) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
                 final boolean isSpent = _spentTransactionOutputs.containsKey(transactionOutputIdentifier);
 
@@ -400,11 +401,14 @@ public class Wallet {
     }
 
     protected Long _getBalance(final PublicKey publicKey, final SlpTokenId slpTokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
-        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-
         final AddressInflater addressInflater = new AddressInflater();
         final Address address = addressInflater.fromPublicKey(publicKey, false);
         final Address compressedAddress = addressInflater.fromPublicKey(publicKey, true);
+        return _getBalance(address, compressedAddress, slpTokenId, shouldIncludeNotYetValidatedTransactions);
+    }
+
+    protected Long _getBalance(final Address address, final Address compressedAddress, final SlpTokenId slpTokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
@@ -962,6 +966,10 @@ public class Wallet {
             bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey, true));
         }
 
+        for (final Address address : _watchedAddresses) {
+            bloomFilter.addItem(address);
+        }
+
         return bloomFilter;
     }
 
@@ -995,6 +1003,11 @@ public class Wallet {
         }
         _cachedBloomFilter = null; // Invalidate the cached BloomFilter...
         _reloadTransactions();
+    }
+
+    public synchronized void addWatchedAddress(final Address address) {
+        _watchedAddresses.add(address);
+        _cachedBloomFilter = null; // Invalidate the cached BloomFilter...
     }
 
     public synchronized void addTransaction(final Transaction transaction) {
@@ -1231,6 +1244,26 @@ public class Wallet {
                 final Address outputAddress = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
 
                 if ( Util.areEqual(address, outputAddress) || Util.areEqual(compressedAddress, outputAddress) ) {
+                    amount += transactionOutput.getAmount();
+                }
+            }
+        }
+        return amount;
+    }
+
+    public synchronized Long getBalance(final Address address) {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        long amount = 0L;
+        for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+            if (! spendableTransactionOutput.isSpent()) {
+                final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+                final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                final Address outputAddress = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+
+                if (Util.areEqual(address, outputAddress)) {
                     amount += transactionOutput.getAmount();
                 }
             }
