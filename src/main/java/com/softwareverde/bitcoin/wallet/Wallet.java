@@ -128,11 +128,17 @@ public class Wallet {
         }
         Logger.debug("Wallet Available Outputs:");
         for (final TransactionOutputIdentifier transactionOutputIdentifier : _transactionOutputs.keySet()) {
-            Logger.debug(transactionOutputIdentifier);
+            final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+            final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+            Logger.debug(transactionOutputIdentifier + (hasPrivateKey ? "" : " [NO PRIVATE KEY]"));
         }
         Logger.debug("Wallet Public Keys:");
         for (final PublicKey publicKey : _privateKeys.keySet()) {
             Logger.debug(publicKey);
+        }
+        Logger.debug("Watched Addresses:");
+        for (final Address address : _watchedAddresses) {
+            Logger.debug(address.toBase58CheckEncoded());
         }
     }
 
@@ -413,6 +419,9 @@ public class Wallet {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) { continue; }
+
                 final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
 
                 final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
@@ -443,10 +452,15 @@ public class Wallet {
         return amount;
     }
 
-    protected Long _getSlpTokenBalance(final SlpTokenId tokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
+    protected Long _getSlpTokenBalance(final SlpTokenId tokenId, final Boolean shouldIncludeNotYetValidatedTransactions, final Boolean requirePrivateKey) {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
+                if (requirePrivateKey) {
+                    final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                    if (!hasPrivateKey) { continue; }
+                }
+
                 final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -493,6 +507,9 @@ public class Wallet {
 
         final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<SpendableTransactionOutput>(_transactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+            final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+            if (! hasPrivateKey) { continue; }
+
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
 
             // If this TransactionOutput is one that must be included in this transaction,
@@ -659,6 +676,9 @@ public class Wallet {
             for (final TransactionOutputIdentifier transactionOutputIdentifier : _transactionOutputs.keySet()) {
                 final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
                 if (spendableTransactionOutput.isSpent()) { continue; }
+
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) { continue; }
 
                 if (requiredTransactionOutputIdentifiersToSpend.contains(transactionOutputIdentifier)) { continue; }
 
@@ -832,6 +852,12 @@ public class Wallet {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(signedTransactionInput.getPreviousOutputTransactionHash(), signedTransactionInput.getPreviousOutputIndex());
                 final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
                 transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
+
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) {
+                    Logger.warn("Attempted to spend Output without private key: " + transactionOutputIdentifier);
+                    return null;
+                }
             }
 
             final MutableTransactionContext context = MutableTransactionContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent, _medianBlockTime, _upgradeSchedule);
@@ -971,6 +997,14 @@ public class Wallet {
         }
 
         return bloomFilter;
+    }
+
+    protected Boolean _hasPrivateKeyFor(final SpendableTransactionOutput spendableTransactionOutput) {
+        final Address address = spendableTransactionOutput.getAddress();
+        final PublicKey publicKey = _publicKeys.get(address);
+        if (publicKey == null) { return false; }
+
+        return _privateKeys.containsKey(publicKey);
     }
 
     public Wallet() {
@@ -1158,14 +1192,21 @@ public class Wallet {
     }
 
     public synchronized SpendableTransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        return _transactionOutputs.get(transactionOutputIdentifier);
+        final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+        final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+        if (! hasPrivateKey) { return null; }
+
+        return spendableTransactionOutput;
     }
 
     public synchronized List<SpendableTransactionOutput> getTransactionOutputs() {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
         final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
-            transactionOutputs.add(spendableTransactionOutput);
+            final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+            if (hasPrivateKey) {
+                transactionOutputs.add(spendableTransactionOutput);
+            }
         }
         return transactionOutputs.build();
     }
@@ -1176,7 +1217,10 @@ public class Wallet {
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
             if (! _isSlpTokenOutput(transactionOutputIdentifier)) {
-                transactionOutputs.add(spendableTransactionOutput);
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (hasPrivateKey) {
+                    transactionOutputs.add(spendableTransactionOutput);
+                }
             }
         }
         return transactionOutputs.build();
@@ -1193,7 +1237,10 @@ public class Wallet {
             }
             else if (_outputContainsSpendableSlpTokens(transactionOutputIdentifier)) {
                 if (Util.areEqual(tokenId, _getSlpTokenId(transactionOutputIdentifier))) {
-                    transactionOutputs.add(spendableTransactionOutput);
+                    final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                    if (hasPrivateKey) {
+                        transactionOutputs.add(spendableTransactionOutput);
+                    }
                 }
             }
         }
@@ -1220,6 +1267,9 @@ public class Wallet {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) { continue; }
+
                 final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
                 amount += transactionOutput.getAmount();
             }
@@ -1237,6 +1287,9 @@ public class Wallet {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) { continue; }
+
                 final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
                 final LockingScript lockingScript = transactionOutput.getLockingScript();
 
@@ -1251,7 +1304,7 @@ public class Wallet {
         return amount;
     }
 
-    public synchronized Long getBalance(final Address address) {
+    public synchronized Long getWatchedBalance(final Address address) {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         long amount = 0L;
@@ -1280,17 +1333,28 @@ public class Wallet {
     }
 
     public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId) {
-        return _getSlpTokenBalance(tokenId, true);
+        return _getSlpTokenBalance(tokenId, true, true);
     }
 
     public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
-        return _getSlpTokenBalance(tokenId, shouldIncludeNotYetValidatedTransactions);
+        return _getSlpTokenBalance(tokenId, shouldIncludeNotYetValidatedTransactions, true);
+    }
+
+    public synchronized Long getWatchedSlpTokenBalance(final SlpTokenId tokenId) {
+        return _getSlpTokenBalance(tokenId, true, false);
+    }
+
+    public synchronized Long getWatchedSlpTokenBalance(final SlpTokenId tokenId, final Boolean shouldIncludeNotYetValidatedTransactions) {
+        return _getSlpTokenBalance(tokenId, shouldIncludeNotYetValidatedTransactions, false);
     }
 
     public synchronized Long getInvalidSlpTokenBalance(final SlpTokenId tokenId) {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) { continue; }
+
                 final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -1363,6 +1427,9 @@ public class Wallet {
         final HashSet<SlpTokenId> tokenIdsSet = new HashSet<SlpTokenId>();
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
             if (! spendableTransactionOutput.isSpent()) {
+                final Boolean hasPrivateKey = _hasPrivateKeyFor(spendableTransactionOutput);
+                if (! hasPrivateKey) { continue; }
+
                 final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                 final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
