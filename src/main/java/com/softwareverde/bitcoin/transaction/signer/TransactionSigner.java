@@ -87,7 +87,7 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
             { // Handle Input-Script Signing...
-                final Script unlockingScriptForSigning;
+                final Script surrogateUnlockingScriptForSigning;
                 final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
                 if (shouldSignScript) {
                     final Script currentScript = signatureContext.getCurrentScript();
@@ -103,15 +103,15 @@ public class TransactionSigner {
                         }
 
                         mutableScript.removeOperations(Opcode.CODE_SEPARATOR);
-                        unlockingScriptForSigning = mutableScript;
+                        surrogateUnlockingScriptForSigning = mutableScript;
                     }
                 }
                 else {
-                    unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
+                    surrogateUnlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
                 }
 
                 { // Remove any ByteArrays that should be excluded from the script signing (aka signatures)...
-                    final MutableScript modifiedScript = new MutableScript(unlockingScriptForSigning);
+                    final MutableScript modifiedScript = new MutableScript(surrogateUnlockingScriptForSigning);
                     final List<ByteArray> bytesToExcludeFromScript = signatureContext.getBytesToExcludeFromScript();
                     for (final ByteArray byteArray : bytesToExcludeFromScript) {
                         modifiedScript.removePushOperations(byteArray);
