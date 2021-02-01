@@ -65,6 +65,8 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
                     }
                     else if (_updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
                         final ScriptType scriptType = lockingScript.getScriptType();
+                        // NOTE: Bitcoin Verde is not updating the bloom filter for MULTISIG scripts as it currently doesn't recognize the raw MULTISIG script type
+                        //       Other implementations do not include P2SH scripts, while Bitcoin Verde does
                         if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH) ) {
                             shouldUpdateBloomFilter = true;
                         }
