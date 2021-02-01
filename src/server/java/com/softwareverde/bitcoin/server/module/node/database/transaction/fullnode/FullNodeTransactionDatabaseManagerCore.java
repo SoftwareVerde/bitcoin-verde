@@ -396,7 +396,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final int transactionCount = transactionHashes.getCount();
         final HashMap<Sha256Hash, Transaction> transactions = new HashMap<>(transactionCount);
 
-        final CachedThreadPool threadPool = new CachedThreadPool(256, 15000L); // TODO: Consider providing a ThreadPool to the DatabaseManager object.
+        final Runtime runtime = Runtime.getRuntime();
+        final int processorCount = runtime.availableProcessors();
+        final CachedThreadPool threadPool = new CachedThreadPool(processorCount, 15000L); // TODO: Consider providing a ThreadPool to the DatabaseManager object.
         threadPool.start();
 
         try {
@@ -469,7 +471,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                                 @Override
                                 public void run() {
                                     try {
-                                        Logger.trace("Load Tx from disk starting.");
                                         final NanoTimer nanoTimer = new NanoTimer();
                                         nanoTimer.start();
 
@@ -507,8 +508,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
                                         synchronized (transactions) {
                                             transactions.put(transactionHash, transaction);
                                         }
-
-                                        Logger.trace("Load Tx from disk finished in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                                     }
                                     finally {
                                         synchronized (pendingResultCount) {
