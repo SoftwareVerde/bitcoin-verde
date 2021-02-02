@@ -137,7 +137,7 @@ public class SlpScriptInflater {
 
         final Value batonOutputIndexValue = ((PushOperation) operations.get(5)).getValue();
         if (batonOutputIndexValue.getByteCount() > 1) { return null; }
-        final Integer batonOutputIndex = ByteUtil.bytesToInteger(batonOutputIndexValue.getBytes());
+        final int batonOutputIndex = ByteUtil.bytesToInteger(batonOutputIndexValue.getBytes());
         if (batonOutputIndexValue.getByteCount() == 1) {
             if (batonOutputIndex < 2) { return null; }
         }

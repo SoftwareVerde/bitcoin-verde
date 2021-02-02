@@ -46,6 +46,7 @@ public class BlockchainIndexer extends SleepyService {
         Address address;
         TransactionId slpTransactionId;
         ByteArray memoActionType;
+        ByteArray memoActionIdentifier;
     }
 
     protected static class InputIndexData {
@@ -58,6 +59,7 @@ public class BlockchainIndexer extends SleepyService {
     protected final TransactionOutputIndexerContext _context;
     protected final ScriptPatternMatcher _scriptPatternMatcher = new ScriptPatternMatcher();
     protected final SlpScriptInflater _slpScriptInflater = new SlpScriptInflater();
+    protected final MemoScriptInflater _memoScriptInflater = new MemoScriptInflater();
 
     protected Runnable _onSleepCallback;
 
@@ -149,16 +151,17 @@ public class BlockchainIndexer extends SleepyService {
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
             if (! outputIndexData.containsKey(transactionOutputIdentifier)) {
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
 
                 final ScriptType scriptType;
                 final Address address;
                 {
-                    final LockingScript lockingScript = transactionOutput.getLockingScript();
                     scriptType = _scriptPatternMatcher.getScriptType(lockingScript);
                     address = _scriptPatternMatcher.extractAddress(scriptType, lockingScript);
                 }
 
                 final ByteArray memoActionType;
+                final ByteArray memoActionIdentifier;
                 {
                     final boolean isMemoScriptType = (scriptType == ScriptType.MEMO_SCRIPT);
                     if (isMemoScriptType) {
@@ -166,12 +169,17 @@ public class BlockchainIndexer extends SleepyService {
                         // Unlike SLP, any output may be an Memo-Action Output (i.e. not necessarily the first).
                         // NOTE: Memo actions are applied to ALL INPUTS of a Transaction, not the Outputs.
                         //  Confirmed via: 3971682E94E08AABA660D1D16DDF6F582656FD6BE9C4FA8F360856D982481C39
-                        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(firstOutputLockingScript);
+                        final MemoScriptType memoScriptType = MemoScriptInflater.getScriptType(lockingScript);
                         memoActionType = (memoScriptType != null ? memoScriptType.getBytes() : null);
                     }
                     else {
                         memoActionType = null;
                     }
+
+                    if (memoActionType != null) {
+                        memoActionIdentifier = _memoScriptInflater.getActionIdentifier(lockingScript);
+                    }
+                    else { memoActionIdentifier = null; }
                 }
 
                 final OutputIndexData indexData = new OutputIndexData();
@@ -182,6 +190,7 @@ public class BlockchainIndexer extends SleepyService {
                 indexData.address = address;
                 indexData.slpTransactionId = null; // Handled later within this function...
                 indexData.memoActionType = memoActionType;
+                indexData.memoActionIdentifier = memoActionIdentifier;
 
                 outputIndexData.put(transactionOutputIdentifier, indexData);
             }
@@ -324,7 +333,7 @@ public class BlockchainIndexer extends SleepyService {
 
         final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transaction);
         for (final OutputIndexData indexData : outputIndexData.values()) {
-            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId, indexData.memoActionType);
+            context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
         }
 
         final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);

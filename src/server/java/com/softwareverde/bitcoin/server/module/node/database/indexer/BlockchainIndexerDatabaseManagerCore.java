@@ -340,15 +340,16 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
     }
 
     @Override
-    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<TransactionId> slpTransactionIds, final List<ByteArray> memoActionTypes) throws DatabaseException {
+    public void indexTransactionOutputs(final List<TransactionId> transactionIds, final List<Integer> outputIndexes, final List<Long> amounts, final List<ScriptType> scriptTypes, final List<Address> addresses, final List<TransactionId> slpTransactionIds, final List<ByteArray> memoActionTypes, final List<ByteArray> memoActionIdentifiers) throws DatabaseException {
         final int itemCount = transactionIds.getCount();
-        if (transactionIds.getCount()       != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "     + itemCount + " got " + transactionIds.getCount()); }
-        if (outputIndexes.getCount()        != itemCount) { throw new DatabaseException("Mismatch parameter count outputIndexes expected "      + itemCount + " got " + outputIndexes.getCount()); }
-        if (amounts.getCount()              != itemCount) { throw new DatabaseException("Mismatch parameter count amounts expected "            + itemCount + " got " + amounts.getCount()); }
-        if (scriptTypes.getCount()          != itemCount) { throw new DatabaseException("Mismatch parameter count scriptTypes expected "        + itemCount + " got " + scriptTypes.getCount()); }
-        if (addresses.getCount()            != itemCount) { throw new DatabaseException("Mismatch parameter count addresses expected "          + itemCount + " got " + addresses.getCount()); }
-        if (slpTransactionIds.getCount()    != itemCount) { throw new DatabaseException("Mismatch parameter count slpTransactionIds expected "  + itemCount + " got " + slpTransactionIds.getCount()); }
-        if (memoActionTypes.getCount()      != itemCount) { throw new DatabaseException("Mismatch parameter count memoActionTypes expected "    + itemCount + " got " + memoActionTypes.getCount()); }
+        if (transactionIds.getCount()           != itemCount) { throw new DatabaseException("Mismatch parameter count transactionIds expected "         + itemCount + " got " + transactionIds.getCount()); }
+        if (outputIndexes.getCount()            != itemCount) { throw new DatabaseException("Mismatch parameter count outputIndexes expected "          + itemCount + " got " + outputIndexes.getCount()); }
+        if (amounts.getCount()                  != itemCount) { throw new DatabaseException("Mismatch parameter count amounts expected "                + itemCount + " got " + amounts.getCount()); }
+        if (scriptTypes.getCount()              != itemCount) { throw new DatabaseException("Mismatch parameter count scriptTypes expected "            + itemCount + " got " + scriptTypes.getCount()); }
+        if (addresses.getCount()                != itemCount) { throw new DatabaseException("Mismatch parameter count addresses expected "              + itemCount + " got " + addresses.getCount()); }
+        if (slpTransactionIds.getCount()        != itemCount) { throw new DatabaseException("Mismatch parameter count slpTransactionIds expected "      + itemCount + " got " + slpTransactionIds.getCount()); }
+        if (memoActionTypes.getCount()          != itemCount) { throw new DatabaseException("Mismatch parameter count memoActionTypes expected "        + itemCount + " got " + memoActionTypes.getCount()); }
+        if (memoActionIdentifiers.getCount()    != itemCount) { throw new DatabaseException("Mismatch parameter count memoActionIdentifiers expected "  + itemCount + " got " + memoActionIdentifiers.getCount()); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -363,7 +364,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
         batchRunner.run(indexes, new BatchRunner.Batch<Integer>() {
             @Override
             public void run(final List<Integer> batchItems) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_type_id, slp_transaction_id, memo_action_type) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id), memo_action_type = VALUES(memo_action_type)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO indexed_transaction_outputs (transaction_id, output_index, amount, address, script_type_id, slp_transaction_id, memo_action_type, memo_action_identifier) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount), address = VALUES(address), script_type_id = VALUES(script_type_id), slp_transaction_id = VALUES(slp_transaction_id), memo_action_type = VALUES(memo_action_type), memo_action_identifier = VALUES(memo_action_identifier)");
                 for (final Integer itemIndex : batchItems) {
                     final TransactionId transactionId = transactionIds.get(itemIndex);
                     final Integer outputIndex = outputIndexes.get(itemIndex);
@@ -372,6 +373,7 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                     final ScriptType scriptType = scriptTypes.get(itemIndex);
                     final TransactionId slpTransactionId = slpTransactionIds.get(itemIndex);
                     final ByteArray memoActionType = memoActionTypes.get(itemIndex);
+                    final ByteArray memoActionIdentifier = memoActionIdentifiers.get(itemIndex);
 
                     final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
 
@@ -382,7 +384,8 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                         .setParameter(address)
                         .setParameter(scriptTypeId)
                         .setParameter(slpTransactionId)
-                        .setParameter(memoActionType);
+                        .setParameter(memoActionType)
+                        .setParameter(memoActionIdentifier);
                 }
 
                 databaseConnection.executeSql(batchedInsertQuery);

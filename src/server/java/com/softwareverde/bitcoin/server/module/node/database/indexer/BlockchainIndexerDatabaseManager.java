@@ -20,6 +20,6 @@ public interface BlockchainIndexerDatabaseManager {
     List<TransactionId> getUnprocessedTransactions(Integer batchSize) throws DatabaseException;
     void dequeueTransactionsForProcessing(List<TransactionId> transactionIds) throws DatabaseException;
 
-    void indexTransactionOutputs(List<TransactionId> transactionIds, List<Integer> outputIndexes, List<Long> amounts, List<ScriptType> scriptTypes, List<Address> addresses, List<TransactionId> slpTransactionIds, List<ByteArray> memoActionTypes) throws DatabaseException;
+    void indexTransactionOutputs(List<TransactionId> transactionIds, List<Integer> outputIndexes, List<Long> amounts, List<ScriptType> scriptTypes, List<Address> addresses, List<TransactionId> slpTransactionIds, List<ByteArray> memoActionTypes, List<ByteArray> memoActionIdentifiers) throws DatabaseException;
     void indexTransactionInputs(List<TransactionId> transactionIds, List<Integer> inputIndexes, List<TransactionOutputId> transactionOutputIds) throws DatabaseException;
 }

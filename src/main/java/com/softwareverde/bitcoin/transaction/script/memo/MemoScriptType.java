@@ -46,4 +46,9 @@ public enum MemoScriptType {
     public ByteArray getBytes() {
         return _value;
     }
+
+    @Override
+    public String toString() {
+        return super.toString();
+    }
 }

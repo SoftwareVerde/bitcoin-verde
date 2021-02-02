@@ -24,10 +24,13 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.memo.MemoScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.memo.action.MemoAction;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.json.Json;
@@ -66,13 +69,13 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
     protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
-        final String transactionHashString = transactionHash.toString();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
         final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        final MemoScriptInflater memoScriptInflater = new MemoScriptInflater();
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final ByteArray transactionData = transactionDeflater.toBytes(transaction);
@@ -181,9 +184,12 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             }
         }
 
+        final MutableList<MemoAction> memoActions = new MutableList<>();
         { // Process TransactionOutputs...
             int transactionOutputIndex = 0;
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+
                 if (transactionFee != null) {
                     transactionFee -= transactionOutput.getAmount();
                 }
@@ -192,7 +198,6 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     final String addressString;
                     final String cashAddressString;
                     {
-                        final LockingScript lockingScript = transactionOutput.getLockingScript();
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
                         addressString = (address != null ? address.toBase58CheckEncoded() : null);
@@ -203,7 +208,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     transactionOutputJson.put("address", addressString);
                     transactionOutputJson.put("cashAddress", cashAddressString);
 
-                    if (hasSlpData && Util.coalesce(isSlpValid, false)) {
+                    if (hasSlpData && Util.coalesce(isSlpValid, false)) { // SLP
                         final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
                         if (isSlpOutput) {
                             final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
@@ -215,11 +220,27 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                             transactionOutputJson.put("slp", slpOutputJson);
                         }
                     }
+
+                    { // Memo
+                        final MemoAction memoAction = memoScriptInflater.fromLockingScript(lockingScript);
+                        if (memoAction != null) {
+                            memoActions.add(memoAction);
+                        }
+                    }
                 }
 
                 transactionOutputIndex += 1;
             }
         }
+
+        if (! memoActions.isEmpty()) {
+            final Json memoActionsJson = new Json(true);
+            for (final MemoAction memoAction : memoActions) {
+                memoActionsJson.add(memoAction);
+            }
+            transactionJson.put("memoActions", memoActionsJson);
+        }
+
 
         transactionJson.put("fee", transactionFee);
 

@@ -32,6 +32,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         public final MutableList<Address> addresses = new MutableList<>();
         public final MutableList<TransactionId> slpTransactionIds = new MutableList<>();
         public final MutableList<ByteArray> memoActionTypes = new MutableList<>();
+        public final MutableList<ByteArray> memoActionIdentifiers = new MutableList<>();
     }
 
     protected static class QueuedInputs {
@@ -129,10 +130,11 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
                         queuedOutputs.addresses.add(_queuedOutputs.addresses.get(index));
                         queuedOutputs.slpTransactionIds.add(_queuedOutputs.slpTransactionIds.get(index));
                         queuedOutputs.memoActionTypes.add(_queuedOutputs.memoActionTypes.get(index));
+                        queuedOutputs.memoActionIdentifiers.add(_queuedOutputs.memoActionIdentifiers.get(index));
                     }
                 }
 
-                blockchainIndexerDatabaseManager.indexTransactionOutputs(queuedOutputs.transactionIds, queuedOutputs.outputIndexes, queuedOutputs.amounts, queuedOutputs.scriptTypes, queuedOutputs.addresses, queuedOutputs.slpTransactionIds, queuedOutputs.memoActionTypes);
+                blockchainIndexerDatabaseManager.indexTransactionOutputs(queuedOutputs.transactionIds, queuedOutputs.outputIndexes, queuedOutputs.amounts, queuedOutputs.scriptTypes, queuedOutputs.addresses, queuedOutputs.slpTransactionIds, queuedOutputs.memoActionTypes, queuedOutputs.memoActionIdentifiers);
                 nanoTimer.stop();
                 _indexTransactionOutputMs += nanoTimer.getMillisecondsElapsed();
             }
@@ -234,7 +236,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType) throws ContextException {
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType, final ByteArray memoActionIdentifier) throws ContextException {
         _queuedOutputs.transactionIds.add(transactionId);
         _queuedOutputs.outputIndexes.add(outputIndex);
         _queuedOutputs.amounts.add(amount);
@@ -242,6 +244,7 @@ public class LazyAtomicTransactionOutputIndexerContext implements AtomicTransact
         _queuedOutputs.addresses.add(address);
         _queuedOutputs.slpTransactionIds.add(slpTransactionId);
         _queuedOutputs.memoActionTypes.add(memoActionType);
+        _queuedOutputs.memoActionIdentifiers.add(memoActionIdentifier);
     }
 
     @Override
