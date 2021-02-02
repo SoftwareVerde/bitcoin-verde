@@ -10,7 +10,8 @@ public class MemoReplyToMemoAction extends MemoTransactionHashAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("message", _message);
+        super._extendJson(json);
+        json.put(JsonFields.STRING_VALUE, _message);
     }
 
     public MemoReplyToMemoAction(final Sha256Hash transactionHash, final String message) {

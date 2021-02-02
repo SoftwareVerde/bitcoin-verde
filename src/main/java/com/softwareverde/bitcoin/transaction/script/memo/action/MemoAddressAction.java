@@ -9,8 +9,8 @@ public abstract class MemoAddressAction extends MemoAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("address", _address.toBase58CheckEncoded());
-        json.put("cashAddress", _address.toBase32CheckEncoded());
+        json.put(JsonFields.ADDRESS_BASE_58, _address.toBase58CheckEncoded());
+        json.put(JsonFields.ADDRESS_BASE_32, _address.toBase32CheckEncoded());
     }
 
     protected MemoAddressAction(final MemoScriptType memoScriptType, final Address address) {

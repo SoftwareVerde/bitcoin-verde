@@ -12,5 +12,5 @@ fi
 echo -n "HASH: "
 read HASH
 
-(echo "{\"method\":\"GET\",\"query\":\"TRANSACTION\",\"parameters\":{\"hash\":\"${HASH}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | nc localhost 8334
+(echo "{\"method\":\"GET\",\"query\":\"TRANSACTION\",\"parameters\":{\"hash\":\"${HASH}\",\"rawFormat\":\"${RAW_FORMAT}\"}}" && sleep 1) | nc localhost 8334
 

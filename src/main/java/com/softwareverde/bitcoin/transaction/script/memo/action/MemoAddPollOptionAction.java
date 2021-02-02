@@ -10,7 +10,8 @@ public class MemoAddPollOptionAction extends MemoTransactionHashAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("value", _optionText);
+        super._extendJson(json);
+        json.put(JsonFields.STRING_VALUE, _optionText);
     }
 
     public MemoAddPollOptionAction(final Sha256Hash transactionHash, final String optionText) {

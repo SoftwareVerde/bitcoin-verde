@@ -7,25 +7,25 @@ public abstract class MemoStringAction extends MemoAction {
     protected static final Integer STRING_DEFAULT_MAX_BYTE_COUNT = 217;
 
     protected Integer _maxByteCount;
-    protected String _value;
+    protected String _content;
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("value", _value);
+        json.put(JsonFields.STRING_VALUE, _content);
     }
 
-    protected MemoStringAction(final MemoScriptType memoScriptType, final String value) {
-        this(memoScriptType, value, STRING_DEFAULT_MAX_BYTE_COUNT);
+    protected MemoStringAction(final MemoScriptType memoScriptType, final String content) {
+        this(memoScriptType, content, STRING_DEFAULT_MAX_BYTE_COUNT);
     }
 
-    protected MemoStringAction(final MemoScriptType memoScriptType, final String value, final Integer maxByteCount) {
+    protected MemoStringAction(final MemoScriptType memoScriptType, final String content, final Integer maxByteCount) {
         super(memoScriptType);
-        _value = value;
+        _content = content;
         _maxByteCount = maxByteCount;
     }
 
-    public String getValue() {
-        return _value;
+    public String getContent() {
+        return _content;
     }
 
     public Integer getMaxByteCount() {

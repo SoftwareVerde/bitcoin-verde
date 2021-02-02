@@ -11,8 +11,9 @@ public class MemoCreatePollAction extends MemoStringAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("pollType", _pollType);
-        json.put("optionCount", _optionCount);
+        super._extendJson(json);
+        json.put(JsonFields.POLL_TYPE, _pollType);
+        json.put(JsonFields.POLL_OPTION_COUNT, _optionCount);
     }
 
     public MemoCreatePollAction(final Integer pollType, final Integer optionCount, final String value) {

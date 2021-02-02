@@ -12,8 +12,7 @@ public class MemoPostTopicAction extends MemoStringAction {
     @Override
     protected void _extendJson(final Json json) {
         super._extendJson(json);
-
-        json.put("topic", _topic);
+        json.put(JsonFields.TOPIC_NAME, _topic);
     }
 
     public MemoPostTopicAction(final String topic, final String topicMessage) {

@@ -11,7 +11,8 @@ public class MemoSendMoneyAction extends MemoAddressAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("value", _message);
+        super._extendJson(json);
+        json.put(JsonFields.STRING_VALUE, _message);
     }
 
     public MemoSendMoneyAction(final Address address, final String message) {

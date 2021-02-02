@@ -485,9 +485,11 @@
     color: #303030;
 }
 
+.transaction.collapsed .memo,
 .transaction.collapsed .slp-genesis {
     display: none;
 }
+.transaction .memo,
 .transaction .slp-genesis {
     background-color: #F9F9F9;
     border: solid 1px #ECECEC;
@@ -497,6 +499,7 @@
     flex-wrap: wrap;
     position: relative;
 }
+.transaction .memo > div,
 .transaction .slp-genesis > div {
     flex-basis: 50%;
     flex-grow: 1;
@@ -515,6 +518,15 @@
 }
 .transaction .slp-genesis > div.token-id > .value {
     margin: auto;
+}
+.transaction .memo div.memo-icon {
+    flex-grow: 2;
+    flex-basis: 100%;
+    margin-bottom: 0.5em;
+}
+.transaction .memo div.memo-icon img {
+    height: 32px;
+    border-radius: 4px;
 }
 .transaction .slp-genesis > div.token-name object,
 .transaction .slp-genesis > div.token-name img {

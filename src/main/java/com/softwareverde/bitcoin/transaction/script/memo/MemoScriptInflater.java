@@ -317,7 +317,7 @@ public class MemoScriptInflater {
                 }
 
                 final MemoStringAction memoStringAction = (MemoStringAction) memoAction;
-                final String topicName = memoStringAction.getValue();
+                final String topicName = memoStringAction.getContent();
                 return ByteArray.wrap(StringUtil.stringToBytes(topicName));
             }
 

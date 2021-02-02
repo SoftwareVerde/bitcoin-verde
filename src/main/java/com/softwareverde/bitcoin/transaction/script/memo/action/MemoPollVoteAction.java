@@ -11,7 +11,8 @@ public class MemoPollVoteAction extends MemoTransactionHashAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("value", _comment);
+        super._extendJson(json);
+        json.put(JsonFields.STRING_VALUE, _comment);
     }
 
     public MemoPollVoteAction(final Sha256Hash transactionHash, final String comment) {

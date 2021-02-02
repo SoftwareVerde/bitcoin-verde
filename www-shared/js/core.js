@@ -609,6 +609,7 @@ class Ui {
 
         const slpGenesisContainer = $(".slp-genesis", transactionUi);
         const slpAttributeContainer = $(".slp", transactionUi);
+        const memoContainer = $(".memo", transactionUi);
         if (transaction.slp) {
             const slpAttributeValue = $(".slp .value", transactionUi);
             const slpAttributeLabel = $(".slp label", transactionUi);
@@ -652,10 +653,58 @@ class Ui {
 
             $(".token-count .value", slpGenesisContainer).text((transaction.slp.tokenCount || 0).toLocaleString());
             $(".decimal-count .value", slpGenesisContainer).text(transaction.slp.decimalCount);
+
+            memoContainer.remove();
+        }
+        else if (transaction.memo && transaction.memo.length) {
+            const memo = transaction.memo[0];
+            const memoActionUi = $(".memo .type", transactionUi);
+            const memoTransactionHashUi = $(".memo .transaction-hash", transactionUi);
+            const memoTopicUi = $(".memo .topic", transactionUi);
+            const memoContentUi = $(".memo .content", transactionUi);
+            const memoAddressUi = $(".memo .address", transactionUi);
+
+            $(".value", memoActionUi).text(memo.type);
+
+            if (memo.transactionHash) {
+                $(".value", memoTransactionHashUi).text(memo.transactionHash);
+            }
+            else {
+                memoTransactionHashUi.toggle(false);
+            }
+
+            if (memo.topic) {
+                $(".value", memoTopicUi).text(memo.topic);
+            }
+            else {
+               memoTopicUi.toggle(false);
+            }
+
+            if (memo.content) {
+                $(".value", memoContentUi).text(memo.content);
+            }
+            else {
+                memoContentUi.toggle(false);
+            }
+
+            if (memo.address) {
+                const addressString = (Ui.displayCashAddressFormat ? memo.cashAddress : memo.address);
+                $(".value", memoAddressUi).text(addressString || "[CUSTOM SCRIPT]");
+                if (addressString) {
+                    Ui.makeHashCopyable($(".value", memoAddressUi));
+                }
+            }
+            else {
+                memoAddressUi.toggle(false);
+            }
+
+            slpAttributeContainer.remove();
+            slpGenesisContainer.remove();
         }
         else {
             slpAttributeContainer.remove();
             slpGenesisContainer.remove();
+            memoContainer.remove();
         }
 
         const blocks = (transaction.blocks || []);

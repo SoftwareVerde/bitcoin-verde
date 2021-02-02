@@ -9,7 +9,7 @@ public abstract class MemoTransactionHashAction extends MemoAction {
 
     @Override
     protected void _extendJson(final Json json) {
-        json.put("transactionHash", _transactionHash);
+        json.put(JsonFields.TRANSACTION_HASH, _transactionHash);
     }
 
     protected MemoTransactionHashAction(final MemoScriptType memoScriptType, final Sha256Hash transactionHash) {

@@ -238,9 +238,8 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
             for (final MemoAction memoAction : memoActions) {
                 memoActionsJson.add(memoAction);
             }
-            transactionJson.put("memoActions", memoActionsJson);
+            transactionJson.put("memo", memoActionsJson);
         }
-
 
         transactionJson.put("fee", transactionFee);
 
