@@ -26,22 +26,29 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
     protected final BloomFilter _bloomFilter;
     protected final UpdateBloomFilterMode _updateBloomFilterMode;
 
-    /**
-     * Returns null if no parts of the transaction matched the BloomFilter.
-     * Otherwise, returns the list of ByteArrays that matched the BloomFilter.
-     *  If bloomFilter is null, a match always occurs.
-     *  NOTE: An empty list is an indication that a match occurred.
-     */
-    protected List<ByteArray> _getMatchedItems(final Transaction transaction, final BloomFilter bloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
-        final MutableList<ByteArray> matchedItems = new MutableList<ByteArray>();
-        if (bloomFilter == null) { return matchedItems; } // TRUE
+    protected static class BloomFilterMatchResult {
+        public final Boolean didMatch;
+        public final List<ByteArray> itemsToAddToBloomFilter;
 
-        // From BIP37: https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki
-        // To determine if a transaction matches the filter, the following algorithm is used. Once a match is found the algorithm aborts.
-        final Sha256Hash transactionHash = transaction.getHash();
-        if (bloomFilter.containsItem(transactionHash)) { return matchedItems; } // 1. Test the hash of the transaction itself.
+        protected BloomFilterMatchResult(final Boolean didMatch, final List<ByteArray> itemsToAddToBloomFilter) {
+            this.didMatch = didMatch;
+            this.itemsToAddToBloomFilter = itemsToAddToBloomFilter;
+        }
+    }
+
+    protected BloomFilterMatchResult _matchesBloomFilter(final Transaction transaction) {
+        final MutableList<ByteArray> itemsToAddToBloomFilter = new MutableList<ByteArray>();
+        if (_bloomFilter == null) {
+            return new BloomFilterMatchResult(true, itemsToAddToBloomFilter);
+        }
 
         boolean didMatch = false;
+
+        // From BIP37: https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki
+        final Sha256Hash transactionHash = transaction.getHash();
+        if (_bloomFilter.containsItem(transactionHash)) { // 1. Test the hash of the transaction itself.
+            didMatch = true;
+        }
 
         int transactionOutputIndex = 0;
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) { // 2. For each output, test each data element of the output script. This means each hash and key in the output script is tested independently.
@@ -50,14 +57,16 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
                 if (operation.getType() != PushOperation.TYPE) { continue; }
 
                 final ByteArray value = ((PushOperation) operation).getValue();
-                if (bloomFilter.containsItem(value)) {
+                if (_bloomFilter.containsItem(value)) {
                     boolean shouldUpdateBloomFilter = false;
 
-                    if (updateBloomFilterMode == UpdateBloomFilterMode.UPDATE_ALL) {
+                    if (_updateBloomFilterMode == UpdateBloomFilterMode.UPDATE_ALL) {
                         shouldUpdateBloomFilter = true;
                     }
-                    else if (updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
+                    else if (_updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
                         final ScriptType scriptType = lockingScript.getScriptType();
+                        // NOTE: Bitcoin Verde is not updating the bloom filter for MULTISIG scripts as it currently doesn't recognize the raw MULTISIG script type
+                        //       Other implementations do not include P2SH scripts, while Bitcoin Verde does
                         if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH) ) {
                             shouldUpdateBloomFilter = true;
                         }
@@ -65,7 +74,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
 
                     if (shouldUpdateBloomFilter) {
                         final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-                        matchedItems.add(transactionOutputIdentifier.toBytes());
+                        itemsToAddToBloomFilter.add(transactionOutputIdentifier.toBytes());
                     }
 
                     didMatch = true;
@@ -84,7 +93,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
                 cOutpoint = transactionOutputIdentifier.toBytes();
             }
 
-            if (bloomFilter.containsItem(cOutpoint)) { didMatch = true; }
+            if (_bloomFilter.containsItem(cOutpoint)) { didMatch = true; }
 
             // 4. For each input, test each data element of the input script.
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -92,7 +101,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
                 if (operation.getType() != PushOperation.TYPE) { continue; }
 
                 final Value value = ((PushOperation) operation).getValue();
-                if (bloomFilter.containsItem(value)) {
+                if (_bloomFilter.containsItem(value)) {
                     didMatch = true;
                     break; // Prevout matches do not add to the matchedItems set...
                 }
@@ -103,7 +112,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
                     if (! publicKey.isValid()) { continue; }
 
                     final Address address = _addressInflater.fromPublicKey(publicKey);
-                    if ( (address != null) && bloomFilter.containsItem(publicKey) ) {
+                    if ( (address != null) && _bloomFilter.containsItem(publicKey) ) {
                         didMatch = true;
                         break; // Prevout matches do not add to the matchedItems set...
                     }
@@ -111,7 +120,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
             }
         }
 
-        return (didMatch ? matchedItems : null);
+        return new BloomFilterMatchResult(didMatch, itemsToAddToBloomFilter);
     }
 
     public TransactionBloomFilterMatcher(final BloomFilter bloomFilter, final AddressInflater addressInflater) {
@@ -128,12 +137,12 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
 
     @Override
     public boolean shouldInclude(final Transaction transaction) {
-        final List<ByteArray> items = _getMatchedItems(transaction, _bloomFilter, _updateBloomFilterMode);
-        if (items == null) { return false; }
+        final BloomFilterMatchResult bloomFilterMatchResult = _matchesBloomFilter(transaction);
+        if (! bloomFilterMatchResult.didMatch) { return false; }
 
         if (_updateBloomFilterMode != UpdateBloomFilterMode.READ_ONLY) {
             final MutableBloomFilter mutableBloomFilter = (MutableBloomFilter) _bloomFilter;
-            for (final ByteArray item : items) {
+            for (final ByteArray item : bloomFilterMatchResult.itemsToAddToBloomFilter) {
                 mutableBloomFilter.addItem(item);
             }
         }
