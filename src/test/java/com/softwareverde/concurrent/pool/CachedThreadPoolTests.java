@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.timer.NanoTimer;
 import org.junit.Assert;
 import org.junit.Test;
@@ -45,7 +46,7 @@ public class CachedThreadPoolTests extends UnitTest {
         Logger.info(completionCount.get() + " of " + concurrentCount + " complete: " + nanoTimer.getMillisecondsElapsed() + "ms.");
 
         System.out.println("Alive Threads: " + CachedThreadPool.getAliveThreadCount());
-        Assert.assertEquals(CachedThreadPool.getAliveThreadCount(), Integer.valueOf(Math.min(concurrentCount, threadPool.getMaxThreadCount())));
+        Assert.assertEquals(Integer.valueOf(Math.min(concurrentCount, threadPool.getMaxThreadCount())), CachedThreadPool.getAliveThreadCount());
 
         // Assert
         threadPool.stop();
@@ -70,9 +71,9 @@ public class CachedThreadPoolTests extends UnitTest {
 
     @Test
     public void should_keep_used_threads_alive_until_timeout() throws Exception {
+        // Setup
         final CachedThreadPool cachedThreadPool = new CachedThreadPool(8, 2000L);
         cachedThreadPool.start();
-
         for (int i = 0; i < 4; ++i) {
             cachedThreadPool.execute(new Runnable() {
                 @Override
@@ -84,13 +85,16 @@ public class CachedThreadPoolTests extends UnitTest {
 
         Assert.assertEquals(Integer.valueOf(4), CachedThreadPool.getAliveThreadCount());
 
+        // Action
         Thread.sleep(2250L);
 
+        // Assert
         Assert.assertEquals(Integer.valueOf(0), CachedThreadPool.getAliveThreadCount());
     }
 
     @Test
     public void should_migrate_long_running_thread_out_of_pool() throws Exception {
+        // Action
         final CachedThreadPool cachedThreadPool = new CachedThreadPool(1, 1000L, 2000L);
         cachedThreadPool.start();
 
@@ -100,6 +104,7 @@ public class CachedThreadPoolTests extends UnitTest {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
+        // Action
         cachedThreadPool.execute(new Runnable() {
             @Override
             public void run() {
@@ -127,11 +132,76 @@ public class CachedThreadPoolTests extends UnitTest {
 
         nanoTimer.stop();
 
+        // Assert
         final long msElapsed = nanoTimer.getMillisecondsElapsed().longValue();
         Logger.info("MsElapsed: " + msElapsed);
         Assert.assertTrue(msElapsed < 3250L);
 
         Thread.sleep(1500L);
         Assert.assertEquals(Integer.valueOf(0), CachedThreadPool.getAliveThreadCount());
+    }
+
+    @Test
+    public void should_reset_interrupted_flags_set_by_tasks() throws Exception {
+        // Setup
+        final CachedThreadPool cachedThreadPool = new CachedThreadPool(1, 10000L);
+        cachedThreadPool.start();
+
+        final Container<Long> threadId = new Container<>();
+        final Container<Double> msElapsed0 = new Container<>();
+        final Container<Double> msElapsed1 = new Container<>();
+        final Pin pin0 = new Pin();
+        final Pin pin1 = new Pin();
+
+        // Action
+        cachedThreadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                final Thread thread = Thread.currentThread();
+                threadId.value = thread.getId();
+                Assert.assertFalse(thread.isInterrupted());
+
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+                try { Thread.sleep(1000L); } catch (final Exception exception) { }
+                nanoTimer.stop();
+
+                // Pollute the interrupted flag for the next runnable...
+                thread.interrupt();
+
+                msElapsed0.value = nanoTimer.getMillisecondsElapsed();
+
+                pin0.release();
+            }
+        });
+
+        cachedThreadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                final Thread thread = Thread.currentThread();
+                Assert.assertEquals(threadId.value, Long.valueOf(thread.getId()));
+                Assert.assertFalse(thread.isInterrupted());
+
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+                try { Thread.sleep(1000L); } catch (final Exception exception) { }
+                nanoTimer.stop();
+
+                thread.interrupt();
+
+                msElapsed1.value = nanoTimer.getMillisecondsElapsed();
+
+                pin1.release();
+            }
+        });
+
+        pin0.waitForRelease(3000L);
+        pin1.waitForRelease(3000L);
+
+        cachedThreadPool.stop();
+
+        // Assert
+        Assert.assertTrue(msElapsed0.value >= 1000L);
+        Assert.assertTrue(msElapsed1.value >= 1000L);
     }
 }

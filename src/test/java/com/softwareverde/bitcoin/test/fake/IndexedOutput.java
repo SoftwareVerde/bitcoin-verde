@@ -13,8 +13,9 @@ public class IndexedOutput {
     public final Address address;
     public final TransactionId slpTransactionId;
     public final ByteArray memoActionType;
+    public final ByteArray memoActionIdentifier;
 
-    public IndexedOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType) {
+    public IndexedOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType, final ByteArray memoActionIdentifier) {
         this.transactionId = transactionId;
         this.outputIndex = outputIndex;
         this.amount = amount;
@@ -22,5 +23,6 @@ public class IndexedOutput {
         this.address = address;
         this.slpTransactionId = slpTransactionId;
         this.memoActionType = memoActionType;
+        this.memoActionIdentifier = memoActionIdentifier;
     }
 }

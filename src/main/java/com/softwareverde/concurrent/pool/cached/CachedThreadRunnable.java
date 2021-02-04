@@ -18,6 +18,16 @@ public class CachedThreadRunnable implements Runnable {
     protected NanoTimer _idleTimer;
     protected NanoTimer _taskTimer;
 
+    /**
+     * Resets all stateful innate properties of the thread, i.e. the thread's interrupted flag.
+     */
+    protected void _reset() {
+        try {
+            Thread.sleep(0L);
+        }
+        catch (final InterruptedException exception) { }
+    }
+
     public CachedThreadRunnable(final CachedThreadPool threadPool) {
         _threadPool = threadPool;
 
@@ -61,6 +71,8 @@ public class CachedThreadRunnable implements Runnable {
                         Logger.debug(exception);
                     }
                     finally {
+                        _reset();
+
                         _threadPool.returnThread((CachedThread) thread);
                         _taskTimer = null;
 

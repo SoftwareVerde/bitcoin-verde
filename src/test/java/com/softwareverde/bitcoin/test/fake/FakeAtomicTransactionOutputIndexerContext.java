@@ -131,8 +131,8 @@ public class FakeAtomicTransactionOutputIndexerContext implements com.softwareve
     }
 
     @Override
-    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType) {
-        final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, address, slpTransactionId, memoActionType);
+    public void indexTransactionOutput(final TransactionId transactionId, final Integer outputIndex, final Long amount, final ScriptType scriptType, final Address address, final TransactionId slpTransactionId, final ByteArray memoActionType, final ByteArray memoActionIdentifier) {
+        final IndexedOutput indexedOutput = new IndexedOutput(transactionId, outputIndex, amount, scriptType, address, slpTransactionId, memoActionType, memoActionIdentifier);
         _indexedOutputs.add(indexedOutput);
     }
 
