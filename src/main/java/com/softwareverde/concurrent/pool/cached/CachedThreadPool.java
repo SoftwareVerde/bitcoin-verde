@@ -2,44 +2,21 @@ package com.softwareverde.concurrent.pool.cached;
 
 import com.softwareverde.concurrent.pool.MutableThreadPool;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.Util;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
-/**
- * CachedThreadPool is a MutableThreadPool that keeps threads cached until they've been idle for the configured duration.
- *  Threads that execute for longer than the longRunningThreshold are migrated out of the thread cache, freeing a new
- *  slot; migrated threads are not terminated early.
- *
- * Required Properties:
- *  - All tasks must eventually be executed.
- *  - Each task must run in a separate thread from its enqueuer in order to prevent deadlocks.
- *  - The queue should be bounded to avoid OOM.
- *  - Not every task should spawn its own thread (otherwise why bother with a threadpool).
- *  - Cached threads should eventually be reaped once inactive for a while.
- *  - A minimum number of threads should stay alive and avoid reaping.
- *
- * Optional Requirements:
- *  - A long-living task is transferred out of the cached thread set and allows an extra thread to be created.
- *      Upon termination of the long-living task, the thread is discarded.
- */
-
 public class CachedThreadPool implements MutableThreadPool {
-    public static Integer getAliveThreadCount() {
-        return CachedThreadRunnable.THREAD_COUNT.get();
-    }
-
-    public static final Long DEFAULT_LONG_RUNNING_THRESHOLD = 60000L;
-    public static final CachedThreadFactory DEFAULT_THREAD_FACTORY = new CachedThreadFactory() {
+    public static final ThreadFactory DEFAULT_THREAD_FACTORY = new ThreadFactory() {
         @Override
-        public CachedThread newThread(final CachedThreadPool cachedThreadPool) {
-            final CachedThread cachedThread = CachedThread.newInstance(cachedThreadPool);
+        public Thread newThread(final Runnable coreRunnable) {
+            final Thread cachedThread = new Thread(coreRunnable);
             cachedThread.setName("CachedThreadPool - Worker Thread " + cachedThread.getId());
             cachedThread.setDaemon(false);
             // cachedThread.setPriority(Thread.NORM_PRIORITY);
@@ -53,245 +30,165 @@ public class CachedThreadPool implements MutableThreadPool {
         }
     };
 
-    public static CachedThreadFactory newThreadFactoryWithPriority(final Integer threadPriority) {
-        return new CachedThreadFactory() {
+    public static ThreadFactory newThreadFactoryWithPriority(final Integer threadPriority) {
+        return new ThreadFactory() {
             @Override
-            public CachedThread newThread(final CachedThreadPool cachedThreadPool) {
-                final CachedThread cachedThread = DEFAULT_THREAD_FACTORY.newThread(cachedThreadPool);
+            public Thread newThread(final Runnable coreRunnable) {
+                final Thread cachedThread = DEFAULT_THREAD_FACTORY.newThread(coreRunnable);
                 cachedThread.setPriority(threadPriority);
                 return cachedThread;
             }
         };
     }
 
-    protected final CachedThreadFactory _threadFactory;
-    protected final AtomicBoolean _isShutdown = new AtomicBoolean(true);
-    protected final ConcurrentLinkedDeque<CachedThread> _cachedThreads = new ConcurrentLinkedDeque<>();
-    protected final ConcurrentHashMap<Long, CachedThread> _runningThreads = new ConcurrentHashMap<>();
-    protected final ConcurrentHashMap<Long, CachedThread> _longRunningThreads = new ConcurrentHashMap<>();
-    protected final AtomicInteger _pendingExecuteCount = new AtomicInteger(0);
-    protected final SynchronousQueue<Runnable> _pendingExecutes = new SynchronousQueue<>();
-    protected final LinkedBlockingQueue<Runnable> _dispatchQueue = new LinkedBlockingQueue<>();
-    protected final Long _longRunningThreshold;
+    protected static Integer getDefaultMinThreadCount(final Integer maxThreadCount) {
+        final Runtime runtime = Runtime.getRuntime();
+        final int processorCount = runtime.availableProcessors();
+        return Math.min(maxThreadCount, (processorCount * 2));
+    }
 
-    protected final Long _maxIdleTime;
+    protected final AtomicBoolean _isShutdown = new AtomicBoolean(false);
     protected final Integer _maxThreadCount;
-    protected Thread _workerMaintenanceThread;
-    protected Thread _dispatchThread;
+    protected final ThreadPoolExecutor _threadPoolExecutor;
+    protected final AtomicInteger _activeTaskCount = new AtomicInteger(0);
+    protected final AtomicInteger _taskQueueCount = new AtomicInteger(0);
+    protected final LinkedList<Runnable> _taskQueue = new LinkedList<>();
 
-    protected void returnThread(final CachedThread cachedThread) {
-        if (_isShutdown.get()) {
-            cachedThread.dieWhenDone();
-            cachedThread.interrupt();
-            return;
-        }
-
-        if (cachedThread.isAlive()) {
-            _cachedThreads.add(cachedThread);
-        }
-
-        final Runnable pendingExecute = _pendingExecutes.poll();
-        if (pendingExecute != null) {
-            _pendingExecuteCount.decrementAndGet();
-            _dispatchQueue.add(new Runnable() {
-                @Override
-                public void run() {
-                    CachedThreadPool.this.execute(pendingExecute);
-                }
-            });
-
-            synchronized (_dispatchQueue) {
-                _dispatchQueue.notifyAll();
-            }
-        }
-    }
-
-    protected void notifyThreadDeath(final CachedThread cachedThread) {
-        if (_isShutdown.get()) {
-            cachedThread.dieWhenDone();
-            cachedThread.interrupt();
-            return;
-        }
-
-        final Long threadId = cachedThread.getId();
-
-        _runningThreads.remove(threadId);
-        _longRunningThreads.remove(threadId);
-
-        final Runnable pendingExecute = _pendingExecutes.poll();
-        if (pendingExecute != null) {
-            _pendingExecuteCount.decrementAndGet();
-            _dispatchQueue.add(new Runnable() {
-                @Override
-                public void run() {
-                    CachedThreadPool.this.execute(pendingExecute);
-                }
-            });
-
-            synchronized (_dispatchQueue) {
-                _dispatchQueue.notifyAll();
-            }
-        }
-    }
+    protected void _beforeTaskExecuted(final Runnable runnable) { }
+    protected void _afterTaskExecuted(final Runnable runnable) { }
+    protected void _afterTaskQueued(final Runnable runnable) { }
 
     public CachedThreadPool(final Integer maxThreadCount, final Long maxIdleTime) {
-        this(maxThreadCount, maxIdleTime, DEFAULT_LONG_RUNNING_THRESHOLD);
+        this(maxThreadCount, maxIdleTime, DEFAULT_THREAD_FACTORY);
     }
 
-    public CachedThreadPool(final Integer maxThreadCount, final Long maxIdleTime, final Long longRunningThresholdMs) {
-        this(maxThreadCount, maxIdleTime, longRunningThresholdMs, DEFAULT_THREAD_FACTORY);
+    public CachedThreadPool(final Integer maxThreadCount, final Long maxIdleTimeMs, final ThreadFactory threadFactory) {
+        this(CachedThreadPool.getDefaultMinThreadCount(maxThreadCount), maxThreadCount, maxIdleTimeMs, threadFactory);
     }
 
-    public CachedThreadPool(final Integer maxThreadCount, final Long maxIdleTimeMs, final Long longRunningThresholdMs, final CachedThreadFactory threadFactory) {
-        _threadFactory = Util.coalesce(threadFactory, DEFAULT_THREAD_FACTORY);
+    /**
+     * CachedThreadPool maintains minThreadCount at all times.
+     * Tasks submitted that would exceed minThreadCount create new threads that are cached for minIdleTimeMs.
+     * CachedThreadPool never exceeds maxThreadCount, tasks submitted that would exceed maxThreadCount are queued.
+     *  The internal task queue is unbounded.
+     */
+    public CachedThreadPool(final Integer minThreadCount, final Integer maxThreadCount, final Long maxIdleTimeMs, final ThreadFactory threadFactory) {
         _maxThreadCount = maxThreadCount;
-        _maxIdleTime = maxIdleTimeMs;
-        _longRunningThreshold = longRunningThresholdMs;
+        _threadPoolExecutor = new ThreadPoolExecutor(minThreadCount, Integer.MAX_VALUE, maxIdleTimeMs, TimeUnit.MILLISECONDS, new SynchronousQueue<Runnable>()) {
+            @Override
+            protected void beforeExecute(final Thread thread, final Runnable runnable) {
+                super.beforeExecute(thread, runnable);
+            }
+
+            @Override
+            protected void afterExecute(final Runnable finishedRunnable, final Throwable exception) {
+                synchronized (CachedThreadPool.this) {
+                    _afterTaskExecuted(finishedRunnable);
+
+                    final Runnable runnable = _taskQueue.pollFirst();
+                    if (runnable != null) {
+                        _beforeTaskExecuted(runnable);
+
+                        _taskQueueCount.decrementAndGet();
+                        _threadPoolExecutor.execute(runnable);
+                    }
+                    else {
+                        _activeTaskCount.decrementAndGet();
+                    }
+                }
+
+                super.afterExecute(finishedRunnable, exception);
+            }
+        };
+        _threadPoolExecutor.setThreadFactory(threadFactory);
+        _threadPoolExecutor.allowCoreThreadTimeOut(false);
     }
 
     @Override
     public void start() {
-        final boolean wasShutdown = _isShutdown.compareAndSet(true, false);
-        if (! wasShutdown) { return; } // Redundant call to start.
-
-        final Thread.UncaughtExceptionHandler uncaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(final Thread thread, final Throwable exception) {
-                Logger.warn(exception);
-                CachedThreadPool.this.stop();
-            }
-        };
-
-        _dispatchThread = new Thread(new DispatchRunnable(_dispatchQueue));
-        _dispatchThread.setName("CachedThreadPool Dispatch Thread");
-        _dispatchThread.setUncaughtExceptionHandler(uncaughtExceptionHandler);
-
-        _workerMaintenanceThread = new Thread(new WorkerMaintenanceRunnable(this));
-        _workerMaintenanceThread.setName("CachedThreadPool Maintenance Thread");
-        _workerMaintenanceThread.setUncaughtExceptionHandler(uncaughtExceptionHandler);
-
-        _dispatchThread.start();
-        _workerMaintenanceThread.start();
+        _threadPoolExecutor.prestartAllCoreThreads();
     }
 
+    /**
+     * Delegates the execution of runnable to one of the cached threads, or spawns a new thread if there are fewer than maxThreadCount.
+     * Enqueues the runnable for execution if the number of active threads meets maxThreadCount.
+     */
     @Override
-    public void execute(final Runnable runnable) {
-        if (_isShutdown.get()) { throw new RuntimeException("ThreadPool has shut down."); }
+    public synchronized void execute(final Runnable runnable) {
+        if (_isShutdown.get()) { throw new RuntimeException("Attempted to invoke execute after ThreadPool shutdown."); }
 
-        { // Attempt to reuse a cached thread...
-            CachedThread cachedThread;
-            while ((cachedThread = _cachedThreads.poll()) != null) {
-                try {
-                    cachedThread.execute(runnable);
-                    return;
-                }
-                catch (final Exception exception) { }
-            }
+        final int currentlyBusyThreadCount = _activeTaskCount.get();
+        if (currentlyBusyThreadCount >= _maxThreadCount) {
+            _taskQueue.addLast(runnable);
+            _taskQueueCount.incrementAndGet();
+
+            _afterTaskQueued(runnable);
         }
+        else {
+            _beforeTaskExecuted(runnable);
 
-        synchronized (this) { // Create a new thread...
-            if (_runningThreads.size() < _maxThreadCount) {
-                final CachedThread cachedThread = _threadFactory.newThread(this);
-                _runningThreads.put(cachedThread.getId(), cachedThread);
-                if (! cachedThread.isAlive()) {
-                    cachedThread.start();
-                }
-
-                try {
-                    cachedThread.execute(runnable);
-                }
-                catch (final Exception exception) {
-                    throw new RuntimeException(exception);
-                }
-                return;
-            }
-        }
-
-        try {
-            _pendingExecuteCount.incrementAndGet();
-            _pendingExecutes.put(runnable);
-        }
-        catch (final InterruptedException exception) {
-            final Thread thread = Thread.currentThread();
-            thread.interrupt();
-            throw new RuntimeException(exception);
+            _activeTaskCount.incrementAndGet();
+            _threadPoolExecutor.execute(runnable);
         }
     }
 
     @Override
     public void stop() {
-        _isShutdown.set(true);
+        final boolean wasAlive = _isShutdown.compareAndSet(false, true);
+        if (! wasAlive) { return; }
 
-        for (final CachedThread cachedThread : _longRunningThreads.values()) {
-            cachedThread.dieWhenDone();
-            cachedThread.interrupt();
-        }
-
-        for (final CachedThread cachedThread : _runningThreads.values()) {
-            cachedThread.dieWhenDone();
-            cachedThread.interrupt();
-        }
-
-        for (final CachedThread cachedThread : _cachedThreads) {
-            cachedThread.dieWhenDone();
-            cachedThread.interrupt();
-        }
-
-        _dispatchThread.interrupt();
-        _workerMaintenanceThread.interrupt();
-
+        final Thread thread = Thread.currentThread();
         try {
-            _dispatchThread.join(1000L);
-            _workerMaintenanceThread.join(1000L);
-
-            for (final CachedThread cachedThread : _longRunningThreads.values()) {
-                cachedThread.join(1000L);
-            }
-
-            for (final CachedThread cachedThread : _runningThreads.values()) {
-                cachedThread.join(1000L);
-            }
-
-            for (final CachedThread cachedThread : _cachedThreads) {
-                cachedThread.join(1000L);
+            while (_taskQueueCount.get() != 0) {
+                Thread.sleep(100L);
             }
         }
-        catch (final Exception exception) { }
-    }
+        catch (final InterruptedException interruptedException) {
+            thread.interrupt();
+        }
+        finally {
+            _threadPoolExecutor.shutdown();
 
-    public Long getLongRunningThreshold() {
-        return _longRunningThreshold;
+            try {
+                _threadPoolExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            }
+            catch (final InterruptedException exception) {
+                thread.interrupt();
+            }
+        }
     }
 
     public Integer getMaxThreadCount() {
         return _maxThreadCount;
     }
 
+    /**
+     * Returns the number of threads that are currently in the pool.
+     */
+    public Integer getThreadCount() {
+        return _threadPoolExecutor.getPoolSize();
+    }
+
+    /**
+     * Returns the number of tasks that are currently being executed.
+     */
     public Integer getActiveThreadCount() {
-        int activeCount = 0;
-        for (final CachedThread cachedThread : _runningThreads.values()) {
-            if ( (cachedThread != null) && (! cachedThread.isIdle()) ) {
-                activeCount += 1;
-            }
-        }
-        return (activeCount + _longRunningThreads.size());
+        return _activeTaskCount.get();
     }
 
-    public Integer getInactiveThreadCount() {
-        int inactiveCount = 0;
-        for (final CachedThread cachedThread : _runningThreads.values()) {
-            if ( (cachedThread != null) && (cachedThread.isIdle()) ) {
-                inactiveCount += 1;
-            }
-        }
-        return inactiveCount;
+    /**
+     * Returns the number of threads that are currently alive but not executing a task.
+     */
+    public Integer getIdleThreadCount() {
+        final int activeThreadCount = _activeTaskCount.get();
+        final int totalThreadCount = _threadPoolExecutor.getPoolSize();
+        return Math.max(0, (totalThreadCount - activeThreadCount));
     }
 
-    public Integer getLongRunningThreadCount() {
-        return _longRunningThreads.size();
-    }
-
-    public Integer getQueueCount() {
-        return _pendingExecutes.size();
+    /**
+     * Returns the number of tasks that are pending in the thread pool, but are not currently being executed.
+     */
+    public Integer getQueuedTaskCount() {
+        return _taskQueueCount.get();
     }
 }
