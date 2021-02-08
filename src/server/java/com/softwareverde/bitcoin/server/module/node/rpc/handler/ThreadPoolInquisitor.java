@@ -12,7 +12,7 @@ public class ThreadPoolInquisitor implements NodeRpcHandler.ThreadPoolInquisitor
 
     @Override
     public Integer getQueueCount() {
-        return _threadPool.getQueueCount();
+        return _threadPool.getQueuedTaskCount();
     }
 
     @Override

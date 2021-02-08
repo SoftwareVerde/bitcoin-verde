@@ -308,7 +308,7 @@ public class BlockValidator {
 
             final Thread currentThread = Thread.currentThread();
             final Integer threadPriority = currentThread.getPriority();
-            final CachedThreadPool threadPool = new CachedThreadPool(_maxThreadCount, 60000L, Long.MAX_VALUE, CachedThreadPool.newThreadFactoryWithPriority(threadPriority));
+            final CachedThreadPool threadPool = new CachedThreadPool(_maxThreadCount, 60000L, CachedThreadPool.newThreadFactoryWithPriority(threadPriority));
             try {
                 threadPool.start();
                 final BlockValidationResult transactionsValidationResult = _validateTransactions(block, blockHeight, threadPool);
