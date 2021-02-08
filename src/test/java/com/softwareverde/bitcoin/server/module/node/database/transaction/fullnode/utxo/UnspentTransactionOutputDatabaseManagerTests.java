@@ -76,7 +76,7 @@ public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTes
         }
 
         // Action
-        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
         // Assert
         final long utxoCountInMemory = _getUtxoCountInMemory();
