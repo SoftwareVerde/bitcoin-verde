@@ -252,10 +252,12 @@ CREATE TABLE indexed_transaction_outputs (
     script_type_id INT UNSIGNED NOT NULL DEFAULT 1,
     slp_transaction_id INT UNSIGNED,
     memo_action_type BINARY(2),
+    memo_action_identifier VARBINARY(255),
     PRIMARY KEY (transaction_id, output_index),
     INDEX indexed_transaction_outputs_addr_ix (address) USING BTREE,
     INDEX indexed_transaction_outputs_scripts_type_ix (script_type_id) USING BTREE,
-    INDEX indexed_transaction_outputs_slp_tx_ix (slp_transaction_id) USING BTREE
+    INDEX indexed_transaction_outputs_slp_tx_ix (slp_transaction_id) USING BTREE,
+    INDEX indexed_transaction_outputs_memo_identifier (memo_action_identifier) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE indexed_transaction_inputs (
