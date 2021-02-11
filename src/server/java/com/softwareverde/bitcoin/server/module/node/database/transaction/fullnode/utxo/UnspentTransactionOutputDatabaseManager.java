@@ -66,10 +66,9 @@ public interface UnspentTransactionOutputDatabaseManager {
     List<TransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
     /**
-     * Flushes all queued UTXO set changes to disk.  The UTXO set is locked for the duration of this call.
+     * Flushes all queued UTXO set changes to disk.  The UTXO set is locked during commit duration.
      */
-    void commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory) throws DatabaseException;
-    void commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory, Boolean blockUntilComplete) throws DatabaseException;
+    void commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory, CommitAsyncMode commitAsyncMode) throws DatabaseException;
 
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount(Boolean noLock) throws DatabaseException;

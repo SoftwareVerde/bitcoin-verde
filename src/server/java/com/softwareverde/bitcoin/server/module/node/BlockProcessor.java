@@ -38,6 +38,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
@@ -316,7 +317,7 @@ public class BlockProcessor {
         // 6. Commit the UTXO set to ensure UTXOs removed by a now-undone commit are re-added...
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
         Logger.info("Committing UTXO set.");
-        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
+        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
 
         timer.stop();
         Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
@@ -472,14 +473,10 @@ public class BlockProcessor {
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
                 if (transactionsStoredSuccessfully) {
-                    if (blockStore != null) {
-                        blockStore.storeBlock(block, blockHeight);
-                    }
+                    blockStore.storeBlock(block, blockHeight);
                 }
                 else {
-                    if (blockStore != null) {
-                        blockStore.removeBlock(blockHash, blockHeight);
-                    }
+                    blockStore.removeBlock(blockHash, blockHeight);
 
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);

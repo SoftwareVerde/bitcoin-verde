@@ -70,7 +70,7 @@ public class UnspentTransactionOutputManager {
     protected void _commitInMemoryUtxoSetToDisk(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
         Logger.info("Committing UTXO set.");
-        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
+        unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
     }
 
     protected void _updateUtxoSetWithBlock(final Block block, final Long blockHeight, final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {

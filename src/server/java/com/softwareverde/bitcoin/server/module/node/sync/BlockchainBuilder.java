@@ -23,6 +23,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.pending.fulln
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
@@ -316,7 +318,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
         }
         if (headBlockId == null) { return false; }
 
-
+        Sha256Hash lastSuccessfullyProcessedBlockHash = null;
         while (! _shouldAbort()) {
             final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
             if (nextBlockId == null) {
@@ -399,6 +401,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 return false;
             }
 
+            lastSuccessfullyProcessedBlockHash = pendingBlockHash;
             headBlockId = nextBlockId;
 
             milliTimer.stop();
@@ -406,6 +409,13 @@ public class BlockchainBuilder extends GracefulSleepyService {
             milliTimer.start();
 
             _updateAverageBlockProcessingTime();
+        }
+
+        final Sha256Hash headBlockHeaderHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+        if (Util.areEqual(headBlockHeaderHash, lastSuccessfullyProcessedBlockHash)) {
+            final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.SKIP_IF_BUSY);
         }
 
         return false;

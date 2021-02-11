@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.database.DatabaseException;
@@ -67,7 +68,7 @@ public class UtxoCacheHandler implements NodeRpcHandler.UtxoCacheHandler {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             Logger.info("Committing UTXO set.");
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);

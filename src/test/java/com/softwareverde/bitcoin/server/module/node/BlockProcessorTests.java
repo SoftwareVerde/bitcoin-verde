@@ -30,6 +30,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -366,7 +367,7 @@ public class BlockProcessorTests extends IntegrationTest {
             final Long blockHeightStep1 = harness.processBlock(forkChainBlock01);
             final TransactionId transactionId = transactionDatabaseManager.storeUnconfirmedTransaction(transaction);
             transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE); // Commit the UTXO set with outputs that will then be invalidated during a reorg...
             Assert.assertTrue(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection)); // Ensure the UTXO was actually committed...
 
             final Long blockHeightStep2 = harness.processBlock(mainChainBlock01);
@@ -379,7 +380,7 @@ public class BlockProcessorTests extends IntegrationTest {
             final TransactionOutput oldTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(invalidTransactionOutputIdentifier);
             Assert.assertNull(oldTransactionOutput);
 
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
             // Ensure the invalid UTXO isn't left within the on-disk UTXO set...
             Assert.assertFalse(BlockProcessorTests.utxoExistsInCommittedUtxoSet(forkChainCoinbaseTransaction, databaseConnection));
@@ -492,7 +493,7 @@ public class BlockProcessorTests extends IntegrationTest {
             }
 
             // Commit the UTXO Set
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
             { // Ensure the UTXO (that will later be removed) exists within the UTXO set...
                 final TransactionOutput culledTransactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(culledTransactionOutputIdentifier);
@@ -507,7 +508,7 @@ public class BlockProcessorTests extends IntegrationTest {
             Assert.assertEquals(forkChain2Block04.getHash(), blockHeaderDatabaseManager.getHeadBlockHeaderHash());
 
             // Re-Commit the UTXO set after the reorg
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, true);
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_fullNodeDatabaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
 
             // Assert
             Assert.assertEquals(Long.valueOf(1L), blockHeightStep1);
@@ -853,7 +854,7 @@ public class BlockProcessorTests extends IntegrationTest {
 
                 unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredUtxos, 663749L);
                 unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory);
+                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
             }
         }
 
