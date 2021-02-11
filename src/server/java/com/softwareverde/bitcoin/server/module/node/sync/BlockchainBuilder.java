@@ -8,11 +8,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NodeManagerContext;
-import com.softwareverde.bitcoin.context.SynchronizationStatusContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
-import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.ProcessBlockResult;
@@ -49,7 +47,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockchainBuilder extends GracefulSleepyService {
-    public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext, SynchronizationStatusContext { }
+    public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext { }
 
     public interface NewBlockProcessedCallback {
         void onNewBlock(ProcessBlockResult processBlockResult);
@@ -320,7 +318,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
         }
         if (headBlockId == null) { return false; }
 
-
+        Sha256Hash lastSuccessfullyProcessedBlockHash = null;
         while (! _shouldAbort()) {
             final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
             if (nextBlockId == null) {
@@ -403,6 +401,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 return false;
             }
 
+            lastSuccessfullyProcessedBlockHash = pendingBlockHash;
             headBlockId = nextBlockId;
 
             milliTimer.stop();
@@ -412,8 +411,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
             _updateAverageBlockProcessingTime();
         }
 
-        final SynchronizationStatus synchronizationStatus = _context.getSynchronizationStatus();
-        if (synchronizationStatus.isBlockchainSynchronized()) {
+        final Sha256Hash headBlockHeaderHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+        if (Util.areEqual(headBlockHeaderHash, lastSuccessfullyProcessedBlockHash)) {
             final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.SKIP_IF_BUSY);

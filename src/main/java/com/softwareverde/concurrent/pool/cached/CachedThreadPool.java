@@ -4,7 +4,6 @@ import com.softwareverde.concurrent.pool.MutableThreadPool;
 import com.softwareverde.logging.Logger;
 
 import java.util.LinkedList;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;

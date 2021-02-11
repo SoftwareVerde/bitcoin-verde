@@ -473,14 +473,10 @@ public class BlockProcessor {
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
                 if (transactionsStoredSuccessfully) {
-                    if (blockStore != null) {
-                        blockStore.storeBlock(block, blockHeight);
-                    }
+                    blockStore.storeBlock(block, blockHeight);
                 }
                 else {
-                    if (blockStore != null) {
-                        blockStore.removeBlock(blockHash, blockHeight);
-                    }
+                    blockStore.removeBlock(blockHash, blockHeight);
 
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);

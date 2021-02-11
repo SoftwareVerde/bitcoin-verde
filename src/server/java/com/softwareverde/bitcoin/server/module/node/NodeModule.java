@@ -576,7 +576,7 @@ public class NodeModule {
             pendingBlockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
 
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
-            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _blockProcessingThreadPool, synchronizationStatusHandler);
+            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _blockProcessingThreadPool);
             _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, blockDownloaderStatusMonitor, blockDownloadRequester);
         }
 
@@ -600,15 +600,6 @@ public class NodeModule {
         }
 
         { // Set the synchronization elements to cascade to each component...
-            _blockchainBuilder.setSynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
-                @Override
-                public void onNewBlock(final ProcessBlockResult processBlockResult) {
-                    if (! processBlockResult.isValid) { return; }
-
-                    _blockStore.storeBlock(processBlockResult.block, processBlockResult.blockHeight);
-                }
-            });
-
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
                 public void onNewBlock(final ProcessBlockResult processBlockResult) {

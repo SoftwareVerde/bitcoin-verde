@@ -788,7 +788,7 @@ public class BlockProcessorTests extends IntegrationTest {
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, databaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
         final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, databaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, _threadPool, _syncingSynchronizationStatus);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, databaseManagerFactory, bitcoinNodeManager, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
         blockProcessor.setMaxThreadCount(8);
