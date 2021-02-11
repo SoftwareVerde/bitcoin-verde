@@ -62,6 +62,7 @@ public class IntegrationTest extends UnitTest {
     protected final FullNodeDatabaseManagerFactory _readUncommittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
     protected final FakeSynchronizationStatus _synchronizationStatus;
+    protected final FakeSynchronizationStatus _syncingSynchronizationStatus;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
@@ -76,6 +77,10 @@ public class IntegrationTest extends UnitTest {
         _masterInflater = new CoreInflater();
         _blockStore = new FakeBlockStore();
         _synchronizationStatus = new FakeSynchronizationStatus();
+
+        _syncingSynchronizationStatus = new FakeSynchronizationStatus();
+        _syncingSynchronizationStatus.setState(State.SYNCHRONIZING);
+
         _checkpointConfiguration = new CheckpointConfiguration() {
             @Override
             public Boolean violatesCheckpoint(final Long blockHeight, final Sha256Hash blockHash) {

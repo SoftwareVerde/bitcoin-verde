@@ -444,17 +444,25 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         System.gc();
     }
 
-    protected void _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final Boolean shouldBlockUntilComplete) throws DatabaseException {
+    protected void _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
         if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) {
             // Prevent committing a UTXO set that has been invalidated or empty...
             Logger.warn("Not committing UTXO set due to invalidated or empty cache.");
             return;
         }
 
-        UTXO_WRITE_MUTEX.lock();
+        if (commitAsyncMode == CommitAsyncMode.SKIP_IF_BUSY) {
+            final boolean lockAcquired = UTXO_WRITE_MUTEX.tryLock();
+            if (! lockAcquired) { return; }
+        }
+        else {
+            UTXO_WRITE_MUTEX.lock();
+        }
+
         try {
             synchronized (DOUBLE_BUFFER) {
                 while (DOUBLE_BUFFER_THREAD != null) { // Protect against spontaneous wake-ups..
+                    if (commitAsyncMode == CommitAsyncMode.SKIP_IF_BUSY) { return; } // NOTE: UTXO_WRITE_MUTEX is unlocked by finally block...
                     DOUBLE_BUFFER.wait();
                 }
 
@@ -500,7 +508,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             }
 
             // Must be done outside of synchronization block...
-            if (shouldBlockUntilComplete) {
+            if (commitAsyncMode == CommitAsyncMode.BLOCK_UNTIL_COMPLETE) {
                 final Thread thread = DOUBLE_BUFFER_THREAD;
                 if (thread != null) {
                     thread.join();
@@ -844,12 +852,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
-    public void commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
-        this.commitUnspentTransactionOutputs(databaseManagerFactory, false);
-    }
-
-    @Override
-    public void commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final Boolean blockUntilComplete) throws DatabaseException {
+    public void commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
         if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) {
             // Prevent committing a UTXO set that has been invalidated or empty...
             Logger.warn("Not committing UTXO set due to invalidated or empty cache.");
@@ -858,7 +861,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
         UTXO_WRITE_MUTEX.lock();
         try {
-            _commitUnspentTransactionOutputs(databaseManagerFactory, blockUntilComplete);
+            _commitUnspentTransactionOutputs(databaseManagerFactory, commitAsyncMode);
         }
         catch (final Exception exception) {
             _invalidateUncommittedUtxoSetAndRethrow(exception);

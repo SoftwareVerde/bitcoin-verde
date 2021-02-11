@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.context.core;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -13,12 +14,14 @@ public class BlockchainBuilderContext implements BlockchainBuilder.Context {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _nodeManager;
     protected final ThreadPool _threadPool;
+    protected final SynchronizationStatus _synchronizationStatus;
 
-    public BlockchainBuilderContext(final BlockInflaters blockInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final ThreadPool threadPool) {
+    public BlockchainBuilderContext(final BlockInflaters blockInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final ThreadPool threadPool, final SynchronizationStatus synchronizationStatus) {
         _blockInflaters = blockInflaters;
         _databaseManagerFactory = databaseManagerFactory;
         _nodeManager = bitcoinNodeManager;
         _threadPool = threadPool;
+        _synchronizationStatus = synchronizationStatus;
     }
 
     @Override
@@ -44,5 +47,10 @@ public class BlockchainBuilderContext implements BlockchainBuilder.Context {
     @Override
     public BlockDeflater getBlockDeflater() {
         return _blockInflaters.getBlockDeflater();
+    }
+
+    @Override
+    public SynchronizationStatus getSynchronizationStatus() {
+        return _synchronizationStatus;
     }
 }
