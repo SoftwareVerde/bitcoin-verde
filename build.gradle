@@ -40,14 +40,17 @@ repositories {
 }
 
 dependencies {
+    // implementation fileTree(dir: 'libs', include: ['*.jar'])
+
     // SPV Library
-    api             group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
-    api             group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.0'
-    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.7.0'
+    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.7.1'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.3.1'
     api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.0.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
     api             group: 'com.github.softwareverde',  name: 'java-db',                version: 'v3.3.0'
+
+    implementation  group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
+    implementation  group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.0'
 
     // Bitcoin Core RPC compatibility
     api            (group: 'com.github.softwareverde',  name: 'java-http-client',       version: 'v2.1.0', force: true)
@@ -57,10 +60,10 @@ dependencies {
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.64'
 
     // Server
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.1'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.8'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.8'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.8'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.2'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.8-p1'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.8-p1'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.8-p1'
 
     serverImplementation group: 'org.slf4j',                    name: 'slf4j-api',              version: '1.7.30'
     serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '3.4.5') {
