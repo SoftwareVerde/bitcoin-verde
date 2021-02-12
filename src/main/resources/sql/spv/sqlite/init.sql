@@ -99,89 +99,6 @@ CREATE VIEW IF NOT EXISTS "head_block" AS
     LIMIT 1
 ;
 
--- UTXO Tables
-
-CREATE TABLE IF NOT EXISTS "committed_unspent_transaction_outputs" (
-	"transaction_hash" BLOB NOT NULL,
-	"index" INTEGER NOT NULL,
-	"is_spent" TINYINT NOT NULL,
-	"block_height" INTEGER NOT NULL,
-	PRIMARY KEY ("transaction_hash", "index")
-);
-
--- Unconfirmed Transaction (Mempool) Tables
-
-CREATE TABLE IF NOT EXISTS "unconfirmed_transactions" (
-	"transaction_id" INTEGER NOT NULL,
-	"version" INTEGER NOT NULL,
-	"lock_time" BIGINT NOT NULL,
-	"timestamp" BIGINT NOT NULL,
-	PRIMARY KEY ("transaction_id"),
-	FOREIGN KEY("transaction_id") REFERENCES "transactions" ("id") ON UPDATE RESTRICT ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS "unconfirmed_transaction_outputs" (
-	"id" INTEGER NOT NULL,
-	"transaction_id" INTEGER NOT NULL,
-	"index" INTEGER NOT NULL,
-	"amount" BIGINT NOT NULL,
-	"locking_script" BLOB NOT NULL,
-	PRIMARY KEY ("id"),
-	FOREIGN KEY("transaction_id") REFERENCES "unconfirmed_transactions" ("transaction_id") ON UPDATE RESTRICT ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS "unconfirmed_transaction_inputs" (
-	"id" INTEGER NOT NULL,
-	"transaction_id" INTEGER NOT NULL,
-	"index" INTEGER NOT NULL,
-	"previous_transaction_hash" BLOB NOT NULL,
-	"previous_transaction_output_index" INTEGER NOT NULL,
-	"sequence_number" INTEGER NOT NULL,
-	"unlocking_script" BLOB NOT NULL,
-	PRIMARY KEY ("id"),
-	FOREIGN KEY("transaction_id") REFERENCES "unconfirmed_transactions" ("transaction_id") ON UPDATE RESTRICT ON DELETE CASCADE
-);
-
--- Blockchain Download/Syncing Tables
-
-CREATE TABLE IF NOT EXISTS "pending_blocks" (
-	"id" INTEGER NOT NULL,
-	"hash" BLOB NOT NULL,
-	"previous_block_hash" BLOB NULL,
-	"timestamp" BIGINT NOT NULL,
-	"last_download_attempt_timestamp" BIGINT NULL,
-	"failed_download_count" INTEGER NOT NULL DEFAULT 0,
-	"priority" BIGINT NOT NULL,
-	"was_downloaded" TINYINT NOT NULL DEFAULT 0,
-	PRIMARY KEY ("id")
-);
-
-CREATE TABLE IF NOT EXISTS "pending_transactions" (
-	"id" INTEGER NOT NULL,
-	"hash" BLOB NOT NULL,
-	"timestamp" BIGINT NOT NULL,
-	"last_download_attempt_timestamp" BIGINT NULL,
-	"failed_download_count" INTEGER NOT NULL DEFAULT 0,
-	"priority" BIGINT NOT NULL,
-	PRIMARY KEY ("id")
-);
-
-CREATE TABLE IF NOT EXISTS "pending_transaction_data" (
-	"id" INTEGER NOT NULL,
-	"pending_transaction_id" INTEGER NOT NULL,
-	"data" BLOB NOT NULL,
-	PRIMARY KEY ("id"),
-	FOREIGN KEY("pending_transaction_id") REFERENCES "pending_transactions" ("id") ON UPDATE RESTRICT ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS "pending_transactions_dependent_transactions" (
-	"id" INTEGER NOT NULL,
-	"pending_transaction_id" INTEGER NOT NULL,
-	"hash" BLOB NOT NULL,
-	PRIMARY KEY ("id"),
-	FOREIGN KEY("pending_transaction_id") REFERENCES "pending_transactions" ("id") ON UPDATE RESTRICT ON DELETE CASCADE
-);
-
 -- Node/Network Tables
 
 CREATE TABLE IF NOT EXISTS "hosts" (
@@ -225,8 +142,10 @@ CREATE TABLE IF NOT EXISTS "node_transactions_inventory" (
 -- Misc
 
 CREATE TABLE IF NOT EXISTS "properties" (
+	"id" INTEGER NOT NULL,
 	"key" VARCHAR(255) NOT NULL,
-	"value" VARCHAR(255) NOT NULL
+	"value" VARCHAR(255) NOT NULL,
+	PRIMARY KEY ("id")
 );
 
 CREATE TABLE IF NOT EXISTS "metadata" (
@@ -238,9 +157,6 @@ CREATE TABLE IF NOT EXISTS "metadata" (
 
 INSERT INTO metadata (version, timestamp) VALUES (4, STRFTIME('%s', 'now'));
 
-CREATE UNIQUE INDEX "block_merkle_trees_block_merkle_trees_uq" ON "block_merkle_trees" ("block_id");
-CREATE INDEX "block_transactions_block_transactions_fk2" ON "block_transactions" ("transaction_id");
-CREATE UNIQUE INDEX "block_transactions_block_transactions_uq" ON "block_transactions" ("block_id", "transaction_id");
 CREATE INDEX "blockchain_segments_blockchain_segments_parent_blockchain_segment_id" ON "blockchain_segments" ("parent_blockchain_segment_id");
 CREATE INDEX "blocks_blocks_height_ix" ON "blocks" ("block_height");
 CREATE INDEX "blocks_blocks_work_ix" ON "blocks" ("has_transactions", "chain_work");
@@ -249,28 +165,18 @@ CREATE INDEX "blocks_blocks_work_ix3" ON "blocks" ("blockchain_segment_id", "cha
 CREATE UNIQUE INDEX "blocks_block_hash_uq" ON "blocks" ("hash");
 CREATE UNIQUE INDEX "blocks_block_hash_uq2" ON "blocks" ("blockchain_segment_id", "block_height");
 CREATE INDEX "blocks_block_previous_block_id_fk" ON "blocks" ("previous_block_id");
-CREATE UNIQUE INDEX "hosts_hosts_uq" ON "hosts" ("host");
+CREATE INDEX "blocks_block_blockchain_segment_id_fk" ON "blocks" ("blockchain_segment_id");
+CREATE UNIQUE INDEX "transactions_transactions_uq" ON "transactions" ("hash");
+CREATE INDEX "block_transactions_block_transactions_fk2" ON "block_transactions" ("transaction_id");
+CREATE UNIQUE INDEX "block_transactions_block_transactions_uq" ON "block_transactions" ("block_id", "transaction_id");
+CREATE UNIQUE INDEX "block_merkle_trees_block_merkle_trees_uq" ON "block_merkle_trees" ("block_id");
+CREATE UNIQUE INDEX "transaction_data_transaction_data_uq" ON "transaction_data" ("transaction_id");
 CREATE UNIQUE INDEX "invalid_blocks_invalid_blocks_uq" ON "invalid_blocks" ("hash");
-CREATE UNIQUE INDEX "metadata_metadata_version_uq" ON "metadata" ("version");
+CREATE UNIQUE INDEX "hosts_hosts_uq" ON "hosts" ("host");
+CREATE UNIQUE INDEX "nodes_nodes_uq" ON "nodes" ("host_id", "port");
+CREATE INDEX "node_head_block_ix" ON "nodes" ("head_block_height", "head_block_hash");
 CREATE UNIQUE INDEX "node_features_node_features_uq" ON "node_features" ("node_id", "feature");
 CREATE INDEX "node_transactions_inventory_node_transactions_tx_ix" ON "node_transactions_inventory" ("hash");
 CREATE UNIQUE INDEX "node_transactions_inventory_node_transactions_uq" ON "node_transactions_inventory" ("node_id", "hash");
-CREATE UNIQUE INDEX "nodes_nodes_uq" ON "nodes" ("host_id", "port");
-CREATE INDEX "pending_blocks_pending_blocks_ix1" ON "pending_blocks" ("priority");
-CREATE INDEX "pending_blocks_pending_blocks_ix2" ON "pending_blocks" ("was_downloaded", "failed_download_count");
-CREATE INDEX "pending_blocks_pending_blocks_ix3" ON "pending_blocks" ("previous_block_hash");
-CREATE UNIQUE INDEX "pending_blocks_pending_blocks_uq" ON "pending_blocks" ("hash");
-CREATE UNIQUE INDEX "pending_transaction_data_pending_transaction_data_uq" ON "pending_transaction_data" ("pending_transaction_id");
-CREATE INDEX "pending_transactions_pending_transactions_ix1" ON "pending_transactions" ("priority");
-CREATE INDEX "pending_transactions_pending_transactions_ix2" ON "pending_transactions" ("failed_download_count");
-CREATE UNIQUE INDEX "pending_transactions_pending_transactions_uq" ON "pending_transactions" ("hash");
-CREATE UNIQUE INDEX "pending_transactions_dependent_transactions_pending_transaction_prevout_uq" ON "pending_transactions_dependent_transactions" ("pending_transaction_id", "hash");
-CREATE UNIQUE INDEX "properties_properties_uq" ON "properties" ("key");
-CREATE UNIQUE INDEX "transaction_data_transaction_data_uq" ON "transaction_data" ("transaction_id");
-CREATE UNIQUE INDEX "transactions_transactions_uq" ON "transactions" ("hash");
-CREATE INDEX "unconfirmed_transaction_inputs_transaction_inputs_tx_id_fk" ON "unconfirmed_transaction_inputs" ("transaction_id");
-CREATE INDEX "unconfirmed_transaction_inputs_unconfirmed_transaction_inputs_tx_hash_ix" ON "unconfirmed_transaction_inputs" ("previous_transaction_hash", "previous_transaction_output_index");
-CREATE UNIQUE INDEX "unconfirmed_transaction_outputs_unconfirmed_transaction_output_tx_id_index_uq" ON "unconfirmed_transaction_outputs" ("transaction_id", "index");
-CREATE INDEX "unspent_transaction_outputs_utxo_block_height_ix" ON "unspent_transaction_outputs" ("block_height");
-CREATE UNIQUE INDEX "properties_uq" ON "properties" ("key");
-CREATE INDEX "node_head_block_ix" ON "nodes" ("head_block_height", "head_block_hash");
+CREATE UNIQUE INDEX "properties_key_uq" ON "properties" ("key");
+CREATE UNIQUE INDEX "metadata_metadata_version_uq" ON "metadata" ("version");
