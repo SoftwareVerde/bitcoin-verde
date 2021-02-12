@@ -301,9 +301,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
         // Find the next head block be downloaded... (depends on BlockHeaders)
         //  Traverse from the head blockHeader to the first processed block, then select its child blockHeader along the head blockchainSegment path.
         //  Since the head block and head blockHeader may have diverged, traversing backwards along the head blockHeader blockchainSegments is necessary.
-        final BlockchainSegmentId headBlockchainSegmentId = blockchainSegmentId;
         BlockId headBlockId = null;
-        BlockchainSegmentId currentBlockchainSegmentId = headBlockchainSegmentId;
+        BlockchainSegmentId currentBlockchainSegmentId = blockchainSegmentId;
         while (headBlockId == null) {
             final BlockId firstBlockIdOfHeadBlockchainSegment = blockchainDatabaseManager.getFirstBlockIdOfBlockchainSegment(currentBlockchainSegmentId);
             final Boolean firstBlockOfHeadBlockchainHasTransactions = blockDatabaseManager.hasTransactions(firstBlockIdOfHeadBlockchainSegment);
@@ -320,13 +319,30 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
         Sha256Hash lastSuccessfullyProcessedBlockHash = null;
         while (! _shouldAbort()) {
-            final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
+            final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, headBlockId);
             if (nextBlockId == null) {
                 // If the nextBlockId is null then the end of the chain has been reached or the pending block's header hasn't been processed.
                 // Check if there is a pending block with the head block hash before quitting.
                 final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
                 final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(headBlockHash);
-                if (pendingBlockIds.isEmpty()) { return true; } // The the end of the chain was reached.
+                if (pendingBlockIds.isEmpty()) { // The the end of the chain was reached.
+
+                    { // Commit the UTXO set once the blockchain has synchronized, if a commit isn't already in progress.
+                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                        final Boolean wasSyncingHeadBlockchainSegment = (Util.areEqual(headBlockchainSegmentId, blockchainSegmentId));
+                        Logger.trace("headBlockHeaderHash=" + headBlockHash + ", lastSuccessfullyProcessedBlockHash=" + lastSuccessfullyProcessedBlockHash + ", wasSyncingHeadBlockchainSegment=" + wasSyncingHeadBlockchainSegment);
+                        if ( wasSyncingHeadBlockchainSegment && Util.areEqual(headBlockHash, lastSuccessfullyProcessedBlockHash) ) {
+                            final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+                            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                            final Boolean didExecute = unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.SKIP_IF_BUSY);
+                            if (didExecute) {
+                                Logger.info("Committing UTXO set.");
+                            }
+                        }
+                    }
+
+                    return true;
+                }
 
                 // Store the pending block(s) header(s) and try again.
                 for (final PendingBlockId pendingBlockId : pendingBlockIds) {
@@ -409,13 +425,6 @@ public class BlockchainBuilder extends GracefulSleepyService {
             milliTimer.start();
 
             _updateAverageBlockProcessingTime();
-        }
-
-        final Sha256Hash headBlockHeaderHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
-        if (Util.areEqual(headBlockHeaderHash, lastSuccessfullyProcessedBlockHash)) {
-            final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.SKIP_IF_BUSY);
         }
 
         return false;

@@ -444,16 +444,16 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         System.gc();
     }
 
-    protected void _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
+    protected Boolean _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
         if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) {
             // Prevent committing a UTXO set that has been invalidated or empty...
             Logger.warn("Not committing UTXO set due to invalidated or empty cache.");
-            return;
+            return false;
         }
 
         if (commitAsyncMode == CommitAsyncMode.SKIP_IF_BUSY) {
             final boolean lockAcquired = UTXO_WRITE_MUTEX.tryLock();
-            if (! lockAcquired) { return; }
+            if (! lockAcquired) { return false; }
         }
         else {
             UTXO_WRITE_MUTEX.lock();
@@ -462,7 +462,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         try {
             synchronized (DOUBLE_BUFFER) {
                 while (DOUBLE_BUFFER_THREAD != null) { // Protect against spontaneous wake-ups..
-                    if (commitAsyncMode == CommitAsyncMode.SKIP_IF_BUSY) { return; } // NOTE: UTXO_WRITE_MUTEX is unlocked by finally block...
+                    if (commitAsyncMode == CommitAsyncMode.SKIP_IF_BUSY) { return false; } // NOTE: UTXO_WRITE_MUTEX is unlocked by finally block...
                     DOUBLE_BUFFER.wait();
                 }
 
@@ -514,9 +514,12 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     thread.join();
                 }
             }
+
+            return true;
         }
         catch (final Exception exception) {
             _invalidateUncommittedUtxoSetAndRethrow(exception);
+            return false;
         }
         finally {
             UTXO_WRITE_MUTEX.unlock();
@@ -852,19 +855,20 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
-    public void commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
+    public Boolean commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
         if (! UnspentTransactionOutputJvmManager.isUtxoCacheReady()) {
             // Prevent committing a UTXO set that has been invalidated or empty...
             Logger.warn("Not committing UTXO set due to invalidated or empty cache.");
-            return;
+            return false;
         }
 
         UTXO_WRITE_MUTEX.lock();
         try {
-            _commitUnspentTransactionOutputs(databaseManagerFactory, commitAsyncMode);
+            return _commitUnspentTransactionOutputs(databaseManagerFactory, commitAsyncMode);
         }
         catch (final Exception exception) {
             _invalidateUncommittedUtxoSetAndRethrow(exception);
+            return false;
         }
         finally {
             UTXO_WRITE_MUTEX.unlock();

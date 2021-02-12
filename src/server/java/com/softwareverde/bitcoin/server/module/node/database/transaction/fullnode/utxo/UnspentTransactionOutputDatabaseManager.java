@@ -67,8 +67,9 @@ public interface UnspentTransactionOutputDatabaseManager {
 
     /**
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked during commit duration.
+     *  Returns true if the UTXO set was committed or false if it was not (i.e. if CommitAsyncMode.SKIP_IF_BUSY was provided).
      */
-    void commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory, CommitAsyncMode commitAsyncMode) throws DatabaseException;
+    Boolean commitUnspentTransactionOutputs(DatabaseManagerFactory databaseManagerFactory, CommitAsyncMode commitAsyncMode) throws DatabaseException;
 
     Long getUncommittedUnspentTransactionOutputCount() throws DatabaseException;
     Long getUncommittedUnspentTransactionOutputCount(Boolean noLock) throws DatabaseException;
