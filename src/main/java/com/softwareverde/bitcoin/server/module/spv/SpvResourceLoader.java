@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.spv;
 
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.util.IoUtil;
 
 import java.io.InputStream;
@@ -7,6 +8,7 @@ import java.io.InputStream;
 public class SpvResourceLoader {
     public static final String BOOTSTRAP_HEADERS            = "/bootstrap/headers.dat";
     public static final String INIT_SQL_SQLITE              = "/sql/spv/sqlite/init.sql";
+    public static final Integer DATABASE_VERSION            = BitcoinConstants.DATABASE_VERSION;
 
     /**
      * Attempts to find the resource using different resource-loading entities.  The IoUtil method, this class's
