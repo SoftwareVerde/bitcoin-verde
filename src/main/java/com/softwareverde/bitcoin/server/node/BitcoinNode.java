@@ -296,6 +296,14 @@ public class BitcoinNode extends Node {
         synchronized (_downloadAddressBlocksRequests) { _downloadAddressBlocksRequests.remove(requestId); }
     }
 
+    protected void _observeOnDataSent(final BitcoinProtocolMessage bitcoinProtocolMessage) {
+        final MessageType messageType = bitcoinProtocolMessage.getCommand();
+        final Integer byteCount = bitcoinProtocolMessage.getByteCount();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataSent(BitcoinNode.this, messageType, byteCount);
+        }
+    }
+
     @Override
     protected void _queueMessage(final ProtocolMessage message) {
         super._queueMessage(message);
@@ -304,11 +312,7 @@ public class BitcoinNode extends Node {
             Logger.trace("Sending: " + ((BitcoinProtocolMessage) message).getCommand() + " to " + BitcoinNode.this.getConnectionString());
 
             final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
-            final MessageType messageType = bitcoinProtocolMessage.getCommand();
-            final Integer byteCount = bitcoinProtocolMessage.getByteCount();
-            for (final BitcoinNodeObserver observer : _observers) {
-                observer.onDataSent(BitcoinNode.this, messageType, byteCount);
-            }
+            _observeOnDataSent(bitcoinProtocolMessage);
         }
     }
 
@@ -318,12 +322,10 @@ public class BitcoinNode extends Node {
 
         for (final ProtocolMessage message : messages) {
             if (message instanceof BitcoinProtocolMessage) {
+                Logger.trace("Sending: " + ((BitcoinProtocolMessage) message).getCommand() + " to " + BitcoinNode.this.getConnectionString());
+
                 final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
-                final MessageType messageType = bitcoinProtocolMessage.getCommand();
-                final Integer byteCount = bitcoinProtocolMessage.getByteCount();
-                for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onDataSent(BitcoinNode.this, messageType, byteCount);
-                }
+                _observeOnDataSent(bitcoinProtocolMessage);
             }
         }
     }
@@ -488,7 +490,7 @@ public class BitcoinNode extends Node {
                 _threadPool.execute(failableRequest.onFailure);
             }
             else {
-                final Long ping = _calculateAveragePingMs();
+                final Long ping = Util.coalesce(_calculateAveragePingMs(), 1000L);
                 if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
                     final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
                     final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();

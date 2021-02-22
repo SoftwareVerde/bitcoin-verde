@@ -1,6 +1,5 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -143,15 +142,15 @@ public class NodeConnection {
                 final BinarySocket binarySocket = _binarySocket;
                 if (binarySocket == null) { return; } // Can most likely happen when disconnected before the callback was executed from the threadPool...
 
-                final ProtocolMessage protocolMessage = binarySocket.popMessage();
+                final ProtocolMessage message = binarySocket.popMessage();
 
-                if (protocolMessage instanceof BitcoinProtocolMessage) {
-                    Logger.debug("Received: " + ((BitcoinProtocolMessage) protocolMessage).getCommand() + " " + _toString());
-                }
+                // if (message instanceof BitcoinProtocolMessage) {
+                //     Logger.trace("Received: " + ((BitcoinProtocolMessage) message).getCommand() + " " + _toString());
+                // }
 
                 final MessageReceivedCallback messageReceivedCallback = _messageReceivedCallback;
                 if (messageReceivedCallback != null) {
-                    messageReceivedCallback.onMessageReceived(protocolMessage);
+                    messageReceivedCallback.onMessageReceived(message);
                 }
             }
         });
@@ -237,6 +236,10 @@ public class NodeConnection {
                 return;
             }
 
+            // if (message instanceof BitcoinProtocolMessage) {
+            //     Logger.debug("Wrote: " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
+            // }
+
             binarySocket.write(message);
         }
 
@@ -256,9 +259,9 @@ public class NodeConnection {
             messageWasQueued = true;
         }
 
-        if (message instanceof BitcoinProtocolMessage) {
-            Logger.debug((messageWasQueued ? "Queued" : "Wrote") + ": " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
-        }
+        // if (message instanceof BitcoinProtocolMessage) {
+        //     Logger.debug((messageWasQueued ? "Queued" : "Wrote") + ": " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
+        // }
 
         if (! messageWasQueued) {
             _onMessagesProcessed();

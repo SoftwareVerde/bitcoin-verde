@@ -73,4 +73,9 @@ public class NodeFeatures {
     public void clear() {
         _value = Feature.NONE.value;
     }
+
+    @Override
+    public String toString() {
+        return String.valueOf(_value);
+    }
 }

@@ -15,6 +15,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -49,7 +50,7 @@ public class BitcoinNodeHeadBlockFinder {
             return;
         }
 
-        final Long bitcoinNodePing = bitcoinNode.getAveragePing();
+        final Long bitcoinNodePing = Util.coalesce(bitcoinNode.getAveragePing(), 1000L);
         final Long maxTimeout = Math.min(Math.max(1000L, bitcoinNodePing), 5000L);
         final AtomicBoolean didRespond = new AtomicBoolean(false);
         final Pin pin = new Pin();

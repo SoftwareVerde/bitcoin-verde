@@ -1436,7 +1436,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             nodeJson.put("initializationTimestamp", (bitcoinNode.getInitializationTimestamp() / 1000L));
             nodeJson.put("lastMessageReceivedTimestamp", (bitcoinNode.getLastMessageReceivedTimestamp() / 1000L));
             nodeJson.put("networkOffset", bitcoinNode.getNetworkTimeOffset());
-            nodeJson.put("ping", bitcoinNode.getAveragePing());
+            nodeJson.put("ping", Util.coalesce(bitcoinNode.getAveragePing(), 0L));
             nodeJson.put("blockHeight", bitcoinNode.getBlockHeight());
 
             final NodeIpAddress localNodeIpAddress = bitcoinNode.getLocalNodeIpAddress();
