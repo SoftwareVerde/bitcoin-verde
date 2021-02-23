@@ -10,16 +10,18 @@ public class FailableRequest {
         public void run() { }
     };
 
+    final String requestDescription;
     final Long requestStartTimeMs;
     final Long startingByteCountReceived;
     final BitcoinNode.BitcoinNodeCallback callback;
     final Runnable onFailure;
 
-    public FailableRequest(final Long startingByteCountReceived, final BitcoinNode.BitcoinNodeCallback callback) {
-        this(startingByteCountReceived, callback, DO_NOTHING);
+    public FailableRequest(final String requestDescription, final Long startingByteCountReceived, final BitcoinNode.BitcoinNodeCallback callback) {
+        this(requestDescription, startingByteCountReceived, callback, DO_NOTHING);
     }
 
-    public FailableRequest(final Long startingByteCountReceived, final BitcoinNode.BitcoinNodeCallback callback, final Runnable onFailure) {
+    public FailableRequest(final String requestDescription, final Long startingByteCountReceived, final BitcoinNode.BitcoinNodeCallback callback, final Runnable onFailure) {
+        this.requestDescription = requestDescription;
         this.requestStartTimeMs = SYSTEM_TIME.getCurrentTimeInMilliSeconds();
         this.startingByteCountReceived = startingByteCountReceived;
         this.callback = callback;
