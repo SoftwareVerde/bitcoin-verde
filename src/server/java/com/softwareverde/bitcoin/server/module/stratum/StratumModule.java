@@ -22,7 +22,7 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPro
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
-import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;

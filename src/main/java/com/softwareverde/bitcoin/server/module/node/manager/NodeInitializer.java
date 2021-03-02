@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.concurrent.pool.ThreadPoolFactory;
+import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
 
 public class NodeInitializer {
     public interface TransactionsAnnouncementHandlerFactory {

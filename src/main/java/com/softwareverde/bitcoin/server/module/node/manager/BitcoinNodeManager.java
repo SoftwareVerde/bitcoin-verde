@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -18,7 +17,8 @@ import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeObserver;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.ConcurrentHashSet;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;

@@ -2,7 +2,7 @@ package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class FakeNodeFactory extends BitcoinNodeFactory {

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
-import com.softwareverde.concurrent.pool.ThreadPoolFactory;
+import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class BitcoinNodeFactory {

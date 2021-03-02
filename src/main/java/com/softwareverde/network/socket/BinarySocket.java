@@ -1,6 +1,6 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.util.ByteUtil;
 
 public class BinarySocket extends Socket {

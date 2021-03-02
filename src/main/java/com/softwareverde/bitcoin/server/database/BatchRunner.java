@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;

@@ -1,4 +1,4 @@
-package com.softwareverde.concurrent.pool;
+package com.softwareverde.concurrent.threadpool;
 
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.logging.Logger;

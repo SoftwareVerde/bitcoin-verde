@@ -8,7 +8,7 @@ public class UnitTest {
     static {
         Logger.setLog(LineNumberAnnotatedLog.getInstance());
         Logger.setLogLevel(LogLevel.ON);
-        Logger.setLogLevel("com.softwareverde.async.lock.IndexLock", LogLevel.ERROR);
+        Logger.setLogLevel("com.softwareverde.concurrent.lock.IndexLock", LogLevel.ERROR);
     }
 
     public void before() throws Exception { }

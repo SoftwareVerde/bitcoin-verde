@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.node;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Util;
 

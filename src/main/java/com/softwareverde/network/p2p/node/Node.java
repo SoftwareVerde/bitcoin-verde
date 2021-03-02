@@ -1,7 +1,7 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.ip.Ip;

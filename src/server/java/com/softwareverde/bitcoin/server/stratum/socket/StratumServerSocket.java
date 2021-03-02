@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.stratum.socket;
 
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.socket.JsonSocket;
 

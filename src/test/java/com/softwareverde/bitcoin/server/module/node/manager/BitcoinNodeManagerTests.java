@@ -7,9 +7,9 @@ import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterC
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.concurrent.pool.ThreadPoolFactory;
-import com.softwareverde.concurrent.pool.cached.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.concurrent.threadpool.ThreadPoolFactory;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.time.MutableNetworkTime;

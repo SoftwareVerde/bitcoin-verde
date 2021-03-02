@@ -1,6 +1,6 @@
 package com.softwareverde.bloomfilter;
 
-import com.softwareverde.async.lock.IndexLock;
+import com.softwareverde.concurrent.lock.IndexLock;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.timer.MilliTimer;
 import org.junit.Assert;

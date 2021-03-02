@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.sync.block;
 
-import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
@@ -23,9 +22,10 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
+import com.softwareverde.concurrent.ConcurrentHashSet;
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
