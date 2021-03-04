@@ -90,6 +90,9 @@ public class DatabaseConfigurer {
             // embeddedDatabaseProperties.enableSlowQueryLog("slow-query.log", 1L);
             // embeddedDatabaseProperties.enableGeneralQueryLog("query.log");
             embeddedDatabaseProperties.enablePerformanceSchema(false);
+
+            // Experimental change to prevent query optimization deadlock, in theory caused in MariaDB 10.5.8.
+            embeddedDatabaseProperties.addArgument("--optimizer_search_depth=0");
         }
 
         return embeddedDatabaseProperties;
