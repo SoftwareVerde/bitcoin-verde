@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHe
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeObserver;
+import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.ConcurrentHashSet;
@@ -1136,8 +1137,8 @@ public class BitcoinNodeManager {
             }
 
             @Override
-            public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType) {
-                if (_isTrackedResponseType(expectedResponseType)) {
+            public void onFailedRequest(final BitcoinNode bitcoinNode, final MessageType expectedResponseType, final RequestPriority requestPriority) {
+                if (_isTrackedResponseType(expectedResponseType) && requestPriority.getPriority() > 0) {
                     final NodePerformance nodePerformance = _getNodePerformance(bitcoinNode);
                     nodePerformance.failedRequestCount.incrementAndGet();
                 }

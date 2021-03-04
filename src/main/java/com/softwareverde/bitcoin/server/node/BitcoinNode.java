@@ -204,10 +204,12 @@ public class BitcoinNode extends Node {
 
     protected static class PendingRequest<T extends BitcoinNodeCallback> {
         public final RequestId requestId;
+        public final RequestPriority requestPriority;
         public final T callback;
 
-        public PendingRequest(final RequestId requestId, final T callback) {
+        public PendingRequest(final RequestId requestId, final T callback, final RequestPriority requestPriority) {
             this.requestId = requestId;
+            this.requestPriority = requestPriority;
             this.callback = callback;
         }
 
@@ -863,7 +865,7 @@ public class BitcoinNode extends Node {
                     callback.onFailure(pendingRequest.requestId, BitcoinNode.this, blockHash);
 
                     for (final BitcoinNodeObserver observer : _observers) {
-                        observer.onFailedRequest(BitcoinNode.this, MessageType.MERKLE_BLOCK);
+                        observer.onFailedRequest(BitcoinNode.this, MessageType.MERKLE_BLOCK, pendingRequest.requestPriority);
                     }
                 }
             }
@@ -1507,8 +1509,12 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
+        return this.requestBlock(blockHash, downloadBlockCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadBlockRequests, blockHash, new PendingRequest<DownloadBlockCallback>(requestId, downloadBlockCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadBlockRequests, blockHash, new PendingRequest<DownloadBlockCallback>(requestId, downloadBlockCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("BLOCK " + blockHash, requestStartBytesReceived, downloadBlockCallback, new Runnable() {
             @Override
@@ -1516,7 +1522,7 @@ public class BitcoinNode extends Node {
                 downloadBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
 
                 for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK);
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK, requestPriority);
                 }
             }
         }));
@@ -1527,8 +1533,12 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
+        return this.requestMerkleBlock(blockHash, downloadMerkleBlockCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback downloadMerkleBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadMerkleBlockRequests, blockHash, new PendingRequest<>(requestId, downloadMerkleBlockCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadMerkleBlockRequests, blockHash, new PendingRequest<>(requestId, downloadMerkleBlockCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("MERKLE BLOCK " + blockHash, requestStartBytesReceived, downloadMerkleBlockCallback, new Runnable() {
             @Override
@@ -1536,7 +1546,7 @@ public class BitcoinNode extends Node {
                 downloadMerkleBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
 
                 for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onFailedRequest(BitcoinNode.this, MessageType.MERKLE_BLOCK);
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.MERKLE_BLOCK, requestPriority);
                 }
             }
         }));
@@ -1546,8 +1556,12 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
+        return this.requestThinBlock(blockHash, knownTransactionsFilter, downloadThinBlockCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadThinBlockRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadThinBlockRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("THIN BLOCK " + blockHash, requestStartBytesReceived, downloadThinBlockCallback, new Runnable() {
             @Override
@@ -1555,7 +1569,7 @@ public class BitcoinNode extends Node {
                 downloadThinBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
 
                 for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onFailedRequest(BitcoinNode.this, MessageType.THIN_BLOCK);
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.THIN_BLOCK, requestPriority);
                 }
             }
         }));
@@ -1564,8 +1578,12 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadExtraThinBlockCallback downloadThinBlockCallback) {
+        return this.requestExtraThinBlock(blockHash, knownTransactionsFilter, downloadThinBlockCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadExtraThinBlockCallback downloadThinBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadExtraThinBlockRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadExtraThinBlockRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("xTHIN BLOCK " + blockHash, requestStartBytesReceived, downloadThinBlockCallback, new Runnable() {
             @Override
@@ -1573,7 +1591,7 @@ public class BitcoinNode extends Node {
                 downloadThinBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
 
                 for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onFailedRequest(BitcoinNode.this, MessageType.EXTRA_THIN_BLOCK);
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.EXTRA_THIN_BLOCK, requestPriority);
                 }
             }
         }));
@@ -1582,6 +1600,10 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
+        return this.requestThinTransactions(blockHash, transactionHashes, downloadThinBlockCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
         final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getCount());
         for (final Sha256Hash transactionHash : transactionHashes) {
@@ -1590,7 +1612,7 @@ public class BitcoinNode extends Node {
         }
         final List<ByteArray> shortTransactionHashes = shortTransactionHashesBuilder.build();
 
-        BitcoinNodeUtil.storeInMapSet(_downloadThinTransactionsRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadThinTransactionsRequests, blockHash, new PendingRequest<>(requestId, downloadThinBlockCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         final String requestDescription = "THIN TXs (block: " + blockHash + ", txCount: " + transactionHashes.getCount() + ")";
         _failableRequests.put(requestId, new FailableRequest(requestDescription, requestStartBytesReceived, downloadThinBlockCallback, new Runnable() {
@@ -1599,7 +1621,7 @@ public class BitcoinNode extends Node {
                 downloadThinBlockCallback.onFailure(requestId, BitcoinNode.this, blockHash);
 
                 for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onFailedRequest(BitcoinNode.this, MessageType.THIN_TRANSACTIONS);
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.THIN_TRANSACTIONS, requestPriority);
                 }
             }
         }));
@@ -1608,10 +1630,18 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
-        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback);
+        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback downloadBlockHeaderCallback, final RequestPriority requestPriority) {
+        return this.requestBlockHeadersAfter(new ImmutableList<Sha256Hash>(blockHash), downloadBlockHeaderCallback, requestPriority);
     }
 
     public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
+        return this.requestBlockHeadersAfter(blockFinder, downloadBlockHeaderCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestBlockHeadersAfter(final List<Sha256Hash> blockFinder, final DownloadBlockHeadersCallback downloadBlockHeaderCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
 
         if (blockFinder.isEmpty()) {
@@ -1625,7 +1655,7 @@ public class BitcoinNode extends Node {
         }
 
         final Sha256Hash firstBlockHash = blockFinder.get(0);
-        BitcoinNodeUtil.storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, new PendingRequest<>(requestId, downloadBlockHeaderCallback));
+        BitcoinNodeUtil.storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, new PendingRequest<>(requestId, downloadBlockHeaderCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         final String requestDescription = "BLOCK FINDER " + blockFinder.get(0) + " - " + blockFinder.get(blockFinder.getCount() - 1);
         _failableRequests.put(requestId, new FailableRequest(requestDescription, requestStartBytesReceived, downloadBlockHeaderCallback, new Runnable() {
@@ -1634,7 +1664,7 @@ public class BitcoinNode extends Node {
                 downloadBlockHeaderCallback.onFailure(requestId, BitcoinNode.this, firstBlockHash);
 
                 for (final BitcoinNodeObserver observer : _observers) {
-                    observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK_HEADERS);
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK_HEADERS, requestPriority);
                 }
             }
         }));
@@ -1643,6 +1673,10 @@ public class BitcoinNode extends Node {
     }
 
     public RequestId requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
+        return this.requestTransactions(transactionHashes, downloadTransactionCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback, final RequestPriority requestPriority) {
         final RequestId requestId = _newRequestId();
 
         if (transactionHashes.isEmpty()) {
@@ -1656,7 +1690,7 @@ public class BitcoinNode extends Node {
         }
 
         for (final Sha256Hash transactionHash : transactionHashes) {
-            BitcoinNodeUtil.storeInMapSet(_downloadTransactionRequests, transactionHash, new PendingRequest<>(requestId, downloadTransactionCallback));
+            BitcoinNodeUtil.storeInMapSet(_downloadTransactionRequests, transactionHash, new PendingRequest<>(requestId, downloadTransactionCallback, requestPriority));
             final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
             final String requestDescription = "TXs (count: " + transactionHashes.getCount() + ")";
             _failableRequests.put(requestId, new FailableRequest(requestDescription, requestStartBytesReceived, downloadTransactionCallback, new Runnable() {
@@ -1665,7 +1699,7 @@ public class BitcoinNode extends Node {
                     downloadTransactionCallback.onFailure(requestId, BitcoinNode.this, transactionHash);
 
                     for (final BitcoinNodeObserver observer : _observers) {
-                        observer.onFailedRequest(BitcoinNode.this, MessageType.TRANSACTION);
+                        observer.onFailedRequest(BitcoinNode.this, MessageType.TRANSACTION, requestPriority);
                     }
                 }
             }));

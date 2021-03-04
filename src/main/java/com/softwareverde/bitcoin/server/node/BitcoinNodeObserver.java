@@ -17,7 +17,7 @@ public interface BitcoinNodeObserver {
      * Triggered when the remote peer sends data to the local peer.
      */
     default void onDataReceived(BitcoinNode bitcoinNode, MessageType messageType, Integer byteCount, Boolean wasRequested) { }
-    default void onFailedRequest(BitcoinNode bitcoinNode, MessageType expectedResponseType) { }
+    default void onFailedRequest(BitcoinNode bitcoinNode, MessageType expectedResponseType, RequestPriority requestPriority) { }
 
     default void onBlockNotFound(BitcoinNode bitcoinNode, Sha256Hash blockHash) { }
     default void onTransactionNotFound(BitcoinNode bitcoinNode, Sha256Hash transactionHash) { }

@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NodeManagerContext;
 import com.softwareverde.bitcoin.context.PendingBlockStoreContext;
@@ -12,9 +13,12 @@ import com.softwareverde.bitcoin.context.SystemTimeContext;
 import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -22,6 +26,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
+import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.concurrent.ConcurrentHashSet;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
@@ -295,7 +300,27 @@ public class BlockDownloader extends GracefulSleepyService {
             }
         };
 
-        final RequestId requestId = bitcoinNode.requestBlock(blockHash, downloadBlockCallback);
+        RequestPriority requestPriority = RequestPriority.NORMAL;
+        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            if (blockId != null) {
+                final BlockchainSegmentId blockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+                if (! blockchainDatabaseManager.areBlockchainSegmentsConnected(blockBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY)) {
+                    // block is on a fork relative to our current head block
+                    requestPriority = RequestPriority.NONE;
+                }
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug("Unable to determine block priority: " + blockHash, exception);
+        }
+
+        final RequestId requestId = bitcoinNode.requestBlock(blockHash, downloadBlockCallback, requestPriority);
 
         final ThreadPool threadPool = _context.getThreadPool();
         threadPool.execute(new Runnable() {
