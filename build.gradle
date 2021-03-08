@@ -61,9 +61,9 @@ dependencies {
 
     // Server
     serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.2'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.8-p1'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.8-p1'
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.8-p1'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.9'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.9'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.9'
 
     serverImplementation group: 'org.slf4j',                    name: 'slf4j-api',              version: '1.7.30'
     serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '3.4.5') {
