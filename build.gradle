@@ -50,7 +50,7 @@ dependencies {
     api             group: 'com.github.softwareverde',  name: 'java-db',                version: 'v3.3.0'
 
     implementation  group: 'com.github.softwareverde',  name: 'java-logging',           version: 'v2.2.0'
-    implementation  group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.0'
+    implementation  group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.1'
 
     // Bitcoin Core RPC compatibility
     api            (group: 'com.github.softwareverde',  name: 'java-http-client',       version: 'v2.1.0', force: true)
