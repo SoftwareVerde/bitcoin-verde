@@ -3,5 +3,5 @@
 echo -n "Address: "
 read ADDRESS
 
-(echo "{\"method\":\"GET\",\"query\":\"BALANCE\",\"parameters\":{\"address\":\"${ADDRESS}\"}}") | nc localhost 8334
+(echo "{\"method\":\"GET\",\"query\":\"BALANCE\",\"parameters\":{\"address\":\"${ADDRESS}\"}}") | curl --data-binary @- localhost:8334
 

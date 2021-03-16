@@ -15,5 +15,5 @@ read BLOCK_HEIGHT
 echo -n "Block Count: "
 read MAX_BLOCK_COUNT
 
-(echo "{\"method\":\"GET\",\"query\":\"BLOCK_HEADERS\",\"parameters\":{\"blockHeight\":\"${BLOCK_HEIGHT}\",\"maxBlockCount\":\"${MAX_BLOCK_COUNT}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | nc localhost 8334
+(echo "{\"method\":\"GET\",\"query\":\"BLOCK_HEADERS\",\"parameters\":{\"blockHeight\":\"${BLOCK_HEIGHT}\",\"maxBlockCount\":\"${MAX_BLOCK_COUNT}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | curl --data-binary @- localhost:8334
 
