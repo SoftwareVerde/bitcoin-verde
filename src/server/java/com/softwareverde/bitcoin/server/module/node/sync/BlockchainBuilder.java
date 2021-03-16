@@ -25,14 +25,17 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedPendingBlock;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
+import com.softwareverde.concurrent.threadpool.SimpleThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -397,6 +400,27 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 }
                 nanoTimer.stop();
                 Logger.trace("Pending block " + pendingBlockHash + " loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            }
+
+            { // Ensure UTXO Set is valid (may happen if db connection was unavailable during UTXO rebuild).
+                Logger.info("Rebuilding invalidated UTXO set before block processing.");
+
+                final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+                final Long utxoCommitFrequency = _blockProcessor.getUtxoCommitFrequency();
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
+
+                final SimpleThreadPool threadPool = new SimpleThreadPool();
+                threadPool.start();
+
+                try {
+                    final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, threadPool);
+                    unspentTransactionOutputManager.buildUtxoSet(blockLoader, databaseManagerFactory);
+                }
+                finally {
+                    threadPool.stop();
+                }
             }
 
             final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock, unspentTransactionOutputContext); // pendingBlock may be null; _processPendingBlock allows for this.

@@ -24,7 +24,9 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 public class FullNodePendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
@@ -330,24 +332,68 @@ public class FullNodePendingBlockDatabaseManager {
         return pendingBlockId;
     }
 
-    public List<PendingBlockId> selectIncompletePendingBlocks(final Integer maxBlockCount) throws DatabaseException {
+    public static class DownloadPlan {
+        protected final MutableList<PendingBlockId> _pendingBlockIds = new MutableList<>();
+        protected final Map<PendingBlockId, Long> _blockHeights = new HashMap<>();
+
+        protected void addPendingBlock(final PendingBlockId pendingBlockId, final Long blockHeight) {
+            _pendingBlockIds.add(pendingBlockId);
+            _blockHeights.put(pendingBlockId, blockHeight);
+        }
+
+        public DownloadPlan() { }
+
+        public Long getBlockHeight(final PendingBlockId pendingBlockId) {
+            return _blockHeights.get(pendingBlockId);
+        }
+
+        public List<PendingBlockId> getPendingBlockIds() {
+            return _pendingBlockIds;
+        }
+
+        public Integer getCount() {
+            return _pendingBlockIds.getCount();
+        }
+
+        public Boolean isEmpty() {
+            return _pendingBlockIds.isEmpty();
+        }
+
+        public Long getMinimumBlockHeight() {
+            Long minBlockHeight = null;
+            for (final Long incompletePendingBlocksBlockHeight : _blockHeights.values()) {
+                if (incompletePendingBlocksBlockHeight == null) { continue; }
+
+                if (minBlockHeight == null) {
+                    minBlockHeight = incompletePendingBlocksBlockHeight;
+                }
+                else if (incompletePendingBlocksBlockHeight < minBlockHeight) {
+                    minBlockHeight = incompletePendingBlocksBlockHeight;
+                }
+            }
+            return minBlockHeight;
+        }
+    }
+
+    public DownloadPlan selectIncompletePendingBlocks(final Integer maxBlockCount) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final Long minSecondsBetweenDownloadAttempts = 5L;
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM pending_blocks WHERE was_downloaded = 0 AND (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ORDER BY priority ASC, id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
+            new Query("SELECT pending_blocks.id, pending_blocks.hash, blocks.block_height FROM pending_blocks LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE was_downloaded = 0 AND (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ORDER BY priority ASC, id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
                 .setParameter(currentTimestamp)
                 .setParameter(minSecondsBetweenDownloadAttempts)
         );
 
-        final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
+        final DownloadPlan downloadPlan = new DownloadPlan();
         for (final Row row : rows) {
             final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-            pendingBlockIds.add(pendingBlockId);
+            final Long blockHeight = row.getLong("block_height");
+            downloadPlan.addPendingBlock(pendingBlockId, blockHeight);
         }
-        return pendingBlockIds;
+        return downloadPlan;
     }
 
     public Sha256Hash getPendingBlockHash(final PendingBlockId pendingBlockId) throws DatabaseException {

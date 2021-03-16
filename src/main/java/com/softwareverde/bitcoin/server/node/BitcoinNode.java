@@ -283,7 +283,7 @@ public class BitcoinNode extends Node {
 
     protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted = null; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
 
-    protected Long _blockHeight = null; // TODO: Update blockHeight as new blocks are advertised by the Node...
+    protected Long _blockHeight = null;
 
     protected void _removeCallback(final RequestId requestId) {
         BitcoinNodeUtil.removeValueFromMapSet(_downloadBlockRequests, requestId);
@@ -2056,6 +2056,10 @@ public class BitcoinNode extends Node {
      */
     public Long getBlockHeight() {
         return _blockHeight;
+    }
+
+    public void setBlockHeight(final Long blockHeight) {
+        _blockHeight = blockHeight;
     }
 
     public void addObserver(final BitcoinNodeObserver observer) {

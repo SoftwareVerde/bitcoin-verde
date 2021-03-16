@@ -119,6 +119,10 @@ public class BlockProcessor {
         _utxoCommitFrequency = utxoCommitFrequency;
     }
 
+    public Long getUtxoCommitFrequency() {
+        return _utxoCommitFrequency;
+    }
+
     public void setTrustedBlockHeight(final Long trustedBlockHeight) {
         _trustedBlockHeight = trustedBlockHeight;
     }

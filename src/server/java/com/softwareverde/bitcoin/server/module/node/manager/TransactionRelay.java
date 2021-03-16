@@ -35,6 +35,9 @@ public class TransactionRelay {
     protected final ConcurrentLinkedDeque<Transaction> _queuedTransactions = new ConcurrentLinkedDeque<Transaction>();
 
     protected void _relayTransactions(final List<Transaction> transactions) {
+        final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
+        final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<TransactionWithFee>((_nodeRpcHandler != null) ? transactions.getCount() : 0);
+
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
@@ -53,8 +56,6 @@ public class TransactionRelay {
                 connectedNodes = nodeIdsBuilder.build();
             }
 
-            final MutableList<TransactionWithFee> transactionsToAnnounceViaRpc = new MutableList<TransactionWithFee>((_nodeRpcHandler != null) ? transactions.getCount() : 0);
-            final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
             for (final Transaction transaction : transactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
 
@@ -89,28 +90,29 @@ public class TransactionRelay {
                     transactionHashes.add(transactionHash);
                 }
             }
-
-            for (final NodeId nodeId : nodeUnseenTransactionHashes.keySet()) {
-                final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(nodeId);
-                if (bitcoinNode == null) { continue; }
-
-                if (! Util.coalesce(bitcoinNode.isTransactionRelayEnabled(), false)) { continue; }
-
-                final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
-                bitcoinNode.transmitTransactionHashes(newTransactionHashes);
-
-                // NOTE: It could be beneficial to update the available Node inventory, although is unnecessary unless the same Transaction is attempted to be broadcast multiple times (should never happen).
-                // nodeDatabaseManager.updateTransactionInventory(bitcoinNode, newTransactionHashes);
-            }
-
-            if (_nodeRpcHandler != null) {
-                for (final TransactionWithFee transactionWithFee : transactionsToAnnounceViaRpc) {
-                    _nodeRpcHandler.onNewTransaction(transactionWithFee);
-                }
-            }
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);
+            return;
+        }
+
+        for (final NodeId nodeId : nodeUnseenTransactionHashes.keySet()) {
+            final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(nodeId);
+            if (bitcoinNode == null) { continue; }
+
+            if (! Util.coalesce(bitcoinNode.isTransactionRelayEnabled(), false)) { continue; }
+
+            final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
+            bitcoinNode.transmitTransactionHashes(newTransactionHashes);
+
+            // NOTE: It could be beneficial to update the available Node inventory, although is unnecessary unless the same Transaction is attempted to be broadcast multiple times (should never happen).
+            // nodeDatabaseManager.updateTransactionInventory(bitcoinNode, newTransactionHashes);
+        }
+
+        if (_nodeRpcHandler != null) {
+            for (final TransactionWithFee transactionWithFee : transactionsToAnnounceViaRpc) {
+                _nodeRpcHandler.onNewTransaction(transactionWithFee);
+            }
         }
     }
 

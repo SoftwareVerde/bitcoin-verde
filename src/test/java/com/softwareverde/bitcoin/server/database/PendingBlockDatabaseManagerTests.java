@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -115,10 +114,10 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
                 final List<NodeId> connectedNodeIds = new MutableList<NodeId>(nodes.keySet());
 
                 // Action
-                final List<PendingBlockId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(1024);
+                final FullNodePendingBlockDatabaseManager.DownloadPlan downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(1024);
 
                 // Assert
-                Assert.assertEquals(1024, downloadPlan.getCount());
+                Assert.assertEquals(Integer.valueOf(1024), downloadPlan.getCount());
             }
         }
     }
