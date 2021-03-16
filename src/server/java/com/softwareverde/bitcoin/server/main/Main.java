@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.pool.SimpleDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.ChainValidationModule;
@@ -244,7 +245,13 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
+                final DatabaseConnectionPool databaseConnectionFactory;
+                {
+                    final int connectionsReservedForRoot = 1;
+                    final Integer databaseConnectionCacheCount = Math.min(bitcoinProperties.getMaxPeerCount(), (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
+                    databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
+                }
+
                 final Environment environment = new Environment(database, databaseConnectionFactory);
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);

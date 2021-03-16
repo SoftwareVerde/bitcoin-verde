@@ -40,7 +40,7 @@ public class BitcoinVerdeDatabase implements Database {
     public static final InitFile BITCOIN = new InitFile("/sql/node/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile STRATUM = new InitFile("/sql/stratum/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
 
-    public static final Integer MAX_DATABASE_CONNECTION_COUNT = 64; // Increasing too much may cause MySQL to use excessive memory...
+    public static final Integer MAX_DATABASE_CONNECTION_COUNT = 151; // 64 // Increasing too much may cause MySQL to use excessive memory...
 
     public static final DatabaseInitializer.DatabaseUpgradeHandler<Connection> DATABASE_UPGRADE_HANDLER = new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
         @Override
