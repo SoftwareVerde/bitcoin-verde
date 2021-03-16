@@ -1,4 +1,4 @@
 #!/bin/bash
 
-(echo '{"method":"GET","query":"UTXO_CACHE"}') | nc localhost 8334
+(echo '{"method":"GET","query":"UTXO_CACHE"}') | curl --data-binary @- localhost:8334
 

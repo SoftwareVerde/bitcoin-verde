@@ -21,7 +21,9 @@ public class JsonSocket extends Socket {
             try {
                 while (! thread.isInterrupted()) {
                     final String string = _bufferedReader.readLine();
+
                     if (string == null) { break; }
+                    if (string.isEmpty()) { continue; }
 
                     _totalBytesReceived += string.length(); // Not technically accurate.
 
@@ -34,7 +36,9 @@ public class JsonSocket extends Socket {
                     }
                 }
             }
-            catch (final Exception exception) { }
+            catch (final Exception exception) {
+                Logger.trace("Exception occurred while reading line: " + exception);
+            }
             finally {
                 Logger.debug("Closing Json socket.");
                 final Callback callback = _callback;
