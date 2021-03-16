@@ -403,7 +403,7 @@ public class BlockDownloader extends GracefulSleepyService {
                 }
             }
 
-            final List<PendingBlockId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(maximumConcurrentDownloadCount * 2);
+            final FullNodePendingBlockDatabaseManager.DownloadPlan downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(maximumConcurrentDownloadCount * 2);
             if (downloadPlan.isEmpty()) {
                 Logger.trace("Downloader has nothing to do.");
                 return false;
@@ -412,19 +412,32 @@ public class BlockDownloader extends GracefulSleepyService {
 
             if (_shouldAbort()) { return false; }
 
-            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getPreferredNodes(new NodeFilter() {
-                @Override
-                public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
-                    return true; // TODO: Ensure bitcoinNode is up-to-date before requesting block.
+            final Long minBlockHeight = downloadPlan.getMinimumBlockHeight();
+            final List<BitcoinNode> bitcoinNodes;
+            {
+                final List<BitcoinNode> idealBitcoinNodes = bitcoinNodeManager.getPreferredNodes(new NodeFilter() {
+                    @Override
+                    public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
+                        final Long blockHeight = bitcoinNode.getBlockHeight();
+                        if (blockHeight == null) { return false; }
+                        if (minBlockHeight == null) { return true; } // No minimum was able to be determined...
+                        return (blockHeight >= minBlockHeight); // Ensure bitcoinNode is up-to-date before requesting block.
+                    }
+                });
+                if (! idealBitcoinNodes.isEmpty()) {
+                    bitcoinNodes = idealBitcoinNodes;
                 }
-            });
+                else {
+                    bitcoinNodes = bitcoinNodeManager.getPreferredNodes();
+                }
+            }
             final int nodeCount = bitcoinNodes.getCount();
             if (nodeCount == 0) {
                 Logger.debug("No nodes met download criteria.");
                 return false;
             }
 
-            for (final PendingBlockId pendingBlockId : downloadPlan) {
+            for (final PendingBlockId pendingBlockId : downloadPlan.getPendingBlockIds()) {
                 if (_shouldAbort()) { return false; }
 
                 if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
@@ -440,7 +453,14 @@ public class BlockDownloader extends GracefulSleepyService {
 
                 BitcoinNode selectedNode = null;
                 { // Prefer a node that does not already have a block in-flight.
-                    for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+                    for (final BitcoinNode bitcoinNode : bitcoinNodes) { // Prefer download based on blockHeight...
+                        final Long pendingBlockHeight = downloadPlan.getBlockHeight(pendingBlockId);
+                        if (pendingBlockHeight != null) {
+                            final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+                            if (nodeBlockHeight == null) { continue; }
+                            if (nodeBlockHeight < pendingBlockHeight) { continue; }
+                        }
+
                         final NodeId nodeId = bitcoinNode.getId();
                         final boolean hadCapacity = _addBlockInFlight(nodeId);
                         if (! hadCapacity) { continue; }
@@ -448,7 +468,20 @@ public class BlockDownloader extends GracefulSleepyService {
                         selectedNode = bitcoinNode;
                         break;
                     }
-                    if (selectedNode == null) { break; }
+                    if (selectedNode == null) { // Fallback download via brute-force...
+                        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+                            final NodeId nodeId = bitcoinNode.getId();
+                            final boolean hadCapacity = _addBlockInFlight(nodeId);
+                            if (! hadCapacity) { continue; }
+
+                            selectedNode = bitcoinNode;
+                            break;
+                        }
+                    }
+                }
+                if (selectedNode == null) {
+                    Logger.trace("No nodes with capacity found for " + blockHash);
+                    break;
                 }
 
                 final NodeId nodeId = selectedNode.getId();

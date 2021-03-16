@@ -13,6 +13,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
 public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryAnnouncementHandler {
     public interface NewInventoryReceivedCallback {
@@ -34,9 +35,10 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
     protected NewInventoryReceivedCallback _newInventoryReceivedCallback;
     protected Runnable _nodeInventoryUpdatedCallback;
 
-    static class StoreBlockHashesResult {
+    protected static class StoreBlockHashesResult {
         public Boolean nodeInventoryWasUpdated = false;
         public Boolean newBlockHashWasReceived = false;
+        public Long maxBlockHeight = null;
     }
 
     protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
@@ -58,6 +60,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
 
                 storeBlockHashesResult.nodeInventoryWasUpdated = isNewHeightForNode;
                 storeBlockHashesResult.newBlockHashWasReceived = false;
+                storeBlockHashesResult.maxBlockHeight = lastBlockHeight;
             }
             else {
                 final BlockId firstBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHash);
@@ -119,6 +122,12 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
         }
 
         final StoreBlockHashesResult storeBlockHashesResult = _storeBlockHashes(bitcoinNode, blockHashes);
+        if (storeBlockHashesResult.maxBlockHeight != null) {
+            final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+            if (storeBlockHashesResult.maxBlockHeight > Util.coalesce(nodeBlockHeight)) {
+                bitcoinNode.setBlockHeight(storeBlockHashesResult.maxBlockHeight);
+            }
+        }
 
         if (storeBlockHashesResult.newBlockHashWasReceived) {
             final NewInventoryReceivedCallback newBlockHashesCallback = _newInventoryReceivedCallback;
@@ -136,6 +145,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
 
     @Override
     public void onNewHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
+        Long maxBlockHeight = null;
         final MutableList<BlockHeader> unknownBlockHeaders = new MutableList<BlockHeader>();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -147,6 +157,12 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
                 if (blockId == null) {
                     hasUnknownHeader = true;
                 }
+                else {
+                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                    if (Util.coalesce(blockHeight) > Util.coalesce(maxBlockHeight)) {
+                        maxBlockHeight = blockHeight;
+                    }
+                }
 
                 if (hasUnknownHeader) {
                     unknownBlockHeaders.add(blockHeader);
@@ -156,6 +172,13 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
         catch (final Exception exception) {
             Logger.warn(exception);
             return;
+        }
+
+        if (maxBlockHeight != null) {
+            final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
+            if (Util.coalesce(nodeBlockHeight) < maxBlockHeight) {
+                bitcoinNode.setBlockHeight(maxBlockHeight);
+            }
         }
 
         if (! unknownBlockHeaders.isEmpty()) {

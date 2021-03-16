@@ -30,7 +30,7 @@ public class NodeInitializer {
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
-    protected final BitcoinNode.BlockInventoryAnnouncementHandler blockInventoryAnnouncementHandler;
+    protected final BitcoinNode.BlockInventoryAnnouncementHandler _blockInventoryAnnouncementHandler;
     protected final TransactionsAnnouncementHandlerFactory _transactionsAnnouncementHandlerFactory;
     protected final BitcoinNode.RequestBlockHashesHandler _requestBlockHashesHandler;
     protected final BitcoinNode.RequestBlockHeadersHandler _requestBlockHeadersHandler;
@@ -55,7 +55,7 @@ public class NodeInitializer {
         bitcoinNode.setRequestSlpTransactionsHandler(_requestSlpTransactionsHandler);
         bitcoinNode.setSpvBlockInventoryAnnouncementHandler(_spvBlockInventoryAnnouncementHandler);
 
-        bitcoinNode.setBlockInventoryMessageHandler(blockInventoryAnnouncementHandler);
+        bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryAnnouncementHandler);
         bitcoinNode.setRequestUnconfirmedTransactionsHandler(_requestUnconfirmedTransactionsHandler);
 
         final TransactionsAnnouncementHandlerFactory transactionsAnnouncementHandlerFactory = _transactionsAnnouncementHandlerFactory;
@@ -70,7 +70,7 @@ public class NodeInitializer {
 
     public NodeInitializer(final Context properties) {
         _synchronizationStatus = properties.synchronizationStatus;
-        blockInventoryAnnouncementHandler = properties.blockInventoryMessageHandler;
+        _blockInventoryAnnouncementHandler = properties.blockInventoryMessageHandler;
         _transactionsAnnouncementHandlerFactory = properties.transactionsAnnouncementHandlerFactory;
         _requestBlockHashesHandler = properties.requestBlockHashesHandler;
         _requestBlockHeadersHandler = properties.requestBlockHeadersHandler;
