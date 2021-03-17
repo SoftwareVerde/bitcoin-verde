@@ -167,7 +167,7 @@ public class TransactionSigner {
     }
 
     protected byte[] _getBitcoinCashBytesForSigning(final SignatureContext signatureContext) {
-        final Integer FORK_ID = 0x000000;
+        final int FORK_ID = 0x000000;
         final Transaction transaction = signatureContext.getTransaction();
         final Integer inputIndex = signatureContext.getInputIndexBeingSigned();
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();

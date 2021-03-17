@@ -7,6 +7,7 @@ public enum InventoryItemType {
     MERKLE_BLOCK            (0x00000003),
     COMPACT_BLOCK           (0x00000004),
     EXTRA_THIN_BLOCK        (0x00000005),
+    DOUBLE_SPEND_PROOF      (0x000094A0),
     // Custom Bitcoin Verde Types,
     VALID_SLP_TRANSACTION   (0x42560001),
     INVALID_SLP_TRANSACTION (0x42560002);

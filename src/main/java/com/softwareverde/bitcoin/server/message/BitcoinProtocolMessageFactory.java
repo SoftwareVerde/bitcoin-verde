@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTr
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
@@ -106,6 +107,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.SET_TRANSACTION_BLOOM_FILTER, new SetTransactionBloomFilterMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER, new UpdateTransactionBloomFilterMessageInflater());
         _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.DOUBLE_SPEND_PROOF, new DoubleSpendProofMessageInflater());
         // Bitcoin Verde Messages
         _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.ENABLE_SLP_TRANSACTIONS, new EnableSlpTransactionsMessageInflater());

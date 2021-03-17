@@ -773,6 +773,14 @@ public class BitcoinNode extends Node {
                         Logger.debug("No handler set for SpvBlockInventoryAnnouncementHandler.");
                     }
                 } break;
+
+                default: {
+                    if (Logger.isDebugEnabled()) {
+                        for (final Sha256Hash objectHash : objectHashes) {
+                            Logger.debug("Received unsupported inventory: " + inventoryItemType + ":" + objectHash + " from " + _connection);
+                        }
+                    }
+                } break;
             }
         }
 

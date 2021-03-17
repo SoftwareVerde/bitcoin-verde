@@ -46,6 +46,8 @@ public class MessageType {
     public static final MessageType UPDATE_TRANSACTION_BLOOM_FILTER = new MessageType("filteradd");
     public static final MessageType CLEAR_TRANSACTION_BLOOM_FILTER = new MessageType("filterclear");
 
+    public static final MessageType DOUBLE_SPEND_PROOF = new MessageType("dsproof-beta");
+
     // BitcoinVerde Messages
     public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks", true);
     public static final MessageType ENABLE_SLP_TRANSACTIONS = new MessageType("sendslp", true);
