@@ -1,4 +1,4 @@
 #!/bin/bash
 
-(echo '{"method":"GET","query":"NODES"}') | curl --data-binary @- localhost:8334
+(echo '{"method":"GET","query":"NODES"}') | curl -s --data-binary @- localhost:8334
 
