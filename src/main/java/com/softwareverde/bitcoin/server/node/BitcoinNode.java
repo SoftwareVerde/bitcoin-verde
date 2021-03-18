@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.server.message.type.bloomfilter.clear.ClearTran
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
@@ -55,6 +56,7 @@ import com.softwareverde.bitcoin.server.message.type.version.acknowledge.Bitcoin
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
@@ -123,6 +125,8 @@ public class BitcoinNode extends Node {
 
     public interface DownloadThinTransactionsCallback extends FailableBitcoinNodeRequestCallback<List<Transaction>, Sha256Hash> { }
 
+    public interface DownloadDoubleSpendProofCallback extends FailableBitcoinNodeRequestCallback<DoubleSpendProof, Sha256Hash> { }
+
     public interface RequestPeersHandler extends BitcoinNodeHandler {
         List<BitcoinNodeIpAddress> getConnectedPeers();
     }
@@ -142,6 +146,10 @@ public class BitcoinNode extends Node {
         default void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> transactionHashes, Boolean isSlpValid) {
             this.onResult(bitcoinNode, transactionHashes);
         }
+    }
+
+    public interface DoubleSpendProofAnnouncementHandler extends BitcoinNodeHandler {
+        void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> doubleSpendProofsIdentifiers);
     }
 
     public interface RequestBlockHashesHandler extends BitcoinNodeHandler {
@@ -246,6 +254,7 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<PendingRequest<DownloadThinBlockCallback>>> _downloadThinBlockRequests = new HashMap<>();
     protected final Map<Sha256Hash, Set<PendingRequest<DownloadExtraThinBlockCallback>>> _downloadExtraThinBlockRequests = new HashMap<>();
     protected final Map<Sha256Hash, Set<PendingRequest<DownloadThinTransactionsCallback>>> _downloadThinTransactionsRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<PendingRequest<DownloadDoubleSpendProofCallback>>> _downloadDoubleSpendProofRequests = new HashMap<>();
     protected final Set<BlockInventoryAnnouncementHandler> _downloadAddressBlocksRequests = new HashSet<>();
 
     protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
@@ -268,7 +277,8 @@ public class BitcoinNode extends Node {
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
     protected TransactionInventoryAnnouncementHandler _transactionsAnnouncementCallback = null;
-    protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementHandler = null;
+    protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementCallback = null;
+    protected DoubleSpendProofAnnouncementHandler _doubleSpendProofAnnouncementCallback = null;
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
@@ -400,7 +410,8 @@ public class BitcoinNode extends Node {
             _requestExtraThinBlockCallback = null;
             _requestExtraThinTransactionCallback = null;
             _transactionsAnnouncementCallback = null;
-            _spvBlockInventoryAnnouncementHandler = null;
+            _spvBlockInventoryAnnouncementCallback = null;
+            _doubleSpendProofAnnouncementCallback = null;
         }
 
         super._disconnect();
@@ -624,6 +635,7 @@ public class BitcoinNode extends Node {
         _messageRouter.addRoute(MessageType.REQUEST_DATA,                   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onRequestDataMessageReceived((RequestDataMessage) message); });
         _messageRouter.addRoute(MessageType.BLOCK,                          (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onBlockMessageReceived((BlockMessage) message); });
         _messageRouter.addRoute(MessageType.TRANSACTION,                    (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onTransactionMessageReceived((TransactionMessage) message); });
+        _messageRouter.addRoute(MessageType.DOUBLE_SPEND_PROOF,             (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onDoubleSpendProofMessageReceived((DoubleSpendProofMessage) message); });
         _messageRouter.addRoute(MessageType.MERKLE_BLOCK,                   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onMerkleBlockReceived((MerkleBlockMessage) message); });
         _messageRouter.addRoute(MessageType.BLOCK_HEADERS,                  (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onBlockHeadersMessageReceived((BlockHeadersMessage) message); });
         _messageRouter.addRoute(MessageType.QUERY_BLOCKS,                   (final ProtocolMessage message, final BitcoinNode bitcoinNode) -> { _onQueryBlocksMessageReceived((QueryBlocksMessage) message); });
@@ -756,7 +768,7 @@ public class BitcoinNode extends Node {
                         _downloadAddressBlocksRequests.clear();
                     }
 
-                    final SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler = _spvBlockInventoryAnnouncementHandler;
+                    final SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler = _spvBlockInventoryAnnouncementCallback;
                     if (spvBlockInventoryAnnouncementHandler != null) {
                         _threadPool.execute(new Runnable() {
                             @Override
@@ -771,6 +783,27 @@ public class BitcoinNode extends Node {
                     }
                     else {
                         Logger.debug("No handler set for SpvBlockInventoryAnnouncementHandler.");
+                    }
+                } break;
+
+                case DOUBLE_SPEND_PROOF: {
+                    if (Logger.isDebugEnabled()) {
+                        for (final Sha256Hash objectHash : objectHashes) {
+                            Logger.debug("Received Double-Spend Proof: " + objectHash + " from " + _connection);
+                        }
+                    }
+
+                    final DoubleSpendProofAnnouncementHandler doubleSpendProofAnnouncementCallback = _doubleSpendProofAnnouncementCallback;
+                    if (doubleSpendProofAnnouncementCallback != null) {
+                        _threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                doubleSpendProofAnnouncementCallback.onResult(BitcoinNode.this, objectHashes);
+                            }
+                        });
+                    }
+                    else {
+                        Logger.debug("No handler set for DoubleSpendProofAnnouncementCallback.");
                     }
                 } break;
 
@@ -852,6 +885,26 @@ public class BitcoinNode extends Node {
             final Integer byteCount = transactionMessage.getByteCount();
             for (final BitcoinNodeObserver observer : _observers) {
                 observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+            }
+        }
+    }
+
+    protected void _onDoubleSpendProofMessageReceived(final DoubleSpendProofMessage doubleSpendProofMessage) {
+        final DoubleSpendProof doubleSpendProof = doubleSpendProofMessage.getDoubleSpendProof();
+
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadDoubleSpendProofRequests, _failableRequests, doubleSpendProofHash, new CallbackExecutor<DownloadDoubleSpendProofCallback>() {
+            @Override
+            public void onResult(final PendingRequest<DownloadDoubleSpendProofCallback> pendingRequest) {
+                final DownloadDoubleSpendProofCallback callback = pendingRequest.callback;
+                callback.onResult(pendingRequest.requestId, BitcoinNode.this, doubleSpendProof);
+            }
+        });
+
+        if (! wasRequested) {
+            final DoubleSpendProofAnnouncementHandler doubleSpendProofAnnouncementHandler = _doubleSpendProofAnnouncementCallback;
+            if (doubleSpendProofAnnouncementHandler != null) {
+                doubleSpendProofAnnouncementHandler.onResult(BitcoinNode.this, new ImmutableList<>(doubleSpendProofHash));
             }
         }
     }
@@ -1716,13 +1769,61 @@ public class BitcoinNode extends Node {
         return requestId;
     }
 
+    public void transmitDoubleSpendProofHash(final Sha256Hash doubleSpendProofHash) {
+        final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
+
+        final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.DOUBLE_SPEND_PROOF, doubleSpendProofHash);
+        inventoryMessage.addInventoryItem(inventoryItem);
+
+        _queueMessage(inventoryMessage);
+    }
+
+    public void transmitDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
+        final DoubleSpendProofMessage doubleSpendProofMessage = _protocolMessageFactory.newDoubleSpendProofMessage();
+        doubleSpendProofMessage.setDoubleSpendProof(doubleSpendProof);
+        _queueMessage(doubleSpendProofMessage);
+    }
+
+    public RequestId requestDoubleSpendProof(final Sha256Hash doubleSpendProofHash, final DownloadDoubleSpendProofCallback downloadDoubleSpendProofCallback) {
+        return this.requestDoubleSpendProof(doubleSpendProofHash, downloadDoubleSpendProofCallback, RequestPriority.NORMAL);
+    }
+
+    public RequestId requestDoubleSpendProof(final Sha256Hash doubleSpendProofHash, final DownloadDoubleSpendProofCallback downloadDoubleSpendProofCallback, final RequestPriority requestPriority) {
+        final RequestId requestId = _newRequestId();
+
+        BitcoinNodeUtil.storeInMapSet(_downloadDoubleSpendProofRequests, doubleSpendProofHash, new PendingRequest<>(requestId, downloadDoubleSpendProofCallback, requestPriority));
+        final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
+        final String requestDescription = ("Double Spend Proof: " + doubleSpendProofHash);
+        _failableRequests.put(requestId, new FailableRequest(requestDescription, requestStartBytesReceived, downloadDoubleSpendProofCallback, new Runnable() {
+            @Override
+            public void run() {
+                downloadDoubleSpendProofCallback.onFailure(requestId, BitcoinNode.this, doubleSpendProofHash);
+
+                for (final BitcoinNodeObserver observer : _observers) {
+                    observer.onFailedRequest(BitcoinNode.this, MessageType.DOUBLE_SPEND_PROOF, requestPriority);
+                }
+            }
+        }));
+
+        final RequestDataMessage requestDoubleSpendProofMessage = _protocolMessageFactory.newRequestDataMessage();
+        requestDoubleSpendProofMessage.addInventoryItem(new InventoryItem(InventoryItemType.DOUBLE_SPEND_PROOF, doubleSpendProofHash));
+        _queueMessage(requestDoubleSpendProofMessage);
+
+        final MessageType messageType = requestDoubleSpendProofMessage.getCommand();
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onDataRequested(BitcoinNode.this, messageType);
+        }
+
+        return requestId;
+    }
+
     public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
         final RequestSlpTransactionsHandler requestSlpTransactionsCallback = _requestSlpTransactionsHandler;
 
         final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
             final InventoryItem inventoryItem;
-            if (! _slpTransactionsIsEnabled || requestSlpTransactionsCallback == null) {
+            if ( (! _slpTransactionsIsEnabled) || (requestSlpTransactionsCallback == null) ) {
                 inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
             }
             else {
@@ -1892,8 +1993,12 @@ public class BitcoinNode extends Node {
         _transactionsAnnouncementCallback = transactionsAnnouncementCallback;
     }
 
-    public void setSpvBlockInventoryAnnouncementHandler(final SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler) {
-        _spvBlockInventoryAnnouncementHandler = spvBlockInventoryAnnouncementHandler;
+    public void setSpvBlockInventoryAnnouncementCallback(final SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementCallback) {
+        _spvBlockInventoryAnnouncementCallback = spvBlockInventoryAnnouncementCallback;
+    }
+
+    public void setDoubleSpendProofAnnouncementCallback(final DoubleSpendProofAnnouncementHandler doubleSpendProofAnnouncementCallback) {
+        _doubleSpendProofAnnouncementCallback = doubleSpendProofAnnouncementCallback;
     }
 
     public Boolean isNewBlocksViaHeadersEnabled() {

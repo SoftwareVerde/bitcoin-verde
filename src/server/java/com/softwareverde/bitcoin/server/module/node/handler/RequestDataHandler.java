@@ -10,9 +10,11 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -32,9 +34,11 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final DoubleSpendProofStore _doubleSpendProofStore;
 
-    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final DoubleSpendProofStore doubleSpendProofStore) {
         _databaseManagerFactory = databaseManagerFactory;
+        _doubleSpendProofStore = doubleSpendProofStore;
     }
 
     @Override
@@ -110,7 +114,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                         if (transaction == null) {
-                            Logger.debug(bitcoinNode.getConnectionString() + "requested unknown Transaction: " + transactionHash);
+                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown Transaction: " + transactionHash);
                             notFoundDataHashes.add(inventoryItem);
                             continue;
                         }
@@ -118,7 +122,26 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                         bitcoinNode.transmitTransaction(transaction);
 
                         getTransactionTimer.stop();
-                        Logger.info("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
+                        Logger.info("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms.");
+                    } break;
+
+                    case DOUBLE_SPEND_PROOF: {
+                        if (_doubleSpendProofStore == null) {
+                            Logger.debug("No DoubleSpendProof store available.");
+                            continue;
+                        }
+
+                        final Sha256Hash doubleSpendProofHash = inventoryItem.getItemHash();
+                        final DoubleSpendProof doubleSpendProof = _doubleSpendProofStore.getDoubleSpendProof(doubleSpendProofHash);
+
+                        if (doubleSpendProof == null) {
+                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown DoubleSpendProof: " + doubleSpendProofHash);
+                            notFoundDataHashes.add(inventoryItem);
+                            continue;
+                        }
+
+                        bitcoinNode.transmitDoubleSpendProof(doubleSpendProof);
+                        Logger.info("GetTransactionData: DSProof " + doubleSpendProofHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + ".");
                     } break;
 
                     default: {

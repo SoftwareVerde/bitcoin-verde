@@ -198,20 +198,17 @@ public class UnconfirmedTransactionInputDatabaseManager {
         return TransactionId.wrap(row.getLong("transaction_id"));
     }
 
-    public List<UnconfirmedTransactionInputId> getUnconfirmedTransactionInputIdsSpendingTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    public UnconfirmedTransactionInputId getUnconfirmedTransactionInputIdSpendingTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id FROM unconfirmed_transaction_inputs WHERE previous_transaction_hash = ? AND previous_transaction_output_index = ?")
                 .setParameter(transactionOutputIdentifier.getTransactionHash())
                 .setParameter(transactionOutputIdentifier.getOutputIndex())
         );
+        if (rows.isEmpty()) { return null; }
 
-        final MutableList<UnconfirmedTransactionInputId> unconfirmedTransactionInputIds = new MutableList<UnconfirmedTransactionInputId>(rows.size());
-        for (final Row row : rows) {
-            final UnconfirmedTransactionInputId unconfirmedTransactionInputId = UnconfirmedTransactionInputId.wrap(row.getLong("id"));
-            unconfirmedTransactionInputIds.add(unconfirmedTransactionInputId);
-        }
 
-        return unconfirmedTransactionInputIds;
+        final Row row = rows.get(0);
+        return UnconfirmedTransactionInputId.wrap(row.getLong("id"));
     }
 }

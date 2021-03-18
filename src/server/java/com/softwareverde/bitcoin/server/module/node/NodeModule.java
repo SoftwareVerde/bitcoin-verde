@@ -62,7 +62,9 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.RequestBlockHe
 import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofAnnouncementHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
@@ -408,7 +410,9 @@ public class NodeModule {
             }
         };
 
-        _requestDataHandler = new RequestDataHandler(databaseManagerFactory);
+        final DoubleSpendProofStore doubleSpendProofStore = new DoubleSpendProofStore(256);
+
+        _requestDataHandler = new RequestDataHandler(databaseManagerFactory, doubleSpendProofStore);
         _transactionWhitelist = RequestDataHandlerMonitor.wrap(_requestDataHandler);
         { // Initialize the monitor with transactions from the memory pool...
             Logger.info("[Loading RequestDataHandlerMonitor]");
@@ -442,7 +446,13 @@ public class NodeModule {
             nodeInitializerContext.blockInventoryMessageHandler = blockInventoryMessageHandler;
             nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
-            nodeInitializerContext.transactionsAnnouncementHandlerFactory = new TransactionInventoryMessageHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
+            nodeInitializerContext.transactionsAnnouncementHandlerFactory = new TransactionAnnouncementHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
+            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(databaseManagerFactory, doubleSpendProofStore, _upgradeSchedule, new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
+                @Override
+                public List<BitcoinNode> getConnectedNodes() {
+                    return _bitcoinNodeManager.getNodes();
+                }
+            });
             nodeInitializerContext.requestBlockHashesHandler = new RequestBlockHashesHandler(databaseManagerFactory);
             nodeInitializerContext.requestBlockHeadersHandler = new RequestBlockHeadersHandler(databaseManagerFactory);
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;

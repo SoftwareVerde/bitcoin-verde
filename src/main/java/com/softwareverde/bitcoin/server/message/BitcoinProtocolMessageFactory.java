@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTr
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMessage;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
@@ -196,6 +197,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
 
     public TransactionMessage newTransactionMessage() {
         return new TransactionMessage(_masterInflater);
+    }
+
+    public DoubleSpendProofMessage newDoubleSpendProofMessage() {
+        return new DoubleSpendProofMessage();
     }
 
     public MerkleBlockMessage newMerkleBlockMessage() {
