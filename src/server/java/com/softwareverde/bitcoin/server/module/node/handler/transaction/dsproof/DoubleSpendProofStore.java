@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof;
 
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Util;
@@ -22,6 +23,16 @@ public class DoubleSpendProofStore {
         return null;
     }
 
+    protected DoubleSpendProof _getDoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        for (final DoubleSpendProof doubleSpendProof : _doubleSpendProofs) {
+            final TransactionOutputIdentifier existingTransactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
+            if (Util.areEqual(transactionOutputIdentifier, existingTransactionOutputIdentifier)) {
+                return doubleSpendProof;
+            }
+        }
+        return null;
+    }
+
     public DoubleSpendProofStore(final Integer maxCachedItemCount) {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _readLock = readWriteLock.readLock();
@@ -33,8 +44,9 @@ public class DoubleSpendProofStore {
     public Boolean storeDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
         _writeLock.lock();
         try {
-            final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
-            final DoubleSpendProof existingDoubleSpendProof = _getDoubleSpendProof(doubleSpendProofHash);
+            // NOTE: The DoubleSpendProof is looked-up via the PreviousOutputIdentifier (vs hash) so that the store is always unique for multiple double-spends.
+            final TransactionOutputIdentifier transactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
+            final DoubleSpendProof existingDoubleSpendProof = _getDoubleSpendProof(transactionOutputIdentifier);
             if (existingDoubleSpendProof != null) { return false; }
 
             _doubleSpendProofs.push(doubleSpendProof);
@@ -49,6 +61,16 @@ public class DoubleSpendProofStore {
         _readLock.lock();
         try {
             return _getDoubleSpendProof(doubleSpendProofHash);
+        }
+        finally {
+            _readLock.unlock();
+        }
+    }
+
+    public DoubleSpendProof getDoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        _readLock.lock();
+        try {
+            return _getDoubleSpendProof(transactionOutputIdentifier);
         }
         finally {
             _readLock.unlock();

@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofValidator;
 import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -34,6 +35,33 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
 
     protected Boolean _isDoubleSpendValid(final DoubleSpendProof doubleSpendProof) {
         final TransactionOutputIdentifier transactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
+
+        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProof.getDoubleSpendProofPreimage0();
+        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProof.getDoubleSpendProofPreimage1();
+
+        { // Ensure preimages are unique...
+            final List<ByteArray> unlockingScriptData0 = doubleSpendProofPreimage0.getUnlockingScriptPushData();
+            final List<ByteArray> unlockingScriptData1 = doubleSpendProofPreimage1.getUnlockingScriptPushData();
+            if (Util.areEqual(unlockingScriptData0, unlockingScriptData1)) { return false; }
+        }
+
+        { // Ensure the preimages are in the correct/canonical order...
+            final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getTransactionOutputsDigest();
+            final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getTransactionOutputsDigest();
+            if (transactionOutputsDigest0.compareTo(transactionOutputsDigest1) > 0) { return false; }
+
+            final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest();
+            final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest();
+            if (previousOutputsDigest0.compareTo(previousOutputsDigest1) > 0) { return false; }
+        }
+
+        // NOTE: This check is disabled since it is performed during storing the proof.
+        //  If the lookup wasn't O(N) then the duplicate check wouldn't be a problem.
+        //
+        // { // Ensure the DoubleSpendProof is unique / is not redundant with an existing DoubleSpendProof...
+        //     final DoubleSpendProof redundantDoubleSpendProof = _doubleSpendProofStore.getDoubleSpendProof(transactionOutputIdentifier);
+        //     if (redundantDoubleSpendProof != null) { return false; }
+        // }
 
         final Transaction transactionBeingSpent;
         final Transaction conflictingTransaction;
@@ -75,11 +103,9 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
 
         final DoubleSpendProofValidator doubleSpendProofValidator = new DoubleSpendProofValidator(_upgradeSchedule);
 
-        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProof.getDoubleSpendProofPreimage0();
         final Boolean firstProofIsValid = doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, conflictingTransaction, doubleSpendProofPreimage0);
         if (! firstProofIsValid) { return false; }
 
-        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProof.getDoubleSpendProofPreimage1();
         return doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, conflictingTransaction, doubleSpendProofPreimage1);
     }
 
