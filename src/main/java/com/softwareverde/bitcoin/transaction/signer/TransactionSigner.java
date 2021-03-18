@@ -250,7 +250,8 @@ public class TransactionSigner {
 
         { // 7. Serialize the SequenceNumber for this TransactionInput...
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
-            byteArrayBuilder.appendBytes(transactionInput.getSequenceNumber().getBytes(), Endian.LITTLE);
+            final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
+            byteArrayBuilder.appendBytes(sequenceNumber.getBytes(), Endian.LITTLE);
         }
 
         { // 8. Serialize this Transaction's TransactionOutputs...

@@ -77,7 +77,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final Long blockHeight = transactionContext.getBlockHeight();
 
-        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionSigner transactionSigner = transactionContext.getTransactionSigner();
         final SignatureContext signatureContext = new SignatureContext(transaction, hashType, blockHeight, upgradeSchedule);
         signatureContext.setInputIndexBeingSigned(transactionInputIndexBeingSigned);
         signatureContext.setShouldSignInputScript(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);

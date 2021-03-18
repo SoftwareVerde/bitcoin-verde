@@ -7,11 +7,13 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
 
 public class ImmutableTransactionContext implements TransactionContext, Const {
     protected final UpgradeSchedule _upgradeSchedule;
+    protected final TransactionSigner _transactionSigner;
     protected final Long _blockHeight;
     protected final MedianBlockTime _medianBlockTime;
     protected final Transaction _transaction;
@@ -28,6 +30,7 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
 
     public ImmutableTransactionContext(final TransactionContext transactionContext) {
         _upgradeSchedule = transactionContext.getUpgradeSchedule();
+        _transactionSigner = transactionContext.getTransactionSigner();
         _blockHeight = transactionContext.getBlockHeight();
         _medianBlockTime = ConstUtil.asConstOrNull(transactionContext.getMedianBlockTime());
         _transaction = ConstUtil.asConstOrNull(transactionContext.getTransaction());
@@ -97,6 +100,11 @@ public class ImmutableTransactionContext implements TransactionContext, Const {
     @Override
     public UpgradeSchedule getUpgradeSchedule() {
         return _upgradeSchedule;
+    }
+
+    @Override
+    public TransactionSigner getTransactionSigner() {
+        return _transactionSigner;
     }
 
     @Override

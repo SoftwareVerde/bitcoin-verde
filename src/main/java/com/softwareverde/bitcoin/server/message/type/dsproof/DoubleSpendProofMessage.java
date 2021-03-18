@@ -22,6 +22,14 @@ public class DoubleSpendProofMessage extends BitcoinProtocolMessage {
         return _previousTransactionOutputIdentifier;
     }
 
+    public DoubleSpendProofPreimage getDoubleSpendProofPreimage0() {
+        return _doubleSpendProofPreimage0;
+    }
+
+    public DoubleSpendProofPreimage getDoubleSpendProofPreimage1() {
+        return _doubleSpendProofPreimage1;
+    }
+
     public void setPreviousTransactionOutputIdentifier(final TransactionOutputIdentifier transactionOutputIdentifier) {
         _previousTransactionOutputIdentifier = transactionOutputIdentifier;
     }
