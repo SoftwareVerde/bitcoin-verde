@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
+import com.softwareverde.bitcoin.server.configuration.PropertiesExporter;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.IoUtil;
 
@@ -30,27 +31,24 @@ public class ConfigurationModule {
     public void run() {
         System.out.println("Starting node configuration.");
 
+        final Map<String, String> userInputMap = new HashMap<>();
         final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
         System.out.println("Please specify the following parameters. Select default parameters by returning an empty value.");
 
         try {
             System.out.println("The maximum byte count for the InnoDB buffer pool. The buffer pool size is one of the most important configurations for performance as it configures the space used to store/cache table indexes.");
             System.out.println("Max memory byte count: ");
-
             final String maxMemoryByteCount = bufferedReader.readLine();
+            userInputMap.put("bitcoin." + PropertiesExporter.MAX_MEMORY_BYTE_COUNT, maxMemoryByteCount);
 
             System.out.println("If set to zero or false, then nodes will not be banned under any circumstances. Additionally, any previously banned nodes will be unbanned while disabled.");
             System.out.println("Enable ban filter (1 or 0): ");
-
             final String enableBanFilter = bufferedReader.readLine();
-
-            final Map<String, String> userInputMap = new HashMap<>();
-            userInputMap.put(BitcoinProperties.BAN_FILTER_IS_ENABLED, enableBanFilter);
+            userInputMap.put(PropertiesExporter.BAN_FILTER_IS_ENABLED, enableBanFilter);
 
             final StringBuilder stringBuilder = new StringBuilder();
-
-            final Map<String, String> bitcoinPropertiesMap = _configuration.getBitcoinProperties().toConfigurationMap();
-            bitcoinPropertiesMap.forEach((key, value) -> {
+            final Map<String, String> configurationPropertiesMap = PropertiesExporter.configurationPropertiesToMap(_configuration);
+            configurationPropertiesMap.forEach((key, value) -> {
                 final String exportedValue = userInputMap.getOrDefault(key, value);
                 stringBuilder.append(key).append(" = ").append(exportedValue).append("\n");
             });
