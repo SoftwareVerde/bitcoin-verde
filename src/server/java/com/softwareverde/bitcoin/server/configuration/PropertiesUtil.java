@@ -62,5 +62,41 @@ public class PropertiesUtil {
         return nodePropertiesList;
     }
 
+    public static String stringListToConfigurationFileProperty(final List<String> list) {
+        final StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("[");
+
+        for (int i = 0; i < list.getCount(); i++) {
+            final String string = list.get(i);
+            stringBuilder.append("\"").append(string).append("\"");
+
+            if (i < list.getCount() - 1) {
+                stringBuilder.append(", ");
+            }
+        }
+
+        stringBuilder.append("]");
+
+        return stringBuilder.toString();
+    }
+
+    public static String nodePropertiesToConfigurationFileProperty(final List<NodeProperties> list) {
+        final StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("[");
+
+        for (int i = 0; i < list.getCount(); i++) {
+            final NodeProperties nodeProperties = list.get(i);
+            stringBuilder.append("\"").append(nodeProperties.getAddress()).append(":").append(nodeProperties.getPort()).append("\"");
+
+            if (i < list.getCount() - 1) {
+                stringBuilder.append(", ");
+            }
+        }
+
+        stringBuilder.append("]");
+
+        return stringBuilder.toString();
+    }
+
     protected PropertiesUtil() { }
 }

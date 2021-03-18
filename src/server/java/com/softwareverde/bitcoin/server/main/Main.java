@@ -13,11 +13,7 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.SimpleDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.module.AddressModule;
-import com.softwareverde.bitcoin.server.module.ChainValidationModule;
-import com.softwareverde.bitcoin.server.module.DatabaseModule;
-import com.softwareverde.bitcoin.server.module.MinerModule;
-import com.softwareverde.bitcoin.server.module.SignatureModule;
+import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
@@ -175,6 +171,12 @@ public class Main {
         _printError("\tArgument Description: <GPU Thread Count>");
         _printError("\t\tThe number of GPU threads to be spawned while attempting to find a suitable block hash.  Ex: 0");
         _printError("\t\tNOTE: on a Mac Pro, it is best to leave this as zero.");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: CONFIGURATION");
+        _printError("\tArguments:");
+        _printError("\tDescription: Generates a new configuration file based on input from the user.");
         _printError("\t----------------");
         _printError("");
     }
@@ -505,6 +507,21 @@ public class Main {
                 final String prototypeBlockBytes = _arguments[2];
                 final MinerModule minerModule = new MinerModule(cpuThreadCount, prototypeBlockBytes);
                 minerModule.run();
+                Logger.flush();
+            } break;
+
+
+            case "CONFIGURATION" : {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                // TODO: flag for whether or not existing configuration should be edited.
+                final String configurationFilename = _arguments[1];
+                final ConfigurationModule configurationModule = new ConfigurationModule(configurationFilename, true);
+                configurationModule.run();
                 Logger.flush();
             } break;
 
