@@ -1,4 +1,4 @@
 #!/bin/bash
 
-(echo '{"method":"GET","query":"BLOCK_HEIGHT"}') | curl --data-binary @- localhost:8334
+(echo '{"method":"GET","query":"BLOCK_HEIGHT"}') | curl -s --data-binary @- localhost:8334
 
