@@ -21,6 +21,8 @@ echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SIGNATURE\" \"SIGN\" \"\$1
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SIGNATURE\" \"VERIFY\" \"\$1\" \"\$2\" \"\$3\"\n" > out/run-verify-signature.sh
 echo -e "#!/bin/bash\n\necho -n \"Thread Count: \"\nread cpu_thread_count\n\necho -n \"Prototype Block Data: \"\nread prototype_block_data\necho\n\nexec java -jar bin/main.jar \"MINER\" \"\${cpu_thread_count}\" \"\${prototype_block_data}\"\n" > out/run-miner.sh
 echo -e "#!/bin/bash\n\n(echo '{\"method\":\"POST\",\"query\":\"SHUTDOWN\"}') | curl -s --data-binary @- localhost:8334\n" > out/shutdown.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"CONFIGURATION\" \"conf/server.conf\"\n" > out/configure-node.sh
+
 chmod 770 out/*.sh
 
 mkdir out/rpc 2>/dev/null

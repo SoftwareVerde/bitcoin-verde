@@ -23,14 +23,20 @@ public class Configuration {
     protected final WalletProperties _walletProperties;
     protected final ProxyProperties _proxyProperties;
 
+    public Configuration() {
+        this(null);
+    }
+
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
-        try (final FileInputStream fileInputStream = new FileInputStream(configurationFile)) {
-            _properties.load(fileInputStream);
-        }
-        catch (final IOException exception) {
-            Logger.warn("Unable to load properties.");
+        if (configurationFile != null) {
+            try (final FileInputStream fileInputStream = new FileInputStream(configurationFile)) {
+                _properties.load(fileInputStream);
+            }
+            catch (final IOException exception) {
+                Logger.warn("Unable to load properties.");
+            }
         }
 
         _bitcoinDatabaseProperties = DatabasePropertiesLoader.loadDatabaseProperties("bitcoin", _properties);
