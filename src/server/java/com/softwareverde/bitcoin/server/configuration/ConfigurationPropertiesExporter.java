@@ -120,18 +120,22 @@ public class ConfigurationPropertiesExporter {
         IoUtil.putFileContents(configurationFilename, stringBuilder.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    public static void _appendPropertiesMapToStringBuilder(final StringBuilder stringBuilder, final Map<String, String> propertiesMap, final Map<String, String> userInputMap) {
+    private static void _appendPropertiesMapToStringBuilder(final StringBuilder stringBuilder, final Map<String, String> propertiesMap, final Map<String, String> userInputMap) {
         propertiesMap.forEach((key, value) -> {
             final String exportedValue = userInputMap.getOrDefault(key, value);
 
             if (exportedValue.isEmpty()) {
-                stringBuilder.append(key).append(" = ").append(value).append("\n");
+                _appendPropertyToStringBuilder(stringBuilder, key, value);
                 return;
             }
 
-            stringBuilder.append(key).append(" = ").append(exportedValue).append("\n");
+            _appendPropertyToStringBuilder(stringBuilder, key, exportedValue);
         });
         stringBuilder.append("\n");
+    }
+
+    private static void _appendPropertyToStringBuilder(final StringBuilder stringBuilder, final String key, final String propertyValue) {
+        stringBuilder.append(key).append(" = ").append(propertyValue).append("\n");
     }
 
     private static Map<String, String> _bitcoinVerdeDatabasePropertiesToConfigurationMap(final String prefix, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
