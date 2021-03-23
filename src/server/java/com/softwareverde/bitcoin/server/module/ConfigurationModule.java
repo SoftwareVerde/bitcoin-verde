@@ -1,21 +1,20 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
-import com.softwareverde.bitcoin.server.configuration.PropertiesExporter;
+import com.softwareverde.bitcoin.server.configuration.ConfigurationPropertiesExporter;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.util.IoUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ConfigurationModule {
     final String _configurationFilename;
     final Configuration _configuration;
+    final Map<String, String> _userInputMap = new HashMap<>();
+    final BufferedReader _bufferedReader = new BufferedReader(new InputStreamReader(System.in));
 
     public ConfigurationModule(final String configurationFilename, final boolean editExistingConfiguration) {
         _configurationFilename = configurationFilename;
@@ -28,47 +27,52 @@ public class ConfigurationModule {
         _configuration = new Configuration();
     }
 
+    // TODO: implement edit existing config, since default values won't even allow the node to run
     public void run() {
         System.out.println("Starting node configuration.");
-
-        final Map<String, String> userInputMap = new HashMap<>();
-        final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(System.in));
-        System.out.println("Please specify the following parameters. Select default parameters by returning an empty value.");
+        System.out.println("Please specify the following parameters. Select default parameters by returning an empty value.\n");
 
         try {
+            final String maxMemoryByteCount = "bitcoin." + ConfigurationPropertiesExporter.MAX_MEMORY_BYTE_COUNT;
+            System.out.printf("[%s]%n", maxMemoryByteCount);
             System.out.println("The maximum byte count for the InnoDB buffer pool. The buffer pool size is one of the most important configurations for performance as it configures the space used to store/cache table indexes.");
-            System.out.println("Max memory byte count: ");
-            final String maxMemoryByteCount = bufferedReader.readLine();
-            userInputMap.put("bitcoin." + PropertiesExporter.MAX_MEMORY_BYTE_COUNT, maxMemoryByteCount);
+            _readUserInput(maxMemoryByteCount);
 
+            System.out.printf("[%s]%n", ConfigurationPropertiesExporter.BAN_FILTER_IS_ENABLED);
             System.out.println("If set to zero or false, then nodes will not be banned under any circumstances. Additionally, any previously banned nodes will be unbanned while disabled.");
-            System.out.println("Enable ban filter (1 or 0): ");
-            final String enableBanFilter = bufferedReader.readLine();
-            userInputMap.put(PropertiesExporter.BAN_FILTER_IS_ENABLED, enableBanFilter);
+            _readUserInput(ConfigurationPropertiesExporter.BAN_FILTER_IS_ENABLED, true);
 
-            final StringBuilder stringBuilder = new StringBuilder();
-            final Map<String, String> configurationPropertiesMap = PropertiesExporter.configurationPropertiesToMap(_configuration);
-            configurationPropertiesMap.forEach((key, value) -> {
-                final String exportedValue = userInputMap.getOrDefault(key, value);
-                stringBuilder.append(key).append(" = ").append(exportedValue).append("\n");
-            });
+            System.out.printf("[%s]%n", ConfigurationPropertiesExporter.MAX_PEER_COUNT);
+            System.out.println("The maximum number of peers that the node will accept.");
+            _readUserInput(ConfigurationPropertiesExporter.MAX_PEER_COUNT);
 
-            new File(_configurationFilename).delete();
-            IoUtil.putFileContents(_configurationFilename, stringBuilder.toString().getBytes(StandardCharsets.UTF_8));
+            System.out.printf("[%s]%n", ConfigurationPropertiesExporter.MAX_THREAD_COUNT);
+            System.out.println("The max number of threads used to validate a block. Currently, the server will create max(maxPeerCount * 8, 256) threads for network communication; in the future this property will likely claim this label.");
+            _readUserInput(ConfigurationPropertiesExporter.MAX_THREAD_COUNT);
         }
         catch (final Exception exception) {
             System.out.println(exception.toString());
             exception.printStackTrace();
             BitcoinUtil.exitFailure();
         }
+
+        ConfigurationPropertiesExporter.exportConfiguration(_configuration, _configurationFilename, _userInputMap);
+        System.out.println("Node configuration is complete.");
     }
 
-    private String _readLineOrDefault(final BufferedReader bufferedReader, final String defaultValue) throws Exception {
-        final String line = bufferedReader.readLine();
-        if (line == null || line.isEmpty()) {
-            return defaultValue;
+    private void _readUserInput(final String propertyKey) throws Exception {
+        _readUserInput(propertyKey, false);
+    }
+
+    private void _readUserInput(final String propertyKey, final boolean isBoolean) throws Exception {
+        if (isBoolean) {
+            System.out.println("Enter value (1 or 0):");
+        }
+        else {
+            System.out.println("Enter value:");
         }
 
-        return line;
+        final String userInput = _bufferedReader.readLine();
+        _userInputMap.put(propertyKey, userInput);
     }
 }
