@@ -12,27 +12,30 @@ import java.util.Map;
 
 public class ConfigurationModule {
     final String _configurationFilename;
-    final Configuration _configuration;
     final Map<String, String> _userInputMap = new HashMap<>();
     final BufferedReader _bufferedReader = new BufferedReader(new InputStreamReader(System.in));
 
-    public ConfigurationModule(final String configurationFilename, final boolean editExistingConfiguration) {
+    public ConfigurationModule(final String configurationFilename) {
         _configurationFilename = configurationFilename;
-
-        if (editExistingConfiguration) {
-            _configuration = new Configuration(new File(configurationFilename));
-            return;
-        }
-
-        _configuration = new Configuration();
     }
 
-    // TODO: implement edit existing config, since default values won't even allow the node to run
     public void run() {
         System.out.println("Starting node configuration.");
-        System.out.println("Please specify the following parameters. Select default parameters by returning an empty value.\n");
 
         try {
+            System.out.println("Edit existing configuration? [y/n]");
+
+            final String editExistingConfiguration = _bufferedReader.readLine();
+            final Configuration configuration;
+            if (editExistingConfiguration.equals("y")) {
+                configuration = new Configuration(new File(_configurationFilename));
+            }
+            else {
+                configuration = new Configuration();
+            }
+
+            System.out.println("\nPlease specify the following parameters. Select default parameters by returning an empty value.");
+
             final String maxMemoryByteCount = "bitcoin." + ConfigurationPropertiesExporter.MAX_MEMORY_BYTE_COUNT;
             System.out.printf("[%s]%n", maxMemoryByteCount);
             System.out.println("The maximum byte count for the InnoDB buffer pool. The buffer pool size is one of the most important configurations for performance as it configures the space used to store/cache table indexes.");
@@ -49,6 +52,14 @@ public class ConfigurationModule {
             System.out.printf("[%s]%n", ConfigurationPropertiesExporter.MAX_THREAD_COUNT);
             System.out.println("The max number of threads used to validate a block. Currently, the server will create max(maxPeerCount * 8, 256) threads for network communication; in the future this property will likely claim this label.");
             _readUserInput(ConfigurationPropertiesExporter.MAX_THREAD_COUNT);
+
+            System.out.printf("[%s]%n", ConfigurationPropertiesExporter.MAX_MESSAGES_PER_SECOND);
+            System.out.println("May be used to prevent flooding the node; requests exceeding this throttle setting are queued. 250 msg/s supports a little over 32MB blocks.\n");
+            _readUserInput(ConfigurationPropertiesExporter.MAX_MESSAGES_PER_SECOND);
+
+            _bufferedReader.close();
+
+            ConfigurationPropertiesExporter.exportConfiguration(configuration, _configurationFilename, _userInputMap);
         }
         catch (final Exception exception) {
             System.out.println(exception.toString());
@@ -56,7 +67,6 @@ public class ConfigurationModule {
             BitcoinUtil.exitFailure();
         }
 
-        ConfigurationPropertiesExporter.exportConfiguration(_configuration, _configurationFilename, _userInputMap);
         System.out.println("Node configuration is complete.");
     }
 

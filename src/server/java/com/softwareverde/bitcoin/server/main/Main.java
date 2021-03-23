@@ -518,9 +518,8 @@ public class Main {
                     break;
                 }
 
-                // TODO: flag for whether or not existing configuration should be edited.
                 final String configurationFilename = _arguments[1];
-                final ConfigurationModule configurationModule = new ConfigurationModule(configurationFilename, true);
+                final ConfigurationModule configurationModule = new ConfigurationModule(configurationFilename);
                 configurationModule.run();
                 Logger.flush();
             } break;
