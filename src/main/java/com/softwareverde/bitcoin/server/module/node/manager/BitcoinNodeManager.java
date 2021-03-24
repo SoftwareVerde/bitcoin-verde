@@ -1161,8 +1161,8 @@ public class BitcoinNodeManager {
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         for (BitcoinNode bitcoinNode : allNodes.values()) {
-            final Transaction firstSeenTransaction = doubleSpendProof.getFirstSeenTransaction();
-            final Transaction doubleSpendTransaction = doubleSpendProof.getDoubleSpendTransaction();
+            final Transaction firstSeenTransaction = doubleSpendProof.getTransaction0();
+            final Transaction doubleSpendTransaction = doubleSpendProof.getTransaction1();
 
             final boolean matchesFilter = (bitcoinNode.matchesFilter(firstSeenTransaction) || bitcoinNode.matchesFilter(doubleSpendTransaction));
             if (matchesFilter) {

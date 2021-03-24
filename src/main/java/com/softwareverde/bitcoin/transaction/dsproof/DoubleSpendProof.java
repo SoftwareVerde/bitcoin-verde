@@ -200,10 +200,7 @@ public class DoubleSpendProof implements Hashable, Const {
             return null;
         }
 
-        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = DoubleSpendProof.createDoubleSpendProofPreimage(firstSeenTransaction, transactionOutputIdentifierBeingSpent, previousOutputScriptType);
-        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = DoubleSpendProof.createDoubleSpendProofPreimage(doubleSpendTransaction, transactionOutputIdentifierBeingSpent, previousOutputScriptType);
-
-        return new DoubleSpendProofWithTransactions(transactionOutputIdentifierBeingSpent, doubleSpendProofPreimage0, doubleSpendProofPreimage1, firstSeenTransaction, doubleSpendTransaction);
+        return DoubleSpendProofWithTransactions.create(firstSeenTransaction, doubleSpendTransaction, transactionOutputIdentifierBeingSpent, previousOutputScriptType);
     }
 
     protected final TransactionOutputIdentifier _transactionOutputIdentifierBeingDoubleSpent;
@@ -252,17 +249,8 @@ public class DoubleSpendProof implements Hashable, Const {
 
     public DoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifier, final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
         _transactionOutputIdentifierBeingDoubleSpent = transactionOutputIdentifier;
-
-        final boolean shouldSwapProvidedPreimageOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
-
-        if (shouldSwapProvidedPreimageOrder) {
-            _doubleSpendProofPreimage0 = doubleSpendProofPreimage1;
-            _doubleSpendProofPreimage1 = doubleSpendProofPreimage0;
-        }
-        else {
-            _doubleSpendProofPreimage0 = doubleSpendProofPreimage0;
-            _doubleSpendProofPreimage1 = doubleSpendProofPreimage1;
-        }
+        _doubleSpendProofPreimage0 = doubleSpendProofPreimage0;
+        _doubleSpendProofPreimage1 = doubleSpendProofPreimage1;
     }
 
     public TransactionOutputIdentifier getTransactionOutputIdentifierBeingDoubleSpent() {
