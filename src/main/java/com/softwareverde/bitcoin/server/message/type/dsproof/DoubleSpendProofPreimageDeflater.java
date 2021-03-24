@@ -2,13 +2,17 @@ package com.softwareverde.bitcoin.server.message.type.dsproof;
 
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
+
+import java.util.Comparator;
 
 public class DoubleSpendProofPreimageDeflater {
     protected MutableByteArray _longToBytes(final Long value) {
@@ -17,6 +21,32 @@ public class DoubleSpendProofPreimageDeflater {
         final MutableByteArray byteArray = new MutableByteArray(byteCount);
         ByteUtil.setBytes(byteArray, ByteArray.wrap(longBytes));
         return byteArray;
+    }
+
+    public ByteArray serializeExtraTransactionOutputDigests(final DoubleSpendProofPreimage doubleSpendProofPreimage, final Boolean includeItemCount) {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+
+        final MutableList<HashType> hashTypes = new MutableList<>(doubleSpendProofPreimage.getTransactionOutputsDigestHashTypes());
+        hashTypes.sort(new Comparator<HashType>() {
+            @Override
+            public int compare(final HashType o1, final HashType o2) {
+                return Byte.compare(o1.toByte(), o2.toByte());
+            }
+        });
+
+        if (includeItemCount) {
+            final int itemCount = hashTypes.getCount();
+            final byte[] itemCountBytes = ByteUtil.variableLengthIntegerToBytes(itemCount);
+            byteArrayBuilder.appendBytes(itemCountBytes);
+        }
+
+        for (final HashType hashType : hashTypes) {
+            final Sha256Hash transactionOutputsDigest = doubleSpendProofPreimage.getTransactionOutputsDigest(hashType);
+            byteArrayBuilder.appendByte(hashType.toByte());
+            byteArrayBuilder.appendBytes(transactionOutputsDigest);
+        }
+
+        return byteArrayBuilder;
     }
 
     public ByteArray toBytes(final DoubleSpendProofPreimage doubleSpendProofPreimage) {
@@ -51,7 +81,7 @@ public class DoubleSpendProofPreimageDeflater {
         }
 
         { // Transaction Outputs Digest
-            final Sha256Hash transactionOutputsDigest = doubleSpendProofPreimage.getTransactionOutputsDigest();
+            final Sha256Hash transactionOutputsDigest = doubleSpendProofPreimage.getExecutedTransactionOutputsDigest();
             byteArrayBuilder.appendBytes(transactionOutputsDigest, Endian.LITTLE);
         }
 
@@ -67,6 +97,10 @@ public class DoubleSpendProofPreimageDeflater {
                 byteArrayBuilder.appendBytes(byteArrayByteCountBytes, Endian.BIG);
                 byteArrayBuilder.appendBytes(byteArray, Endian.BIG);
             }
+        }
+
+        { // TODO: append hash-outputs softfork data...
+
         }
 
         return byteArrayBuilder;

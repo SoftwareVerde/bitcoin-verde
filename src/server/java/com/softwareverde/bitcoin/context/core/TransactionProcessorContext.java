@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -19,14 +20,16 @@ public class TransactionProcessorContext implements TransactionProcessor.Context
     protected final VolatileNetworkTime _networkTime;
     protected final SystemTime _systemTime;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
+    protected final ThreadPool _threadPool;
 
-    public TransactionProcessorContext(final TransactionInflaters transactionInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final VolatileNetworkTime networkTime, final SystemTime systemTime, final TransactionValidatorFactory transactionValidatorFactory, final UpgradeSchedule upgradeSchedule) {
+    public TransactionProcessorContext(final TransactionInflaters transactionInflaters, final FullNodeDatabaseManagerFactory databaseManagerFactory, final VolatileNetworkTime networkTime, final SystemTime systemTime, final TransactionValidatorFactory transactionValidatorFactory, final UpgradeSchedule upgradeSchedule, final ThreadPool threadPool) {
         _upgradeSchedule = upgradeSchedule;
         _transactionInflaters = transactionInflaters;
         _databaseManagerFactory = databaseManagerFactory;
         _networkTime = networkTime;
         _systemTime = systemTime;
         _transactionValidatorFactory = transactionValidatorFactory;
+        _threadPool = threadPool;
     }
 
     @Override
@@ -62,5 +65,10 @@ public class TransactionProcessorContext implements TransactionProcessor.Context
     @Override
     public UpgradeSchedule getUpgradeSchedule() {
         return _upgradeSchedule;
+    }
+
+    @Override
+    public ThreadPool getThreadPool() {
+        return _threadPool;
     }
 }

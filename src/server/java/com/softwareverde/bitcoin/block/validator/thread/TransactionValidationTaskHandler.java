@@ -92,7 +92,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         }
 
         if (transactionValidationResult.isValid) {
-            final Integer signatureOperationCount = transactionValidationResult.getSignatureOperationCount();
+            final Integer signatureOperationCount = transactionValidationResult.signatureOperationCount;
             _signatureOperationCount.addAndGet(signatureOperationCount);
         }
         else {

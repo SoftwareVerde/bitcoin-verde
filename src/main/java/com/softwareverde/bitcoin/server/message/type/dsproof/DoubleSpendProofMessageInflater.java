@@ -22,8 +22,12 @@ public class DoubleSpendProofMessageInflater extends BitcoinProtocolMessageInfla
         final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, previousOutputIndex);
 
         final DoubleSpendProofPreimageInflater doubleSpendProofPreimageInflater = new DoubleSpendProofPreimageInflater();
-        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProofPreimageInflater.fromBytes(byteArrayReader);
-        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProofPreimageInflater.fromBytes(byteArrayReader);
+        final MutableDoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProofPreimageInflater.fromBytes(byteArrayReader);
+        final MutableDoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProofPreimageInflater.fromBytes(byteArrayReader);
+
+        // Parse the DoubleSpendProofPreimage extra data...
+        doubleSpendProofPreimageInflater.parseExtraTransactionOutputsDigests(byteArrayReader, doubleSpendProofPreimage0);
+        doubleSpendProofPreimageInflater.parseExtraTransactionOutputsDigests(byteArrayReader, doubleSpendProofPreimage1);
 
         if (byteArrayReader.didOverflow()) { return null; }
 

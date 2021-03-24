@@ -45,15 +45,8 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
             if (Util.areEqual(unlockingScriptData0, unlockingScriptData1)) { return false; }
         }
 
-        { // Ensure the preimages are in the correct/canonical order...
-            final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getTransactionOutputsDigest();
-            final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getTransactionOutputsDigest();
-            if (transactionOutputsDigest0.compareTo(transactionOutputsDigest1) > 0) { return false; }
-
-            final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest();
-            final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest();
-            if (previousOutputsDigest0.compareTo(previousOutputsDigest1) > 0) { return false; }
-        }
+        final Boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
+        if (! preimagesAreInCanonicalOrder) { return false; }
 
         // NOTE: This check is disabled since it is performed during storing the proof.
         //  If the lookup wasn't O(N) then the duplicate check wouldn't be a problem.

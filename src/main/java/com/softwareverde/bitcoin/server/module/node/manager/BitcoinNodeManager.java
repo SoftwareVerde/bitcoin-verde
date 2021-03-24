@@ -16,6 +16,8 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeObserver;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofWithTransactions;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.ConcurrentHashSet;
@@ -1152,6 +1154,21 @@ public class BitcoinNodeManager {
         _synchronizationStatusHandler = context.synchronizationStatusHandler;
 
         _bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(_databaseManagerFactory, _threadPool, _banFilter);
+    }
+
+    public void broadcastDoubleSpendProof(final DoubleSpendProofWithTransactions doubleSpendProof) {
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+
+        final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
+        for (BitcoinNode bitcoinNode : allNodes.values()) {
+            final Transaction firstSeenTransaction = doubleSpendProof.getFirstSeenTransaction();
+            final Transaction doubleSpendTransaction = doubleSpendProof.getDoubleSpendTransaction();
+
+            final boolean matchesFilter = (bitcoinNode.matchesFilter(firstSeenTransaction) || bitcoinNode.matchesFilter(doubleSpendTransaction));
+            if (matchesFilter) {
+                bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
+            }
+        }
     }
 
     public Boolean hasBloomFilter() {

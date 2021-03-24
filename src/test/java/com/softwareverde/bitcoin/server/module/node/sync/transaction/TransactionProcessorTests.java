@@ -192,7 +192,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         }
 
         final MutableList<Transaction> processedTransactions = new MutableList<Transaction>();
-        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(transactionInflaters, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory, upgradeSchedule);
+        final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(transactionInflaters, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), new SystemTime(), _transactionValidatorFactory, upgradeSchedule, _threadPool);
         final TransactionProcessor transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.Callback() {
             @Override

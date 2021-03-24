@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.json.Json;
 
 public class TransactionValidationResult extends ValidationResult {
-    protected final Integer _signatureOperationCount;
 
     public static TransactionValidationResult valid(final Integer signatureOperationCount) {
         return new TransactionValidationResult(true, null, signatureOperationCount);
@@ -18,15 +17,13 @@ public class TransactionValidationResult extends ValidationResult {
         return new TransactionValidationResult(false, ((errorMessage != null) ? errorMessage.toString() : null), null);
     }
 
+    /**
+     * The number of signature operations executed by this Transaction, or null if validation failed.
+     */
+    public final Integer signatureOperationCount;
+
     public TransactionValidationResult(final Boolean isValid, final String errorMessage, final Integer signatureOperationCount) {
         super(isValid, errorMessage);
-        _signatureOperationCount = signatureOperationCount;
-    }
-
-    /**
-     * Returns the number of signature operations executed by this Transaction, or null if validation failed.
-     */
-    public Integer getSignatureOperationCount() {
-        return _signatureOperationCount;
+        this.signatureOperationCount = signatureOperationCount;
     }
 }

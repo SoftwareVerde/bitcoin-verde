@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
@@ -21,30 +23,32 @@ import com.softwareverde.util.Util;
 public class DoubleSpendProofValidator {
     protected final UpgradeSchedule _upgradeSchedule;
 
-    protected UnlockingScript _modifyLockingScript(final UnlockingScript originalUnlockingScript, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
-        if (originalUnlockingScript == null) { return null; }
-
-        final List<Operation> originalOperations = originalUnlockingScript.getOperations();
-        final int originalOperationsCount = originalOperations.getCount();
-
-        if (originalUnlockingScript.containsNonPushOperations()) { return null; }
-
+    protected UnlockingScript _modifyUnlockingScript(final ScriptType previousTransactionScriptType, final UnlockingScript originalUnlockingScript, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
         final List<ByteArray> pushedBytes = doubleSpendProofPreimage.getUnlockingScriptPushData();
-        if (pushedBytes.getCount() > originalOperationsCount) { return null; }
 
         final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
 
-        { // Copy over any operations that are to be retained from the original script...
-            final int operationsToRetainCount = (originalOperationsCount - pushedBytes.getCount());
-            for (int i = 0; i < operationsToRetainCount; ++i) {
-                final Operation retainedOperation = originalOperations.get(i);
-                mutableUnlockingScript.addOperation(retainedOperation);
-            }
-        }
-
+        // Copy over all of the DSProof pushed-data as push-opcodes...
         for (final ByteArray byteArray : pushedBytes) {
             final PushOperation pushOperation = PushOperation.pushBytes(byteArray);
             mutableUnlockingScript.addOperation(pushOperation);
+        }
+
+        if ( (previousTransactionScriptType == ScriptType.PAY_TO_SCRIPT_HASH) || (previousTransactionScriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) ) {
+            // For P2PKH and P2SH scripts, the push-data field is optimized to only include the unique portions of the
+            //  script, therefore the last opcode of the originalUnlockingScript is retained (which is either the public
+            //  key or the P2SH script, respectively).
+
+            final List<Operation> originalOperations = originalUnlockingScript.getOperations();
+            final int originalOperationsCount = originalOperations.getCount();
+
+            { // Push the last operation of the original script...
+                final int index = (originalOperationsCount - 1);
+                if (index < 0) { return null; } // Impossible for P2PKH/P2SH.
+
+                final Operation retainedOperation = originalOperations.get(index);
+                mutableUnlockingScript.addOperation(retainedOperation);
+            }
         }
 
         return mutableUnlockingScript;
@@ -70,7 +74,10 @@ public class DoubleSpendProofValidator {
         final UnlockingScript firstSeenUnlockingScript = _getUnlockingScriptSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
         if (firstSeenUnlockingScript == null) { return false; }
 
-        final UnlockingScript unlockingScript = _modifyLockingScript(firstSeenUnlockingScript, doubleSpendProofPreimage);
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+
+        final UnlockingScript unlockingScript = _modifyUnlockingScript(scriptType, firstSeenUnlockingScript, doubleSpendProofPreimage);
         if (unlockingScript == null) { return false; }
 
         final TransactionSigner transactionSigner = new DoubleSpendProofPreimageTransactionSigner(doubleSpendProofPreimage);

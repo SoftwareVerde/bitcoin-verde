@@ -3,17 +3,210 @@ package com.softwareverde.bitcoin.transaction.dsproof;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimage;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimageDeflater;
+import com.softwareverde.bitcoin.server.message.type.dsproof.MutableDoubleSpendProofPreimage;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignatureContext;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.signer.BitcoinCashTransactionSignerUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProof implements Hashable, Const {
-    protected final TransactionOutputIdentifier _transactionOutputIdentifier;
+    public static Boolean arePreimagesInCanonicalOrder(final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
+        final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
+
+        final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getExecutedTransactionOutputsDigest();
+        final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getExecutedTransactionOutputsDigest();
+        if (transactionOutputsDigest0.compareTo(transactionOutputsDigest1) > 0) {
+            return false;
+        }
+
+        final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest();
+        final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest();
+        if (previousOutputsDigest0.compareTo(previousOutputsDigest1) > 0) {
+            return false;
+        }
+
+        final ByteArray previousOutputsDigest0Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(doubleSpendProofPreimage0, false);
+        final ByteArray previousOutputsDigest1Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(doubleSpendProofPreimage1, false);
+
+        final int extraPreviousOutputDigestLexCompare = ByteUtil.compareByteArrayLexicographically(previousOutputsDigest0Extra, previousOutputsDigest1Extra);
+        if (extraPreviousOutputDigestLexCompare > 0) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns the index of the transactionInput that spends the provided previousOutputIdentifier.
+     */
+    protected static Integer getTransactionInput(final TransactionOutputIdentifier previousOutputIdentifier, final Transaction transaction) {
+        int inputIndex = 0;
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        for (final TransactionInput transactionInput : transactionInputs) {
+            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            if (Util.areEqual(previousOutputIdentifier, transactionOutputIdentifier)) {
+                return inputIndex;
+            }
+
+            inputIndex += 1;
+        }
+        return null;
+    }
+
+    protected static DoubleSpendProofPreimage createDoubleSpendProofPreimage(final Transaction transaction, final TransactionOutputIdentifier previousOutputIdentifier, final ScriptType previousOutputScriptType) {
+        final Integer transactionInputIndex = DoubleSpendProof.getTransactionInput(previousOutputIdentifier, transaction);
+        if (transactionInputIndex == null) { return null; }
+
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final TransactionInput transactionInput = transactionInputs.get(transactionInputIndex);
+
+        final HashType payToPublicKeyHashHashType;
+        {
+            if (previousOutputScriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) {
+                final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+                if (unlockingScript.containsNonPushOperations()) { return null; }
+
+                final List<Operation> operations = unlockingScript.getOperations();
+                if (operations.isEmpty()) { return null; }
+
+                final PushOperation signaturePushOperation = (PushOperation) operations.get(0);
+                final Value pushedSignatureValue = signaturePushOperation.getValue();
+                final ScriptSignature scriptSignature = pushedSignatureValue.asScriptSignature(ScriptSignatureContext.CHECK_SIGNATURE);
+                if (scriptSignature == null) { return null; }
+
+                payToPublicKeyHashHashType = scriptSignature.getHashType();
+            }
+            else {
+                payToPublicKeyHashHashType = null;
+            }
+        }
+
+        // P2PKH DoubleSpendProofs always relay the actual preimage used during signature execution.
+        final boolean shouldOverrideHashTypeToPayToPublicKeyHash = (payToPublicKeyHashHashType != null);
+
+        final MutableDoubleSpendProofPreimage doubleSpendProofPreimage = new MutableDoubleSpendProofPreimage();
+
+        // #1
+        final Long transactionVersion = transaction.getVersion();
+        doubleSpendProofPreimage.setTransactionVersion(transactionVersion);
+
+        { // #2
+            final HashType hashType;
+            if (shouldOverrideHashTypeToPayToPublicKeyHash) {
+                hashType = payToPublicKeyHashHashType;
+            }
+            else {
+                // For non-P2PKH scripts, the DSProof always includes the more complicated digest even if it is
+                //  overwritten during signature validation by an empty hash.
+                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+            }
+
+            final Sha256Hash previousOutputsDigest = BitcoinCashTransactionSignerUtil.getPreviousOutputIdentifiersHash(transaction, hashType);
+            doubleSpendProofPreimage.setPreviousOutputsDigest(previousOutputsDigest);
+        }
+
+        { // #3
+            final HashType hashType;
+            if (shouldOverrideHashTypeToPayToPublicKeyHash) {
+                hashType = payToPublicKeyHashHashType;
+            }
+            else {
+                // HashType Modes of SINGLE/ANYONECANPAY/NONE result in the preimage using an empty Sha256Hash, and non-P2PKH
+                //  DoubleSpendProofs always relay the more complicated digest, even if it is not used.
+                hashType = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+            }
+            final Sha256Hash sequenceNumbersDigest = BitcoinCashTransactionSignerUtil.getTransactionInputsSequenceNumbersHash(transaction, hashType);
+            doubleSpendProofPreimage.setSequenceNumbersDigest(sequenceNumbersDigest);
+        }
+
+        // #4 is the previousOutputIdentifier
+        // #5 and #6 are not provided by the DoubleSpendProof
+
+        // #7
+        final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
+        doubleSpendProofPreimage.setSequenceNumber(sequenceNumber);
+
+        { // #8
+            if (shouldOverrideHashTypeToPayToPublicKeyHash) {
+                final Sha256Hash transactionOutputsDigest = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, payToPublicKeyHashHashType);
+                doubleSpendProofPreimage.setExecutedTransactionOutputsDigest(transactionOutputsDigest);
+            }
+            else {
+                final Sha256Hash transactionOutputsDigest = Sha256Hash.EMPTY_HASH; // TODO: Change in version 2 of DSProof.
+                doubleSpendProofPreimage.setExecutedTransactionOutputsDigest(transactionOutputsDigest);
+
+                // Both HashTypes should always be included in order to provide a canonical form/identifier for the DSProof when extras are provided.
+                final HashType signatureHashSingle = new HashType(Mode.SIGNATURE_HASH_SINGLE, true, true);
+                final Sha256Hash transactionOutputsDigestSignatureHashSingle = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, signatureHashSingle);
+                doubleSpendProofPreimage.setTransactionOutputsDigest(signatureHashSingle, transactionOutputsDigestSignatureHashSingle);
+
+                final HashType signatureHashAll = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
+                final Sha256Hash transactionOutputsDigestSignatureHashAll = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, signatureHashAll);
+                doubleSpendProofPreimage.setTransactionOutputsDigest(signatureHashAll, transactionOutputsDigestSignatureHashAll);
+            }
+        }
+
+        // #9
+        final LockTime lockTime = transaction.getLockTime();
+        doubleSpendProofPreimage.setLockTime(lockTime);
+
+        { // # PushData
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+            if (unlockingScript.containsNonPushOperations()) { return null; }
+
+            final List<Operation> operations = unlockingScript.getOperations();
+            final int operationCount = operations.getCount();
+
+            for (int i = 0; i < operationCount; ++i) {
+                if ( (previousOutputScriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (previousOutputScriptType == ScriptType.PAY_TO_SCRIPT_HASH) ) {
+                    if (i == operationCount - 1) { break; }
+                }
+
+                final PushOperation pushOperation = (PushOperation) operations.get(i);
+                final Value pushOperationValue = pushOperation.getValue();
+                doubleSpendProofPreimage.addUnlockingScriptPushData(pushOperationValue);
+            }
+        }
+
+        return doubleSpendProofPreimage;
+    }
+
+    public static DoubleSpendProofWithTransactions createDoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final ScriptType previousOutputScriptType, final Transaction firstSeenTransaction, final Transaction doubleSpendTransaction) {
+        final String debugIdentifier = ((firstSeenTransaction != null ? firstSeenTransaction.getHash() : "null") + " " + (doubleSpendTransaction != null ? doubleSpendTransaction.getHash() : "null"));
+
+        if ( (firstSeenTransaction == null) || (doubleSpendTransaction == null) ) {
+            Logger.debug("Unable to create DoubleSpendProof: " + debugIdentifier);
+            return null;
+        }
+
+        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = DoubleSpendProof.createDoubleSpendProofPreimage(firstSeenTransaction, transactionOutputIdentifierBeingSpent, previousOutputScriptType);
+        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = DoubleSpendProof.createDoubleSpendProofPreimage(doubleSpendTransaction, transactionOutputIdentifierBeingSpent, previousOutputScriptType);
+
+        return new DoubleSpendProofWithTransactions(transactionOutputIdentifierBeingSpent, doubleSpendProofPreimage0, doubleSpendProofPreimage1, firstSeenTransaction, doubleSpendTransaction);
+    }
+
+    protected final TransactionOutputIdentifier _transactionOutputIdentifierBeingDoubleSpent;
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage0;
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage1;
 
@@ -24,8 +217,8 @@ public class DoubleSpendProof implements Hashable, Const {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         { // Serialize the previous output identifier...
-            final Sha256Hash previousTransactionOutputHash = _transactionOutputIdentifier.getTransactionHash();
-            final Integer previousTransactionOutputIndex = _transactionOutputIdentifier.getOutputIndex();
+            final Sha256Hash previousTransactionOutputHash = _transactionOutputIdentifierBeingDoubleSpent.getTransactionHash();
+            final Integer previousTransactionOutputIndex = _transactionOutputIdentifierBeingDoubleSpent.getOutputIndex();
             byteArrayBuilder.appendBytes(previousTransactionOutputHash, Endian.LITTLE);
             byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(previousTransactionOutputIndex), Endian.LITTLE);
         }
@@ -38,17 +231,42 @@ public class DoubleSpendProof implements Hashable, Const {
             byteArrayBuilder.appendBytes(doubleSpendProofDigestBytes1, Endian.BIG);
         }
 
+        { // Serialize extra TransactionOutputDigests, if there are any...
+            final List<HashType> preimage0HashTypes = _doubleSpendProofPreimage0.getTransactionOutputsDigestHashTypes();
+            final List<HashType> preimage1HashTypes = _doubleSpendProofPreimage1.getTransactionOutputsDigestHashTypes();
+
+            final int preimage0HashTypesCount = preimage0HashTypes.getCount();
+            final int preimage1HashTypesCount = preimage1HashTypes.getCount();
+            if ( (preimage0HashTypesCount > 0) || (preimage1HashTypesCount > 0) ) {
+                final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
+                final ByteArray extraDigestsBytes0 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage0, true);
+                final ByteArray extraDigestsBytes1 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage1, true);
+
+                byteArrayBuilder.appendBytes(extraDigestsBytes0);
+                byteArrayBuilder.appendBytes(extraDigestsBytes1);
+            }
+        }
+
         return byteArrayBuilder;
     }
 
     public DoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifier, final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
-        _transactionOutputIdentifier = transactionOutputIdentifier;
-        _doubleSpendProofPreimage0 = doubleSpendProofPreimage0;
-        _doubleSpendProofPreimage1 = doubleSpendProofPreimage1;
+        _transactionOutputIdentifierBeingDoubleSpent = transactionOutputIdentifier;
+
+        final boolean shouldSwapProvidedPreimageOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
+
+        if (shouldSwapProvidedPreimageOrder) {
+            _doubleSpendProofPreimage0 = doubleSpendProofPreimage1;
+            _doubleSpendProofPreimage1 = doubleSpendProofPreimage0;
+        }
+        else {
+            _doubleSpendProofPreimage0 = doubleSpendProofPreimage0;
+            _doubleSpendProofPreimage1 = doubleSpendProofPreimage1;
+        }
     }
 
     public TransactionOutputIdentifier getTransactionOutputIdentifierBeingDoubleSpent() {
-        return _transactionOutputIdentifier;
+        return _transactionOutputIdentifierBeingDoubleSpent;
     }
 
     public DoubleSpendProofPreimage getDoubleSpendProofPreimage0() {

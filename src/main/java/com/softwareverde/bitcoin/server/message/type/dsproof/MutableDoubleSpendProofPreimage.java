@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.dsproof;
 
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
@@ -29,8 +30,12 @@ public class MutableDoubleSpendProofPreimage extends DoubleSpendProofPreimage {
         _sequenceNumbersDigest = sequenceNumbersDigest;
     }
 
-    public void setTransactionOutputsDigest(final Sha256Hash transactionOutputsDigest) {
-        _transactionOutputsDigest = transactionOutputsDigest;
+    public void setExecutedTransactionOutputsDigest(final Sha256Hash transactionOutputsDigest) {
+        _executedTransactionOutputsDigest = transactionOutputsDigest;
+    }
+
+    public void setTransactionOutputsDigest(final HashType hashType, final Sha256Hash transactionOutputsDigest) {
+        _alternateTransactionOutputsDigests.put(hashType, transactionOutputsDigest);
     }
 
     public void addUnlockingScriptPushData(final ByteArray unlockingScriptPushData) {

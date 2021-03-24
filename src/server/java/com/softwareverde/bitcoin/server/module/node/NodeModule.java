@@ -103,6 +103,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofWithTransactions;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
@@ -558,7 +559,7 @@ public class NodeModule {
         }
 
         { // Initialize the TransactionProcessor...
-            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_masterInflater, databaseManagerFactory, _mutableNetworkTime, _systemTime, transactionValidatorFactory, _upgradeSchedule);
+            final TransactionProcessorContext transactionProcessorContext = new TransactionProcessorContext(_masterInflater, databaseManagerFactory, _mutableNetworkTime, _systemTime, transactionValidatorFactory, _upgradeSchedule, _generalThreadPool);
             _transactionProcessor = new TransactionProcessor(transactionProcessorContext);
         }
 
@@ -763,6 +764,14 @@ public class NodeModule {
                     }
 
                     _transactionRelay.relayTransactions(transactions);
+                }
+            });
+
+            _transactionProcessor.setNewDoubleSpendProofCallback(new TransactionProcessor.DoubleSpendProofCallback() {
+                @Override
+                public void onNewDoubleSpendProof(final DoubleSpendProofWithTransactions doubleSpendProof) {
+                    doubleSpendProofStore.storeDoubleSpendProof(doubleSpendProof);
+                    _bitcoinNodeManager.broadcastDoubleSpendProof(doubleSpendProof);
                 }
             });
         }
