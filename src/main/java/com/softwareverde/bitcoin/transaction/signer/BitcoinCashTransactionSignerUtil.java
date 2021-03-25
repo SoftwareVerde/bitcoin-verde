@@ -20,8 +20,13 @@ public class BitcoinCashTransactionSignerUtil {
     protected static final int FORK_ID = 0x000000;
 
     public static Boolean shouldSequenceNumbersDigestBeEmptyHash(final HashType hashType) {
-        if (hashType.shouldSignOtherInputs()) { return false; }
-        return ((hashType.getMode() == Mode.SIGNATURE_HASH_NONE) || (hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE));
+        if (! hashType.shouldSignOtherInputs()) { return true; }
+
+        final Mode hashTypeMode = hashType.getMode();
+        if (hashTypeMode == Mode.SIGNATURE_HASH_NONE) { return true; }
+        if (hashTypeMode == Mode.SIGNATURE_HASH_SINGLE) { return true; }
+
+        return false;
     }
 
     public static ByteArray getTransactionVersionBytes(final Transaction transaction) {
@@ -32,7 +37,7 @@ public class BitcoinCashTransactionSignerUtil {
      * Get the Bitcoin Cash Transaction signing preimage property (#1) that is the serialization of the Transaction's version.
      */
     public static ByteArray getTransactionVersionBytes(final Long transactionVersion) {
-        return ByteArray.wrap(ByteUtil.integerToBytes(transactionVersion));
+        return ByteArray.wrap(ByteUtil.integerToBytes(transactionVersion)).toReverseEndian();
     }
 
     /**
@@ -94,7 +99,7 @@ public class BitcoinCashTransactionSignerUtil {
      */
     public static ByteArray getPreviousTransactionOutputAmountBytes(final TransactionOutput transactionOutput) {
         final Long amount = transactionOutput.getAmount();
-        return ByteArray.wrap(ByteUtil.longToBytes(amount));
+        return ByteArray.wrap(ByteUtil.longToBytes(amount)).toReverseEndian();
     }
 
     /**
@@ -106,7 +111,7 @@ public class BitcoinCashTransactionSignerUtil {
         final TransactionInput transactionInput = transactionInputs.get(inputIndex);
 
         final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
-        return sequenceNumber.getBytes();
+        return sequenceNumber.getBytes().toReverseEndian();
     }
 
     /**
@@ -150,7 +155,7 @@ public class BitcoinCashTransactionSignerUtil {
 
     public static ByteArray getTransactionLockTimeBytes(final Transaction transaction) {
         final LockTime lockTime = transaction.getLockTime();
-        return BitcoinCashTransactionSignerUtil.getTransactionLockTimeBytes(lockTime);
+        return BitcoinCashTransactionSignerUtil.getTransactionLockTimeBytes(lockTime).toReverseEndian();
     }
 
     /**
@@ -167,7 +172,7 @@ public class BitcoinCashTransactionSignerUtil {
         final byte hashTypeByte = hashType.toByte();
         final byte[] hashTypeWithForkId = ByteUtil.integerToBytes(FORK_ID << 8);
         hashTypeWithForkId[3] |= hashTypeByte;
-        return ByteArray.wrap(hashTypeWithForkId);
+        return ByteArray.wrap(hashTypeWithForkId).toReverseEndian();
     }
 
     protected BitcoinCashTransactionSignerUtil() { }

@@ -11,7 +11,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProofPreimageTransactionSigner extends TransactionSigner {
     protected final DoubleSpendProofPreimage _doubleSpendProofPreimage;
@@ -26,7 +25,7 @@ public class DoubleSpendProofPreimageTransactionSigner extends TransactionSigner
         { // 1. Serialize this Transaction's version...
             final Long transactionVersion = _doubleSpendProofPreimage.getTransactionVersion();
             final ByteArray versionBytes = BitcoinCashTransactionSignerUtil.getTransactionVersionBytes(transactionVersion);
-            byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(versionBytes);
         }
 
         { // 2. Serialize this Transaction's PreviousTransactionOutputs...
@@ -55,12 +54,12 @@ public class DoubleSpendProofPreimageTransactionSigner extends TransactionSigner
         }
 
         { // 6. Serialize the amount of the spent TransactionOutput...
-            byteArrayBuilder.appendBytes(defaultSignaturePreimage.transactionOutputAmountBytes, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(defaultSignaturePreimage.transactionOutputAmountBytes);
         }
 
         { // 7. Serialize the SequenceNumber for this TransactionInput...
             final SequenceNumber sequenceNumber = _doubleSpendProofPreimage.getSequenceNumber();
-            byteArrayBuilder.appendBytes(sequenceNumber.getBytes(), Endian.LITTLE);
+            byteArrayBuilder.appendBytes(sequenceNumber.getBytes());
         }
 
         { // 8. Serialize this Transaction's TransactionOutputs...
@@ -71,11 +70,11 @@ public class DoubleSpendProofPreimageTransactionSigner extends TransactionSigner
         { // 9. Serialize this Transaction's LockTime...
             final LockTime lockTime = _doubleSpendProofPreimage.getLockTime();
             final ByteArray lockTimeBytes = BitcoinCashTransactionSignerUtil.getTransactionLockTimeBytes(lockTime);
-            byteArrayBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(lockTimeBytes);
         }
 
         { // 10. Serialize this Transaction's HashType...
-            byteArrayBuilder.appendBytes(defaultSignaturePreimage.hashTypeBytes, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(defaultSignaturePreimage.hashTypeBytes);
         }
 
         return HashUtil.doubleSha256(byteArrayBuilder.build());

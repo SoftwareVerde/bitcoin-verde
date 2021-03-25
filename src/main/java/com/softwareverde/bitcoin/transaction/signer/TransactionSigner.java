@@ -259,16 +259,16 @@ public class TransactionSigner {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionVersionBytes, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionVersionBytes);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousTransactionOutputsDigest);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumbersDigest);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousOutputBytes);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.scriptBytes);
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputAmountBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumberBytes, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputAmountBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumberBytes);
         byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputsDigest);
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.lockTimeBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.hashTypeBytes, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.lockTimeBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.hashTypeBytes);
 
         return HashUtil.doubleSha256(byteArrayBuilder.build());
     }
