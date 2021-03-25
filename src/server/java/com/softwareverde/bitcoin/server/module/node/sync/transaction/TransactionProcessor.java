@@ -248,6 +248,8 @@ public class TransactionProcessor extends SleepyService {
                                         final Transaction firstSeenTransaction = transactionDatabaseManager.getTransaction(firstSeenTransactionId);
                                         final DoubleSpendProofWithTransactions doubleSpendProof = DoubleSpendProof.createDoubleSpendProof(transactionOutputIdentifierBeingDoubleSpent, scriptType, firstSeenTransaction, transaction);
                                         if (doubleSpendProof != null) {
+                                            Logger.debug("DSProof created: " + doubleSpendProof.getHash());
+
                                             final ThreadPool threadPool = _context.getThreadPool();
                                             threadPool.execute(new Runnable() {
                                                 @Override
@@ -255,6 +257,9 @@ public class TransactionProcessor extends SleepyService {
                                                     doubleSpendProofCallback.onNewDoubleSpendProof(doubleSpendProof);
                                                 }
                                             });
+                                        }
+                                        else {
+                                            Logger.debug("Unable to create DSProof for Tx: " + transactionHash);
                                         }
                                     }
                                 }
