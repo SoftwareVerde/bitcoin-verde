@@ -14,11 +14,19 @@ import com.softwareverde.util.Util;
 
 public class DoubleSpendProofValidator {
     public static class Context {
-        public UpgradeSchedule upgradeSchedule;
-        public Long headBlockHeight;
-        public MedianBlockTime medianBlockTime;
-        public Transaction transactionBeingSpent;
-        public Transaction conflictingTransaction;
+        public final UpgradeSchedule upgradeSchedule;
+        public final Long headBlockHeight;
+        public final MedianBlockTime medianBlockTime;
+        public final Transaction transactionBeingSpent;
+        public final Transaction conflictingTransaction;
+
+        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final Transaction transactionBeingSpent, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
+            this.upgradeSchedule = upgradeSchedule;
+            this.headBlockHeight = headBlockHeight;
+            this.medianBlockTime = medianBlockTime;
+            this.transactionBeingSpent = transactionBeingSpent;
+            this.conflictingTransaction = conflictingTransaction;
+        }
     }
 
     protected final Context _context;

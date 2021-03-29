@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.message.type.dsproof;
 
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;

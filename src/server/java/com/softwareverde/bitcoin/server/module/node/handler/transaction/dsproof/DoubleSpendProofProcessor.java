@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof;
 
+import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
@@ -10,6 +12,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofValidator;
@@ -32,21 +35,23 @@ public class DoubleSpendProofProcessor {
         final TransactionOutputIdentifier transactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
         final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
 
-        final DoubleSpendProofValidator.Context doubleSpendValidatorContext = new DoubleSpendProofValidator.Context();
-
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
+        final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+
+        final Long headBlockHeight;
+        final MedianBlockTime medianTimePast;
         { // Acquire chain state data for validation...
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-            final Long previousBlockHeight = (headBlockHeight - 1L);
+            headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
-            doubleSpendValidatorContext.headBlockHeight = headBlockHeight;
-            doubleSpendValidatorContext.medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
+            final Long previousBlockHeight = (headBlockHeight - 1L);
+            medianTimePast = _context.getMedianBlockTime(previousBlockHeight);
         }
 
+        final Transaction transactionBeingSpent;
         { // Load the Transaction being spent from the database...
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
@@ -55,10 +60,11 @@ public class DoubleSpendProofProcessor {
                 return null;
             }
 
-            doubleSpendValidatorContext.transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionId);
-            if (doubleSpendValidatorContext.transactionBeingSpent == null) { return null; }
+            transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionId);
+            if (transactionBeingSpent == null) { return null; }
         }
 
+        final Transaction conflictingTransaction;
         { // Load the conflicting Transaction from the mempool...
             final UnconfirmedTransactionInputDatabaseManager transactionInputDatabaseManager = databaseManager.getUnconfirmedTransactionInputDatabaseManager();
             final UnconfirmedTransactionInputId unconfirmedTransactionInputId = transactionInputDatabaseManager.getUnconfirmedTransactionInputIdSpendingTransactionOutput(transactionOutputIdentifier);
@@ -68,11 +74,11 @@ public class DoubleSpendProofProcessor {
             }
 
             final TransactionId transactionId = transactionInputDatabaseManager.getTransactionId(unconfirmedTransactionInputId);
-            doubleSpendValidatorContext.conflictingTransaction = transactionDatabaseManager.getTransaction(transactionId);
-            if (doubleSpendValidatorContext.conflictingTransaction == null) { return null; }
+            conflictingTransaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (conflictingTransaction == null) { return null; }
         }
 
-        return doubleSpendValidatorContext;
+        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, transactionBeingSpent, conflictingTransaction, upgradeSchedule);
     }
 
     public DoubleSpendProofProcessor(final DoubleSpendProofStore doubleSpendProofStore, final Context context) {
