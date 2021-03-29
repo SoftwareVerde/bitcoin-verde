@@ -27,13 +27,13 @@ public class DoubleSpendProofPreimageInflater {
         final LockTime lockTime = new ImmutableLockTime(lockTimeValue);
         doubleSpendProofPreimage.setLockTime(lockTime);
 
-        final Sha256Hash previousOutputsDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+        final Sha256Hash previousOutputsDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.BIG));
         doubleSpendProofPreimage.setPreviousOutputsDigest(previousOutputsDigest);
 
-        final Sha256Hash sequenceNumbersDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+        final Sha256Hash sequenceNumbersDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.BIG));
         doubleSpendProofPreimage.setSequenceNumbersDigest(sequenceNumbersDigest);
 
-        final Sha256Hash transactionOutputsDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+        final Sha256Hash transactionOutputsDigest = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.BIG));
         doubleSpendProofPreimage.setExecutedTransactionOutputsDigest(transactionOutputsDigest);
 
         final Long pushDataCount = byteArrayReader.readVariableSizedInteger();

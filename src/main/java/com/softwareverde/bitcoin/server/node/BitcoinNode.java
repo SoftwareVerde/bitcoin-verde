@@ -565,7 +565,7 @@ public class BitcoinNode extends Node {
 
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
-                Logger.trace("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
+                Logger.trace("Received: " + message.getCommand() + " from " + BitcoinNode.this);
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
 
@@ -787,12 +787,6 @@ public class BitcoinNode extends Node {
                 } break;
 
                 case DOUBLE_SPEND_PROOF: {
-                    if (Logger.isDebugEnabled()) {
-                        for (final Sha256Hash objectHash : objectHashes) {
-                            Logger.debug("Received Double-Spend Proof: " + objectHash + " from " + _connection);
-                        }
-                    }
-
                     final DoubleSpendProofAnnouncementHandler doubleSpendProofAnnouncementCallback = _doubleSpendProofAnnouncementCallback;
                     if (doubleSpendProofAnnouncementCallback != null) {
                         _threadPool.execute(new Runnable() {

@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
+import com.softwareverde.bitcoin.context.core.DoubleSpendProofProcessorContext;
 import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
@@ -64,6 +65,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnc
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofAnnouncementHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofProcessor;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
@@ -103,6 +105,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofWithTransactions;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -411,7 +414,14 @@ public class NodeModule {
             }
         };
 
-        final DoubleSpendProofStore doubleSpendProofStore = new DoubleSpendProofStore(256);
+        final DoubleSpendProofStore doubleSpendProofStore;
+        final DoubleSpendProofProcessor doubleSpendProofProcessor;
+        {
+            doubleSpendProofStore = new DoubleSpendProofStore(256);
+
+            final DoubleSpendProofProcessorContext doubleSpendProofProcessorContext = new DoubleSpendProofProcessorContext(databaseManagerFactory, _upgradeSchedule);
+            doubleSpendProofProcessor = new DoubleSpendProofProcessor(doubleSpendProofStore, doubleSpendProofProcessorContext);
+        }
 
         _requestDataHandler = new RequestDataHandler(databaseManagerFactory, doubleSpendProofStore);
         _transactionWhitelist = RequestDataHandlerMonitor.wrap(_requestDataHandler);
@@ -448,7 +458,7 @@ public class NodeModule {
             nodeInitializerContext.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerContext.localNodeFeatures = localNodeFeatures;
             nodeInitializerContext.transactionsAnnouncementHandlerFactory = new TransactionAnnouncementHandlerFactory(databaseManagerFactory, synchronizationStatusHandler, newInventoryCallback);
-            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(databaseManagerFactory, doubleSpendProofStore, _upgradeSchedule, new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
+            nodeInitializerContext.doubleSpendProofAnnouncementHandlerFactory = new DoubleSpendProofAnnouncementHandlerFactory(doubleSpendProofProcessor, doubleSpendProofStore, new DoubleSpendProofAnnouncementHandlerFactory.BitcoinNodeCollector() {
                 @Override
                 public List<BitcoinNode> getConnectedNodes() {
                     return _bitcoinNodeManager.getNodes();
@@ -764,6 +774,20 @@ public class NodeModule {
                     }
 
                     _transactionRelay.relayTransactions(transactions);
+
+                    final List<DoubleSpendProof> doubleSpendProofsToRetry = doubleSpendProofStore.getTriggeredPendingDoubleSpendProof(transactions);
+                    for (final DoubleSpendProof doubleSpendProof : doubleSpendProofsToRetry) {
+                        final Boolean isValidAndUnseen = doubleSpendProofProcessor.processDoubleSpendProof(doubleSpendProof);
+                        if (! isValidAndUnseen) { return; }
+
+                        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+                        Logger.debug("DoubleSpendProof validated: " + doubleSpendProofHash);
+
+                        final List<BitcoinNode> bitcoinNodes = _bitcoinNodeManager.getNodes();
+                        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+                            bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
+                        }
+                    }
                 }
             });
 

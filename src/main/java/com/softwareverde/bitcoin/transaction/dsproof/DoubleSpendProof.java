@@ -34,18 +34,19 @@ public class DoubleSpendProof implements Hashable, Const {
     public static Boolean arePreimagesInCanonicalOrder(final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
         final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
 
-        final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getExecutedTransactionOutputsDigest();
-        final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getExecutedTransactionOutputsDigest();
+        final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getExecutedTransactionOutputsDigest().toReversedEndian();
+        final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getExecutedTransactionOutputsDigest().toReversedEndian();
         if (transactionOutputsDigest0.compareTo(transactionOutputsDigest1) > 0) {
             return false;
         }
 
-        final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest();
-        final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest();
+        final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest().toReversedEndian();
+        final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest().toReversedEndian();
         if (previousOutputsDigest0.compareTo(previousOutputsDigest1) > 0) {
             return false;
         }
 
+        // TODO: Endianness here is inconsistent with the first half of the algorithm (above).
         final ByteArray previousOutputsDigest0Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(doubleSpendProofPreimage0, false);
         final ByteArray previousOutputsDigest1Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(doubleSpendProofPreimage1, false);
 
@@ -262,7 +263,7 @@ public class DoubleSpendProof implements Hashable, Const {
     }
 
     public DoubleSpendProofPreimage getDoubleSpendProofPreimage1() {
-        return _doubleSpendProofPreimage0;
+        return _doubleSpendProofPreimage1;
     }
 
     public ByteArray getBytes() {
@@ -280,7 +281,7 @@ public class DoubleSpendProof implements Hashable, Const {
                 _cachedBytes = _getBytes();
             }
 
-            _cachedHash = HashUtil.doubleSha256(_cachedBytes);
+            _cachedHash = HashUtil.doubleSha256(_cachedBytes).toReversedEndian();
         }
 
         return _cachedHash;

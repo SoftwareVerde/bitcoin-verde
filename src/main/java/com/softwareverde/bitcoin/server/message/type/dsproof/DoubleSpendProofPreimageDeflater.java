@@ -72,17 +72,17 @@ public class DoubleSpendProofPreimageDeflater {
 
         { // Previous Outputs Digest
             final Sha256Hash previousOutputsDigest = doubleSpendProofPreimage.getPreviousOutputsDigest();
-            byteArrayBuilder.appendBytes(previousOutputsDigest, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(previousOutputsDigest, Endian.BIG);
         }
 
         { // Sequence Numbers Digest
             final Sha256Hash sequenceNumbersDigest = doubleSpendProofPreimage.getSequenceNumbersDigest();
-            byteArrayBuilder.appendBytes(sequenceNumbersDigest, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(sequenceNumbersDigest, Endian.BIG);
         }
 
         { // Transaction Outputs Digest
             final Sha256Hash transactionOutputsDigest = doubleSpendProofPreimage.getExecutedTransactionOutputsDigest();
-            byteArrayBuilder.appendBytes(transactionOutputsDigest, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(transactionOutputsDigest, Endian.BIG);
         }
 
         { // Pushed Data

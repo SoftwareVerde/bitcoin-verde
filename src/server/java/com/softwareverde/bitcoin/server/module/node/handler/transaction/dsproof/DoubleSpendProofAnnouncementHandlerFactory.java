@@ -1,25 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof;
 
-import com.softwareverde.bitcoin.bip.UpgradeSchedule;
-import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimage;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
-import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofValidator;
-import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
@@ -28,103 +14,25 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
         List<BitcoinNode> getConnectedNodes();
     }
 
-    protected final UpgradeSchedule _upgradeSchedule;
-    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final DoubleSpendProofProcessor _doubleSpendProofProcessor;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
     protected final BitcoinNodeCollector _bitcoinNodeCollector;
-
-    protected Boolean _isDoubleSpendValid(final DoubleSpendProof doubleSpendProof) {
-        final TransactionOutputIdentifier transactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
-
-        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProof.getDoubleSpendProofPreimage0();
-        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProof.getDoubleSpendProofPreimage1();
-
-        { // Ensure preimages are unique...
-            final List<ByteArray> unlockingScriptData0 = doubleSpendProofPreimage0.getUnlockingScriptPushData();
-            final List<ByteArray> unlockingScriptData1 = doubleSpendProofPreimage1.getUnlockingScriptPushData();
-            if (Util.areEqual(unlockingScriptData0, unlockingScriptData1)) { return false; }
-        }
-
-        final Boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
-        if (! preimagesAreInCanonicalOrder) { return false; }
-
-        // NOTE: This check is disabled since it is performed during storing the proof.
-        //  If the lookup wasn't O(N) then the duplicate check wouldn't be a problem.
-        //
-        // { // Ensure the DoubleSpendProof is unique / is not redundant with an existing DoubleSpendProof...
-        //     final DoubleSpendProof redundantDoubleSpendProof = _doubleSpendProofStore.getDoubleSpendProof(transactionOutputIdentifier);
-        //     if (redundantDoubleSpendProof != null) { return false; }
-        // }
-
-        final Transaction transactionBeingSpent;
-        final Transaction conflictingTransaction;
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-            { // Load the Transaction being spent from the database...
-                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                if (transactionId == null) { return false; }
-
-                transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionId);
-            }
-
-            { // Load the conflicting Transaction from the mempool...
-                final UnconfirmedTransactionInputDatabaseManager transactionInputDatabaseManager = databaseManager.getUnconfirmedTransactionInputDatabaseManager();
-                final UnconfirmedTransactionInputId unconfirmedTransactionInputId = transactionInputDatabaseManager.getUnconfirmedTransactionInputIdSpendingTransactionOutput(transactionOutputIdentifier);
-                if (unconfirmedTransactionInputId == null) { return false; }
-
-                final TransactionId transactionId = transactionInputDatabaseManager.getTransactionId(unconfirmedTransactionInputId);
-                conflictingTransaction = transactionDatabaseManager.getTransaction(transactionId);
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-            return false;
-        }
-
-        if ( (transactionBeingSpent == null) || (conflictingTransaction == null) ) { return false; }
-
-        final TransactionOutput transactionOutputBeingSpent;
-        {
-            final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final List<TransactionOutput> transactionOutputs = transactionBeingSpent.getTransactionOutputs();
-            if (transactionOutputIndex >= transactionOutputs.getCount()) { return false; }
-
-            transactionOutputBeingSpent = transactionOutputs.get(transactionOutputIndex);
-        }
-
-        final DoubleSpendProofValidator doubleSpendProofValidator = new DoubleSpendProofValidator(_upgradeSchedule);
-
-        final Boolean firstProofIsValid = doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, conflictingTransaction, doubleSpendProofPreimage0);
-        if (! firstProofIsValid) { return false; }
-
-        return doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, conflictingTransaction, doubleSpendProofPreimage1);
-    }
 
     protected void _downloadDoubleSpendProof(final Sha256Hash doubleSpendProofHash, final BitcoinNode bitcoinNode) {
         bitcoinNode.requestDoubleSpendProof(doubleSpendProofHash, new BitcoinNode.DownloadDoubleSpendProofCallback() {
             @Override
-            public void onResult(final RequestId requestId, final BitcoinNode originatingBitcoinNode, final DoubleSpendProof doubleSpendProof) {
-                _onDoubleSpendProofDownloaded(doubleSpendProof, originatingBitcoinNode);
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final DoubleSpendProof doubleSpendProof) {
+                Logger.info("DSProof Received: " + doubleSpendProof.getHash() + " from " + bitcoinNode);
+                _onDoubleSpendProofDownloaded(doubleSpendProof, bitcoinNode);
             }
         });
     }
 
     protected void _onDoubleSpendProofDownloaded(final DoubleSpendProof doubleSpendProof, final BitcoinNode originatingBitcoinNode) {
-        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
-        final Boolean doubleSpendProofIsValid = _isDoubleSpendValid(doubleSpendProof);
-        if (! doubleSpendProofIsValid) {
-            // TODO: Consider avoiding reprocessing previously failed proofs (although it is not trivial, since the previous proof
-            //  may have failed because the original transaction may not have been received yet).
-            Logger.debug("Invalid DoubleSpendProof from " + originatingBitcoinNode + ": " + doubleSpendProofHash);
-            return;
-        }
-
-        final Boolean wasUnseen = _doubleSpendProofStore.storeDoubleSpendProof(doubleSpendProof);
-
-        if (wasUnseen) { // Broadcast unseen proofs to other peers...
-            Logger.info("DoubleSpendProof received: " + doubleSpendProofHash);
+        final Boolean isValidAndUnseen = _doubleSpendProofProcessor.processDoubleSpendProof(doubleSpendProof);
+        if (isValidAndUnseen) { // Broadcast unseen proofs to other peers...
+            final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+            Logger.debug("DoubleSpendProof validated: " + doubleSpendProofHash);
 
             final List<BitcoinNode> bitcoinNodes = _bitcoinNodeCollector.getConnectedNodes();
             for (final BitcoinNode bitcoinNode : bitcoinNodes) {
@@ -134,11 +42,10 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
         }
     }
 
-    public DoubleSpendProofAnnouncementHandlerFactory(final FullNodeDatabaseManagerFactory databaseManagerFactory, final DoubleSpendProofStore doubleSpendProofStore, final UpgradeSchedule upgradeSchedule, final BitcoinNodeCollector bitcoinNodeCollector) {
+    public DoubleSpendProofAnnouncementHandlerFactory(final DoubleSpendProofProcessor doubleSpendProofProcessor, final DoubleSpendProofStore doubleSpendProofStore, final BitcoinNodeCollector bitcoinNodeCollector) {
+        _doubleSpendProofProcessor = doubleSpendProofProcessor;
         _doubleSpendProofStore = doubleSpendProofStore;
         _bitcoinNodeCollector = bitcoinNodeCollector;
-        _databaseManagerFactory = databaseManagerFactory;
-        _upgradeSchedule = upgradeSchedule;
     }
 
     @Override
@@ -147,6 +54,12 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
             @Override
             public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> doubleSpendProofsIdentifiers) {
                 for (final Sha256Hash doubleSpendProofHash : doubleSpendProofsIdentifiers) {
+                    final Boolean doubleSpendProofIsBanned = _doubleSpendProofStore.isDoubleSpendProofBanned(doubleSpendProofHash);
+                    if (doubleSpendProofIsBanned) { continue; }
+
+                    final boolean doubleSpendIsProcessed = (_doubleSpendProofStore.getDoubleSpendProof(doubleSpendProofHash) != null);
+                    if (doubleSpendIsProcessed) { continue; }
+
                     _downloadDoubleSpendProof(doubleSpendProofHash, bitcoinNode);
                 }
             }

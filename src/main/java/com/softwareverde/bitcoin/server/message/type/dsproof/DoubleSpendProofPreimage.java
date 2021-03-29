@@ -59,7 +59,12 @@ public class DoubleSpendProofPreimage {
             return Sha256Hash.EMPTY_HASH;
         }
 
-        return _alternateTransactionOutputsDigests.get(hashType);
+        final Sha256Hash alternateDigest = _alternateTransactionOutputsDigests.get(hashType);
+        if (alternateDigest != null) {
+            return alternateDigest;
+        }
+
+        return _executedTransactionOutputsDigest;
     }
 
     public List<ByteArray> getUnlockingScriptPushData() {

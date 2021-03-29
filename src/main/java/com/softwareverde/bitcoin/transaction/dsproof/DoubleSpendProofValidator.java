@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.dsproof;
 
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimage;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -21,6 +22,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.util.Util;
 
 public class DoubleSpendProofValidator {
+    protected final Long _blockHeight;
+    protected final MedianBlockTime _medianBlockTime;
     protected final UpgradeSchedule _upgradeSchedule;
 
     protected UnlockingScript _modifyUnlockingScript(final ScriptType previousTransactionScriptType, final UnlockingScript originalUnlockingScript, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
@@ -54,18 +57,37 @@ public class DoubleSpendProofValidator {
         return mutableUnlockingScript;
     }
 
-    protected UnlockingScript _getUnlockingScriptSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
+    protected Integer _getInputIndexSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
+        int i = 0;
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
             if (Util.areEqual(transactionOutputIdentifierBeingSpent, transactionOutputIdentifier)) {
-                return transactionInput.getUnlockingScript();
+                return i;
             }
+            i += 1;
         }
 
         return null;
     }
 
-    public DoubleSpendProofValidator(final UpgradeSchedule upgradeSchedule) {
+    protected TransactionInput _getInputSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
+        final Integer inputIndex = _getInputIndexSpendingOutput(transactionOutputIdentifierBeingSpent, transaction);
+        if (inputIndex == null) { return null; }
+
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        return transactionInputs.get(inputIndex);
+    }
+
+    protected UnlockingScript _getUnlockingScriptSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
+        final TransactionInput transactionInput = _getInputSpendingOutput(transactionOutputIdentifierBeingSpent, transaction);
+        if (transactionInput == null) { return null; }
+
+        return transactionInput.getUnlockingScript();
+    }
+
+    public DoubleSpendProofValidator(final Long blockHeight, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
+        _blockHeight = blockHeight;
+        _medianBlockTime = medianBlockTime;
         _upgradeSchedule = upgradeSchedule;
     }
 
@@ -82,6 +104,20 @@ public class DoubleSpendProofValidator {
 
         final TransactionSigner transactionSigner = new DoubleSpendProofPreimageTransactionSigner(doubleSpendProofPreimage);
         final MutableTransactionContext transactionContext = new MutableTransactionContext(_upgradeSchedule, transactionSigner);
+        {
+            transactionContext.setBlockHeight(_blockHeight);
+            transactionContext.setMedianBlockTime(_medianBlockTime);
+            transactionContext.setTransaction(firstSeenSpendingTransaction);
+
+            final List<TransactionInput> transactionInputs = firstSeenSpendingTransaction.getTransactionInputs();
+            final Integer transactionInputIndex = _getInputIndexSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
+            if (transactionInputIndex == null) { return false; }
+            final TransactionInput transactionInput = transactionInputs.get(transactionInputIndex);
+
+            transactionContext.setTransactionInput(transactionInput);
+            transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+            transactionContext.setTransactionInputIndex(transactionInputIndex);
+        }
 
         final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
         final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
