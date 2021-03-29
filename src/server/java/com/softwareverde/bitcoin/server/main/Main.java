@@ -11,9 +11,13 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.database.pool.SimpleDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.module.*;
+import com.softwareverde.bitcoin.server.module.AddressModule;
+import com.softwareverde.bitcoin.server.module.ChainValidationModule;
+import com.softwareverde.bitcoin.server.module.ConfigurationModule;
+import com.softwareverde.bitcoin.server.module.DatabaseModule;
+import com.softwareverde.bitcoin.server.module.MinerModule;
+import com.softwareverde.bitcoin.server.module.SignatureModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
@@ -248,11 +252,12 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final DatabaseConnectionPool databaseConnectionFactory;
-                {
-                    final int connectionsReservedForRoot = 1;
-                    final Integer databaseConnectionCacheCount = Math.min(bitcoinProperties.getMaxPeerCount(), (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
-                    databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
-                }
+                // {
+                //     final int connectionsReservedForRoot = 1;
+                //     final Integer databaseConnectionCacheCount = Math.min(bitcoinProperties.getMaxPeerCount(), (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
+                //     databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
+                // }
+                databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
 
                 final Environment environment = new Environment(database, databaseConnectionFactory);
 
