@@ -17,7 +17,9 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofValidator;
 import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
@@ -78,7 +80,19 @@ public class DoubleSpendProofProcessor {
             if (conflictingTransaction == null) { return null; }
         }
 
-        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, transactionBeingSpent, conflictingTransaction, upgradeSchedule);
+        final TransactionOutput transactionOutputBeingSpent;
+        {
+            final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+            final List<TransactionOutput> transactionOutputs = transactionBeingSpent.getTransactionOutputs();
+            if (transactionOutputIndex >= transactionOutputs.getCount()) {
+                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction spends out-of-bounds output.");
+                return null;
+            }
+
+            transactionOutputBeingSpent = transactionOutputs.get(transactionOutputIndex);
+        }
+
+        return new DoubleSpendProofValidator.Context(headBlockHeight, medianTimePast, transactionOutputBeingSpent, conflictingTransaction, upgradeSchedule);
     }
 
     public DoubleSpendProofProcessor(final DoubleSpendProofStore doubleSpendProofStore, final Context context) {

@@ -17,14 +17,14 @@ public class DoubleSpendProofValidator {
         public final UpgradeSchedule upgradeSchedule;
         public final Long headBlockHeight;
         public final MedianBlockTime medianBlockTime;
-        public final Transaction transactionBeingSpent;
+        public final TransactionOutput transactionOutputBeingSpent;
         public final Transaction conflictingTransaction;
 
-        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final Transaction transactionBeingSpent, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
+        public Context(final Long headBlockHeight, final MedianBlockTime medianBlockTime, final TransactionOutput transactionOutputBeingSpent, final Transaction conflictingTransaction, final UpgradeSchedule upgradeSchedule) {
             this.upgradeSchedule = upgradeSchedule;
             this.headBlockHeight = headBlockHeight;
             this.medianBlockTime = medianBlockTime;
-            this.transactionBeingSpent = transactionBeingSpent;
+            this.transactionOutputBeingSpent = transactionOutputBeingSpent;
             this.conflictingTransaction = conflictingTransaction;
         }
     }
@@ -67,32 +67,15 @@ public class DoubleSpendProofValidator {
         //     if (redundantDoubleSpendProof != null) { return false; }
         // }
 
-        if ( (_context.transactionBeingSpent == null) || (_context.conflictingTransaction == null) ) {
-            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; dependent transaction not found spending: " + transactionOutputIdentifier);
-            return false;
-        }
-
-        final TransactionOutput transactionOutputBeingSpent;
-        {
-            final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final List<TransactionOutput> transactionOutputs = _context.transactionBeingSpent.getTransactionOutputs();
-            if (transactionOutputIndex >= transactionOutputs.getCount()) {
-                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction spends out-of-bounds output.");
-                return false;
-            }
-
-            transactionOutputBeingSpent = transactionOutputs.get(transactionOutputIndex);
-        }
-
         final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(_context.headBlockHeight, _context.medianBlockTime, _context.upgradeSchedule);
 
-        final Boolean firstProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage0);
+        final Boolean firstProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage0);
         if (! firstProofIsValid) {
             Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; first preimage failed validation.");
             return false;
         }
 
-        final Boolean secondProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage1);
+        final Boolean secondProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, _context.transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage1);
         if (! secondProofIsValid) {
             Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; second preimage failed validation.");
             return false;
