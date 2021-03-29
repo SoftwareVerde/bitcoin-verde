@@ -23,7 +23,7 @@ public class DoubleSpendProofPreimageDeflater {
         return byteArray;
     }
 
-    public ByteArray serializeExtraTransactionOutputDigests(final DoubleSpendProofPreimage doubleSpendProofPreimage, final Boolean includeItemCount) {
+    protected ByteArray _serializeExtraTransactionOutputDigests(final DoubleSpendProofPreimage doubleSpendProofPreimage, final Boolean includeItemCount, final Endian digestEndian) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         final MutableList<HashType> hashTypes = new MutableList<>(doubleSpendProofPreimage.getTransactionOutputsDigestHashTypes());
@@ -43,10 +43,18 @@ public class DoubleSpendProofPreimageDeflater {
         for (final HashType hashType : hashTypes) {
             final Sha256Hash transactionOutputsDigest = doubleSpendProofPreimage.getTransactionOutputsDigest(hashType);
             byteArrayBuilder.appendByte(hashType.toByte());
-            byteArrayBuilder.appendBytes(transactionOutputsDigest);
+            byteArrayBuilder.appendBytes(transactionOutputsDigest, digestEndian);
         }
 
         return byteArrayBuilder;
+    }
+
+    public ByteArray serializeExtraTransactionOutputDigestsForSorting(final DoubleSpendProofPreimage doubleSpendProofPreimage) {
+        return _serializeExtraTransactionOutputDigests(doubleSpendProofPreimage, false, Endian.LITTLE);
+    }
+
+    public ByteArray serializeExtraTransactionOutputDigests(final DoubleSpendProofPreimage doubleSpendProofPreimage) {
+        return _serializeExtraTransactionOutputDigests(doubleSpendProofPreimage, true, Endian.BIG);
     }
 
     public ByteArray toBytes(final DoubleSpendProofPreimage doubleSpendProofPreimage) {

@@ -34,25 +34,27 @@ public class DoubleSpendProof implements Hashable, Const {
     public static Boolean arePreimagesInCanonicalOrder(final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
         final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
 
-        final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getExecutedTransactionOutputsDigest().toReversedEndian();
-        final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getExecutedTransactionOutputsDigest().toReversedEndian();
-        if (transactionOutputsDigest0.compareTo(transactionOutputsDigest1) > 0) {
-            return false;
+        {
+            final Sha256Hash transactionOutputsDigest0 = doubleSpendProofPreimage0.getExecutedTransactionOutputsDigest().toReversedEndian();
+            final Sha256Hash transactionOutputsDigest1 = doubleSpendProofPreimage1.getExecutedTransactionOutputsDigest().toReversedEndian();
+            final int compareValue = transactionOutputsDigest0.compareTo(transactionOutputsDigest1);
+            if (compareValue > 0) { return false; }
+            else if (compareValue < 0) { return true; }
         }
 
-        final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest().toReversedEndian();
-        final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest().toReversedEndian();
-        if (previousOutputsDigest0.compareTo(previousOutputsDigest1) > 0) {
-            return false;
+        {
+            final Sha256Hash previousOutputsDigest0 = doubleSpendProofPreimage0.getPreviousOutputsDigest().toReversedEndian();
+            final Sha256Hash previousOutputsDigest1 = doubleSpendProofPreimage1.getPreviousOutputsDigest().toReversedEndian();
+            final int compareValue = previousOutputsDigest0.compareTo(previousOutputsDigest1);
+            if (compareValue > 0) { return false; }
+            else if (compareValue < 0) { return true; }
         }
 
-        // TODO: Endianness here is inconsistent with the first half of the algorithm (above).
-        final ByteArray previousOutputsDigest0Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(doubleSpendProofPreimage0, false);
-        final ByteArray previousOutputsDigest1Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(doubleSpendProofPreimage1, false);
-
-        final int extraPreviousOutputDigestLexCompare = ByteUtil.compareByteArrayLexicographically(previousOutputsDigest0Extra, previousOutputsDigest1Extra);
-        if (extraPreviousOutputDigestLexCompare > 0) {
-            return false;
+        {
+            final ByteArray previousOutputsDigest0Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigestsForSorting(doubleSpendProofPreimage0);
+            final ByteArray previousOutputsDigest1Extra = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigestsForSorting(doubleSpendProofPreimage1);
+            final int extraPreviousOutputDigestLexCompare = ByteUtil.compareByteArrayLexicographically(previousOutputsDigest0Extra, previousOutputsDigest1Extra);
+            if (extraPreviousOutputDigestLexCompare > 0) { return false; }
         }
 
         return true;
@@ -237,8 +239,8 @@ public class DoubleSpendProof implements Hashable, Const {
             final int preimage1HashTypesCount = preimage1HashTypes.getCount();
             if ( (preimage0HashTypesCount > 0) || (preimage1HashTypesCount > 0) ) {
                 final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
-                final ByteArray extraDigestsBytes0 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage0, true);
-                final ByteArray extraDigestsBytes1 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage1, true);
+                final ByteArray extraDigestsBytes0 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage0);
+                final ByteArray extraDigestsBytes1 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage1);
 
                 byteArrayBuilder.appendBytes(extraDigestsBytes0);
                 byteArrayBuilder.appendBytes(extraDigestsBytes1);

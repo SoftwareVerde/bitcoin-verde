@@ -20,7 +20,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class DoubleSpendProofValidatorTests extends UnitTest {
+public class DoubleSpendProofPreimageValidatorTests extends UnitTest {
     @Override @Before
     public void before() throws Exception {
         super.before();
@@ -46,11 +46,11 @@ public class DoubleSpendProofValidatorTests extends UnitTest {
         final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProofPreimageInflater.fromBytes(ByteArray.fromHexString("02000000FFFFFFFF0000000007EFEE38FB0076EA7258F70D3E11B19F0636B1C998CA5D01F0FB9A3C7298A07D3BB13029CE7B1F559EF5E747FCAC439F1455A2EC7C5F09B72290795E7066504443D6A08791FB21CFCD84B904669E2877D1012211FFCDBA3EB14B562173C0646301473044022038045D988BB6BD9CF8616E8CD3B380D7AC358E71E2ADFB1F06BC7288544C9EAF02205C1F78F2FF04314A4E516D02D58897BCE120C2939950518D72BB2406F11FDC7C41"));
         final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProofPreimageInflater.fromBytes(ByteArray.fromHexString("02000000FFFFFFFF0000000007EFEE38FB0076EA7258F70D3E11B19F0636B1C998CA5D01F0FB9A3C7298A07D3BB13029CE7B1F559EF5E747FCAC439F1455A2EC7C5F09B72290795E70665044F8CEDFF543DEA491E1A0CA101CE699BBD7AB45D6CBECBD9348C892B08752678801483045022100C7D72177641F40A8E5C6C168DCCE7A8EBC174667238856B30EE6657C04B68AE602205C281A9CA15E5292720A27C27AFF89F809B961C0D86A63C30CDCB06286658CDC41"));
 
-        final DoubleSpendProofValidator doubleSpendProofValidator = new DoubleSpendProofValidator(blockHeight, medianBlockTime, new CoreUpgradeSchedule());
+        final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(blockHeight, medianBlockTime, new CoreUpgradeSchedule());
 
         // Action
-        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage0);
-        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage1);
+        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage0);
+        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage1);
 
         // Assert
         Assert.assertTrue(doubleSpendProofPreimage0IsValid);
@@ -76,12 +76,12 @@ public class DoubleSpendProofValidatorTests extends UnitTest {
         final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProof.getDoubleSpendProofPreimage0();
         final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProof.getDoubleSpendProofPreimage1();
 
-        final DoubleSpendProofValidator doubleSpendProofValidator = new DoubleSpendProofValidator(blockHeight, medianBlockTime, new CoreUpgradeSchedule());
+        final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(blockHeight, medianBlockTime, new CoreUpgradeSchedule());
 
         // Action
         final Boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
-        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage0);
-        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage1);
+        final Boolean doubleSpendProofPreimage0IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage0);
+        final Boolean doubleSpendProofPreimage1IsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutput, transaction, doubleSpendProofPreimage1);
 
         // Assert
         Assert.assertTrue(preimagesAreInCanonicalOrder);

@@ -4,123 +4,92 @@ import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.message.type.dsproof.DoubleSpendProofPreimage;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
-import com.softwareverde.bitcoin.transaction.script.ScriptType;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
-import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class DoubleSpendProofValidator {
-    protected final Long _blockHeight;
-    protected final MedianBlockTime _medianBlockTime;
-    protected final UpgradeSchedule _upgradeSchedule;
+    public static class Context {
+        public UpgradeSchedule upgradeSchedule;
+        public Long headBlockHeight;
+        public MedianBlockTime medianBlockTime;
+        public Transaction transactionBeingSpent;
+        public Transaction conflictingTransaction;
+    }
 
-    protected UnlockingScript _modifyUnlockingScript(final ScriptType previousTransactionScriptType, final UnlockingScript originalUnlockingScript, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
-        final List<ByteArray> pushedBytes = doubleSpendProofPreimage.getUnlockingScriptPushData();
+    protected final Context _context;
 
-        final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
+    public DoubleSpendProofValidator(final Context context) {
+        _context = context;
+    }
 
-        // Copy over all of the DSProof pushed-data as push-opcodes...
-        for (final ByteArray byteArray : pushedBytes) {
-            final PushOperation pushOperation = PushOperation.pushBytes(byteArray);
-            mutableUnlockingScript.addOperation(pushOperation);
-        }
+    public Boolean isDoubleSpendValid(final DoubleSpendProof doubleSpendProof) {
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        final TransactionOutputIdentifier transactionOutputIdentifier = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
 
-        if ( (previousTransactionScriptType == ScriptType.PAY_TO_SCRIPT_HASH) || (previousTransactionScriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) ) {
-            // For P2PKH and P2SH scripts, the push-data field is optimized to only include the unique portions of the
-            //  script, therefore the last opcode of the originalUnlockingScript is retained (which is either the public
-            //  key or the P2SH script, respectively).
+        final DoubleSpendProofPreimage doubleSpendProofPreimage0 = doubleSpendProof.getDoubleSpendProofPreimage0();
+        final DoubleSpendProofPreimage doubleSpendProofPreimage1 = doubleSpendProof.getDoubleSpendProofPreimage1();
 
-            final List<Operation> originalOperations = originalUnlockingScript.getOperations();
-            final int originalOperationsCount = originalOperations.getCount();
-
-            { // Push the last operation of the original script...
-                final int index = (originalOperationsCount - 1);
-                if (index < 0) { return null; } // Impossible for P2PKH/P2SH.
-
-                final Operation retainedOperation = originalOperations.get(index);
-                mutableUnlockingScript.addOperation(retainedOperation);
+        { // Ensure preimages are unique...
+            final List<ByteArray> unlockingScriptData0 = doubleSpendProofPreimage0.getUnlockingScriptPushData();
+            final List<ByteArray> unlockingScriptData1 = doubleSpendProofPreimage1.getUnlockingScriptPushData();
+            if (Util.areEqual(unlockingScriptData0, unlockingScriptData1)) {
+                // TODO: v2 should allow duplicate/non-existent second proof for anyone-can-spend/SIGNATURE_HASH_NONE.
+                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; duplicate preimage.");
+                return false;
             }
         }
 
-        return mutableUnlockingScript;
-    }
-
-    protected Integer _getInputIndexSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
-        int i = 0;
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-            if (Util.areEqual(transactionOutputIdentifierBeingSpent, transactionOutputIdentifier)) {
-                return i;
-            }
-            i += 1;
+        final Boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(doubleSpendProofPreimage0, doubleSpendProofPreimage1);
+        if (! preimagesAreInCanonicalOrder) {
+            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; incorrect preimage order.");
+            Logger.trace(doubleSpendProof.getBytes());
+            return false;
         }
 
-        return null;
-    }
+        // NOTE: This check is disabled since it is performed during storing the proof.
+        //  If the lookup wasn't O(N) then the duplicate check wouldn't be a problem.
+        //
+        // { // Ensure the DoubleSpendProof is unique / is not redundant with an existing DoubleSpendProof...
+        //     final DoubleSpendProof redundantDoubleSpendProof = _doubleSpendProofStore.getDoubleSpendProof(transactionOutputIdentifier);
+        //     if (redundantDoubleSpendProof != null) { return false; }
+        // }
 
-    protected TransactionInput _getInputSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
-        final Integer inputIndex = _getInputIndexSpendingOutput(transactionOutputIdentifierBeingSpent, transaction);
-        if (inputIndex == null) { return null; }
+        if ( (_context.transactionBeingSpent == null) || (_context.conflictingTransaction == null) ) {
+            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; dependent transaction not found spending: " + transactionOutputIdentifier);
+            return false;
+        }
 
-        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        return transactionInputs.get(inputIndex);
-    }
-
-    protected UnlockingScript _getUnlockingScriptSpendingOutput(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent, final Transaction transaction) {
-        final TransactionInput transactionInput = _getInputSpendingOutput(transactionOutputIdentifierBeingSpent, transaction);
-        if (transactionInput == null) { return null; }
-
-        return transactionInput.getUnlockingScript();
-    }
-
-    public DoubleSpendProofValidator(final Long blockHeight, final MedianBlockTime medianBlockTime, final UpgradeSchedule upgradeSchedule) {
-        _blockHeight = blockHeight;
-        _medianBlockTime = medianBlockTime;
-        _upgradeSchedule = upgradeSchedule;
-    }
-
-    public Boolean validateDoubleSpendProof(final TransactionOutputIdentifier transactionOutputBeingSpentIdentifier, final TransactionOutput transactionOutputBeingSpent, final Transaction firstSeenSpendingTransaction, final DoubleSpendProofPreimage doubleSpendProofPreimage) {
-        final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
-        final UnlockingScript firstSeenUnlockingScript = _getUnlockingScriptSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
-        if (firstSeenUnlockingScript == null) { return false; }
-
-        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-
-        final UnlockingScript unlockingScript = _modifyUnlockingScript(scriptType, firstSeenUnlockingScript, doubleSpendProofPreimage);
-        if (unlockingScript == null) { return false; }
-
-        final TransactionSigner transactionSigner = new DoubleSpendProofPreimageTransactionSigner(doubleSpendProofPreimage);
-        final MutableTransactionContext transactionContext = new MutableTransactionContext(_upgradeSchedule, transactionSigner);
+        final TransactionOutput transactionOutputBeingSpent;
         {
-            transactionContext.setBlockHeight(_blockHeight);
-            transactionContext.setMedianBlockTime(_medianBlockTime);
-            transactionContext.setTransaction(firstSeenSpendingTransaction);
+            final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+            final List<TransactionOutput> transactionOutputs = _context.transactionBeingSpent.getTransactionOutputs();
+            if (transactionOutputIndex >= transactionOutputs.getCount()) {
+                Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; transaction spends out-of-bounds output.");
+                return false;
+            }
 
-            final List<TransactionInput> transactionInputs = firstSeenSpendingTransaction.getTransactionInputs();
-            final Integer transactionInputIndex = _getInputIndexSpendingOutput(transactionOutputBeingSpentIdentifier, firstSeenSpendingTransaction);
-            if (transactionInputIndex == null) { return false; }
-            final TransactionInput transactionInput = transactionInputs.get(transactionInputIndex);
-
-            transactionContext.setTransactionInput(transactionInput);
-            transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
-            transactionContext.setTransactionInputIndex(transactionInputIndex);
+            transactionOutputBeingSpent = transactionOutputs.get(transactionOutputIndex);
         }
 
-        final ScriptRunner scriptRunner = new ScriptRunner(_upgradeSchedule);
-        final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
-        return scriptRunnerResult.isValid;
+        final DoubleSpendProofPreimageValidator doubleSpendProofPreimageValidator = new DoubleSpendProofPreimageValidator(_context.headBlockHeight, _context.medianBlockTime, _context.upgradeSchedule);
+
+        final Boolean firstProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage0);
+        if (! firstProofIsValid) {
+            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; first preimage failed validation.");
+            return false;
+        }
+
+        final Boolean secondProofIsValid = doubleSpendProofPreimageValidator.validateDoubleSpendProof(transactionOutputIdentifier, transactionOutputBeingSpent, _context.conflictingTransaction, doubleSpendProofPreimage1);
+        if (! secondProofIsValid) {
+            Logger.trace("DoubleSpendProof " + doubleSpendProofHash + " invalid; second preimage failed validation.");
+            return false;
+        }
+
+        return true;
     }
 }
