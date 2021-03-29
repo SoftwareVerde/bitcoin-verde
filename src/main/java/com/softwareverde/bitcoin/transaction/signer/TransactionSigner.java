@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -22,7 +21,6 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.Schnorr;
 import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
@@ -34,6 +32,19 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionSigner {
+    public static class BitcoinCashSignaturePreimage {
+        public ByteArray transactionVersionBytes;           // Step 1,  LE
+        public ByteArray previousTransactionOutputsDigest;  // Step 2,  BE
+        public ByteArray sequenceNumbersDigest;             // Step 3,  BE
+        public ByteArray previousOutputBytes;               // Step 4,  BE
+        public ByteArray scriptBytes;                       // Step 5,  BE
+        public ByteArray transactionOutputAmountBytes;      // Step 6,  LE
+        public ByteArray sequenceNumberBytes;               // Step 7,  LE
+        public ByteArray transactionOutputsDigest;          // Step 8,  BE
+        public ByteArray lockTimeBytes;                     // Step 9,  LE
+        public ByteArray hashTypeBytes;                     // Step 10, LE
+    }
+
     private static final byte[] INVALID_SIGNATURE_HASH_SINGLE_VALUE = HexUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000");
 
     protected byte[] _getBytesForSigning(final SignatureContext signatureContext) {
@@ -166,69 +177,39 @@ public class TransactionSigner {
         return HashUtil.doubleSha256(bytes);
     }
 
-    protected byte[] _getBitcoinCashBytesForSigning(final SignatureContext signatureContext) {
-        final Integer FORK_ID = 0x000000;
+    protected BitcoinCashSignaturePreimage _getBitcoinCashPreimage(final SignatureContext signatureContext) {
         final Transaction transaction = signatureContext.getTransaction();
-        final Integer inputIndex = signatureContext.getInputIndexBeingSigned();
-        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final Integer transactionInputIndex = signatureContext.getInputIndexBeingSigned();
         final HashType hashType = signatureContext.getHashType();
 
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        final BitcoinCashSignaturePreimage signaturePreimage = new BitcoinCashSignaturePreimage();
 
         { // 1. Serialize this Transaction's version...
-            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(transaction.getVersion()), Endian.LITTLE);
+            signaturePreimage.transactionVersionBytes = BitcoinCashTransactionSignerUtil.getTransactionVersionBytes(transaction);
         }
 
-        { // 2. Serialize this Transaction's PreviousTransactionOutputs...
-            if (hashType.shouldSignOtherInputs()) {
-                final ByteArrayBuilder serializedTransactionInput = new ByteArrayBuilder();
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    serializedTransactionInput.appendBytes(transactionInput.getPreviousOutputTransactionHash(), Endian.LITTLE);
-                    serializedTransactionInput.appendBytes(ByteUtil.integerToBytes(transactionInput.getPreviousOutputIndex()), Endian.LITTLE);
-                }
-
-                final byte[] bytes = HashUtil.doubleSha256(serializedTransactionInput.build());
-                byteArrayBuilder.appendBytes(bytes);
-            }
-            else {
-                byteArrayBuilder.appendBytes(Sha256Hash.EMPTY_HASH);
-            }
+        { // 2. Serialize this Transaction's TransactionInputs' previous TransactionOutputIdentifiers...
+            signaturePreimage.previousTransactionOutputsDigest = BitcoinCashTransactionSignerUtil.getPreviousOutputIdentifiersHash(transaction, hashType);
         }
 
         { // 3. Serialize this Transaction's Inputs' SequenceNumbers...
-            if ( (! hashType.shouldSignOtherInputs()) || (hashType.getMode() == Mode.SIGNATURE_HASH_NONE) || (hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE) ) {
-                byteArrayBuilder.appendBytes(Sha256Hash.EMPTY_HASH);
-            }
-            else {
-                final ByteArrayBuilder serializedSequenceNumbers = new ByteArrayBuilder();
-                for (final TransactionInput transactionInput : transactionInputs) {
-                    serializedSequenceNumbers.appendBytes(transactionInput.getSequenceNumber().getBytes(), Endian.LITTLE);
-                }
-                final byte[] bytes = HashUtil.doubleSha256(serializedSequenceNumbers.build());
-                byteArrayBuilder.appendBytes(bytes);
-            }
+            signaturePreimage.sequenceNumbersDigest = BitcoinCashTransactionSignerUtil.getTransactionInputsSequenceNumbersHash(transaction, hashType);
         }
 
-        { // 4. Serialize the TransactionInput's PreviousTransactionOutput...
-            final TransactionInput transactionInput = transactionInputs.get(inputIndex);
-
-            final ByteArrayBuilder serializedTransactionOutputBeingSpent = new ByteArrayBuilder();
-            serializedTransactionOutputBeingSpent.appendBytes(transactionInput.getPreviousOutputTransactionHash(), Endian.LITTLE);
-            serializedTransactionOutputBeingSpent.appendBytes(ByteUtil.integerToBytes(transactionInput.getPreviousOutputIndex()), Endian.LITTLE);
-
-            byteArrayBuilder.appendBytes(serializedTransactionOutputBeingSpent.build());
+        { // 4. Serialize the signed TransactionInput's previous TransactionOutputIdentifier...
+            signaturePreimage.previousOutputBytes = BitcoinCashTransactionSignerUtil.getPreviousTransactionOutputIdentifierBytes(transaction, transactionInputIndex);
         }
 
         { // 5. Serialize the script...
             final Script currentScript = signatureContext.getCurrentScript();
-            final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(inputIndex);
+            final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(transactionInputIndex);
             final LockingScript outputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript();
 
             final Script scriptForSigning;
             { // Handle Code-Separators...
                 final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
 
-                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(inputIndex);
+                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(transactionInputIndex);
                 if (subscriptIndex > 0) {
                     mutableScript.subScript(subscriptIndex);
                 }
@@ -239,71 +220,55 @@ public class TransactionSigner {
                 scriptForSigning = mutableScript;
             }
 
-            byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(scriptForSigning.getByteCount()));
-            byteArrayBuilder.appendBytes(scriptForSigning.getBytes());
+            final int scriptByteCount = scriptForSigning.getByteCount();
+            final ByteArray scriptByteCountBytes = ByteArray.wrap(ByteUtil.variableLengthIntegerToBytes(scriptByteCount));
+            final ByteArray scriptBytes = scriptForSigning.getBytes();
+
+            final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+            byteArrayBuilder.appendBytes(scriptByteCountBytes);
+            byteArrayBuilder.appendBytes(scriptBytes);
+            signaturePreimage.scriptBytes = byteArrayBuilder;
         }
 
         { // 6. Serialize the amount of the spent TransactionOutput...
-            final TransactionOutput transactionOutput = signatureContext.getTransactionOutputBeingSpent(inputIndex);
-            byteArrayBuilder.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
+            final TransactionOutput transactionOutput = signatureContext.getTransactionOutputBeingSpent(transactionInputIndex);
+            signaturePreimage.transactionOutputAmountBytes = BitcoinCashTransactionSignerUtil.getPreviousTransactionOutputAmountBytes(transactionOutput);
         }
 
         { // 7. Serialize the SequenceNumber for this TransactionInput...
-            final TransactionInput transactionInput = transactionInputs.get(inputIndex);
-            byteArrayBuilder.appendBytes(transactionInput.getSequenceNumber().getBytes(), Endian.LITTLE);
+            signaturePreimage.sequenceNumberBytes = BitcoinCashTransactionSignerUtil.getSequenceNumberBytes(transaction, transactionInputIndex);
         }
 
         { // 8. Serialize this Transaction's TransactionOutputs...
-            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-
-            if (hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE) {
-                if (inputIndex >= transactionOutputs.getCount()) {
-                    byteArrayBuilder.appendBytes(Sha256Hash.EMPTY_HASH); // NOTE: This is different behavior than Bitcoin for this error case...
-                }
-                else {
-                    final TransactionOutput transactionOutput = transactionOutputs.get(inputIndex);
-                    final LockingScript transactionOutputScript = transactionOutput.getLockingScript();
-
-                    final ByteArrayBuilder serializedTransactionOutput = new ByteArrayBuilder();
-
-                    serializedTransactionOutput.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
-                    serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
-                    serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
-
-                    final byte[] bytes = HashUtil.doubleSha256(serializedTransactionOutput.build());
-                    byteArrayBuilder.appendBytes(bytes);
-                }
-            }
-            else if (hashType.getMode() == Mode.SIGNATURE_HASH_NONE) {
-                byteArrayBuilder.appendBytes(Sha256Hash.EMPTY_HASH);
-            }
-            else {
-                final ByteArrayBuilder serializedTransactionOutput = new ByteArrayBuilder();
-
-                for (final TransactionOutput transactionOutput : transactionOutputs) {
-                    final LockingScript transactionOutputScript = transactionOutput.getLockingScript();
-
-                    serializedTransactionOutput.appendBytes(ByteUtil.longToBytes(transactionOutput.getAmount()), Endian.LITTLE);
-                    serializedTransactionOutput.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputScript.getByteCount()));
-                    serializedTransactionOutput.appendBytes(transactionOutputScript.getBytes());
-                }
-
-                final byte[] bytes = HashUtil.doubleSha256(serializedTransactionOutput.build());
-                byteArrayBuilder.appendBytes(bytes);
-            }
+            signaturePreimage.transactionOutputsDigest = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, hashType);
         }
 
         { // 9. Serialize this Transaction's LockTime...
-            final LockTime lockTime = transaction.getLockTime();
-            byteArrayBuilder.appendBytes(lockTime.getBytes(), Endian.LITTLE);
+            signaturePreimage.lockTimeBytes = BitcoinCashTransactionSignerUtil.getTransactionLockTimeBytes(transaction);
         }
 
         { // 10. Serialize this Transaction's HashType...
-            final byte hashTypeByte = hashType.toByte();
-            final byte[] hashTypeWithForkId = ByteUtil.integerToBytes(FORK_ID << 8);
-            hashTypeWithForkId[3] |= hashTypeByte;
-            byteArrayBuilder.appendBytes(hashTypeWithForkId, Endian.LITTLE);
+            signaturePreimage.hashTypeBytes = BitcoinCashTransactionSignerUtil.getTransactionHashTypeBytes(hashType);
         }
+
+        return signaturePreimage;
+    }
+
+    protected byte[] _getBitcoinCashBytesForSigning(final SignatureContext signatureContext) {
+        final BitcoinCashSignaturePreimage bitcoinCashSignaturePreimage = _getBitcoinCashPreimage(signatureContext);
+
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionVersionBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousTransactionOutputsDigest);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumbersDigest);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.previousOutputBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.scriptBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputAmountBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.sequenceNumberBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.transactionOutputsDigest);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.lockTimeBytes);
+        byteArrayBuilder.appendBytes(bitcoinCashSignaturePreimage.hashTypeBytes);
 
         return HashUtil.doubleSha256(byteArrayBuilder.build());
     }

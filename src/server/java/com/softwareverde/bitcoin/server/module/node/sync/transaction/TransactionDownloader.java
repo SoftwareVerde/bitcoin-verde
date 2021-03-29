@@ -43,7 +43,6 @@ public class TransactionDownloader extends SleepyService {
 
     protected void _onTransactionDownloaded(final Transaction transaction, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
-
         pendingTransactionDatabaseManager.storeTransaction(transaction);
     }
 

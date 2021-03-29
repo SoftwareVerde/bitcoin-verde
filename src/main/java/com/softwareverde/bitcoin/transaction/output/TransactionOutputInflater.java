@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.HexUtil;
@@ -31,6 +32,11 @@ public class TransactionOutputInflater {
     }
 
     public MutableTransactionOutput fromBytes(final Integer index, final ByteArrayReader byteArrayReader) {
+        return _fromByteArrayReader(index, byteArrayReader);
+    }
+
+    public MutableTransactionOutput fromBytes(final Integer index, final ByteArray byteArray) {
+        final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray);
         return _fromByteArrayReader(index, byteArrayReader);
     }
 

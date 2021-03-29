@@ -299,7 +299,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                 final boolean previousOutputIsUniqueToTransaction = spentOutputIdentifiers.add(transactionOutputIdentifierBeingSpent);
                 if (! previousOutputIsUniqueToTransaction) { // The transaction attempted to spend the same previous output twice...
-                    final Json errorJson = _createInvalidTransactionReport("Transaction spends duplicate previousOutput.", transaction, transactionContext);
+                    final Json errorJson = _createInvalidTransactionReport("Transaction spends the same output twice.", transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
 
@@ -323,7 +323,7 @@ public class TransactionValidatorCore implements TransactionValidator {
 
                 final TransactionOutput transactionOutputBeingSpent = _getUnspentTransactionOutput(transactionOutputIdentifierBeingSpent);
                 if (transactionOutputBeingSpent == null) {
-                    final Json errorJson = _createInvalidTransactionReport("Transaction output does not exist.", transaction, transactionContext);
+                    final Json errorJson = _createInvalidTransactionReport("Transaction output does not exist or has been spent.", transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
 

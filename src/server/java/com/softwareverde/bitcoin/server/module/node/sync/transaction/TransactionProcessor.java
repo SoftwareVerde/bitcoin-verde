@@ -7,10 +7,12 @@ import com.softwareverde.bitcoin.context.MedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
 import com.softwareverde.bitcoin.context.NetworkTimeContext;
 import com.softwareverde.bitcoin.context.SystemTimeContext;
+import com.softwareverde.bitcoin.context.ThreadPoolContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.context.UpgradeScheduleContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
+import com.softwareverde.bitcoin.context.lazy.DoubleSpendProofUtxoSet;
 import com.softwareverde.bitcoin.context.lazy.LazyMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyUnconfirmedTransactionUtxoSet;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
@@ -20,13 +22,24 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.UnconfirmedTransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProofWithTransactions;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.input.UnconfirmedTransactionInputId;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -35,16 +48,21 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
-    public interface Context extends TransactionInflaters, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext, UpgradeScheduleContext { }
+    public interface Context extends TransactionInflaters, MultiConnectionFullDatabaseContext, TransactionValidatorFactory, NetworkTimeContext, SystemTimeContext, UpgradeScheduleContext, ThreadPoolContext { }
 
     public interface Callback {
         void onNewTransactions(List<Transaction> transactions);
+    }
+
+    public interface DoubleSpendProofCallback {
+        void onNewDoubleSpendProof(DoubleSpendProofWithTransactions doubleSpendProof);
     }
 
     protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
@@ -53,6 +71,7 @@ public class TransactionProcessor extends SleepyService {
 
     protected Long _lastOrphanPurgeTime;
     protected Callback _newTransactionProcessedCallback;
+    protected DoubleSpendProofCallback _doubleSpendProofCallback;
 
     protected void _deletePendingTransaction(final FullNodeDatabaseManager databaseManager, final PendingTransactionId pendingTransactionId) {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -155,6 +174,98 @@ public class TransactionProcessor extends SleepyService {
                         invalidTransactionCount += 1;
                         Logger.info("Invalid MemoryPool Transaction: " + transactionHash);
                         Logger.info(transactionValidationResult.errorMessage);
+
+                        final DoubleSpendProofCallback doubleSpendProofCallback = _doubleSpendProofCallback;
+                        if (doubleSpendProofCallback != null) {
+                            final TransactionOutputIdentifier transactionOutputIdentifierBeingDoubleSpent;
+                            final TransactionId firstSeenTransactionId;
+                            { // Check if the Transaction was invalid due to an attempted double-spend against an unconfirmed transaction...
+                                TransactionId transactionId = null;
+                                TransactionOutputIdentifier transactionOutputIdentifier = null;
+                                for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                                    final UnconfirmedTransactionInputDatabaseManager unconfirmedTransactionInputDatabaseManager = databaseManager.getUnconfirmedTransactionInputDatabaseManager();
+
+                                    transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                                    final UnconfirmedTransactionInputId transactionInputId = unconfirmedTransactionInputDatabaseManager.getUnconfirmedTransactionInputIdSpendingTransactionOutput(transactionOutputIdentifier);
+                                    if (transactionInputId != null) {
+                                        transactionId = unconfirmedTransactionInputDatabaseManager.getTransactionId(transactionInputId);
+                                        break;
+                                    }
+                                }
+                                firstSeenTransactionId = transactionId;
+                                transactionOutputIdentifierBeingDoubleSpent = (transactionId != null ? transactionOutputIdentifier : null);
+                            }
+
+                            final boolean isAttemptedDoubleSpend = (firstSeenTransactionId != null);
+                            if (isAttemptedDoubleSpend) {
+                                final DoubleSpendProofUtxoSet modifiedUnconfirmedTransactionUtxoSet = new DoubleSpendProofUtxoSet(databaseManager, true);
+
+                                boolean shouldAbort = false;
+                                TransactionOutput transactionOutputBeingDoubleSpent = null;
+                                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+                                for (final TransactionInput transactionInput : transactionInputs) {
+                                    // TODO: Obtain previousTransactionOutput without relying on non-pruned mode...
+                                    final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+
+                                    final Sha256Hash transactionHashBeingSpent = transactionOutputIdentifier.getTransactionHash();
+                                    final Integer transactionOutputIndexBeingSpent = transactionOutputIdentifier.getOutputIndex();
+
+                                    final TransactionId transactionIdBeingSpent = transactionDatabaseManager.getTransactionId(transactionHashBeingSpent);
+                                    if (transactionIdBeingSpent == null) {
+                                        shouldAbort = true;
+                                        break;
+                                    }
+
+                                    final Transaction transactionBeingSpent = transactionDatabaseManager.getTransaction(transactionIdBeingSpent);
+                                    if (transactionBeingSpent == null) {
+                                        shouldAbort = true;
+                                        break;
+                                    }
+
+                                    final List<TransactionOutput> transactionOutputs = transactionBeingSpent.getTransactionOutputs();
+                                    final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIndexBeingSpent);
+
+                                    modifiedUnconfirmedTransactionUtxoSet.addTransactionOutput(transactionOutputIdentifier, transactionOutput);
+
+                                    if (Util.areEqual(transactionOutputIdentifierBeingDoubleSpent, transactionOutputIdentifier)) {
+                                        transactionOutputBeingDoubleSpent = transactionOutput;
+                                    }
+                                }
+
+                                if ( (! shouldAbort) && (transactionOutputBeingDoubleSpent != null) ) {
+
+                                    final TransactionValidatorContext modifiedTransactionValidatorContext = new TransactionValidatorContext(transactionInflaters, networkTime, medianBlockTimeContext, modifiedUnconfirmedTransactionUtxoSet, upgradeSchedule);
+                                    final TransactionValidator modifiedTransactionValidator = _context.getUnconfirmedTransactionValidator(modifiedTransactionValidatorContext);
+
+                                    // Ensure the DoubleSpend Transaction would have otherwise been valid had the UTXO not been spent already...
+                                    final TransactionValidationResult doubleSpendTransactionValidationResult = modifiedTransactionValidator.validateTransaction((headBlockHeight + 1L), transaction);
+                                    if (doubleSpendTransactionValidationResult.isValid) {
+                                        final LockingScript lockingScript = transactionOutputBeingDoubleSpent.getLockingScript();
+
+                                        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                                        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+
+                                        final Transaction firstSeenTransaction = transactionDatabaseManager.getTransaction(firstSeenTransactionId);
+                                        final DoubleSpendProofWithTransactions doubleSpendProof = DoubleSpendProof.createDoubleSpendProof(transactionOutputIdentifierBeingDoubleSpent, scriptType, firstSeenTransaction, transaction);
+                                        if (doubleSpendProof != null) {
+                                            Logger.debug("DSProof created: " + doubleSpendProof.getHash());
+
+                                            final ThreadPool threadPool = _context.getThreadPool();
+                                            threadPool.execute(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    doubleSpendProofCallback.onNewDoubleSpendProof(doubleSpendProof);
+                                                }
+                                            });
+                                        }
+                                        else {
+                                            Logger.debug("Unable to create DSProof for Tx: " + transactionHash);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         continue;
                     }
 
@@ -200,5 +311,9 @@ public class TransactionProcessor extends SleepyService {
 
     public void setNewTransactionProcessedCallback(final Callback newTransactionProcessedCallback) {
         _newTransactionProcessedCallback = newTransactionProcessedCallback;
+    }
+
+    public void setNewDoubleSpendProofCallback(final DoubleSpendProofCallback doubleSpendProofCallback) {
+        _doubleSpendProofCallback = doubleSpendProofCallback;
     }
 }

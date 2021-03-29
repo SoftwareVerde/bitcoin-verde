@@ -19,7 +19,7 @@ public class HashType {
     protected final Boolean _shouldSignOtherInputs; // Bitcoin calls this "ANYONECANPAY" (_shouldSignOtherInputs being false indicates anyone can pay)...
 
     protected HashType(final byte value) {
-        final Boolean shouldSignOnlyOneInput = ((value & 0x80) != 0x00);
+        final boolean shouldSignOnlyOneInput = ((value & 0x80) != 0x00);
         _value = value;
         _mode = Mode.fromByte(value);
         _shouldSignOtherInputs = (! shouldSignOnlyOneInput);

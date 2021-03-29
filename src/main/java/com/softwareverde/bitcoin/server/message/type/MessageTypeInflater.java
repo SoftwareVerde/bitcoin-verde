@@ -37,6 +37,7 @@ public class MessageTypeInflater {
         messageTypes.add(MessageType.SET_TRANSACTION_BLOOM_FILTER);
         messageTypes.add(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER);
         messageTypes.add(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER);
+        messageTypes.add(MessageType.DOUBLE_SPEND_PROOF);
         // Bitcoin Verde Messages
         messageTypes.add(MessageType.QUERY_ADDRESS_BLOCKS);
         messageTypes.add(MessageType.ENABLE_SLP_TRANSACTIONS);

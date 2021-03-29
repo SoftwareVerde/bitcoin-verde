@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Jsonable;
 
@@ -60,4 +61,6 @@ public interface TransactionContext extends Constable<ImmutableTransactionContex
     Integer getOperationCount();
 
     UpgradeSchedule getUpgradeSchedule();
+
+    TransactionSigner getTransactionSigner();
 }

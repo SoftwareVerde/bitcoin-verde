@@ -11,10 +11,15 @@ public class NodeInitializer {
         BitcoinNode.TransactionInventoryAnnouncementHandler createTransactionsAnnouncementHandler(BitcoinNode bitcoinNode);
     }
 
+    public interface DoubleSpendProofAnnouncementHandlerFactory {
+        BitcoinNode.DoubleSpendProofAnnouncementHandler createDoubleSpendProofAnnouncementHandler(BitcoinNode bitcoinNode);
+    }
+
     public static class Context {
         public SynchronizationStatus synchronizationStatus;
         public BitcoinNode.BlockInventoryAnnouncementHandler blockInventoryMessageHandler;
         public TransactionsAnnouncementHandlerFactory transactionsAnnouncementHandlerFactory;
+        public DoubleSpendProofAnnouncementHandlerFactory doubleSpendProofAnnouncementHandlerFactory;
         public BitcoinNode.RequestBlockHashesHandler requestBlockHashesHandler;
         public BitcoinNode.RequestBlockHeadersHandler requestBlockHeadersHandler;
         public BitcoinNode.RequestDataHandler requestDataHandler;
@@ -32,6 +37,7 @@ public class NodeInitializer {
     protected final SynchronizationStatus _synchronizationStatus;
     protected final BitcoinNode.BlockInventoryAnnouncementHandler _blockInventoryAnnouncementHandler;
     protected final TransactionsAnnouncementHandlerFactory _transactionsAnnouncementHandlerFactory;
+    protected final DoubleSpendProofAnnouncementHandlerFactory _doubleSpendProofAnnouncementHandlerFactory;
     protected final BitcoinNode.RequestBlockHashesHandler _requestBlockHashesHandler;
     protected final BitcoinNode.RequestBlockHeadersHandler _requestBlockHeadersHandler;
     protected final BitcoinNode.RequestDataHandler _requestDataHandler;
@@ -53,7 +59,7 @@ public class NodeInitializer {
         bitcoinNode.setRequestDataHandler(_requestDataHandler);
         bitcoinNode.setRequestSpvBlocksHandler(_requestSpvBlocksHandler);
         bitcoinNode.setRequestSlpTransactionsHandler(_requestSlpTransactionsHandler);
-        bitcoinNode.setSpvBlockInventoryAnnouncementHandler(_spvBlockInventoryAnnouncementHandler);
+        bitcoinNode.setSpvBlockInventoryAnnouncementCallback(_spvBlockInventoryAnnouncementHandler);
 
         bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryAnnouncementHandler);
         bitcoinNode.setRequestUnconfirmedTransactionsHandler(_requestUnconfirmedTransactionsHandler);
@@ -64,6 +70,12 @@ public class NodeInitializer {
             bitcoinNode.setTransactionsAnnouncementCallback(transactionInventoryAnnouncementHandler);
         }
 
+        final DoubleSpendProofAnnouncementHandlerFactory doubleSpendProofAnnouncementHandlerFactory = _doubleSpendProofAnnouncementHandlerFactory;
+        if (doubleSpendProofAnnouncementHandlerFactory != null) {
+            final BitcoinNode.DoubleSpendProofAnnouncementHandler doubleSpendProofAnnouncementHandler = doubleSpendProofAnnouncementHandlerFactory.createDoubleSpendProofAnnouncementHandler(bitcoinNode);
+            bitcoinNode.setDoubleSpendProofAnnouncementCallback(doubleSpendProofAnnouncementHandler);
+        }
+
         bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
         bitcoinNode.setNewBloomFilterHandler(_newBloomFilterHandler);
     }
@@ -72,6 +84,7 @@ public class NodeInitializer {
         _synchronizationStatus = properties.synchronizationStatus;
         _blockInventoryAnnouncementHandler = properties.blockInventoryMessageHandler;
         _transactionsAnnouncementHandlerFactory = properties.transactionsAnnouncementHandlerFactory;
+        _doubleSpendProofAnnouncementHandlerFactory = properties.doubleSpendProofAnnouncementHandlerFactory;
         _requestBlockHashesHandler = properties.requestBlockHashesHandler;
         _requestBlockHeadersHandler = properties.requestBlockHeadersHandler;
         _requestDataHandler = properties.requestDataHandler;

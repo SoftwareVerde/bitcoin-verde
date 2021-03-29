@@ -7,8 +7,8 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.CircleBuffer;
 
-public class TransactionInventoryMessageHandlerFactory implements NodeInitializer.TransactionsAnnouncementHandlerFactory {
-    public static final TransactionInventoryMessageHandlerFactory IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY = new TransactionInventoryMessageHandlerFactory(null, null, null) {
+public class TransactionAnnouncementHandlerFactory implements NodeInitializer.TransactionsAnnouncementHandlerFactory {
+    public static final TransactionAnnouncementHandlerFactory IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY = new TransactionAnnouncementHandlerFactory(null, null, null) {
         @Override
         public BitcoinNode.TransactionInventoryAnnouncementHandler createTransactionsAnnouncementHandler(final BitcoinNode bitcoinNode) {
             return TransactionInventoryAnnouncementHandler.IGNORE_NEW_TRANSACTIONS_HANDLER;
@@ -21,7 +21,7 @@ public class TransactionInventoryMessageHandlerFactory implements NodeInitialize
     protected final SynchronizationStatus _synchronizationStatus;
     protected final Runnable _newInventoryCallback;
 
-    public TransactionInventoryMessageHandlerFactory(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus, final Runnable newInventoryCallback) {
+    public TransactionAnnouncementHandlerFactory(final FullNodeDatabaseManagerFactory databaseManagerFactory, final SynchronizationStatus synchronizationStatus, final Runnable newInventoryCallback) {
         _databaseManagerFactory = databaseManagerFactory;
         _synchronizationStatus = synchronizationStatus;
         _newInventoryCallback = newInventoryCallback;
