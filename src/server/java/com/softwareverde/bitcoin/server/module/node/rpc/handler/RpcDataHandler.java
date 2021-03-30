@@ -580,6 +580,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     }
 
     @Override
+    public List<DoubleSpendProof> getDoubleSpendProofs() {
+        if (_doubleSpendProofStore == null) { return null; }
+        return _doubleSpendProofStore.getDoubleSpendProofs();
+    }
+
+    @Override
     public DoubleSpendProof getDoubleSpendProof(final Sha256Hash doubleSpendProofHash) {
         if (_doubleSpendProofStore == null) { return null; }
         return _doubleSpendProofStore.getDoubleSpendProof(doubleSpendProofHash);

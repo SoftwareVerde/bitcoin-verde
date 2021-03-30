@@ -857,7 +857,7 @@ public class NodeModule {
 
                 final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
 
-                final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
+                final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory, doubleSpendProofStore);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();

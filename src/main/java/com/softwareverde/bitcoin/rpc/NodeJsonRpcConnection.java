@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -465,6 +466,53 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         return _getTransaction(transactionHash, hexFormat);
+    }
+
+    public Json getDoubleSpendProofs() {
+        final Json rpcParametersJson = new Json(false);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "DOUBLE_SPEND_PROOFS");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getDoubleSpendProof(final Sha256Hash doubleSpendProofHash) {
+        final Json rpcParametersJson = new Json(false);
+        rpcParametersJson.put("hash", doubleSpendProofHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "DOUBLE_SPEND_PROOF");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getDoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent) {
+        final Json rpcParametersJson = new Json(false);
+        rpcParametersJson.put("transactionOutputIdentifier", transactionOutputIdentifierBeingSpent);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "DOUBLE_SPEND_PROOF");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getTransactionDoubleSpendProofs(final Sha256Hash transactionHash) {
+        final Json rpcParametersJson = new Json(false);
+        rpcParametersJson.put("transactionHash", transactionHash);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "DOUBLE_SPEND_PROOF");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
     }
 
     public Json getStatus() {
