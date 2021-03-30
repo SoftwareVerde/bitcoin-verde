@@ -60,6 +60,15 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 4;
             }
 
+            // v4 -> v5 (Double Spend Proofs Support)
+            if ( (currentVersion == 4) && (requiredVersion >= 5) ) {
+                Logger.info("[Upgrading DB to v5]");
+                final Boolean wasSuccessful = _upgradeDoubleSpendProofsSupport(maintenanceDatabaseConnection);
+                if (! wasSuccessful) { return false; }
+
+                upgradedVersion = 5;
+            }
+
             return (upgradedVersion >= requiredVersion);
         }
     };
@@ -133,6 +142,24 @@ public class BitcoinVerdeDatabase implements Database {
     protected static Boolean _upgradeDatabaseMemoSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/memo_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean _upgradeDoubleSpendProofsSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/double_spend_proofs_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);

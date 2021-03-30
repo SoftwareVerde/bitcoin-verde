@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS "metadata" (
 	PRIMARY KEY ("id")
 );
 
-INSERT INTO metadata (version, timestamp) VALUES (4, STRFTIME('%s', 'now'));
+INSERT INTO metadata (version, timestamp) VALUES (5, STRFTIME('%s', 'now'));
 
 CREATE INDEX "blockchain_segments_blockchain_segments_parent_blockchain_segment_id" ON "blockchain_segments" ("parent_blockchain_segment_id");
 CREATE INDEX "blocks_blocks_height_ix" ON "blocks" ("block_height");

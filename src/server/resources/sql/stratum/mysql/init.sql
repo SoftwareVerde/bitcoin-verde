@@ -30,4 +30,4 @@ CREATE TABLE worker_shares (
     FOREIGN KEY worker_shares_worker_id_fk (worker_id) REFERENCES workers (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (4, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (5, UNIX_TIMESTAMP());

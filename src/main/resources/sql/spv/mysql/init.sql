@@ -167,4 +167,4 @@ CREATE TABLE properties (
     UNIQUE KEY properties_uq (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (4, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (5, UNIX_TIMESTAMP());
