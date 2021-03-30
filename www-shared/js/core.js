@@ -717,6 +717,14 @@ class Ui {
             $(".block-hashes .values", transactionUi).append(blockLink);
         }
 
+        const doubleSpendWarning = $(".double-spend-warning", transactionUi);
+        if (transaction.wasDoubleSpent) {
+            doubleSpendWarning.toggle(true);
+        }
+        else {
+            doubleSpendWarning.toggle(false);
+        }
+
         const lockTime = (transaction.lockTime || { type:"", value: "", bytes: "" });
         if (lockTime.type == "BLOCK_HEIGHT") {
             $(".lock-time .value", transactionUi).text("Locked until Block #" + lockTime.value);
