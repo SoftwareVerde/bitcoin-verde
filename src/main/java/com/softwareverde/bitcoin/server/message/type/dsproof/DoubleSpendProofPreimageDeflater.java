@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.dsproof;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -26,7 +27,7 @@ public class DoubleSpendProofPreimageDeflater {
     protected ByteArray _serializeExtraTransactionOutputDigests(final DoubleSpendProofPreimage doubleSpendProofPreimage, final Boolean includeItemCount, final Endian digestEndian) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        final MutableList<HashType> hashTypes = new MutableList<>(doubleSpendProofPreimage.getTransactionOutputsDigestHashTypes());
+        final MutableList<HashType> hashTypes = new MutableList<>(doubleSpendProofPreimage.getExtraTransactionOutputsDigestHashTypes());
         hashTypes.sort(new Comparator<HashType>() {
             @Override
             public int compare(final HashType o1, final HashType o2) {
@@ -42,7 +43,7 @@ public class DoubleSpendProofPreimageDeflater {
 
         for (final HashType hashType : hashTypes) {
             final Sha256Hash transactionOutputsDigest = doubleSpendProofPreimage.getTransactionOutputsDigest(hashType);
-            byteArrayBuilder.appendByte(hashType.toByte());
+            byteArrayBuilder.appendByte((byte) (hashType.toByte() & Mode.BIT_MASK)); // Keep the HashType Mode only...
             byteArrayBuilder.appendBytes(transactionOutputsDigest, digestEndian);
         }
 

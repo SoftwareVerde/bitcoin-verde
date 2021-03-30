@@ -6,7 +6,7 @@ public class HashType {
     protected static final byte ANYONE_CAN_PAY_FLAG = (byte) 0x80;
     protected static final byte BITCOIN_CASH_FLAG = (byte) 0x40;
 
-    protected static final byte USED_BITS_MASK = (BITCOIN_CASH_FLAG | ANYONE_CAN_PAY_FLAG | Mode.USED_BITS_MASK); // Bitmask containing the range of bits used to determine the HashType.
+    protected static final byte USED_BITS_MASK = (BITCOIN_CASH_FLAG | ANYONE_CAN_PAY_FLAG | Mode.BIT_MASK); // Bitmask containing the range of bits used to determine the HashType.
 
     public static HashType fromByte(final byte b) {
         return new HashType(b);
