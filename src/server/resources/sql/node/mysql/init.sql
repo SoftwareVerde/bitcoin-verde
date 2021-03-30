@@ -278,6 +278,15 @@ CREATE TABLE validated_slp_transactions (
     FOREIGN KEY valid_slp_transactions_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
+CREATE TABLE double_spend_proofs (
+    hash BINARY(32) NOT NULL,
+    transaction_id INT UNSIGNED NOT NULL,
+    output_index INT UNSIGNED NOT NULL,
+    data MEDIUMBLOB,
+    PRIMARY KEY (hash),
+    UNIQUE KEY dsproof_previous_output_ix (transaction_id, output_index)
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
 -- Misc
 
 CREATE TABLE properties (
@@ -286,4 +295,4 @@ CREATE TABLE properties (
     PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (4, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (5, UNIX_TIMESTAMP());

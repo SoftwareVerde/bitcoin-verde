@@ -65,6 +65,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnc
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofAnnouncementHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofDatabase;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofProcessor;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -417,7 +418,13 @@ public class NodeModule {
         final DoubleSpendProofStore doubleSpendProofStore;
         final DoubleSpendProofProcessor doubleSpendProofProcessor;
         {
-            doubleSpendProofStore = new DoubleSpendProofStore(256);
+            final int maxCacheItemCount = 256;
+            if (bitcoinProperties.isIndexingModeEnabled()) {
+                doubleSpendProofStore = new DoubleSpendProofDatabase(maxCacheItemCount, databaseManagerFactory);
+            }
+            else {
+                doubleSpendProofStore = new DoubleSpendProofStore(maxCacheItemCount);
+            }
 
             final DoubleSpendProofProcessorContext doubleSpendProofProcessorContext = new DoubleSpendProofProcessorContext(databaseManagerFactory, _upgradeSchedule);
             doubleSpendProofProcessor = new DoubleSpendProofProcessor(doubleSpendProofStore, doubleSpendProofProcessorContext);
@@ -848,9 +855,9 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_generalThreadPool); // TODO: Should combine _generalThreadPool and _networkThreadPool, and/or refactor completely.
 
-                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, _mutableNetworkTime, _upgradeSchedule);
+                final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
 
-                final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
+                final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory, doubleSpendProofStore);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();

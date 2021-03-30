@@ -670,6 +670,18 @@
     color: #AB1B1B !important;
 }
 
+.transaction:not(.collapsed) .double-spend-warning {
+    margin-top: 1em;
+}
+.transaction .double-spend-warning {
+    display: inline-block;
+    color: #EE0000;
+    float: left;
+    margin: 0;
+    padding: 0;
+    padding-top: 0.15em;
+}
+
 .address .address-metadata {
     margin-top: 1em;
     padding: 1em;
@@ -713,6 +725,9 @@
 
 .recent-transactions .transaction > .hash > label {
     display: none;
+}
+.recent-transactions .transaction .double-spend-warning {
+    display: none !important;
 }
 
 .block > .block-header div.merkle-root:nth-child(2n) .value.fixed,

@@ -36,6 +36,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
@@ -49,6 +50,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
@@ -79,6 +82,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
     protected final BlockchainBuilder _blockchainBuilder;
+    protected final DoubleSpendProofStore _doubleSpendProofStore;
 
     protected Block _getBlock(final BlockId blockId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         if (blockId == null) { return null; }
@@ -169,7 +173,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         return BlockHeader.calculateBlockReward(blockHeight);
     }
 
-    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
+    public RpcDataHandler(final SystemTime systemTime, final MasterInflater masterInflater, final FullNodeDatabaseManagerFactory databaseManagerFactory, final DifficultyCalculatorFactory difficultyCalculatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockchainBuilder blockchainBuilder, final BlockDownloader blockDownloader, final DoubleSpendProofStore doubleSpendProofStore, final VolatileNetworkTime networkTime, final UpgradeSchedule upgradeSchedule) {
         _systemTime = systemTime;
         _masterInflater = masterInflater;
         _upgradeSchedule = upgradeSchedule;
@@ -181,6 +185,8 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         _blockDownloader = blockDownloader;
         _blockchainBuilder = blockchainBuilder;
         _networkTime = networkTime;
+
+        _doubleSpendProofStore = doubleSpendProofStore;
     }
 
     @Override
@@ -571,6 +577,24 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
             Logger.debug(exception);
             return null;
         }
+    }
+
+    @Override
+    public List<DoubleSpendProof> getDoubleSpendProofs() {
+        if (_doubleSpendProofStore == null) { return null; }
+        return _doubleSpendProofStore.getDoubleSpendProofs();
+    }
+
+    @Override
+    public DoubleSpendProof getDoubleSpendProof(final Sha256Hash doubleSpendProofHash) {
+        if (_doubleSpendProofStore == null) { return null; }
+        return _doubleSpendProofStore.getDoubleSpendProof(doubleSpendProofHash);
+    }
+
+    @Override
+    public DoubleSpendProof getDoubleSpendProof(final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent) {
+        if (_doubleSpendProofStore == null) { return null; }
+        return _doubleSpendProofStore.getDoubleSpendProof(transactionOutputIdentifierBeingSpent);
     }
 
     @Override
