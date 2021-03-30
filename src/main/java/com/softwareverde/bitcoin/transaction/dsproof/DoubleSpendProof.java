@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.logging.Logger;
@@ -31,6 +32,11 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class DoubleSpendProof implements Hashable, Const {
+    public static List<HashType> SUPPORTED_HASH_TYPES = new ImmutableList<HashType>(
+        new HashType(Mode.SIGNATURE_HASH_ALL, true, false),     // HashType: 0x01
+        new HashType(Mode.SIGNATURE_HASH_SINGLE, true, false)   // HashType: 0x03
+    );
+
     public static Boolean arePreimagesInCanonicalOrder(final DoubleSpendProofPreimage doubleSpendProofPreimage0, final DoubleSpendProofPreimage doubleSpendProofPreimage1) {
         final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
 
@@ -159,14 +165,11 @@ public class DoubleSpendProof implements Hashable, Const {
                 final Sha256Hash transactionOutputsDigest = Sha256Hash.EMPTY_HASH; // TODO: Change in version 2 of DSProof.
                 doubleSpendProofPreimage.setExecutedTransactionOutputsDigest(transactionOutputsDigest);
 
-                // Both HashTypes should always be included in order to provide a canonical form/identifier for the DSProof when extras are provided.
-                final HashType signatureHashSingle = new HashType(Mode.SIGNATURE_HASH_SINGLE, true, true);
-                final Sha256Hash transactionOutputsDigestSignatureHashSingle = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, signatureHashSingle);
-                doubleSpendProofPreimage.setTransactionOutputsDigest(signatureHashSingle, transactionOutputsDigestSignatureHashSingle);
-
-                final HashType signatureHashAll = new HashType(Mode.SIGNATURE_HASH_ALL, true, true);
-                final Sha256Hash transactionOutputsDigestSignatureHashAll = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, signatureHashAll);
-                doubleSpendProofPreimage.setTransactionOutputsDigest(signatureHashAll, transactionOutputsDigestSignatureHashAll);
+                // All supported HashTypes should always be included in order to provide a canonical form/identifier for the DSProof when extras are provided.
+                for (final HashType hashType : DoubleSpendProof.SUPPORTED_HASH_TYPES) {
+                    final Sha256Hash transactionOutputsDigestSignatureHashSingle = BitcoinCashTransactionSignerUtil.getTransactionOutputsHash(transaction, transactionInputIndex, hashType);
+                    doubleSpendProofPreimage.setTransactionOutputsDigest(hashType, transactionOutputsDigestSignatureHashSingle);
+                }
             }
         }
 
@@ -232,8 +235,8 @@ public class DoubleSpendProof implements Hashable, Const {
         }
 
         { // Serialize extra TransactionOutputDigests, if there are any...
-            final List<HashType> preimage0HashTypes = _doubleSpendProofPreimage0.getTransactionOutputsDigestHashTypes();
-            final List<HashType> preimage1HashTypes = _doubleSpendProofPreimage1.getTransactionOutputsDigestHashTypes();
+            final List<HashType> preimage0HashTypes = _doubleSpendProofPreimage0.getExtraTransactionOutputsDigestHashTypes();
+            final List<HashType> preimage1HashTypes = _doubleSpendProofPreimage1.getExtraTransactionOutputsDigestHashTypes();
 
             final int preimage0HashTypesCount = preimage0HashTypes.getCount();
             final int preimage1HashTypesCount = preimage1HashTypes.getCount();

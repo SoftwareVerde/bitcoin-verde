@@ -24,23 +24,23 @@ public class DoubleSpendProofWithTransactions extends DoubleSpendProof {
             return null;
         }
 
-        final boolean shouldSwapProvidedPreimageOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(firstSeenDoubleSpendProofPreimage, secondSeenDoubleSpendProofPreimage);
+        final boolean preimagesAreInCanonicalOrder = DoubleSpendProof.arePreimagesInCanonicalOrder(firstSeenDoubleSpendProofPreimage, secondSeenDoubleSpendProofPreimage);
 
         final DoubleSpendProofPreimage doubleSpendProofPreimage0;
         final DoubleSpendProofPreimage doubleSpendProofPreimage1;
         final Transaction transaction0;
         final Transaction transaction1;
-        if (shouldSwapProvidedPreimageOrder) {
-            doubleSpendProofPreimage0 = secondSeenDoubleSpendProofPreimage;
-            doubleSpendProofPreimage1 = firstSeenDoubleSpendProofPreimage;
-            transaction0 = doubleSpendTransaction;
-            transaction1 = firstSeenTransaction;
-        }
-        else {
+        if (preimagesAreInCanonicalOrder) {
             doubleSpendProofPreimage0 = firstSeenDoubleSpendProofPreimage;
             doubleSpendProofPreimage1 = secondSeenDoubleSpendProofPreimage;
             transaction0 = firstSeenTransaction;
             transaction1 = doubleSpendTransaction;
+        }
+        else {
+            doubleSpendProofPreimage0 = secondSeenDoubleSpendProofPreimage;
+            doubleSpendProofPreimage1 = firstSeenDoubleSpendProofPreimage;
+            transaction0 = doubleSpendTransaction;
+            transaction1 = firstSeenTransaction;
         }
 
         return new DoubleSpendProofWithTransactions(transactionOutputIdentifierBeingSpent, doubleSpendProofPreimage0, doubleSpendProofPreimage1, transaction0, transaction1);
