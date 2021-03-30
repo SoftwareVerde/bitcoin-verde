@@ -256,12 +256,21 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             }
         }
 
-        final Integer maxBlockCount;
-        if (parameters.hasKey("maxBlockCount")) {
-            maxBlockCount = parameters.getInteger("maxBlockCount");
+        final int defaultMaxBlockCount = 10;
+        final int maxMaxBlockCount = 1024;
+        final int maxBlockCount;
+        final String paramMaxBlockCountString = parameters.getString("maxBlockCount");
+        if ( parameters.hasKey("maxBlockCount") && Util.isInt(paramMaxBlockCountString) ) {
+            final Integer paramMaxBlockCount = Util.parseInt(paramMaxBlockCountString);
+            if (paramMaxBlockCount < 0) {
+                maxBlockCount = maxMaxBlockCount;
+            }
+            else {
+                maxBlockCount = Math.min(paramMaxBlockCount, maxMaxBlockCount);
+            }
         }
         else {
-            maxBlockCount = 10;
+            maxBlockCount = defaultMaxBlockCount;
         }
 
         final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");

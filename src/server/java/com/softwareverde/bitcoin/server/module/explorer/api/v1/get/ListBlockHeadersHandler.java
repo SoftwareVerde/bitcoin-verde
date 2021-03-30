@@ -39,8 +39,9 @@ public class ListBlockHeadersHandler implements RequestHandler<Environment> {
             {
                 final Long blockHeight = (getParameters.containsKey("blockHeight") ? Util.parseLong(getParameters.get("blockHeight"), null) : null);
                 final Integer maxBlockCount = (getParameters.containsKey("maxBlockCount") ? Util.parseInt(getParameters.get("maxBlockCount"), null) : null);
+                final Boolean rawFormat = (getParameters.containsKey("rawFormat") ? Util.parseBool(getParameters.get("rawFormat"), false) : false);
 
-                final Json rpcResponseJson = nodeJsonRpcConnection.getBlockHeaders(blockHeight, maxBlockCount, false);
+                final Json rpcResponseJson = nodeJsonRpcConnection.getBlockHeaders(blockHeight, maxBlockCount, rawFormat);
                 if (rpcResponseJson == null) {
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                 }
