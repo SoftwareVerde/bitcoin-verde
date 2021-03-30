@@ -65,6 +65,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnc
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.RequestSlpTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofAnnouncementHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofDatabase;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofProcessor;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof.DoubleSpendProofStore;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -417,7 +418,7 @@ public class NodeModule {
         final DoubleSpendProofStore doubleSpendProofStore;
         final DoubleSpendProofProcessor doubleSpendProofProcessor;
         {
-            doubleSpendProofStore = new DoubleSpendProofStore(256);
+            doubleSpendProofStore = new DoubleSpendProofDatabase(256, databaseManagerFactory);
 
             final DoubleSpendProofProcessorContext doubleSpendProofProcessorContext = new DoubleSpendProofProcessorContext(databaseManagerFactory, _upgradeSchedule);
             doubleSpendProofProcessor = new DoubleSpendProofProcessor(doubleSpendProofStore, doubleSpendProofProcessorContext);
