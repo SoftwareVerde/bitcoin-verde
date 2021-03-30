@@ -22,6 +22,9 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
@@ -131,6 +134,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Boolean isValidSlpTransaction(Sha256Hash transactionHash);
         SlpTokenId getSlpTokenId(Sha256Hash transactionHash);
 
+        DoubleSpendProof getDoubleSpendProof(Sha256Hash doubleSpendProofHash);
+        DoubleSpendProof getDoubleSpendProof(TransactionOutputIdentifier transactionOutputIdentifierBeingSpent);
+
         BlockValidationResult validatePrototypeBlock(Block block);
         ValidationResult validateTransaction(Transaction transaction, Boolean enableSlpValidation);
 
@@ -156,7 +162,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public enum HookEvent {
         NEW_BLOCK,
-        NEW_TRANSACTION;
+        NEW_TRANSACTION,
+        NEW_DOUBLE_SPEND_PROOF;
 
         public static HookEvent fromString(final String string) {
             for (final HookEvent hookEvent : HookEvent.values()) {
@@ -239,6 +246,42 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
         _threadPool = threadPool;
         _masterInflater = masterInflater;
+    }
+
+    protected Json _doubleSpendProofToJson(final DoubleSpendProof doubleSpendProof) {
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
+
+        final Json transactionOutputIdentifierJson = new Json(false);
+        {
+            final Sha256Hash transactionHash = transactionOutputIdentifierBeingSpent.getTransactionHash();
+            final Integer outputIndex = transactionOutputIdentifierBeingSpent.getOutputIndex();
+            transactionOutputIdentifierJson.put("transactionHash", transactionHash);
+            transactionOutputIdentifierJson.put("outputIndex", outputIndex);
+        }
+
+        final Json doubleSpendProofJson = new Json(false);
+        doubleSpendProofJson.put("hash", doubleSpendProofHash);
+        doubleSpendProofJson.put("transactionOutputIdentifier", transactionOutputIdentifierJson);
+
+        return doubleSpendProofJson;
+    }
+
+    protected TransactionOutputIdentifier _parseTransactionOutputIdentifier(final String transactionOutputIdentifierString) {
+        final int index = transactionOutputIdentifierString.indexOf(":");
+        if (index < 0) { return null; }
+
+        final String transactionHashString = transactionOutputIdentifierString.substring(0, index);
+        final String outputIndexString = transactionOutputIdentifierString.substring(index + 1);
+
+        if ( Util.isBlank(transactionHashString) || (! Util.isInt(outputIndexString)) ) { return null; }
+
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
+        final Integer outputIndex = Util.parseInt(outputIndexString);
+
+        if (transactionHash == null) { return null; }
+
+        return new TransactionOutputIdentifier(transactionHash, outputIndex);
     }
 
     // Requires GET: [blockHeight], [maxBlockCount=10], [rawFormat=0]
@@ -564,6 +607,88 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             response.put("transaction", transactionJson);
         }
         response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <transactionHash | transactionOutputIdentifier | hash>
+    protected void _getDoubleSpendProof(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (parameters.hasKey("hash")) {
+            final String hashString = parameters.getString("hash");
+            final Sha256Hash hash = Sha256Hash.fromHexString(hashString);
+            if ( (hash == null) && (! Util.isBlank(hashString)) ) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid hash: " + hashString);
+                return;
+            }
+
+            final DoubleSpendProof doubleSpendProof = _dataHandler.getDoubleSpendProof(hash);
+            if (doubleSpendProof == null) {
+                response.put(ERROR_MESSAGE_KEY, "Double spend proof not found.");
+                return;
+            }
+
+            final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
+            response.put("doubleSpendProof", doubleSpendProofJson);
+            response.put(WAS_SUCCESS_KEY, 1);
+            return;
+        }
+
+        if (parameters.hasKey("transactionOutputIdentifier")) {
+            final String transactionOutputIdentifierString = parameters.getString("transactionOutputIdentifier");
+            final TransactionOutputIdentifier transactionOutputIdentifier = _parseTransactionOutputIdentifier(transactionOutputIdentifierString);
+
+            if ( (transactionOutputIdentifier == null) && (! Util.isBlank(transactionOutputIdentifierString)) ) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid transaction output identifier: " + transactionOutputIdentifierString);
+                return;
+            }
+
+            final DoubleSpendProof doubleSpendProof = _dataHandler.getDoubleSpendProof(transactionOutputIdentifier);
+            if (doubleSpendProof == null) {
+                response.put("doubleSpendProof", null); // NOTE: Not-found is still considered a success.
+            }
+            else {
+                final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
+                response.put("doubleSpendProof", doubleSpendProofJson);
+            }
+
+            response.put(WAS_SUCCESS_KEY, 1);
+            return;
+        }
+
+        if (parameters.hasKey("transactionHash")) {
+            final String transactionHashString = parameters.getString("transactionHash");
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
+
+            if ( (transactionHash == null) && (! Util.isBlank(transactionHashString)) ) {
+                response.put(ERROR_MESSAGE_KEY, "Invalid hash: " + transactionHashString);
+                return;
+            }
+
+            final Transaction transaction = _dataHandler.getTransaction(transactionHash);
+            if (transaction == null) {
+                response.put(ERROR_MESSAGE_KEY, "Unknown transaction: " + transactionHashString);
+                return;
+            }
+
+            final Json doubleSpendProofsJson = new Json(true);
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                final DoubleSpendProof doubleSpendProof = _dataHandler.getDoubleSpendProof(transactionOutputIdentifier);
+                if (doubleSpendProof != null) {
+                    final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
+                    doubleSpendProofsJson.add(doubleSpendProofJson);
+                }
+            }
+            doubleSpendProofsJson.put("doubleSpendProofs", doubleSpendProofsJson);
+            response.put(WAS_SUCCESS_KEY, 1);
+            return;
+        }
+
+        response.put(ERROR_MESSAGE_KEY, "Missing parameter. Required: hash | transactionOutputIdentifier | transactionHash");
     }
 
     // Requires GET:
@@ -1675,6 +1800,50 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         });
     }
 
+    public void onNewDoubleSpendProof(final DoubleSpendProof doubleSpendProof) {
+        final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = doubleSpendProof.getTransactionOutputIdentifierBeingDoubleSpent();
+
+        final LazyProtocolMessage lazyProtocolMessage = new LazyProtocolMessage() {
+            @Override
+            protected ProtocolMessage _createProtocolMessage() {
+                final Json json = new Json();
+                json.put("objectType", "DOUBLE_SPEND_PROOF");
+
+                final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
+
+                json.put("object", doubleSpendProofJson);
+
+                return new JsonProtocolMessage(json);
+            }
+        };
+
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                synchronized (_eventHooks) {
+                    final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_DOUBLE_SPEND_PROOF);
+                    if (sockets == null) { return; }
+
+                    final Iterator<HookListener> iterator = sockets.mutableIterator();
+                    while (iterator.hasNext()) {
+                        final HookListener hookListener = iterator.next();
+                        final JsonSocket jsonSocket = hookListener.socket;
+
+                        final ProtocolMessage protocolMessage = lazyProtocolMessage.getProtocolMessage();
+
+                        jsonSocket.write(protocolMessage);
+
+                        if (! jsonSocket.isConnected()) {
+                            iterator.remove();
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket.toString());
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     @Override
     public void run(final JsonSocket socketConnection) {
         socketConnection.setMessageReceivedCallback(new Runnable() {
@@ -1714,6 +1883,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "TRANSACTION": {
                                 _getTransaction(parameters, response);
+                            } break;
+
+                            case "DOUBLE_SPEND_PROOF": {
+                                _getDoubleSpendProof(parameters, response);
                             } break;
 
                             case "BLOCK_HEIGHT": {
