@@ -683,7 +683,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                     doubleSpendProofsJson.add(doubleSpendProofJson);
                 }
             }
-            doubleSpendProofsJson.put("doubleSpendProofs", doubleSpendProofsJson);
+            response.put("doubleSpendProofs", doubleSpendProofsJson);
             response.put(WAS_SUCCESS_KEY, 1);
             return;
         }
