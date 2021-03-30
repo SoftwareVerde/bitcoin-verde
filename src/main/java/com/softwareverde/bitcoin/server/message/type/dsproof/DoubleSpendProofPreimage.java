@@ -14,8 +14,8 @@ import java.util.HashMap;
 
 public class DoubleSpendProofPreimage {
     protected Long _transactionVersion;                     // Transaction Preimage Component #1
-    protected SequenceNumber _sequenceNumber;
-    protected LockTime _lockTime;
+    protected SequenceNumber _sequenceNumber;               // Transaction Preimage Component #9
+    protected LockTime _lockTime;                           // Transaction Preimage Component #11
     protected Sha256Hash _previousOutputsDigest;            // Transaction Preimage Component #2
     protected Sha256Hash _sequenceNumbersDigest;            // Transaction Preimage Component #3
     protected Sha256Hash _executedTransactionOutputsDigest; // Transaction Preimage Component #8
