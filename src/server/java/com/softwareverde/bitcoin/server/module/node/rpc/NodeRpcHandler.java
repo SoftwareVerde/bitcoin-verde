@@ -134,6 +134,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Boolean isValidSlpTransaction(Sha256Hash transactionHash);
         SlpTokenId getSlpTokenId(Sha256Hash transactionHash);
 
+        List<DoubleSpendProof> getDoubleSpendProofs();
         DoubleSpendProof getDoubleSpendProof(Sha256Hash doubleSpendProofHash);
         DoubleSpendProof getDoubleSpendProof(TransactionOutputIdentifier transactionOutputIdentifierBeingSpent);
 
@@ -609,7 +610,26 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    // Requires GET: <transactionHash | transactionOutputIdentifier | hash>
+    protected void _getDoubleSpendProofs(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final List<DoubleSpendProof> doubleSpendProofs = dataHandler.getDoubleSpendProofs();
+
+        final Json doubleSpendProofsJson = new Json(true);
+        for (final DoubleSpendProof doubleSpendProof : doubleSpendProofs) {
+            final Json doubleSpendProofJson = _doubleSpendProofToJson(doubleSpendProof);
+            doubleSpendProofsJson.add(doubleSpendProofJson);
+        }
+
+        response.put("doubleSpendProofs", doubleSpendProofsJson);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: <hash | transactionOutputIdentifier | transactionHash>
     protected void _getDoubleSpendProof(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -1883,6 +1903,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "TRANSACTION": {
                                 _getTransaction(parameters, response);
+                            } break;
+
+                            case "DOUBLE_SPEND_PROOFS": {
+                                _getDoubleSpendProofs(parameters, response);
                             } break;
 
                             case "DOUBLE_SPEND_PROOF": {
