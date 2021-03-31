@@ -13,6 +13,7 @@ public interface TransactionValidator {
 
     Long COINBASE_MATURITY = 100L; // Number of Blocks before a coinbase transaction may be spent.
     Integer MAX_SIGNATURE_OPERATIONS = 3000; // Number of Signature operations allowed per Transaction.
+    Integer MAX_SCRIPT_BYTE_COUNT = 10000;
 
     SequenceNumber FINAL_SEQUENCE_NUMBER = SequenceNumber.MAX_SEQUENCE_NUMBER; // If all inputs are "FINAL" then ignore lock time
 

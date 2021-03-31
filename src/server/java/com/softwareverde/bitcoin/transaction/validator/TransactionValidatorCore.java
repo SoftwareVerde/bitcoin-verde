@@ -336,6 +336,11 @@ public class TransactionValidatorCore implements TransactionValidator {
                 transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
                 transactionContext.setTransactionInputIndex(i);
 
+                if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
+                    final Json errorJson = _createInvalidTransactionReport("Transaction unlocking script exceeds max size.", transaction, transactionContext);
+                    return TransactionValidationResult.invalid(errorJson);
+                }
+
                 final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
                 final boolean inputIsUnlocked = scriptRunnerResult.isValid;
                 if (! inputIsUnlocked) {
@@ -362,6 +367,12 @@ public class TransactionValidatorCore implements TransactionValidator {
                 }
 
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                    if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
+                        final Json errorJson = _createInvalidTransactionReport("Transaction locking script exceeds max size.", transaction, transactionContext);
+                        return TransactionValidationResult.invalid(errorJson);
+                    }
+
                     final Long transactionOutputAmount = transactionOutput.getAmount();
                     if (transactionOutputAmount < 0L) {
                         final Json errorJson = _createInvalidTransactionReport("TransactionOutput has negative amount.", transaction, transactionContext);
