@@ -4,7 +4,11 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ControlOperation;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -49,11 +53,17 @@ public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTes
 
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = new UnspentTransactionOutputJvmManager(MAX_UTXO_COUNT, purgePercent, fullNodeDatabaseManager, _blockStore, _masterInflater);
 
+        final MutableLockingScript lockingScript = new MutableLockingScript();
+        {
+            lockingScript.addOperation(ControlOperation.VERIFY);
+        }
+
         long blockHeight = 1L;
         for (int i = 0; i < MAX_UTXO_COUNT; ) {
             final int utxoCountPerBlock = ((i * 2) + 1);
 
-            final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(utxoCountPerBlock);
+            final MutableList<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<>(utxoCountPerBlock);
+            final MutableList<TransactionOutput> transactionOutputs = new MutableList<>();
 
             for (int j = 0; j < utxoCountPerBlock; ++j) {
                 if (i >= MAX_UTXO_COUNT) { break; }
@@ -61,11 +71,21 @@ public class UnspentTransactionOutputDatabaseManagerTests extends IntegrationTes
                 final Sha256Hash transactionHash = Sha256Hash.wrap(HashUtil.sha256(ByteUtil.integerToBytes(i)));
                 final Integer outputIndex = (j % 4);
 
-                transactionOutputIdentifiers.add(new TransactionOutputIdentifier(transactionHash, outputIndex));
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+                {
+                    transactionOutput.setIndex(outputIndex);
+                    transactionOutput.setAmount(1L);
+                    transactionOutput.setLockingScript(lockingScript);
+                }
+
+                transactionOutputIdentifiers.add(transactionOutputIdentifier);
+                transactionOutputs.add(transactionOutput);
+
                 i += 1;
             }
 
-            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, blockHeight);
+            unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(transactionOutputIdentifiers, transactionOutputs, blockHeight);
             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
             blockHeight += 1L;
         }

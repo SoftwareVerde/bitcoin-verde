@@ -87,8 +87,9 @@ public class UnspentTransactionOutputManager {
         final int transactionCount = transactions.getCount();
 
         int unspendableCount = 0;
-        final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-        final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+        final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<>();
+        final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<>();
+        final MutableList<TransactionOutput> unspentTransactionOutputs = new MutableList<>();
         for (int i = 0; i < transactions.getCount(); ++i) {
             final Transaction transaction = transactions.get(i);
             final Sha256Hash transactionHash = transaction.getHash();
@@ -110,6 +111,7 @@ public class UnspentTransactionOutputManager {
                 if (isPossiblySpendable) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(constTransactionHash, outputIndex);
                     unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
+                    unspentTransactionOutputs.add(transactionOutput);
                 }
                 else {
                     unspendableCount += 1;
@@ -131,7 +133,7 @@ public class UnspentTransactionOutputManager {
 
         utxoTimer.start();
 
-        unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, blockHeight);
+        unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, unspentTransactionOutputs, blockHeight);
         unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
 
         utxoTimer.stop();

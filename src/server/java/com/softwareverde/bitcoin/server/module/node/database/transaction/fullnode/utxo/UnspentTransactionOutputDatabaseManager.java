@@ -49,7 +49,7 @@ public interface UnspentTransactionOutputDatabaseManager {
     ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX = UnspentTransactionOutputJvmManager.WRITE_MUTEX;
 
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
-    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, Long blockHeight) throws DatabaseException;
+    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, List<TransactionOutput> transactionOutputs, Long blockHeight) throws DatabaseException;
 
     /**
      * Marks the provided UTXOs as spent, logically removing them from the UTXO set, and forces the outputs to be synchronized to disk on the next UTXO commit.

@@ -29,4 +29,12 @@ public class UnspentTransactionOutput {
     public long getBlockHeight() {
         return _utxoValue.blockHeight;
     }
+
+    public long getAmount() {
+        return _utxoValue.amount;
+    }
+
+    public byte[] getLockingScript() {
+        return _utxoValue.lockingScript;
+    }
 }
