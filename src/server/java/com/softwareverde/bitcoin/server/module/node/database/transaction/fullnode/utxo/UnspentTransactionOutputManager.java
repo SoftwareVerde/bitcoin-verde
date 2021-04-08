@@ -35,6 +35,10 @@ public class UnspentTransactionOutputManager {
         UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();
     }
 
+    public static Boolean isUtxoCacheReady() {
+        return UnspentTransactionOutputDatabaseManager.isUtxoCacheReady();
+    }
+
     protected final FullNodeDatabaseManager _databaseManager;
     protected final Long _commitFrequency;
 
@@ -228,8 +232,8 @@ public class UnspentTransactionOutputManager {
             }
 
             final List<Transaction> transactions = block.getTransactions();
-            final MutableList<TransactionOutputIdentifier> previousOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
-            final MutableList<TransactionOutputIdentifier> newOutputIdentifiers = new MutableList<TransactionOutputIdentifier>();
+            final MutableList<TransactionOutputIdentifier> previousOutputIdentifiers = new MutableList<>();
+            final MutableList<TransactionOutputIdentifier> newOutputIdentifiers = new MutableList<>();
             for (int i = 0; i < transactions.getCount(); ++i) {
                 final Transaction transaction = transactions.get(i);
 
