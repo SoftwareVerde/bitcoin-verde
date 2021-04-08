@@ -281,41 +281,60 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     /**
      * Attempts to find the outputKey's corresponding amount and LockingScript.
      *  If the amount/LockingScript cannot be found, then null is returned.
-     *  This operation is fairly expensive, although it attempts to lookup the data via the utxo table first.
-     *  If the data is not within the utxo table, then the data is attempted to be loaded from the mempool or a block.
-     *  TODO: Under what scenario can this fail?  Possibilities include a reorg that causes a utxo-buffer commit...?
+     *  This operation can be fairly expensive.
+     *  Lookup is attempted first via the utxo table, then the pruned outputs table (aka the semi- undo log, if enabled),
+     *  then the mempool, then the block flat file.
      */
     protected Tuple<Long, byte[]> _findOutputData(final UtxoKey utxoKey, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT amount, locking_script FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
-                .setParameter(utxoKey.transactionHash)
-                .setParameter(utxoKey.outputIndex)
-        );
-        if (! rows.isEmpty()) {
-            final Row row = rows.get(0);
-            final Long amount = row.getLong("amount");
-            final byte[] lockingScriptBytes = row.getBytes("locking_script");
-            return new Tuple<>(amount, lockingScriptBytes);
+        { // Check for the amount/script via the cached UTXO state...
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT amount, locking_script FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                    .setParameter(utxoKey.transactionHash)
+                    .setParameter(utxoKey.outputIndex)
+            );
+            if (! rows.isEmpty()) {
+                final Row row = rows.get(0);
+                final Long amount = row.getLong("amount");
+                final byte[] lockingScriptBytes = row.getBytes("locking_script");
+                return new Tuple<>(amount, lockingScriptBytes);
+            }
         }
 
-        final Sha256Hash transactionHash = Sha256Hash.wrap(utxoKey.transactionHash);
-        final int outputIndex = utxoKey.outputIndex;
+        { // Check for the amount/script via the pruned_previous_transaction_outputs table (aka the semi- undo-log)...
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT amount, locking_script FROM pruned_previous_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
+                    .setParameter(utxoKey.transactionHash)
+                    .setParameter(utxoKey.outputIndex)
+            );
+            if (! rows.isEmpty()) {
+                final Row row = rows.get(0);
+                final Long amount = row.getLong("amount");
+                final byte[] lockingScriptBytes = row.getBytes("locking_script");
+                return new Tuple<>(amount, lockingScriptBytes);
+            }
+        }
 
-        final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        if (transactionId == null) { return null; }
-        final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-        if (transaction == null) { return null; }
+        { // Attempt to find the amount/script from block flat-file, which may not exist for nodes operating in pruned mode.
+            final Sha256Hash transactionHash = Sha256Hash.wrap(utxoKey.transactionHash);
+            final int outputIndex = utxoKey.outputIndex;
 
-        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        if (outputIndex >= transactionOutputs.getCount()) { return null; }
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+            if (transactionId == null) { return null; }
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (transaction == null) { return null; }
 
-        final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
-        final Long amount = transactionOutput.getAmount();
-        final LockingScript lockingScript = transactionOutput.getLockingScript();
-        final ByteArray lockingScriptBytes = lockingScript.getBytes();
-        return new Tuple<>(amount, lockingScriptBytes.getBytes());
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            if (outputIndex >= transactionOutputs.getCount()) { return null; }
+
+            final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
+            final Long amount = transactionOutput.getAmount();
+            final LockingScript lockingScript = transactionOutput.getLockingScript();
+            final ByteArray lockingScriptBytes = lockingScript.getBytes();
+            return new Tuple<>(amount, lockingScriptBytes.getBytes());
+        }
     }
 
     protected void _undoSpendingOfTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
@@ -323,28 +342,20 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
             final UtxoValue utxoValue = UTXO_SET.remove(utxoKey);
-            if (utxoValue != null) { // Utxos are removed if they are new and unsynchronized to disk, therefore if the Utxo exists then it was synchronized to disk.
+            if (utxoValue != null) {
                 final JvmSpentState spentState = utxoValue.getSpentState();
-                // if (spentState.isFlushedToDisk() || spentState.isFlushMandatory()) {
-                //     final JvmSpentState newSpentState = new JvmSpentState();
-                //     newSpentState.setIsSpent(false);
-                //     newSpentState.setIsFlushedToDisk(false);
-                //     newSpentState.setIsFlushMandatory(true);
-                //
-                //     final UtxoValue newUtxoValue = new UtxoValue(newSpentState, utxoValue.blockHeight, utxoValue.amount, utxoValue.lockingScript);
-                //     queuedUpdates.put(utxoKey, newUtxoValue);
-                // }
-                // else { } // The UTXO was freshly created and not synchronized, so removing alone is sufficient.
-                { // TODO: Confirm this new behavior is correct...
-                    boolean isDirty = (spentState.isFlushedToDisk() || spentState.isFlushMandatory());
-
+                if (spentState.isFlushedToDisk() || spentState.isFlushMandatory()) {
                     final JvmSpentState newSpentState = new JvmSpentState();
                     newSpentState.setIsSpent(false);
                     newSpentState.setIsFlushedToDisk(false);
-                    newSpentState.setIsFlushMandatory(isDirty);
+                    newSpentState.setIsFlushMandatory(true);
 
                     final UtxoValue newUtxoValue = new UtxoValue(newSpentState, utxoValue.blockHeight, utxoValue.amount, utxoValue.lockingScript);
                     queuedUpdates.put(utxoKey, newUtxoValue);
+                }
+                else {
+                    // The UTXO was created (and spent) in the block being undone (and therefore would never need synchronizing), so removing alone is sufficient.
+                    // Typically spent outputs are removed if they do not require flushing, so this is unlikely to happen.
                 }
             }
             else {

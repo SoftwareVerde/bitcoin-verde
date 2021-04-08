@@ -39,6 +39,7 @@ import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainI
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogCreator;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
@@ -48,7 +49,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.threadpool.SimpleThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -65,29 +65,6 @@ import com.softwareverde.util.timer.NanoTimer;
 public class BlockProcessor {
     public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory, DifficultyCalculatorFactory, UpgradeScheduleContext { }
 
-
-    protected static class AsyncFuture {
-        protected final Pin _pin = new Pin();
-        protected DatabaseException _exception;
-
-        public void setException(final DatabaseException exception) {
-            _exception = exception;
-        }
-
-        public void release() {
-            _pin.release();
-        }
-
-        public void waitFor() throws DatabaseException {
-            _pin.waitForRelease();
-
-            final DatabaseException exception = _exception;
-            if (exception != null) {
-                throw exception;
-            }
-        }
-    }
-
     protected final Context _context;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
@@ -96,6 +73,8 @@ public class BlockProcessor {
     protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
+
+    protected Boolean _undoLogIsEnabled = false;
 
     protected Long _utxoCommitFrequency = 2016L;
     protected Integer _maxThreadCount = 4;
@@ -327,33 +306,8 @@ public class BlockProcessor {
         Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
     }
 
-    protected AsyncFuture _applyBlockToUtxoSetAsync(final Long blockHeight, final Block block, final FullNodeDatabaseManager databaseManager) {
-        final AsyncFuture future = new AsyncFuture();
-
-        (new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
-                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight, _context.getDatabaseManagerFactory());
-                }
-                catch (final DatabaseException exception) {
-                    future.setException(exception);
-                }
-                catch (final Exception exception) {
-                    future.setException(new DatabaseException(exception));
-                }
-                finally {
-                    future.release();
-                }
-            }
-        })).start();
-
-        return future;
-    }
-
     protected ProcessBlockResult _processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final BlockStore blockStore = _context.getBlockStore();
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
 
@@ -458,20 +412,32 @@ public class BlockProcessor {
                 return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
             }
 
+            if (_undoLogIsEnabled) {
+                final NanoTimer undoLogTimer = new NanoTimer();
+                undoLogTimer.start();
+
+                final UndoLogCreator undoLogCreator = new UndoLogCreator();
+                undoLogCreator.createUndoLog(blockHeight, block, unspentTransactionOutputContext, databaseConnection);
+
+                undoLogTimer.stop();
+                Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");
+            }
+
+            final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
+            if ( blockIsConnectedToUtxoSet && (blockHeight > 0L) ) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+
+                final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
+                unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight, databaseManagerFactory);
+
+                nanoTimer.stop();
+                Logger.debug("Applied " + blockHash + " @ " + blockHeight + " to UTXO set in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            }
+
             final List<TransactionId> transactionIds;
             { // Store the Block's Transactions...
                 storeBlockTimer.start();
-
-                final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-
-                final AsyncFuture utxoFuture;
-                if (blockIsConnectedToUtxoSet && (blockHeight > 0L)) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
-                    Logger.debug("Applying " + blockHash + " @ " + blockHeight + " to UTXO set.");
-                    utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager);
-                }
-                else {
-                    utxoFuture = null;
-                }
 
                 transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory, _maxThreadCount);
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
@@ -485,10 +451,6 @@ public class BlockProcessor {
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
-                }
-
-                if (utxoFuture != null) {
-                    utxoFuture.waitFor();
                 }
 
                 storeBlockTimer.stop();
@@ -647,5 +609,13 @@ public class BlockProcessor {
 
     public Container<Float> getAverageTransactionsPerSecondContainer() {
         return _averageTransactionsPerSecond;
+    }
+
+    public Boolean isUndoLogEnabled() {
+        return _undoLogIsEnabled;
+    }
+
+    public void enableUndoLog(final Boolean undoLogIsEnabled) {
+        _undoLogIsEnabled = undoLogIsEnabled;
     }
 }

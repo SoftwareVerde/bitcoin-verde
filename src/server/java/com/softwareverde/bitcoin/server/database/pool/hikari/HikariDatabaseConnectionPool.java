@@ -49,7 +49,7 @@ public class HikariDatabaseConnectionPool implements DatabaseConnectionPool {
         _dataSource.setMaximumPoolSize(BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT); // NOTE: MySQL default is 151.
         _dataSource.setMinimumIdle(4);
         _dataSource.setAutoCommit(true);
-        _dataSource.setLeakDetectionThreshold(60 * 1000L);
+        _dataSource.setLeakDetectionThreshold(5L * 60 * 1000L); // 5 Minutes, which should cover the longest single-connection subprocess.
 
         final String hostname = databaseProperties.getHostname();
         final Integer port = databaseProperties.getPort();

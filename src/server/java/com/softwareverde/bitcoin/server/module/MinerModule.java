@@ -29,7 +29,7 @@ public class MinerModule {
 
     public void run() {
         try {
-            final Miner miner = new Miner(_cpuThreadCount, 0, null, _masterInflater);
+            final Miner miner = new Miner(_cpuThreadCount, 0, _masterInflater);
             miner.setShouldMutateTimestamp(true);
             final Block block = miner.mineBlock(_prototypeBlock);
             if (block == null) {

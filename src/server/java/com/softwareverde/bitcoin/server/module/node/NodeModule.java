@@ -300,6 +300,17 @@ public class NodeModule {
 
     public NodeModule(final BitcoinProperties bitcoinProperties, final Environment environment) {
         final Thread mainThread = Thread.currentThread();
+        mainThread.setName("Bitcoin Verde - Main");
+        mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable throwable) {
+                try {
+                    Logger.error(throwable);
+                    _shutdown();
+                }
+                catch (final Throwable ignored) { }
+            }
+        });
 
         _systemTime = new SystemTime();
         _masterInflater = new CoreInflater();
@@ -351,17 +362,6 @@ public class NodeModule {
         _blockProcessingThreadPool = new CachedThreadPool(256, 60000L);
         _rpcThreadPool = new CachedThreadPool(32, 60000L);
 
-        mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(final Thread thread, final Throwable throwable) {
-                try {
-                    Logger.error(throwable);
-                    _shutdown();
-                }
-                catch (final Throwable ignored) { }
-            }
-        });
-
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(
@@ -401,16 +401,23 @@ public class NodeModule {
             }
         };
 
+        final boolean isPruningModeEnabled = bitcoinProperties.isPruningModeEnabled();
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
             public NodeFeatures getNodeFeatures() {
                 final NodeFeatures nodeFeatures = new NodeFeatures();
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
                 nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
+
+                if (! isPruningModeEnabled) {
+                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                }
+
+                nodeFeatures.enableFeature(NodeFeatures.Feature.MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED);
+
                 return nodeFeatures;
             }
         };
@@ -587,6 +594,7 @@ public class NodeModule {
             blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
+            blockProcessor.enableUndoLog(bitcoinProperties.isPruningModeEnabled());
         }
 
         final BlockDownloadRequester blockDownloadRequester;
@@ -696,6 +704,27 @@ public class NodeModule {
                     final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
                     if (nodeRpcHandler != null) {
                         nodeRpcHandler.onNewBlock(block);
+                    }
+
+                    if (bitcoinProperties.isPruningModeEnabled()) { // Handle Block Pruning...
+                        final long prunedBlockHeight = (blockHeight - 288L);
+                        if (prunedBlockHeight >= 1L) {
+                            try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                                // TODO: delete all blocks at the old height, regardless of blockchain segment.
+                                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                                final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                                final BlockId prunedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, prunedBlockHeight);
+                                final Sha256Hash prunedBlockHash = blockHeaderDatabaseManager.getBlockHash(prunedBlockId);
+
+                                _blockStore.removeBlock(prunedBlockHash, prunedBlockHeight);
+                                Logger.info("Pruned Block: " + prunedBlockHash);
+                            }
+                            catch (final DatabaseException exception) {
+                                Logger.debug(exception);
+                            }
+                        }
                     }
                 }
             });
@@ -1029,11 +1058,19 @@ public class NodeModule {
             }
         }
 
-        final boolean reIndexPendingBlocks;
+        final Path pendingBlockDataPath;
+        final boolean shouldReIndexPendingBlocks;
         {
+            final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
+            pendingBlockDataPath = Paths.get(pendingBlockDataDirectory);
+            final File pendingBlockDataPathFile = pendingBlockDataPath.toFile();
             final Boolean configParameter = _bitcoinProperties.shouldReIndexPendingBlocks();
-            if (configParameter != null) {
-                reIndexPendingBlocks = configParameter;
+
+            if (! pendingBlockDataPathFile.exists()) {
+                shouldReIndexPendingBlocks = false;
+            }
+            else if (configParameter != null) {
+                shouldReIndexPendingBlocks = configParameter;
             }
             else {
                 final Long headBlockHeight;
@@ -1051,19 +1088,18 @@ public class NodeModule {
                     headBlockHeight = Util.coalesce(blockHeight);
                 }
 
-                reIndexPendingBlocks = (headBlockHeight < 2016L);
+                shouldReIndexPendingBlocks = (headBlockHeight < 2016L);
             }
         }
 
-        if (reIndexPendingBlocks) { // Index previously downloaded blocks...
+        if (shouldReIndexPendingBlocks) { // Index previously downloaded blocks...
             Logger.info("[Indexing Pending Blocks]");
-            final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
                 final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
-                try (final DirectoryStream<Path> pendingBlockSubDirectories = Files.newDirectoryStream(Paths.get(pendingBlockDataDirectory))) {
+                try (final DirectoryStream<Path> pendingBlockSubDirectories = Files.newDirectoryStream(pendingBlockDataPath)) {
                     for (final Path pendingBlockSubDirectory : pendingBlockSubDirectories) {
                         try (final DirectoryStream<Path> pendingBlockPaths = Files.newDirectoryStream(pendingBlockSubDirectory)) {
                             for (final Path pendingBlockPath : pendingBlockPaths) {
