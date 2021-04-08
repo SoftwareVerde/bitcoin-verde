@@ -45,6 +45,10 @@ public interface UnspentTransactionOutputDatabaseManager {
         }
     }
 
+    static Boolean isUtxoCacheReady() {
+        return UnspentTransactionOutputJvmManager.isUtxoCacheReady();
+    }
+
     ReentrantReadWriteLock.ReadLock UTXO_READ_MUTEX = UnspentTransactionOutputJvmManager.READ_MUTEX;
     ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX = UnspentTransactionOutputJvmManager.WRITE_MUTEX;
 

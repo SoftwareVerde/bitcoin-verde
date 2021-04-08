@@ -402,7 +402,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 Logger.trace("Pending block " + pendingBlockHash + " loaded in " + nanoTimer.getMillisecondsElapsed() + "ms.");
             }
 
-            { // Ensure UTXO Set is valid (may happen if db connection was unavailable during UTXO rebuild).
+            if (! UnspentTransactionOutputManager.isUtxoCacheReady()) { // Ensure UTXO Set is valid (may happen if db connection was unavailable during UTXO rebuild).
                 Logger.info("Rebuilding invalidated UTXO set before block processing.");
 
                 final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
