@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.configuration.WalletProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.pool.SimpleDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.ChainValidationModule;
 import com.softwareverde.bitcoin.server.module.ConfigurationModule;
@@ -187,6 +187,12 @@ public class Main {
 
     protected final String[] _arguments;
 
+    protected Integer _calculateDatabaseConnectionCount(final BitcoinProperties bitcoinProperties) {
+        final int connectionsReservedForRoot = 1;
+        final Integer maxPeerCount = bitcoinProperties.getMaxPeerCount();
+        return Math.min(maxPeerCount, (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
+    }
+
     public Main(final String[] arguments) {
         _arguments = arguments;
 
@@ -252,12 +258,11 @@ public class Main {
                 Logger.info("[Database Online]");
 
                 final DatabaseConnectionPool databaseConnectionFactory;
-                // {
-                //     final int connectionsReservedForRoot = 1;
-                //     final Integer databaseConnectionCacheCount = Math.min(bitcoinProperties.getMaxPeerCount(), (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
-                //     databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
-                // }
-                databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
+                {
+                    final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
+                    databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
+                    // databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
+                }
 
                 final Environment environment = new Environment(database, databaseConnectionFactory);
 
@@ -300,7 +305,8 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
+                final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
+                final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
                 final Environment environment = new Environment(database, databaseConnectionFactory);
 
                 final List<NodeProperties> seedNodes = bitcoinProperties.getSeedNodeProperties();
@@ -381,7 +387,8 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
+                final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
+                final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
                 final Environment environment = new Environment(database, databaseConnectionPool);
 
                 final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
@@ -408,7 +415,7 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
+                final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, 32);
                 final Environment environment = new Environment(database, databaseConnectionPool);
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
@@ -452,7 +459,7 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final DatabaseConnectionPool databaseConnectionPool = new HikariDatabaseConnectionPool(databaseProperties);
+                final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, 16);
                 final Environment environment = new Environment(database, databaseConnectionPool);
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();

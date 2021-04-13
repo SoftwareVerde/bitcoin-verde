@@ -66,15 +66,7 @@ dependencies {
     serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.9'
 
     serverImplementation group: 'org.slf4j',                    name: 'slf4j-api',              version: '1.7.30'
-    serverImplementation(group: 'com.zaxxer',                   name: 'HikariCP',               version: '4.0.3') {
-        exclude group: 'io.micrometer',             module: '*'
-        exclude group: 'org.javassist ',            module: '*'
-        exclude group: 'org.slf4j',                 module: '*'
-        exclude group: 'io.dropwizard.metrics',     module: '*'
-        exclude group: 'io.prometheus',             module: '*'
-        exclude group: 'org.hibernate',             module: '*'
-    }
-    serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
+    serverImplementation group: 'org.jocl',                     name: 'jocl',                   version: '2.0.1'
 
     // Testing
     testImplementation group: 'junit',                     name: 'junit',                  version: '4.11'
