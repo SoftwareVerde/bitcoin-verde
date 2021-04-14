@@ -80,6 +80,7 @@ public class BitcoinPropertiesLoader {
         bitcoinProperties._maxThreadCount = Util.parseInt(properties.getProperty("bitcoin.maxThreadCount", "4"));
         bitcoinProperties._trustedBlockHeight = Util.parseLong(properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         bitcoinProperties._shouldSkipNetworking = Util.parseBool(properties.getProperty("bitcoin.skipNetworking", "0"));
+        bitcoinProperties._shouldPrioritizeNewPeers = Util.parseBool(properties.getProperty("bitcoin.prioritizeNewPeers", "0"));
         bitcoinProperties._deletePendingBlocksIsEnabled = Util.parseBool(properties.getProperty("bitcoin.deletePendingBlocks", "1"));
 
         final Long defaultMaxUtxoCacheByteCount = (UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT * UnspentTransactionOutputDatabaseManager.BYTES_PER_UTXO);

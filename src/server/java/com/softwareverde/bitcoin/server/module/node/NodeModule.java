@@ -342,10 +342,10 @@ public class NodeModule {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
-        final int minPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
+        final int minPeerCount = (bitcoinProperties.shouldSkipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
-        final int maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
+        final int maxPeerCount = (bitcoinProperties.shouldSkipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _generalThreadPool = new CachedThreadPool(256, 60000L);
         _networkThreadPool = new CachedThreadPool((16 + (maxPeerCount * 8)), 60000L);
         _blockProcessingThreadPool = new CachedThreadPool(256, 60000L);
@@ -1116,7 +1116,7 @@ public class NodeModule {
             }
         }
 
-        if (! _bitcoinProperties.skipNetworking()) {
+        if (! _bitcoinProperties.shouldSkipNetworking()) {
             Logger.info("[Starting Node Manager]");
             _bitcoinNodeManager.start();
 
@@ -1189,7 +1189,7 @@ public class NodeModule {
         Logger.info("[Starting Socket Server]");
         _socketServer.start();
 
-        if (! _bitcoinProperties.skipNetworking()) {
+        if (! _bitcoinProperties.shouldSkipNetworking()) {
             Logger.info("[Starting Header Downloader]");
             _blockHeaderDownloader.start();
 

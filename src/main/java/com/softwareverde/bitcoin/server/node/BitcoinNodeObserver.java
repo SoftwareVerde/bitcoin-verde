@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface BitcoinNodeObserver {
+    default void onHandshakeComplete(BitcoinNode bitcoinNode) { }
+
     default void onPingReceived(BitcoinNode bitcoinNode) { }
     default void onPongReceived(BitcoinNode bitcoinNode, Long msElapsed) { }
 

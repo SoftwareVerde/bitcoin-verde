@@ -27,6 +27,7 @@ public class BitcoinProperties {
     protected Integer _maxThreadCount;
     protected Long _trustedBlockHeight;
     protected Boolean _shouldSkipNetworking;
+    protected Boolean _shouldPrioritizeNewPeers;
     protected Long _maxUtxoCacheByteCount;
     protected Long _utxoCommitFrequency;
     protected Float _utxoPurgePercent;
@@ -82,7 +83,8 @@ public class BitcoinProperties {
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
-    public Boolean skipNetworking() { return _shouldSkipNetworking; }
+    public Boolean shouldSkipNetworking() { return _shouldSkipNetworking; }
+    public Boolean shouldPrioritizeNewPeers() { return _shouldPrioritizeNewPeers; }
     public Boolean isDeletePendingBlocksEnabled() { return _deletePendingBlocksIsEnabled; }
     public String getLogDirectory() { return _logDirectory; }
     public LogLevel getLogLevel() { return _logLevel; }
