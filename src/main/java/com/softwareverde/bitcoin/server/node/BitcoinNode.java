@@ -366,6 +366,15 @@ public class BitcoinNode extends Node {
     }
 
     @Override
+    protected void _onHandshakeComplete() {
+        super._onHandshakeComplete();
+
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onHandshakeComplete(BitcoinNode.this);
+        }
+    }
+
+    @Override
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         if (synchronizeVersionMessage instanceof BitcoinSynchronizeVersionMessage) {
             _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
