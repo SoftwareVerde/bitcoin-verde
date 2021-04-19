@@ -187,12 +187,6 @@ public class Main {
 
     protected final String[] _arguments;
 
-    protected Integer _calculateDatabaseConnectionCount(final BitcoinProperties bitcoinProperties) {
-        final int connectionsReservedForRoot = 1;
-        final Integer maxPeerCount = bitcoinProperties.getMaxPeerCount();
-        return Math.min(maxPeerCount, (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
-    }
-
     public Main(final String[] arguments) {
         _arguments = arguments;
 
@@ -249,7 +243,7 @@ public class Main {
                 }
 
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
@@ -259,8 +253,7 @@ public class Main {
 
                 final DatabaseConnectionPool databaseConnectionFactory;
                 {
-                    final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
-                    databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
+                    databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, 8);
                     // databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
                 }
 
@@ -297,7 +290,7 @@ public class Main {
                 }
 
                 final Container<SpvModule> spvModuleContainer = new Container<>();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.SPV, databaseProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.SPV, bitcoinProperties, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
@@ -305,8 +298,7 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
-                final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
+                final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, 8);
                 final Environment environment = new Environment(database, databaseConnectionFactory);
 
                 final List<NodeProperties> seedNodes = bitcoinProperties.getSeedNodeProperties();
@@ -380,15 +372,14 @@ public class Main {
                 final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();
                 }
                 Logger.info("[Database Online]");
 
-                final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
-                final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
+                final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, 8);
                 final Environment environment = new Environment(database, databaseConnectionPool);
 
                 final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
@@ -408,7 +399,7 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
                 final StratumProperties stratumProperties = configuration.getStratumProperties();
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, stratumProperties, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();

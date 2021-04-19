@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.configuration.BitcoinVerdeDatabaseProperties;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -18,6 +20,7 @@ import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProp
 import com.softwareverde.database.properties.DatabaseCredentials;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.Version;
@@ -36,11 +39,12 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
+    public static final Integer TARGET_MAX_DATABASE_CONNECTION_COUNT = 151; // 64 // Increasing too much may cause MySQL to use excessive memory...
+    public static final Integer MIN_DATABASE_CONNECTION_COUNT_PER_PEER = 2;
+
     public static final InitFile SPV = new InitFile("/sql/spv/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile BITCOIN = new InitFile("/sql/node/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
     public static final InitFile STRATUM = new InitFile("/sql/stratum/mysql/init.sql", BitcoinConstants.DATABASE_VERSION);
-
-    public static final Integer MAX_DATABASE_CONNECTION_COUNT = 151; // 64 // Increasing too much may cause MySQL to use excessive memory...
 
     public static final DatabaseInitializer.DatabaseUpgradeHandler<Connection> DATABASE_UPGRADE_HANDLER = new DatabaseInitializer.DatabaseUpgradeHandler<Connection>() {
         @Override
@@ -73,13 +77,33 @@ public class BitcoinVerdeDatabase implements Database {
         }
     };
 
+    public static Database newInstance(final InitFile sqlInitFile, final BitcoinProperties bitcoinProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+        final long bytesPerConnection = DatabaseConfigurer.getBytesPerDatabaseConnection();
+        final long maxMaxDatabaseConnectionCount = ((bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() / 2) / bytesPerConnection);
+        final int maxDatabaseConnectionCount = (int) Math.min(TARGET_MAX_DATABASE_CONNECTION_COUNT, maxMaxDatabaseConnectionCount);
+
+        final int minDatabaseConnectionCount = (MIN_DATABASE_CONNECTION_COUNT_PER_PEER * bitcoinProperties.getMaxPeerCount());
+        if (maxDatabaseConnectionCount < minDatabaseConnectionCount) {
+            throw new RuntimeException("Insufficient memory available to allocate desired settings. Consider reducing the number of allowed peers.");
+        }
+        return _newInstance(sqlInitFile, maxDatabaseConnectionCount, bitcoinVerdeDatabaseProperties);
+    }
+
+    public static Database newInstance(final InitFile sqlInitFile, final StratumProperties stratumProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+        return _newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
+    }
+
     public static Database newInstance(final InitFile sqlInitFile, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+        return _newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
+    }
+
+    protected static Database _newInstance(final InitFile sqlInitFile, final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
 
         try {
             if (bitcoinVerdeDatabaseProperties.shouldUseEmbeddedDatabase()) {
                 // Initialize the embedded database...
-                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfigurer.configureDatabase(MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
+                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfigurer.configureDatabase(maxDatabaseConnectionCount, bitcoinVerdeDatabaseProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(embeddedDatabaseProperties, databaseInitializer);
