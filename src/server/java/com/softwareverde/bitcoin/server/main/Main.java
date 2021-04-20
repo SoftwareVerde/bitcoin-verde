@@ -443,7 +443,10 @@ public class Main {
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
                 final BitcoinVerdeDatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
-                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                // prevent database upgrades
+                final BitcoinVerdeDatabase.InitFile initFile = new BitcoinVerdeDatabase.InitFile(BitcoinVerdeDatabase.BITCOIN.sqlInitFile, null);
+
+                final Database database = BitcoinVerdeDatabase.newInstance(initFile, databaseProperties);
                 if (database == null) {
                     Logger.error("Error initializing database.");
                     BitcoinUtil.exitFailure();

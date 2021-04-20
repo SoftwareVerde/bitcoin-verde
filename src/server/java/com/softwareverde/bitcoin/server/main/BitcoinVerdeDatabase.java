@@ -56,7 +56,7 @@ public class BitcoinVerdeDatabase implements Database {
             int upgradedVersion = currentVersion;
 
             // v3 -> v4 (Memo Support)
-            if ( (currentVersion == 3) && (requiredVersion >= 4) ) {
+            if ( (upgradedVersion == 3) && (requiredVersion >= 4) ) {
                 Logger.info("[Upgrading DB to v4]");
                 final Boolean wasSuccessful = _upgradeDatabaseMemoSupport(maintenanceDatabaseConnection);
                 if (! wasSuccessful) { return false; }
@@ -65,7 +65,7 @@ public class BitcoinVerdeDatabase implements Database {
             }
 
             // v4 -> v5 (Double Spend Proofs Support)
-            if ( (currentVersion == 4) && (requiredVersion >= 5) ) {
+            if ( (upgradedVersion == 4) && (requiredVersion >= 5) ) {
                 Logger.info("[Upgrading DB to v5]");
                 final Boolean wasSuccessful = _upgradeDoubleSpendProofsSupport(maintenanceDatabaseConnection);
                 if (! wasSuccessful) { return false; }
