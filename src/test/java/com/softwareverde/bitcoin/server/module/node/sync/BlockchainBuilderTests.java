@@ -106,6 +106,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
         @Override
         public void requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) { }
+
+        @Override
+        public void requestBlocks(final List<BlockHeader> blockHeaders) { }
     };
 
     /**

@@ -349,21 +349,18 @@ public class BlockHeaderDownloader extends SleepyService {
                 return;
             }
 
-            for (final BlockHeader blockHeader : blockHeaders) {
-                final Sha256Hash blockHash = blockHeader.getHash();
-
-                threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (_blockDownloadRequester != null) {
-                            _blockDownloadRequester.requestBlock(blockHeader);
-                        }
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    if (_blockDownloadRequester != null) {
+                        _blockDownloadRequester.requestBlocks(blockHeaders);
                     }
-                });
+                }
+            });
 
-                _lastBlockHash = blockHash;
-                _lastBlockHeader = blockHeader;
-            }
+            final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaders.getCount() - 1);
+            _lastBlockHeader = lastBlockHeader;
+            _lastBlockHash = lastBlockHeader.getHash();
 
             _blockHeaderCount += blockHeaders.getCount();
             _timer.stop();
