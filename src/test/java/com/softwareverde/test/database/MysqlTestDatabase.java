@@ -1,5 +1,6 @@
 package com.softwareverde.test.database;
 
+import com.softwareverde.bitcoin.server.database.pool.ApacheCommonsDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.SimpleDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionFactoryWrapper;
@@ -107,7 +108,6 @@ public class MysqlTestDatabase extends MysqlDatabase {
     }
 
     public DatabaseConnectionPool getDatabaseConnectionPool() {
-        final MysqlDatabaseConnectionFactoryWrapper databaseConnectionFactory = new MysqlDatabaseConnectionFactoryWrapper(_databaseInstance);
-        return new SimpleDatabaseConnectionPool(databaseConnectionFactory, 32);
+        return new ApacheCommonsDatabaseConnectionPool(_databaseProperties, 32);
     }
 }

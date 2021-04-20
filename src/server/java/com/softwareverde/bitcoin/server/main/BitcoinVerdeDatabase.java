@@ -20,7 +20,6 @@ import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProp
 import com.softwareverde.database.properties.DatabaseCredentials;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.Version;
@@ -30,13 +29,14 @@ import java.sql.Connection;
 
 public class BitcoinVerdeDatabase implements Database {
     public static class InitFile {
+
         public final String sqlInitFile;
         public final Integer databaseVersion;
-
         public InitFile(final String sqlInitFile, final Integer databaseVersion) {
             this.sqlInitFile = sqlInitFile;
             this.databaseVersion = databaseVersion;
         }
+
     }
 
     public static final Integer TARGET_MAX_DATABASE_CONNECTION_COUNT = 151; // 64 // Increasing too much may cause MySQL to use excessive memory...
@@ -76,8 +76,7 @@ public class BitcoinVerdeDatabase implements Database {
             return (upgradedVersion >= requiredVersion);
         }
     };
-
-    public static Database newInstance(final InitFile sqlInitFile, final BitcoinProperties bitcoinProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+    public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final BitcoinProperties bitcoinProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         final long bytesPerConnection = DatabaseConfigurer.getBytesPerDatabaseConnection();
         final long maxMaxDatabaseConnectionCount = ((bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() / 2) / bytesPerConnection);
         final int maxDatabaseConnectionCount = (int) Math.min(TARGET_MAX_DATABASE_CONNECTION_COUNT, maxMaxDatabaseConnectionCount);
@@ -89,15 +88,15 @@ public class BitcoinVerdeDatabase implements Database {
         return _newInstance(sqlInitFile, maxDatabaseConnectionCount, bitcoinVerdeDatabaseProperties);
     }
 
-    public static Database newInstance(final InitFile sqlInitFile, final StratumProperties stratumProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+    public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final StratumProperties stratumProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         return _newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
     }
 
-    public static Database newInstance(final InitFile sqlInitFile, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+    public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         return _newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
     }
 
-    protected static Database _newInstance(final InitFile sqlInitFile, final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+    protected static BitcoinVerdeDatabase _newInstance(final InitFile sqlInitFile, final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
 
         try {
@@ -115,7 +114,7 @@ public class BitcoinVerdeDatabase implements Database {
 
                 final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(embeddedDatabaseProperties);
                 final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(embeddedDatabaseProperties, maintenanceCredentials);
-                return new BitcoinVerdeDatabase(embeddedMysqlDatabase, maintenanceDatabaseConnectionFactory);
+                return new BitcoinVerdeDatabase(embeddedMysqlDatabase, maintenanceDatabaseConnectionFactory, maxDatabaseConnectionCount);
             }
             else {
                 // Connect to the remote database...
@@ -146,7 +145,7 @@ public class BitcoinVerdeDatabase implements Database {
                 }
 
                 final MysqlDatabase mysqlDatabase = new MysqlDatabase(bitcoinVerdeDatabaseProperties, credentials);
-                return new BitcoinVerdeDatabase(mysqlDatabase, maintenanceDatabaseConnectionFactory);
+                return new BitcoinVerdeDatabase(mysqlDatabase, maintenanceDatabaseConnectionFactory, maxDatabaseConnectionCount);
             }
         }
         catch (final Exception exception) {
@@ -199,12 +198,19 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
+
     protected final MysqlDatabase _core;
     protected final MysqlDatabaseConnectionFactory _maintenanceDatabaseConnectionFactory;
+    protected final Integer _maxDatabaseConnectionCount;
 
-    protected BitcoinVerdeDatabase(final MysqlDatabase core, final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory) {
+    protected BitcoinVerdeDatabase(final MysqlDatabase core, final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory, final Integer maxDatabaseConnectionCount) {
         _core = core;
         _maintenanceDatabaseConnectionFactory = maintenanceDatabaseConnectionFactory;
+        _maxDatabaseConnectionCount = maxDatabaseConnectionCount;
+    }
+
+    public Integer getMaxDatabaseConnectionCount() {
+        return _maxDatabaseConnectionCount;
     }
 
     @Override
