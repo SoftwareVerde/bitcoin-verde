@@ -24,6 +24,8 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
+
 public class SlpScriptInflater {
     protected static final Long TOKEN_TYPE_VALUE = ByteUtil.bytesToLong(SlpScriptType.TOKEN_TYPE);
 
@@ -77,7 +79,7 @@ public class SlpScriptInflater {
 
     protected static SlpTokenId _getTokenId(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getCount() < 5) { return null; }
+        if (operations.getCount() < 6) { return null; }
 
         final PushOperation tokenPushOperation = (PushOperation) operations.get(4);
         final ByteArray tokenIdBytes = tokenPushOperation.getValue();
@@ -120,7 +122,7 @@ public class SlpScriptInflater {
 
         final Value totalTokenCountValue = ((PushOperation) operations.get(10)).getValue();
         if (totalTokenCountValue.getByteCount() != 8) { return null; }
-        slpGenesisScript.setTokenCount(ByteUtil.bytesToLong(totalTokenCountValue.getBytes()));
+        slpGenesisScript.setTokenCount(ByteUtil.bytesToBigIntegerUnsigned(totalTokenCountValue.getBytes()));
 
         return slpGenesisScript;
     }
@@ -145,7 +147,7 @@ public class SlpScriptInflater {
 
         final Value totalTokenCountValue = ((PushOperation) operations.get(6)).getValue();
         if (totalTokenCountValue.getByteCount() != 8) { return null; }
-        slpMintScript.setTokenCount(ByteUtil.bytesToLong(totalTokenCountValue.getBytes()));
+        slpMintScript.setTokenCount(ByteUtil.bytesToBigIntegerUnsigned(totalTokenCountValue.getBytes()));
 
         return slpMintScript;
     }
@@ -166,7 +168,7 @@ public class SlpScriptInflater {
             final PushOperation operation = (PushOperation) operations.get(i);
             final ByteArray value = operation.getValue();
             if (value.getByteCount() != 8) { return null; } // The "amount" byte count must be 8, according to the specification.
-            final Long amount = ByteUtil.bytesToLong(value.getBytes());
+            final BigInteger amount = ByteUtil.bytesToBigIntegerUnsigned(value.getBytes());
             slpSendScript.setAmount(transactionOutputIndex, amount);
             transactionOutputIndex += 1;
         }

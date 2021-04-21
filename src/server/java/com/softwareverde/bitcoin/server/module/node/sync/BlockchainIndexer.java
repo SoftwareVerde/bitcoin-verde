@@ -32,6 +32,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -267,9 +268,9 @@ public class BlockchainIndexer extends SleepyService {
                     case SEND: {
                         final SlpSendScript slpSendScript = (SlpSendScript) slpScript;
                         for (int outputIndex = 0; outputIndex < transactionOutputCount; ++outputIndex) {
-                            final Long slpAmount = Util.coalesce(slpSendScript.getAmount(outputIndex));
+                            final BigInteger slpAmount = slpSendScript.getAmount(outputIndex);
 
-                            if (slpAmount > 0L) {
+                            if (slpAmount != null && slpAmount.compareTo(BigInteger.ZERO) > 0) {
                                 outputScriptType = ScriptType.SLP_SEND_SCRIPT;
 
                                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
