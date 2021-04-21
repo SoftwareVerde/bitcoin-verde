@@ -188,9 +188,13 @@ public class SlpTransactionValidator {
 
                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) previousTransactionSlpScript;
                 if (Util.areEqual(previousTransactionOutputIndex, slpGenesisScript.getBatonOutputIndex())) {
-                    hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.GENESIS, previousTransaction, recursiveTransactionsToValidate);
-                    break;
+                    final Boolean isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth + 1);
+                    recursiveTransactionsToValidate.clear();
+                    if (isValid) {
+                        hasBaton = true;
+                        break;
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.MINT) {
@@ -198,9 +202,13 @@ public class SlpTransactionValidator {
                 if (! Util.areEqual(slpTokenId, previousSlpMintScript.getTokenId())) { continue; }
 
                 if (Util.areEqual(previousTransactionOutputIndex, previousSlpMintScript.getBatonOutputIndex())) {
-                    hasBaton = true;
                     ConstUtil.addToListMap(SlpScriptType.MINT, previousTransaction, recursiveTransactionsToValidate);
-                    break;
+                    final Boolean isValid = _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth + 1);
+                    recursiveTransactionsToValidate.clear();
+                    if (isValid) {
+                        hasBaton = true;
+                        break;
+                    }
                 }
             }
             else if (slpScriptType == SlpScriptType.SEND) {
@@ -211,9 +219,7 @@ public class SlpTransactionValidator {
             }
         }
 
-        if (! hasBaton) { return false; }
-
-        return _validateRecursiveTransactions(recursiveTransactionsToValidate, recursionDepth);
+        return hasBaton;
     }
 
     protected Boolean _validateSlpSendTransaction(final Transaction transaction, final SlpSendScript nullableSlpSendScript, final Integer recursionDepth) {
