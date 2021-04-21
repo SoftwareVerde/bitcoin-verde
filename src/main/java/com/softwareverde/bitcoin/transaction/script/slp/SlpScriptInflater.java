@@ -77,7 +77,7 @@ public class SlpScriptInflater {
 
     protected static SlpTokenId _getTokenId(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
-        if (operations.getCount() < 5) { return null; }
+        if (operations.getCount() < 6) { return null; }
 
         final PushOperation tokenPushOperation = (PushOperation) operations.get(4);
         final ByteArray tokenIdBytes = tokenPushOperation.getValue();
