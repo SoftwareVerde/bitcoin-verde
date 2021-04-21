@@ -3,10 +3,12 @@ package com.softwareverde.bitcoin.wallet.slp;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.wallet.PaymentAmount;
 
-public class SlpPaymentAmount extends PaymentAmount {
-    public final Long tokenAmount;
+import java.math.BigInteger;
 
-    public SlpPaymentAmount(final Address address, final Long amount, final Long tokenAmount) {
+public class SlpPaymentAmount extends PaymentAmount {
+    public final BigInteger tokenAmount;
+
+    public SlpPaymentAmount(final Address address, final Long amount, final BigInteger tokenAmount) {
         super(address, amount);
         this.tokenAmount = tokenAmount;
     }

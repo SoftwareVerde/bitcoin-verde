@@ -12,6 +12,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import org.junit.After;
 import org.junit.Assert;
@@ -32,6 +33,67 @@ public class SlpTransactionValidatorTests extends UnitTest {
     @Override @After
     public void after() throws Exception {
         super.after();
+    }
+
+    protected static Tuple<BlockchainIndexer, SlpTransactionValidator> _createSlpValidationComponents(final HashMap<Sha256Hash, Transaction> transactions, MutableList<Sha256Hash> validHashes) throws InterruptedException {
+        final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
+        final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
+        for (final Transaction transaction : transactions.values()) {
+            atomicTransactionOutputIndexerContext.addTransaction(transaction);
+        }
+
+        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
+
+        // Action
+        blockchainIndexer.start();
+
+        final int maxSleepCount = 10;
+        int sleepCount = 0;
+        while (blockchainIndexer.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
+            Thread.sleep(250L);
+            sleepCount += 1;
+
+            if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
+        }
+
+        final AtomicInteger validationCount = new AtomicInteger(0);
+        final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(
+                new TransactionAccumulator() {
+                    @Override
+                    public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
+                        final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
+                        for (final Sha256Hash transactionHash : transactionHashes) {
+                            returnedTransactions.put(transactionHash, atomicTransactionOutputIndexerContext.getTransaction(transactionHash));
+                        }
+                        return returnedTransactions;
+                    }
+                },
+                new SlpTransactionValidationCache() {
+                    @Override
+                    public Boolean isValid(final Sha256Hash transactionHash) {
+                        if (validHashes.contains(transactionHash)) { return true; }
+                        return null;
+                    }
+
+                    @Override
+                    public void setIsValid(final Sha256Hash transactionHash, final Boolean isValid) {
+                        if (isValid) {
+                            validHashes.add(transactionHash);
+                        }
+                    }
+                }
+        );
+        return new Tuple<>(blockchainIndexer, slpTransactionValidator);
+    }
+
+    protected static void _validateSlpTransactions(final SlpTransactionValidator slpTransactionValidator, final HashMap<Sha256Hash, Boolean> slpValidityMap, final HashMap<Sha256Hash, Transaction> transactions) {
+        for (final Sha256Hash transactionHash : slpValidityMap.keySet()) {
+            final Transaction transaction = transactions.get(transactionHash);
+
+            final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
+            Logger.info(transactionHash + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
+            Assert.assertEquals(slpValidityMap.get(transactionHash), isValid);
+        }
     }
 
     @Test
@@ -234,61 +296,128 @@ public class SlpTransactionValidatorTests extends UnitTest {
         validHashes.add(Sha256Hash.fromHexString("97ED4D0FD7281AF2AC4848B1DE1F78F6F8A2DF6D4D4C3E96A16087C7A2FB4612"));
         validHashes.add(Sha256Hash.fromHexString("28F42D363686880D1181B1FCE947FBE8122C7AA4F12D1AE57F6908D081A5DC01"));
 
-        final FakeTransactionOutputIndexerContext transactionOutputIndexerContext = new FakeTransactionOutputIndexerContext();
-        final FakeAtomicTransactionOutputIndexerContext atomicTransactionOutputIndexerContext = transactionOutputIndexerContext.getContext();
-        for (final Transaction transaction : transactions.values()) {
-            atomicTransactionOutputIndexerContext.addTransaction(transaction);
-        }
-
-        final BlockchainIndexer blockchainIndexer = new BlockchainIndexer(transactionOutputIndexerContext, 0);
-
-        // Action
-        blockchainIndexer.start();
-
-        final int maxSleepCount = 10;
-        int sleepCount = 0;
-        while (blockchainIndexer.getStatusMonitor().getStatus() != SleepyService.Status.SLEEPING) {
-            Thread.sleep(250L);
-            sleepCount += 1;
-
-            if (sleepCount >= maxSleepCount) { throw new RuntimeException("Test execution timeout exceeded."); }
-        }
-
-        final AtomicInteger validationCount = new AtomicInteger(0);
-        final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(
-            new TransactionAccumulator() {
-                @Override
-                public Map<Sha256Hash, Transaction> getTransactions(final List<Sha256Hash> transactionHashes, final Boolean allowUnconfirmedTransactions) {
-                    final HashMap<Sha256Hash, Transaction> returnedTransactions = new HashMap<Sha256Hash, Transaction>(transactionHashes.getCount());
-                    for (final Sha256Hash transactionHash : transactionHashes) {
-                        returnedTransactions.put(transactionHash, atomicTransactionOutputIndexerContext.getTransaction(transactionHash));
-                    }
-                    return returnedTransactions;
-                }
-            },
-            new SlpTransactionValidationCache() {
-                @Override
-                public Boolean isValid(final Sha256Hash transactionHash) {
-                    if (validHashes.contains(transactionHash)) { return true; }
-                    return null;
-                }
-
-                @Override
-                public void setIsValid(final Sha256Hash transactionHash, final Boolean isValid) {
-                    if (isValid) {
-                        validHashes.add(transactionHash);
-                    }
-                }
-            }
-        );
+        final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
 
         // Assert
-        for (final Sha256Hash transactionHash : slpValidityMap.keySet()) {
-            final Transaction transaction = transactions.get(transactionHash);
+        _validateSlpTransactions(slpValidationComponents.second, slpValidityMap, transactions);
+        slpValidationComponents.first.stop();
+    }
 
-            final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-            Logger.info(transactionHash + " " + (isValid != null ? "SLP" : "   ") + " " + (Util.coalesce(isValid, true) ? "VALID" : "INVALID"));
-            Assert.assertEquals(slpValidityMap.get(transactionHash), isValid);
+    @Test
+    public void should_identify_invalid_transaction_018ce136c906d7e76cc4593b6be0cbe0e70528b1d6201a476804abd9217389a3() throws InterruptedException {
+        // Setup
+        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
+        slpValidityMap.put(Sha256Hash.fromHexString("A6CEDB6460DC91F4FF06AB37E9E96F2D1864B7C5CA5B65C68C2E7C1B436E187C"), false);
+        slpValidityMap.put(Sha256Hash.fromHexString("018ce136c906d7e76cc4593b6be0cbe0e70528b1d6201a476804abd9217389a3"), false);
+
+        final TransactionInflater transactionInflater = new TransactionInflater();
+
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>();
+        {
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("02000000027A35A7EADE852F94D68DC0815827A1C971A635F8CCBB72EB52F9988C3DE9B279000000006B48304502210091B4E2CB30CBE96D955F5FDE7CE722F66AC22730E2D586CB326C514DFCFC47760220028C74FCA6294F596FF13366EE7612F4840115AD259BA41D6A7CEE93BFA2E570412102DEF1F3D893861F0F5CAEA83755CAC8577654A6026A893219CF83AF90D4475180FFFFFFFFE6915BE12F8C86D85CD52F517D10005597D2B59B976F4401D49067132A593FA3010000006A47304402204FD9DEFD7A54B641E0800E051883860C6E2646D8686D4501CC983D5EEBC714E602203EDE82528957B7799F4766B7988144345976D082B64743E5E4D2DD6215891A06412102DEF1F3D893861F0F5CAEA83755CAC8577654A6026A893219CF83AF90D4475180FFFFFFFF0B00000000000000007F6A04534C500001010453454E442044E3D05A07091091A63A4074287A784FCD96C26095682E05C22C4BD4E5BF8681080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001088AC7230489E8000022020000000000001976A914DBCEA01BB3FF00B66618D85446B06A1B52E404AF88AC22020000000000001976A9142593D80732B8C66BD545EDE45D28B1F6807FB24488AC22020000000000001976A9145E2A5F7CE63220B6F7C4F2A75B8A12AFA25E451088AC22020000000000001976A91490B951F38AB4E8CF4391AD15E1B774CAA40A3EFC88AC22020000000000001976A914D175A428F19ED27659996C2F857541A3E42135F488AC22020000000000001976A914CBBD6C6053786F20A86E713D746DA63DD292ACFF88AC22020000000000001976A9149D6ECF506E9DA507D47A6942518F1D749616DE5E88AC22020000000000001976A914F88065D11D4D2122F66845ADD0415008EE084D5B88AC22020000000000001976A9146B5B4D5738FFF84AAB84BB4D60439698710C271788AC178F0200000000001976A9146B5B4D5738FFF84AAB84BB4D60439698710C271788AC00000000"));
+            transactions.put(transaction.getHash(), transaction);
         }
+
+        {
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("02000000027C186E431B7C2E8CC6655BCAC5B764182D6FE9E937AB06FFF491DC6064DBCEA60A0000006B483045022100A2FF60A4A1EA1FE6A11D51281148D8A482E6CFA018A6AF069C52643E757868860220130A58C19456678D5FFB9B638E98CAF6A95F0DC2F0D70B69675BCD72FA57EF8D412102DEF1F3D893861F0F5CAEA83755CAC8577654A6026A893219CF83AF90D4475180FFFFFFFF7C186E431B7C2E8CC6655BCAC5B764182D6FE9E937AB06FFF491DC6064DBCEA6090000006B483045022100DB46D2479E07D01A2B4D8F948541814FD35B695BE65A697FA88F27F059D177AA0220545EBB4F614C0EC946B39350B6CCE0AD422E0F84E953535A372B4F628914676C412102DEF1F3D893861F0F5CAEA83755CAC8577654A6026A893219CF83AF90D4475180FFFFFFFF0B00000000000000007F6A04534C500001010453454E442044E3D05A07091091A63A4074287A784FCD96C26095682E05C22C4BD4E5BF8681080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001080000000000000001088AC7230489E8000022020000000000001976A914DBCEA01BB3FF00B66618D85446B06A1B52E404AF88AC22020000000000001976A9142593D80732B8C66BD545EDE45D28B1F6807FB24488AC22020000000000001976A9145E2A5F7CE63220B6F7C4F2A75B8A12AFA25E451088AC22020000000000001976A91490B951F38AB4E8CF4391AD15E1B774CAA40A3EFC88AC22020000000000001976A914D175A428F19ED27659996C2F857541A3E42135F488AC22020000000000001976A914CBBD6C6053786F20A86E713D746DA63DD292ACFF88AC22020000000000001976A9149D6ECF506E9DA507D47A6942518F1D749616DE5E88AC22020000000000001976A914F88065D11D4D2122F66845ADD0415008EE084D5B88AC22020000000000001976A9146B5B4D5738FFF84AAB84BB4D60439698710C271788ACE07A0200000000001976A9146B5B4D5738FFF84AAB84BB4D60439698710C271788AC00000000"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+
+        final MutableList<Sha256Hash> validHashes = new MutableList<Sha256Hash>();
+
+
+        final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
+
+        // Assert
+        _validateSlpTransactions(slpValidationComponents.second, slpValidityMap, transactions);
+        slpValidationComponents.first.stop();
+    }
+
+    @Test
+    public void should_identify_unparseable_transaction_3c05eb256477f6c7e02e4b19476a6a2650f3a062ca873aeb940d2e7225016584() throws InterruptedException {
+        // Setup
+        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
+        slpValidityMap.put(Sha256Hash.fromHexString("5e38779ea1080caed266687a45a067f93b772465c80b1ebdf4effc8947c5150d"), true);
+        slpValidityMap.put(Sha256Hash.fromHexString("3c05eb256477f6c7e02e4b19476a6a2650f3a062ca873aeb940d2e7225016584"), false);
+
+        final TransactionInflater transactionInflater = new TransactionInflater();
+
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>();
+        {
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0200000003422DB392DDFE0DFCFD963D44FAA05824428F68B5D176F86DC2E71B5A8C9A8612010000006B4830450221009A139D8D9DDA94DA4DBEB2C76CCBD4A619BACD21419B8D70394F7FA7D7B20DBA022053B70F2E2D4F52B20969CA1B6983385F8ECB3D0A3F905AA6079E2D93B04F63D24121029A6A64156C449AB8BEB6634082DD95109800A8AC38F3B226D9DC51B76B4DE9A8FFFFFFFF320B8DF732A4FEF14C8D72DA2CEDCDD0E66441AE1F497C1A6519B3B0AD985B24010000006A47304402206267A10F12FD7CA05EA855CC1CA9CE37D6AC2887AD2798277D85A5D08E637AE102200599B75BA14E8894E6C158705DED89A98A08EA3DB5F0365D77C2E24AF0271EF24121029A6A64156C449AB8BEB6634082DD95109800A8AC38F3B226D9DC51B76B4DE9A8FFFFFFFF54BDF4A8BAA67F838E2AD50A7BB275C09026C054E6BA337F9255A1DD79AEB244020000006B483045022100AD7C6E1F7872549C9F1B35FA85E055434DE23924EF6C9F1CC46CE330736D43E7022020B76A37883C7B893C5819C01EE774114C15456490A22648D4C2169F3CC287024121022BB599CCD4057338F2F8ECD4A8DAEB6A5B9EA178DE44A6A9568571B8C128F937FFFFFFFF040000000000000000406A04534C500001010453454E442034E8C86AD9382648EEA2FB3701F000D80D45B6F2768C2060FC2C7CC313E3673C08000000000000000108000000000000006322020000000000001976A914FA70457F736F2AD2511332638D1AD32F91A3B03788AC22020000000000001976A9142408E9B4C9D527531019F95CA158B25B59244EA888AC160C0000000000001976A9144E8680B782CCBB6752B0EE812CC8D65495DEB68188AC00000000"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+        {
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("02000000010D15C54789FCEFF4BD1E0BC86524773BF967A0457A6866D2AE0C08A19E77385E030000006A47304402200A7BB14485EBF0265E6102BF1B037D9960C71193EC6A88B9FBB2F2B089F5E92B022043F162454FFBB0C63FCFDDAB129EA8F93BA1C143964D0DC0722DA8D60352E2C34121022BB599CCD4057338F2F8ECD4A8DAEB6A5B9EA178DE44A6A9568571B8C128F937FFFFFFFF0200000000000000002E6A04534C500001010453454E4420D1AC77D264ADE056C0B8320C9D07571E9EEA75E7BF2561B8287D928F8EA67630FF0A0000000000001976A9144E8680B782CCBB6752B0EE812CC8D65495DEB68188AC00000000"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+
+        final MutableList<Sha256Hash> validHashes = new MutableList<Sha256Hash>();
+        validHashes.add(Sha256Hash.fromHexString("5e38779ea1080caed266687a45a067f93b772465c80b1ebdf4effc8947c5150d"));
+
+        final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
+
+        // Assert
+        _validateSlpTransactions(slpValidationComponents.second, slpValidityMap, transactions);
+        slpValidationComponents.first.stop();
+    }
+
+    @Test
+    public void should_identify_valid_transaction_a7e0265fade7847e55594986d4a1523c3c222b109e280d8d44dcf2df4185404c() throws InterruptedException {
+        // Setup
+        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
+        slpValidityMap.put(Sha256Hash.fromHexString("9AABC72A41CE71293A3810B1D465A15C15D024EFA97B3E47F25E113D61A32F73"), true);
+        slpValidityMap.put(Sha256Hash.fromHexString("a7e0265fade7847e55594986d4a1523c3c222b109e280d8d44dcf2df4185404c"), true);
+
+        final TransactionInflater transactionInflater = new TransactionInflater();
+
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>();
+        { // D340519A93F4E83876C5EDD29F30D30A5CC3DADC00ABE9BF2B9DCE77E6B6E12F
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0100000001C21DE6D67417E0910F17E447E546247EE62388506B46C3E9ECCFE650A0571AAC0300000064416D23C045B29580206622773B0680110FA38D673BC7355809C3AE409D387951F912D3E596CEA82A4E00923674B74474CB67A1A524FE787E4EEE29B82EAA7D604641210253A8BB158ED0859ABDA14D682FF6B4EE91746F8CF4F5EFE3405DF046E00DED49FEFFFFFF040000000000000000296A04534C500001010747454E455349530555682D4F684C004C004C000100010208FFFFFFFFFFFFFFFF22020000000000001976A9145808E9148F1FFE6B777BFF57013196D824E19F0388AC22020000000000001976A9145808E9148F1FFE6B777BFF57013196D824E19F0388ACC43B5403000000001976A914194347D2BB00D6EA9055CF3A7243C4BA7F98284788AC907A0900"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+        { // 143A719706EF8055E74F4564A1A8B769E4A5F693B2851675D4D445CC9F4E21FD
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("01000000022FE1B6E677CE9D2BBFE9AB00DCDAC35C0AD3309FD2EDC57638E8F4939A5140D30100000064417B865B5F2D98E7D3A24E4DBA7588C09606E7690300AF1132D52AE3CE26FBE404E204A49CAD307ECBB5897A922D94A1AFBD2BBBE6E2AD8FC19FF21696E547AE1B4121028065933B28F884CAAF9A434058D1032B221E95A7BB11C38CA8DB5DBB929491BCFEFFFFFF433E9C0603843933610653C8028F27661F7FB9273F247FC9B9B04224DCF1BF8E000000006441E97EC13805F2D8EC45B97CD818984DCC48993903F96E9FC79CA9B895A1F759C2D4DA2138D43FCA23C1C0B7829165A1B6CA6A97BDE3A39A234D92E0DC58666C8C412102CC9D0634C82FF76A04FBDFE30E7C3E1334A5AE8989AFFCB391D0F5BA18D22126FEFFFFFF0222020000000000001976A914653615611BF468710B7EA9D50DCEA14A7A000E1288ACD5020000000000001976A914BFE3A0B4178808306676515255411DFC67829DB088AC907A0900"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+        { // 9AABC72A41CE71293A3810B1D465A15C15D024EFA97B3E47F25E113D61A32F73
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("01000000022FE1B6E677CE9D2BBFE9AB00DCDAC35C0AD3309FD2EDC57638E8F4939A5140D3030000006441F1DC1313EDA7A21D9E011D936E542E5FDE7A376EF5262E6E493921995CBAC55B7A003CC7474945DDF0569C26D764F91F83DA3D56A7BF1D211C60FDEB833848A941210279802D5564FA6DFEB4B44A1CA135B28E2F43039352F3B8F407F6466AA2AAD419FEFFFFFF2FE1B6E677CE9D2BBFE9AB00DCDAC35C0AD3309FD2EDC57638E8F4939A5140D302000000644160EC5BE75D5EEE88A4EFC638419BB9FEEE845559026CA11A7A1542B015EB508519333920658163BA0A264EE4F6CB75F48532894F9A1CAC3B16AAEE4C61E207774121028065933B28F884CAAF9A434058D1032B221E95A7BB11C38CA8DB5DBB929491BCFEFFFFFF040000000000000000396A04534C50000101044D494E5420D340519A93F4E83876C5EDD29F30D30A5CC3DADC00ABE9BF2B9DCE77E6B6E12F010208FFFFFFFFFFFFFFFF22020000000000001976A9142FE0FA4CAFE9179C14F24F756E9D0263F5CD19A288AC22020000000000001976A9142FE0FA4CAFE9179C14F24F756E9D0263F5CD19A288ACD6375403000000001976A914D269D9146F0AD804724C4D5E503B549751C02EDB88AC907A0900"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+        { // a7e0265fade7847e55594986d4a1523c3c222b109e280d8d44dcf2df4185404c
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("0100000003732FA3613D115EF2473E7BA9EF24D0155CA165D4B110383A2971CE412AC7AB9A0100000064412227CC3F927C19FB3385032376B96AAEAA1B50F9327031463AB3217E7B90572808525E3C7D6225E4D64CBA314B08BEA5BEDF1058330A5DDA6F0030FC087DD80D412102E85EA91DDFC8DBC75F5601E5C514AF4943D2C140D17DF7385B8237E1EE3A3F13FEFFFFFFFD214E9FCC45D4D4751685B293F6A5E469B7A8A164454FE75580EF0697713A14000000006441E9EA04A11E76ECDA7DD99D3E6BD8169E54EAA6BB45E229690DB727C2AF82C0C53AC7F1E7C300E7D406F4660FD5E5A5918256B58D7594E8BE6068E0A74A9F8BAE4121025A302090565962D72D7F4343BB3DFE99B235EE90DBD3651B8739F3F4F03186FEFEFFFFFFFD214E9FCC45D4D4751685B293F6A5E469B7A8A164454FE75580EF0697713A14010000006441998CDF8F434050B63834F9F2B786D5C45FEE3AD6D67B006C600EDAE54C088E22BC2E56BD3D818E181096E894DC6F6C644A4C77F01C0C20066BC11F7879FD7BDB412103B1D9E47332C0CA7E8BFED5A8AEE4C42903B7D61F1722656BEFA7D09FD1EE55F2FEFFFFFF030000000000000000376A04534C500001010453454E4420D340519A93F4E83876C5EDD29F30D30A5CC3DADC00ABE9BF2B9DCE77E6B6E12F08000000000000000522020000000000001976A91428E2F85F852610C9A410D02F3200DD66BF7BFD9888AC22020000000000001976A91428E2F85F852610C9A410D02F3200DD66BF7BFD9888AC907A0900"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+
+        final MutableList<Sha256Hash> validHashes = new MutableList<Sha256Hash>();
+
+        final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
+
+        // Assert
+        _validateSlpTransactions(slpValidationComponents.second, slpValidityMap, transactions);
+        slpValidationComponents.first.stop();
+    }
+
+    @Test
+    public void should_validate_large_genesis_transaction_ba91704e0c0a2a56cce95f89c39f53699075b35daa2d94758d07b4b298b4c852() throws InterruptedException {
+        // Setup
+        final HashMap<Sha256Hash, Boolean> slpValidityMap = new HashMap<Sha256Hash, Boolean>();
+        slpValidityMap.put(Sha256Hash.fromHexString("ba91704e0c0a2a56cce95f89c39f53699075b35daa2d94758d07b4b298b4c852"), true);
+
+        final TransactionInflater transactionInflater = new TransactionInflater();
+
+        final HashMap<Sha256Hash, Transaction> transactions = new HashMap<Sha256Hash, Transaction>();
+        { // ba91704e0c0a2a56cce95f89c39f53699075b35daa2d94758d07b4b298b4c852
+            final Transaction transaction = transactionInflater.fromBytes(ByteArray.fromHexString("01000000021560763B8EE79392698CC747DB5432A16C49E471409524C5172A23D82A9EF8C2010000006A47304402205C494575D4EAC81AD94EADA74E44E3A8FFC8B7DF59602749C1E3C7481B0628F402204216A4D52BFFC4E7B15C30AE3DAAE971EACFABD2DEFB738018B25813A3E06A5841210257C282B2E7E49573E37DC62FED0759BB78BEE80A852CCE7B6BD77679A7C01378FEFFFFFF045CED2872E4AB5781BE1F609929503A87A880C68F0613AD833C1C6715861DEA000000006A473044022005064F6476AD876B447DF39F226B7F5BD05000E1227D18B34DFC0E243079F11E022047CC74B43B0FD2E35AC8CF01E42B65BE8EA2848CB7454EF0A2E416F2E6AE8F184121025BC9FAB941F48482A7D988AE22810DC664DEB32B8587ED4051E7CC0E7BF78AB8FEFFFFFF020000000000000000976A04534C500001010747454E45534953045445535404544553544C4D626974636F696E66696C65733A62383662346263626162376364373837623163383933636131303132353063386334363764626261346466323239623131383231386264386139653835613932208EACDC879A3C7C398BDE3A6381DE812115355694E6752A110217D7ED17A6B15C010901020800038D7EA4C6800122020000000000001976A91451359D7E536BF880211311A0823F50343CE64FFC88AC09600800"));
+            transactions.put(transaction.getHash(), transaction);
+        }
+
+        final MutableList<Sha256Hash> validHashes = new MutableList<Sha256Hash>();
+
+        final Tuple<BlockchainIndexer, SlpTransactionValidator> slpValidationComponents = _createSlpValidationComponents(transactions, validHashes);
+
+        // Assert
+        _validateSlpTransactions(slpValidationComponents.second, slpValidityMap, transactions);
+        slpValidationComponents.first.stop();
     }
 }
