@@ -842,6 +842,10 @@ public class BitcoinNode extends Node {
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
         }
+
+        if (! wasRequested) {
+            Logger.debug("Received unsolicited block: " + blockHash + " from " + BitcoinNode.this);
+        }
     }
 
     protected void _onTransactionMessageReceived(final TransactionMessage transactionMessage) {
@@ -1190,6 +1194,8 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onNotFoundMessageReceived(final NotFoundResponseMessage notFoundResponseMessage) {
+        Logger.trace("Received NOT FOUND from " + BitcoinNode.this + ".");
+
         for (final InventoryItem inventoryItem : notFoundResponseMessage.getInventoryItems()) {
             final Sha256Hash itemHash = inventoryItem.getItemHash();
             switch (inventoryItem.getItemType()) {

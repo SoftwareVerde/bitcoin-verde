@@ -11,8 +11,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
-import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.module.node.sync.block.pending._PendingBlock;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class FullNodePendingBlockDatabaseManager {
+public class _FullNodePendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManager _databaseManager;
     protected final PendingBlockStore _blockStore;
@@ -206,7 +206,7 @@ public class FullNodePendingBlockDatabaseManager {
         return _getPendingBlockHash(pendingBlockId);
     }
 
-    protected PendingBlock _getPendingBlock(final PendingBlockId pendingBlockId, final Boolean includeDataIfAvailable) throws DatabaseException {
+    protected _PendingBlock _getPendingBlock(final PendingBlockId pendingBlockId, final Boolean includeDataIfAvailable) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -231,10 +231,10 @@ public class FullNodePendingBlockDatabaseManager {
             }
         }
 
-        return new PendingBlock(blockHash, previousBlockHash, blockData);
+        return new _PendingBlock(blockHash, previousBlockHash, blockData);
     }
 
-    public FullNodePendingBlockDatabaseManager(final FullNodeDatabaseManager databaseManager, final PendingBlockStore blockStore) {
+    public _FullNodePendingBlockDatabaseManager(final FullNodeDatabaseManager databaseManager, final PendingBlockStore blockStore) {
         _databaseManager = databaseManager;
         _blockStore = blockStore;
     }
@@ -457,7 +457,7 @@ public class FullNodePendingBlockDatabaseManager {
         _deletePendingBlocks(pendingBlockIds);
     }
 
-    public PendingBlock getPendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
+    public _PendingBlock getPendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         return _getPendingBlock(pendingBlockId, true);
     }
 

@@ -27,7 +27,6 @@ public class DatabaseMaintainer {
         listBuilder.add("node_features");
         listBuilder.add("node_transactions_inventory");
         listBuilder.add("nodes");
-        listBuilder.add("pending_blocks");
         listBuilder.add("pending_transaction_data");
         listBuilder.add("pending_transactions");
         listBuilder.add("pending_transactions_dependent_transactions");

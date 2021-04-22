@@ -42,14 +42,12 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.concurrent.Pin;
-import com.softwareverde.concurrent.threadpool.SimpleThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -597,6 +595,7 @@ public class BlockProcessor {
      * If provided, the UnspentTransactionOutputSet must include every output spent by the block.
      * If not provided, the UnspentTransactionOutputSet is loaded from the database at validation time.
      */
+    public ProcessBlockResult processBlock(final Block block) { return this.processBlock(block, null); }
     public ProcessBlockResult processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
         final SynchronizationStatus synchronizationStatus = _context.getSynchronizationStatus();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -622,20 +621,6 @@ public class BlockProcessor {
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
 
                 unspentTransactionOutputManager.clearUncommittedUtxoSet(); // Clear the UTXO set's invalidation state before rebuilding.
-
-                if (! synchronizationStatus.isShuttingDown()) {
-                    final SimpleThreadPool threadPool = new SimpleThreadPool();
-                    threadPool.start();
-
-                    try {
-                        Logger.info("Rebuilding UTXO set after block error.");
-                        final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, threadPool);
-                        unspentTransactionOutputManager.buildUtxoSet(blockLoader, databaseManagerFactory);
-                    }
-                    finally {
-                        threadPool.stop();
-                    }
-                }
             }
             catch (final Exception rebuildUtxoSetException) {
                 Logger.debug("Error rebuilding UTXO set.", rebuildUtxoSetException);

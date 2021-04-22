@@ -5,20 +5,20 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
-public class PendingBlock {
+public class _PendingBlock {
     protected final Sha256Hash _blockHash;
     protected final Sha256Hash _previousBlockHash;
     protected final ByteArray _data;
     protected Block _inflatedBlock;
 
-    public PendingBlock(final Sha256Hash blockHash) {
+    public _PendingBlock(final Sha256Hash blockHash) {
         _blockHash = blockHash;
         _previousBlockHash = null;
         _data = null;
         _inflatedBlock = null;
     }
 
-    public PendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final ByteArray blockData) {
+    public _PendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final ByteArray blockData) {
         _blockHash = blockHash;
         _previousBlockHash =  previousBlockHash;
         _data = blockData;

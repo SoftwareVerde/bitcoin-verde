@@ -187,10 +187,14 @@ public class Main {
 
     protected final String[] _arguments;
 
-    protected Integer _calculateDatabaseConnectionCount(final BitcoinProperties bitcoinProperties) {
-        final int connectionsReservedForRoot = 1;
+    protected Integer _calculateCachedDatabaseConnectionCount(final BitcoinProperties bitcoinProperties) {
         final Integer maxPeerCount = bitcoinProperties.getMaxPeerCount();
-        return Math.min(maxPeerCount, (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - connectionsReservedForRoot));
+        final int lowerBound = 8;
+        final int upperBound = (BitcoinVerdeDatabase.MAX_DATABASE_CONNECTION_COUNT - 1);
+        final int ideal = (maxPeerCount * 2);
+        if (ideal < lowerBound) { return lowerBound; }
+        if (ideal > upperBound) { return upperBound; }
+        return ideal;
     }
 
     public Main(final String[] arguments) {
@@ -259,7 +263,7 @@ public class Main {
 
                 final DatabaseConnectionPool databaseConnectionFactory;
                 {
-                    final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
+                    final Integer databaseConnectionCacheCount = _calculateCachedDatabaseConnectionCount(bitcoinProperties);
                     databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
                     // databaseConnectionFactory = new HikariDatabaseConnectionPool(databaseProperties);
                 }
@@ -305,7 +309,7 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
+                final Integer databaseConnectionCacheCount = _calculateCachedDatabaseConnectionCount(bitcoinProperties);
                 final DatabaseConnectionPool databaseConnectionFactory = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
                 final Environment environment = new Environment(database, databaseConnectionFactory);
 
@@ -387,7 +391,7 @@ public class Main {
                 }
                 Logger.info("[Database Online]");
 
-                final Integer databaseConnectionCacheCount = _calculateDatabaseConnectionCount(bitcoinProperties);
+                final Integer databaseConnectionCacheCount = _calculateCachedDatabaseConnectionCount(bitcoinProperties);
                 final DatabaseConnectionPool databaseConnectionPool = new SimpleDatabaseConnectionPool(database, databaseConnectionCacheCount);
                 final Environment environment = new Environment(database, databaseConnectionPool);
 

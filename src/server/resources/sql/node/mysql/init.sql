@@ -137,22 +137,6 @@ CREATE TABLE unconfirmed_transaction_inputs (
 
 -- Blockchain Download/Syncing Tables
 
-CREATE TABLE pending_blocks (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    hash BINARY(32) NOT NULL,
-    previous_block_hash BINARY(32) NULL,
-    timestamp BIGINT UNSIGNED NOT NULL,
-    last_download_attempt_timestamp BIGINT UNSIGNED,
-    failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
-    priority BIGINT NOT NULL,
-    was_downloaded TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY pending_blocks_uq (hash),
-    INDEX pending_blocks_ix1 (priority) USING BTREE,
-    INDEX pending_blocks_ix2 (was_downloaded, failed_download_count) USING BTREE,
-    INDEX pending_blocks_ix3 (previous_block_hash) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
-
 CREATE TABLE pending_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash BINARY(32) NOT NULL,

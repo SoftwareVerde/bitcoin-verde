@@ -2,12 +2,12 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PreloadedBlock;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -42,22 +42,24 @@ public class UnspentTransactionOutputManager {
     protected final FullNodeDatabaseManager _databaseManager;
     protected final Long _commitFrequency;
 
-    protected void _buildUtxoSetUpToHeadBlock(final BlockLoader blockLoader, final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+    protected void _buildUtxoSetUpToHeadBlock(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
         final long maxBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
+        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         long blockHeight = (unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight() + 1L); // inclusive
         if (blockHeight <= maxBlockHeight) {
             Logger.info("UTXO set is " + ((maxBlockHeight - blockHeight) + 1) + " blocks behind.");
         }
         while (blockHeight <= maxBlockHeight) {
-            final PreloadedBlock preloadedBlock = blockLoader.getBlock(blockHeight);
-            final Block block = (preloadedBlock != null ? preloadedBlock.getBlock() : null);
-            if ( (preloadedBlock == null) || (block == null) ) {
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
+            final Block block = (blockId != null ? blockDatabaseManager.getBlock(blockId) : null);
+            if (block == null) {
                 Logger.debug("Unable to load block: " + blockHeight);
                 break;
             }
@@ -154,14 +156,14 @@ public class UnspentTransactionOutputManager {
     /**
      * Destroys the In-Memory and On-Disk UTXO set and rebuilds it from the Genesis Block.
      */
-    public void rebuildUtxoSetFromGenesisBlock(final BlockLoader blockLoader, final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+    public void rebuildUtxoSetFromGenesisBlock(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.lockUtxoSet();
         try {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
             unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
-            _buildUtxoSetUpToHeadBlock(blockLoader, databaseManagerFactory);
+            _buildUtxoSetUpToHeadBlock(databaseManagerFactory);
         }
         catch (final Exception exception) {
             UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();
@@ -175,13 +177,13 @@ public class UnspentTransactionOutputManager {
     /**
      * Builds the UTXO set from the last committed block.
      */
-    public void buildUtxoSet(final BlockLoader blockLoader, final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+    public void buildUtxoSet(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.lockUtxoSet();
         try {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
-            _buildUtxoSetUpToHeadBlock(blockLoader, databaseManagerFactory);
+            _buildUtxoSetUpToHeadBlock(databaseManagerFactory);
         }
         catch (final Exception exception) {
             UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();

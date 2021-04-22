@@ -43,7 +43,6 @@ public class ConfigurationPropertiesExporter {
     public static final String UTXO_COMMIT_FREQUENCY = "bitcoin.utxoCommitFrequency";
     public static final String UTXO_PURGE_PERCENT = "bitcoin.utxoPurgePercent";
     public static final String BOOTSTRAP_IS_ENABLED = "bitcoin.enableBootstrap";
-    public static final String SHOULD_REINDEX_PENDING_BLOCKS = "bitcoin.reIndexPendingBlocks";
     public static final String INDEXING_MODE_IS_ENABLED = "bitcoin.indexBlocks";
     public static final String MAX_MESSAGES_PER_SECOND = "bitcoin.maxMessagesPerSecondPerNode";
     public static final String BITCOIN_PROPERTIES_DATA_DIRECTORY = "bitcoin.dataDirectory";
@@ -140,50 +139,49 @@ public class ConfigurationPropertiesExporter {
 
     private static Map<String, String> _bitcoinVerdeDatabasePropertiesToConfigurationMap(final String prefix, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         return new LinkedHashMap<String, String>() {{
-           put(prefix + ROOT_PASSWORD, bitcoinVerdeDatabaseProperties.getRootPassword());
-           put(prefix + HOST_NAME, bitcoinVerdeDatabaseProperties.getHostname());
-           put(prefix + USERNAME, bitcoinVerdeDatabaseProperties.getUsername());
-           put(prefix + PASSWORD, bitcoinVerdeDatabaseProperties.getPassword());
-           put(prefix + SCHEMA, bitcoinVerdeDatabaseProperties.getSchema());
-           put(prefix + PORT, _coalesce(bitcoinVerdeDatabaseProperties.getPort()));
+           this.put(prefix + ROOT_PASSWORD, bitcoinVerdeDatabaseProperties.getRootPassword());
+           this.put(prefix + HOST_NAME, bitcoinVerdeDatabaseProperties.getHostname());
+           this.put(prefix + USERNAME, bitcoinVerdeDatabaseProperties.getUsername());
+           this.put(prefix + PASSWORD, bitcoinVerdeDatabaseProperties.getPassword());
+           this.put(prefix + SCHEMA, bitcoinVerdeDatabaseProperties.getSchema());
+           this.put(prefix + PORT, _coalesce(bitcoinVerdeDatabaseProperties.getPort()));
 
-           put(prefix + SHOULD_USE_EMBEDDED_DATABASE, _coalesce(bitcoinVerdeDatabaseProperties._shouldUseEmbeddedDatabase));
-           put(prefix + MAX_MEMORY_BYTE_COUNT, _coalesce(bitcoinVerdeDatabaseProperties._maxMemoryByteCount));
-           put(prefix + LOG_FILE_BYTE_COUNT, _coalesce(bitcoinVerdeDatabaseProperties._logFileByteCount));
-           put(prefix + DATABASE_PROPERTIES_DATA_DIRECTORY, bitcoinVerdeDatabaseProperties._dataDirectory.getPath());
-           put(prefix + INSTALLATION_DIRECTORY, bitcoinVerdeDatabaseProperties._installationDirectory.getPath());
+           this.put(prefix + SHOULD_USE_EMBEDDED_DATABASE, _coalesce(bitcoinVerdeDatabaseProperties._shouldUseEmbeddedDatabase));
+           this.put(prefix + MAX_MEMORY_BYTE_COUNT, _coalesce(bitcoinVerdeDatabaseProperties._maxMemoryByteCount));
+           this.put(prefix + LOG_FILE_BYTE_COUNT, _coalesce(bitcoinVerdeDatabaseProperties._logFileByteCount));
+           this.put(prefix + DATABASE_PROPERTIES_DATA_DIRECTORY, bitcoinVerdeDatabaseProperties._dataDirectory.getPath());
+           this.put(prefix + INSTALLATION_DIRECTORY, bitcoinVerdeDatabaseProperties._installationDirectory.getPath());
         }};
     }
 
     private static Map<String, String> _bitcoinPropertiesToConfigurationMap(final BitcoinProperties bitcoinProperties) {
         return new LinkedHashMap<String, String>() {{
-            put(BITCOIN_PORT, _coalesce(bitcoinProperties._bitcoinPort));
-            put(TEST_NETWORK_BITCOIN_PORT, _coalesce(bitcoinProperties._testNetworkBitcoinPort));
-            put(BITCOIN_RPC_PORT, _coalesce(bitcoinProperties._bitcoinRpcPort));
-            put(TEST_NETWORK_RPC_PORT, _coalesce(bitcoinProperties._testNetworkRpcPort));
-            put(DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._dnsSeeds));
-            put(TEST_NET_DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._testNetDnsSeeds));
-            put(USER_AGENT_BLACKLIST, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._userAgentBlacklist));
-            put(NODE_WHITE_LIST, PropertiesUtil.nodePropertiesToConfigurationFileProperty(bitcoinProperties._nodeWhitelist));
-            put(BAN_FILTER_IS_ENABLED, _coalesce(bitcoinProperties._banFilterIsEnabled));
-            put(MIN_PEER_COUNT, _coalesce(bitcoinProperties._minPeerCount));
-            put(MAX_PEER_COUNT, _coalesce(bitcoinProperties._maxPeerCount));
-            put(MAX_THREAD_COUNT, _coalesce(bitcoinProperties._maxThreadCount));
-            put(TRUSTED_BLOCK_HEIGHT, _coalesce(bitcoinProperties._trustedBlockHeight));
-            put(SHOULD_SKIP_NETWORKING, _coalesce(bitcoinProperties._shouldSkipNetworking));
-            put(MAX_UTXO_CACHE_BYTE_COUNT, _coalesce(bitcoinProperties._maxUtxoCacheByteCount));
-            put(UTXO_COMMIT_FREQUENCY, _coalesce(bitcoinProperties._utxoCommitFrequency));
-            put(UTXO_PURGE_PERCENT, _coalesce(bitcoinProperties._utxoPurgePercent));
-            put(BOOTSTRAP_IS_ENABLED, _coalesce(bitcoinProperties._bootstrapIsEnabled));
-            put(SHOULD_REINDEX_PENDING_BLOCKS, _coalesce(bitcoinProperties._shouldReIndexPendingBlocks));
-            put(INDEXING_MODE_IS_ENABLED, _coalesce(bitcoinProperties._indexingModeIsEnabled));
-            put(MAX_MESSAGES_PER_SECOND, _coalesce(bitcoinProperties._maxMessagesPerSecond));
-            put(BITCOIN_PROPERTIES_DATA_DIRECTORY, bitcoinProperties._dataDirectory);
-            put(SHOULD_RELAY_INVALID_SLP_TRANSACTIONS, _coalesce(bitcoinProperties._shouldRelayInvalidSlpTransactions));
-            put(DELETE_PENDING_BLOCKS_IS_ENABLED, _coalesce(bitcoinProperties._deletePendingBlocksIsEnabled));
-            put(LOG_DIRECTORY, bitcoinProperties._logDirectory);
-            put(LOG_LEVEL, bitcoinProperties._logLevel.name());
-            put(TEST_NET, _coalesce(bitcoinProperties._testNet));
+            this.put(BITCOIN_PORT, _coalesce(bitcoinProperties._bitcoinPort));
+            this.put(TEST_NETWORK_BITCOIN_PORT, _coalesce(bitcoinProperties._testNetworkBitcoinPort));
+            this.put(BITCOIN_RPC_PORT, _coalesce(bitcoinProperties._bitcoinRpcPort));
+            this.put(TEST_NETWORK_RPC_PORT, _coalesce(bitcoinProperties._testNetworkRpcPort));
+            this.put(DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._dnsSeeds));
+            this.put(TEST_NET_DNS_SEEDS, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._testNetDnsSeeds));
+            this.put(USER_AGENT_BLACKLIST, PropertiesUtil.stringListToConfigurationFileProperty(bitcoinProperties._userAgentBlacklist));
+            this.put(NODE_WHITE_LIST, PropertiesUtil.nodePropertiesToConfigurationFileProperty(bitcoinProperties._nodeWhitelist));
+            this.put(BAN_FILTER_IS_ENABLED, _coalesce(bitcoinProperties._banFilterIsEnabled));
+            this.put(MIN_PEER_COUNT, _coalesce(bitcoinProperties._minPeerCount));
+            this.put(MAX_PEER_COUNT, _coalesce(bitcoinProperties._maxPeerCount));
+            this.put(MAX_THREAD_COUNT, _coalesce(bitcoinProperties._maxThreadCount));
+            this.put(TRUSTED_BLOCK_HEIGHT, _coalesce(bitcoinProperties._trustedBlockHeight));
+            this.put(SHOULD_SKIP_NETWORKING, _coalesce(bitcoinProperties._shouldSkipNetworking));
+            this.put(MAX_UTXO_CACHE_BYTE_COUNT, _coalesce(bitcoinProperties._maxUtxoCacheByteCount));
+            this.put(UTXO_COMMIT_FREQUENCY, _coalesce(bitcoinProperties._utxoCommitFrequency));
+            this.put(UTXO_PURGE_PERCENT, _coalesce(bitcoinProperties._utxoPurgePercent));
+            this.put(BOOTSTRAP_IS_ENABLED, _coalesce(bitcoinProperties._bootstrapIsEnabled));
+            this.put(INDEXING_MODE_IS_ENABLED, _coalesce(bitcoinProperties._indexingModeIsEnabled));
+            this.put(MAX_MESSAGES_PER_SECOND, _coalesce(bitcoinProperties._maxMessagesPerSecond));
+            this.put(BITCOIN_PROPERTIES_DATA_DIRECTORY, bitcoinProperties._dataDirectory);
+            this.put(SHOULD_RELAY_INVALID_SLP_TRANSACTIONS, _coalesce(bitcoinProperties._shouldRelayInvalidSlpTransactions));
+            this.put(DELETE_PENDING_BLOCKS_IS_ENABLED, _coalesce(bitcoinProperties._deletePendingBlocksIsEnabled));
+            this.put(LOG_DIRECTORY, bitcoinProperties._logDirectory);
+            this.put(LOG_LEVEL, bitcoinProperties._logLevel.name());
+            this.put(TEST_NET, _coalesce(bitcoinProperties._testNet));
         }};
     }
 
