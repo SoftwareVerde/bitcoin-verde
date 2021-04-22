@@ -203,65 +203,55 @@ public class BlockchainIndexer extends SleepyService {
             return outputIndexData;
         }
 
-        boolean slpTransactionIsValid;
-        { // Validate SLP Transaction...
+        boolean slpFormatIsValid;
+        { // Validate SLP Transaction Format...
             // NOTE: Inflating the whole transaction is mildly costly, but typically this only happens once per SLP transaction, which is required anyway.
             final SlpScript slpScript = _slpScriptInflater.fromLockingScript(firstOutputLockingScript);
 
-            slpTransactionIsValid = ( (slpScript != null) && (transactionOutputCount >= slpScript.getMinimumTransactionOutputCount()) );
+            slpFormatIsValid = ( (slpScript != null) && (transactionOutputCount >= slpScript.getMinimumTransactionOutputCount()) );
 
-            if (slpTransactionIsValid) {
+            if (slpFormatIsValid) {
                 ScriptType outputScriptType = ScriptType.CUSTOM_SCRIPT;
                 final TransactionId slpTokenTransactionId = _getSlpTokenTransactionId(transactionId, slpScript);
 
                 switch (slpScript.getType()) {
                     case GENESIS: {
                         final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) slpScript;
-                        final Integer generatorOutputIndex = slpGenesisScript.getBatonOutputIndex();
+                        final Integer batonOutputIndex = slpGenesisScript.getBatonOutputIndex();
 
-                        if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputCount)) {
-                            slpTransactionIsValid = false;
+                        outputScriptType = ScriptType.SLP_GENESIS_SCRIPT;
+
+                        { // Mark the Receiving Output as an SLP Output...
+                            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
+                            final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
+                            indexData.slpTransactionId = slpTokenTransactionId;
                         }
-                        else {
-                            outputScriptType = ScriptType.SLP_GENESIS_SCRIPT;
 
-                            { // Mark the Receiving Output as an SLP Output...
-                                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
-                                final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
-                                indexData.slpTransactionId = slpTokenTransactionId;
-                            }
-
-                            if (generatorOutputIndex != null) {
-                                // Mark the Mint Baton Output as an SLP Output...
-                                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, generatorOutputIndex);
-                                final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
-                                indexData.slpTransactionId = slpTokenTransactionId;
-                            }
+                        if (batonOutputIndex != null && batonOutputIndex < transactionOutputCount) {
+                            // Mark the Mint Baton Output as an SLP Output...
+                            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, batonOutputIndex);
+                            final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
+                            indexData.slpTransactionId = slpTokenTransactionId;
                         }
                     } break;
 
                     case MINT: {
                         final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
-                        final Integer generatorOutputIndex = slpMintScript.getBatonOutputIndex();
+                        final Integer batonOutputIndex = slpMintScript.getBatonOutputIndex();
 
-                        if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputCount)) {
-                            slpTransactionIsValid = false;
+                        outputScriptType = ScriptType.SLP_MINT_SCRIPT;
+
+                        { // Mark the Receiving Output as an SLP Output...
+                            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
+                            final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
+                            indexData.slpTransactionId = slpTokenTransactionId;
                         }
-                        else {
-                            outputScriptType = ScriptType.SLP_MINT_SCRIPT;
 
-                            { // Mark the Receiving Output as an SLP Output...
-                                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
-                                final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
-                                indexData.slpTransactionId = slpTokenTransactionId;
-                            }
-
-                            if (generatorOutputIndex != null) {
-                                // Mark the Mint Baton Output as an SLP Output...
-                                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, generatorOutputIndex);
-                                final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
-                                indexData.slpTransactionId = slpTokenTransactionId;
-                            }
+                        if (batonOutputIndex != null && batonOutputIndex < transactionOutputCount) {
+                            // Mark the Mint Baton Output as an SLP Output...
+                            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, batonOutputIndex);
+                            final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
+                            indexData.slpTransactionId = slpTokenTransactionId;
                         }
                     } break;
 
@@ -289,10 +279,7 @@ public class BlockchainIndexer extends SleepyService {
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, 0);
                     final OutputIndexData indexData = outputIndexData.get(transactionOutputIdentifier);
                     indexData.scriptType = outputScriptType;
-
-                    if (slpTransactionIsValid) {
-                        indexData.slpTransactionId = slpTokenTransactionId;
-                    }
+                    indexData.slpTransactionId = slpTokenTransactionId;
                 }
             }
         }
