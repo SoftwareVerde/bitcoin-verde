@@ -38,7 +38,13 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -838,11 +844,11 @@ public class BitcoinNodeManager {
 
         // Ensure the NodeManager does not exceed maxNodeCount.
         if ((allNodes.size() + _pendingNodes.size()) >= _maxNodeCount) {
-            final boolean haveConnectedNonPreferredPeers = _otherNodes.size() > 0;
-            if (_shouldPrioritizeNewConnections && haveConnectedNonPreferredPeers) {
+            final MutableList<BitcoinNode> otherNodes = new MutableList<>(_otherNodes.values()); // NOTE: List is copied before isEmpty evaluation to avoid race condition due to concurrent modification of _otherNodes.
+            final boolean hasNonPreferredPeers = (! otherNodes.isEmpty());
+            if (_shouldPrioritizeNewConnections && hasNonPreferredPeers) {
                 // find oldest non-preferred peer and disconnect before continuing
                 synchronized (_performanceStatistics) {
-                    final ArrayList<BitcoinNode> otherNodes = new ArrayList<>(_otherNodes.values());
                     otherNodes.sort(new Comparator<BitcoinNode>() {
                         @Override
                         public int compare(final BitcoinNode node0, final BitcoinNode node1) {
@@ -853,9 +859,10 @@ public class BitcoinNodeManager {
                             return nodeTimestamp0.compareTo(nodeTimestamp1);
                         }
                     });
-                    final BitcoinNode nodeToDisconnect = otherNodes.get(0);
-                    nodeToDisconnect.disconnect();
                 }
+
+                final BitcoinNode nodeToDisconnect = otherNodes.get(0);
+                nodeToDisconnect.disconnect();
             }
             else {
                 // prioritizing existing connections, disconnect from this new node and bail out
