@@ -32,6 +32,7 @@ public class NodeInitializer {
         public BitcoinNode.SpvBlockInventoryAnnouncementHandler spvBlockInventoryAnnouncementHandler;
         public BitcoinBinaryPacketFormat binaryPacketFormat;
         public BitcoinNode.NewBloomFilterHandler newBloomFilterHandler;
+        public BitcoinNode.DownloadBlockCallback unsolicitedBlockReceivedCallback;
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
@@ -50,6 +51,7 @@ public class NodeInitializer {
     protected final BitcoinNode.SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementHandler;
     protected final BitcoinBinaryPacketFormat _binaryPacketFormat;
     protected final BitcoinNode.NewBloomFilterHandler _newBloomFilterHandler;
+    protected final BitcoinNode.DownloadBlockCallback _unsolicitedBlockReceivedCallback;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
@@ -78,6 +80,8 @@ public class NodeInitializer {
 
         bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
         bitcoinNode.setNewBloomFilterHandler(_newBloomFilterHandler);
+
+        bitcoinNode.setUnsolicitedBlockReceivedCallback(_unsolicitedBlockReceivedCallback);
     }
 
     public NodeInitializer(final Context properties) {
@@ -97,6 +101,7 @@ public class NodeInitializer {
         _spvBlockInventoryAnnouncementHandler = properties.spvBlockInventoryAnnouncementHandler;
         _binaryPacketFormat = properties.binaryPacketFormat;
         _newBloomFilterHandler = properties.newBloomFilterHandler;
+        _unsolicitedBlockReceivedCallback = properties.unsolicitedBlockReceivedCallback;
     }
 
     public void initializeNode(final BitcoinNode bitcoinNode) {

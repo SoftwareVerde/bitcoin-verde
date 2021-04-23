@@ -14,11 +14,10 @@ import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
-import com.softwareverde.bitcoin.context.core.BlockDownloaderContext;
+import com.softwareverde.bitcoin.context.core.BlockHeaderDownloaderContext;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
 import com.softwareverde.bitcoin.context.core.DoubleSpendProofProcessorContext;
-import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.context.lazy.LazyTransactionOutputIndexerContext;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
@@ -42,9 +41,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
@@ -87,23 +84,21 @@ import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequesterCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.BlockLoader;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -134,13 +129,10 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -500,6 +492,31 @@ public class NodeModule {
                 }
             };
 
+            nodeInitializerContext.unsolicitedBlockReceivedCallback = new BitcoinNode.DownloadBlockCallback() {
+                @Override
+                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+                    final Sha256Hash blockHash = block.getHash();
+
+                    final Boolean blockWasAlreadyDownloaded = _blockStore.pendingBlockExists(blockHash);
+                    if (blockWasAlreadyDownloaded) { return; }
+
+                    boolean blockHeaderIsKnown = false;
+                    try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        blockHeaderIsKnown = (blockId != null);
+                    }
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                    }
+
+                    if (blockHeaderIsKnown) {
+                        Logger.debug("Storing unsolicited Block: " + blockHash);
+                        _blockDownloader.submitBlock(block);
+                    }
+                }
+            };
+
             nodeInitializer = new NodeInitializer(nodeInitializerContext);
         }
 
@@ -543,6 +560,12 @@ public class NodeModule {
 
             _bitcoinNodeManager = new BitcoinNodeManager(context);
             _bitcoinNodeManager.setDefaultExternalPort(bitcoinProperties.getBitcoinPort());
+            _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
+                @Override
+                public void onNodeHandshakeComplete(final BitcoinNode bitcoinNode) {
+                    _blockDownloader.wakeUp();
+                }
+            });
 
             final BitcoinNodeHeadBlockFinder bitcoinNodeHeadBlockFinder = new BitcoinNodeHeadBlockFinder(databaseManagerFactory, _generalThreadPool, _banFilter);
             _bitcoinNodeManager.setNewNodeHandshakedCallback(new BitcoinNodeManager.NewNodeCallback() {
@@ -589,23 +612,94 @@ public class NodeModule {
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
 
-        final BlockDownloadRequester blockDownloadRequester;
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
-            final BlockDownloaderContext blockDownloaderContext = new BlockDownloaderContext(_bitcoinNodeManager, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _blockStore, synchronizationStatusHandler, _systemTime, _generalThreadPool, _upgradeSchedule);
-            _blockDownloader = new BlockDownloader(blockDownloaderContext);
-            blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
-            _blockHeaderDownloader = new BlockHeaderDownloader(blockDownloaderContext, blockDownloadRequester);
+            final BitcoinNodeBlockInventoryTracker blockInventoryTracker = new BitcoinNodeBlockInventoryTracker();
+
+            final BlockDownloader.BitcoinNodeCollector bitcoinNodeCollector = new BlockDownloader.BitcoinNodeCollector() {
+                @Override
+                public List<BitcoinNode> getBitcoinNodes() {
+                    return _bitcoinNodeManager.getPreferredNodes();
+                }
+            };
+
+            final BlockDownloader.BlockDownloadPlanner blockDownloadPlanner = new BlockDownloader.BlockDownloadPlanner() {
+                @Override
+                public List<BlockDownloader.PendingBlockInventory> getNextPendingBlockInventoryBatch() {
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
+
+                    final int batchSize = 256;
+                    final MutableList<BlockDownloader.PendingBlockInventory> pendingBlockInventoryBatch = new MutableList<>();
+
+                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+                        final BlockId headBlockId;
+                        final Long headBlockHeight;
+                        {
+                            final BlockId nullableHeadBlockId = blockDatabaseManager.getHeadBlockId();
+                            if (nullableHeadBlockId != null) {
+                                headBlockId = nullableHeadBlockId;
+                            }
+                            else {
+                                final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(0L, BlockHeader.GENESIS_BLOCK_HASH);
+                                pendingBlockInventoryBatch.add(pendingBlockInventory);
+                                headBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
+                            }
+
+                            headBlockHeight = (headBlockId != null ? blockHeaderDatabaseManager.getBlockHeight(headBlockId) : null);
+                        }
+
+                        if (headBlockId != null) {
+                            BlockId previousBlockId = headBlockId;
+                            for (int i = 0; i < batchSize; ++i) {
+                                final BlockId blockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, previousBlockId);
+                                if (blockId == null) { break; }
+
+                                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+                                final Long blockHeight = (headBlockHeight + i);
+
+                                final Boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
+                                if (! pendingBlockExists) {
+                                    final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(blockHeight, blockHash, null, blockHeight);
+                                    pendingBlockInventoryBatch.add(pendingBlockInventory);
+                                }
+
+                                previousBlockId = blockId;
+                            }
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.debug(exception);
+                    }
+
+                    nanoTimer.stop();
+                    Logger.trace("Determined next BlockDownloader batch in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+
+                    return pendingBlockInventoryBatch;
+                }
+            };
+
+            _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
+
+            final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
+            final int maxConcurrentDownloadCountPerNode = 2;
+            _blockDownloader.setMaxConcurrentDownloadCount(maxConcurrentDownloadCount);
+            _blockDownloader.setMaxConcurrentDownloadCountPerNode(maxConcurrentDownloadCountPerNode);
+
+            final BlockHeaderDownloaderContext blockHeaderDownloaderContext = new BlockHeaderDownloaderContext(_bitcoinNodeManager, databaseManagerFactory, _difficultyCalculatorFactory, _mutableNetworkTime, _systemTime, _generalThreadPool, _upgradeSchedule);
+
+            _blockHeaderDownloader = new BlockHeaderDownloader(blockHeaderDownloaderContext, blockInventoryTracker);
         }
 
         { // Initialize BlockchainBuilder...
-            final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, databaseManagerFactory, _blockProcessingThreadPool);
-            final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 8);
-            final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
-            pendingBlockLoader.setLoadUnspentOutputsAfterBlockHeight((trustedBlockHeight >= 0) ? trustedBlockHeight : null);
-
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
-            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _blockProcessingThreadPool);
-            _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, blockDownloaderStatusMonitor, blockDownloadRequester);
+            final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
+            _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, _blockStore, blockDownloaderStatusMonitor);
         }
 
         final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
@@ -733,9 +827,9 @@ public class NodeModule {
                 }
             });
 
-            _blockDownloader.setNewBlockAvailableCallback(new Runnable() {
+            _blockDownloader.setBlockDownloadedCallback(new BlockDownloader.BlockDownloadCallback() {
                 @Override
-                public void run() {
+                public void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode) {
                     _blockchainBuilder.wakeUp();
                 }
             });
@@ -1029,69 +1123,6 @@ public class NodeModule {
             }
         }
 
-        final boolean reIndexPendingBlocks;
-        {
-            final Boolean configParameter = _bitcoinProperties.shouldReIndexPendingBlocks();
-            if (configParameter != null) {
-                reIndexPendingBlocks = configParameter;
-            }
-            else {
-                final Long headBlockHeight;
-                {
-                    Long blockHeight = null;
-                    try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                        blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.debug(exception);
-                    }
-                    headBlockHeight = Util.coalesce(blockHeight);
-                }
-
-                reIndexPendingBlocks = (headBlockHeight < 2016L);
-            }
-        }
-
-        if (reIndexPendingBlocks) { // Index previously downloaded blocks...
-            Logger.info("[Indexing Pending Blocks]");
-            final String pendingBlockDataDirectory = _blockStore.getPendingBlockDataDirectory();
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-                try (final DirectoryStream<Path> pendingBlockSubDirectories = Files.newDirectoryStream(Paths.get(pendingBlockDataDirectory))) {
-                    for (final Path pendingBlockSubDirectory : pendingBlockSubDirectories) {
-                        try (final DirectoryStream<Path> pendingBlockPaths = Files.newDirectoryStream(pendingBlockSubDirectory)) {
-                            for (final Path pendingBlockPath : pendingBlockPaths) {
-                                final File pendingBlockFile = pendingBlockPath.toFile();
-                                final String blockHashString = pendingBlockFile.getName();
-                                final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
-                                if (blockHash != null) {
-                                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                                    if (blockId != null) {
-                                        final Boolean blockHasBeenProcessed = blockDatabaseManager.hasTransactions(blockHash);
-                                        if (blockHasBeenProcessed) { continue; }
-                                    }
-
-                                    final BlockId parentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
-                                    final Sha256Hash parentBlockHash = blockHeaderDatabaseManager.getBlockHash(parentBlockId);
-                                    pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash, true);
-                                    Logger.debug("Indexed Existing pending Block: " + blockHash);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch (final Exception exception) {
-                Logger.debug(exception);
-            }
-        }
-
         { // Validate the UTXO set is up to date...
             Logger.info("[Checking UTXO Set]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -1101,14 +1132,12 @@ public class NodeModule {
                 final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
 
-                final BlockLoader blockLoader = new BlockLoader(headBlockchainSegmentId, 8, databaseManagerFactory, _blockProcessingThreadPool);
-
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");
-                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(blockLoader, databaseManagerFactory);
+                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory);
                 }
                 else {
-                    unspentTransactionOutputManager.buildUtxoSet(blockLoader, databaseManagerFactory);
+                    unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);
                 }
             }
             catch (final DatabaseException exception) {

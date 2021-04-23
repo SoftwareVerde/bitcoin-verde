@@ -98,11 +98,6 @@ public class BitcoinPropertiesLoader {
             bitcoinProperties._utxoPurgePercent = 1F;
         }
 
-        { // Force PendingBlock reindexing...
-            final String reIndexPendingBlocks = properties.getProperty("bitcoin.reIndexPendingBlocks", null);
-            bitcoinProperties._shouldReIndexPendingBlocks = ((reIndexPendingBlocks != null) ? Util.parseBool(reIndexPendingBlocks) : null);
-        }
-
         bitcoinProperties._bootstrapIsEnabled = Util.parseBool(properties.getProperty("bitcoin.enableBootstrap", "1"));
         bitcoinProperties._indexingModeIsEnabled = Util.parseBool(properties.getProperty("bitcoin.indexBlocks", "1"));
         bitcoinProperties._maxMessagesPerSecond = Util.parseInt(properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));

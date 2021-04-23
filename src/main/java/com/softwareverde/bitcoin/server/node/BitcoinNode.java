@@ -280,6 +280,8 @@ public class BitcoinNode extends Node {
     protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementCallback = null;
     protected DoubleSpendProofAnnouncementHandler _doubleSpendProofAnnouncementCallback = null;
 
+    protected DownloadBlockCallback _unsolicitedBlockReceivedCallback = null;
+
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
     protected Boolean _slpTransactionsIsEnabled = false;
@@ -851,6 +853,20 @@ public class BitcoinNode extends Node {
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
         }
+
+        if (! wasRequested) {
+            Logger.debug("Received unsolicited block: " + blockHash + " from " + BitcoinNode.this);
+
+            final DownloadBlockCallback unsolicitedBlockReceivedCallback = _unsolicitedBlockReceivedCallback;
+            if (unsolicitedBlockReceivedCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        unsolicitedBlockReceivedCallback.onResult(null, BitcoinNode.this, block);
+                    }
+                });
+            }
+        }
     }
 
     protected void _onTransactionMessageReceived(final TransactionMessage transactionMessage) {
@@ -1199,6 +1215,8 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onNotFoundMessageReceived(final NotFoundResponseMessage notFoundResponseMessage) {
+        Logger.trace("Received NOT FOUND from " + BitcoinNode.this + ".");
+
         for (final InventoryItem inventoryItem : notFoundResponseMessage.getInventoryItems()) {
             final Sha256Hash itemHash = inventoryItem.getItemHash();
             switch (inventoryItem.getItemType()) {
@@ -2184,5 +2202,9 @@ public class BitcoinNode extends Node {
 
     public void removeObserver(final BitcoinNodeObserver observer) {
         _observers.remove(observer);
+    }
+
+    public void setUnsolicitedBlockReceivedCallback(final DownloadBlockCallback unsolicitedBlockReceivedCallback) {
+        _unsolicitedBlockReceivedCallback = unsolicitedBlockReceivedCallback;
     }
 }

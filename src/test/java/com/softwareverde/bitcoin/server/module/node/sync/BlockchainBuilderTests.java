@@ -8,24 +8,20 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
-import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionValidatorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.FakeBlockStore;
@@ -52,6 +48,7 @@ import com.softwareverde.cryptography.secp256k1.key.PrivateKey;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.type.time.SystemTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -98,20 +95,6 @@ public class BlockchainBuilderTests extends IntegrationTest {
     };
 
     /**
-     * A dummy BlockDownloadRequester that does nothing.
-     */
-    public static final BlockDownloadRequester FAKE_BLOCK_DOWNLOAD_REQUESTER = new BlockDownloadRequester() {
-        @Override
-        public void requestBlock(final BlockHeader blockHeader) { }
-
-        @Override
-        public void requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) { }
-
-        @Override
-        public void requestBlocks(final List<BlockHeader> blockHeaders) { }
-    };
-
-    /**
      * FakeBitcoinNodeManager is a BitcoinNodeManager that prevents all network traffic.
      */
     public static class FakeBitcoinNodeManager extends BitcoinNodeManager {
@@ -143,24 +126,22 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
     @Test
     public void should_synchronize_pending_blocks() throws Exception {
+        final SystemTime systemTime = new SystemTime();
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
 
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
-        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(_masterInflater, _fullNodeDatabaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
-        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
-        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, null);
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
         final Block[] blocks;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             blocks = new Block[6];
             int blockHeight = 0;
@@ -171,7 +152,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
                 blocks[blockHeight] = block;
                 blockHeight += 1;
             }
@@ -211,6 +192,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         // This test creates a (fake) Block03 with a spendable coinbase, then creates two contentious (fake) Block04s.
         //  Both versions of Block04 spend the coinbase of Block03, and both chains should be valid. (Coinbase maturity must be disabled.)
 
+        final SystemTime systemTime = new SystemTime();
         final TransactionInflaters transactionInflaters = _masterInflater;
         final AddressInflater addressInflater = new AddressInflater();
         final FakeBlockStore blockStore = new FakeBlockStore();
@@ -219,11 +201,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
-        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
-        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;
         {
@@ -330,7 +310,6 @@ public class BlockchainBuilderTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();;
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             int blockHeight = 0;
             mainChainBlocks = new Block[5];
@@ -341,7 +320,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
 
                 mainChainBlocks[blockHeight] = block;
                 blockHeight += 1;
@@ -352,7 +331,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
 
                 mainChainBlocks[blockHeight] = block;
                 blockHeight += 1;
@@ -363,14 +342,14 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
 
             mainChainBlocks[blockHeight] = fakeBlock04aSpendingBlock03Coinbase;
         }
 
         // NOTE: The blockchainBuilder checks for the Genesis block upon instantiation.
-        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
         // Action
         blockchainBuilder.start();
@@ -452,6 +431,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         //  The second Block03 (`Block03b`) spends the first Block03 (`Block03a`)'s coinbase, which is invalid.
         //  The insertion order is Genesis -> Block01 -> Block02 -> Block03a -> Block03b
 
+        final SystemTime systemTime = new SystemTime();
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
@@ -459,11 +439,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
-        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
-        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;
         {
@@ -541,14 +519,13 @@ public class BlockchainBuilderTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
                 final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
 
             for (final Block block : new Block[] { fakeBlock03a, fakeBlock03bSpendingBlock03aCoinbase }) {
@@ -556,12 +533,12 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
         }
 
         // NOTE: The blockchainBuilder checks for the Genesis block upon instantiation.
-        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
         // Action
         blockchainBuilder.start();
@@ -594,6 +571,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
     public void should_not_validate_block_that_has_two_transactions_spending_the_same_output() throws Exception {
         // This test creates a (fake) Block03, with a spendable coinbase, then creates a (fake) Block04 that spends the Block03's coinbase twice, which is invalid.
 
+        final SystemTime systemTime = new SystemTime();
         final FakeBlockStore blockStore = new FakeBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
@@ -601,11 +579,9 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
-        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
-        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;
         {
@@ -718,7 +694,6 @@ public class BlockchainBuilderTests extends IntegrationTest {
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = _masterInflater.getBlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
             for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
                 final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
@@ -726,7 +701,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
 
             for (final Block block : new Block[] { fakeBlock03, fakeBlock04 }) {
@@ -734,12 +709,12 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
 
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
         }
 
         // NOTE: The blockchainBuilder checks for the Genesis block upon instantiation.
-        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
+        final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
 
         // Action
         blockchainBuilder.start();

@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFact
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -50,7 +51,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected final Context _context;
 
-    protected final BlockDownloadRequester _blockDownloadRequester;
+    protected final BitcoinNodeBlockInventoryTracker _blockInventoryTracker;
     protected final BitcoinNode.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
 
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
@@ -327,12 +328,15 @@ public class BlockHeaderDownloader extends SleepyService {
         }
     }
 
-    protected void _processBlockHeaders(final List<BlockHeader> blockHeaders) {
+    protected void _processBlockHeaders(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
         final MilliTimer storeHeadersTimer = new MilliTimer();
         storeHeadersTimer.start();
 
+        final Integer blockHeaderCount = blockHeaders.getCount();
+        if (blockHeaderCount == 0) { return; }
+
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        Logger.debug("Downloaded Block headers: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getCount());
+        Logger.debug("Downloaded Block headers: "+ firstBlockHeader.getHash() + " + " + blockHeaderCount);
 
         final ThreadPool threadPool = _context.getThreadPool();
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
@@ -349,20 +353,19 @@ public class BlockHeaderDownloader extends SleepyService {
                 return;
             }
 
-            threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    if (_blockDownloadRequester != null) {
-                        _blockDownloadRequester.requestBlocks(blockHeaders);
-                    }
-                }
-            });
+            for (final BlockHeader blockHeader : blockHeaders) {
+                final Sha256Hash blockHash = blockHeader.getHash();
+                _blockInventoryTracker.markInventoryAvailable(blockHash, bitcoinNode);
+            }
 
-            final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaders.getCount() - 1);
+            final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaderCount - 1);
+            final Sha256Hash lastBlockHeaderHash = lastBlockHeader.getHash();
+
             _lastBlockHeader = lastBlockHeader;
-            _lastBlockHash = lastBlockHeader.getHash();
+            _lastBlockHash = lastBlockHeaderHash;
 
-            _blockHeaderCount += blockHeaders.getCount();
+            _blockHeaderCount += blockHeaderCount;
+
             _timer.stop();
             final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
             _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
@@ -376,10 +379,10 @@ public class BlockHeaderDownloader extends SleepyService {
         Logger.info("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
-    public BlockHeaderDownloader(final Context context, final BlockDownloadRequester blockDownloadRequester) {
+    public BlockHeaderDownloader(final Context context, final BitcoinNodeBlockInventoryTracker blockInventoryTracker) {
         _context = context;
 
-        _blockDownloadRequester = blockDownloadRequester;
+        _blockInventoryTracker = blockInventoryTracker;
         _timer = new MilliTimer();
 
         final SystemTime systemTime = _context.getSystemTime();
@@ -392,7 +395,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 if (_shouldAbort()) { return; }
 
                 try {
-                    _processBlockHeaders(blockHeaders);
+                    _processBlockHeaders(blockHeaders, bitcoinNode);
 
                     final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
                     if (newBlockHeaderAvailableCallback != null) {
@@ -540,7 +543,7 @@ public class BlockHeaderDownloader extends SleepyService {
     }
 
     public void onNewBlockHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-        _processBlockHeaders(blockHeaders);
+        _processBlockHeaders(blockHeaders, bitcoinNode);
 
         final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
         if (newBlockHeaderAvailableCallback != null) {
