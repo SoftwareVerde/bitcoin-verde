@@ -5,17 +5,19 @@ import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 
+import java.math.BigInteger;
+
 public interface SlpSendScript extends SlpScript, Constable<ImmutableSlpSendScript> {
     Integer MAX_OUTPUT_COUNT = 20;
 
     SlpTokenId getTokenId();
-    Long getAmount(Integer transactionOutputIndex);
-    Long getTotalAmount();
+    BigInteger getAmount(Integer transactionOutputIndex);
+    BigInteger getTotalAmount();
 }
 
 abstract class SlpSendScriptCore implements SlpSendScript {
     protected SlpTokenId _tokenId;
-    protected final Long[] _amounts = new Long[MAX_OUTPUT_COUNT];
+    protected final BigInteger[] _amounts = new BigInteger[MAX_OUTPUT_COUNT];
 
     public SlpSendScriptCore() { }
 
@@ -36,7 +38,7 @@ abstract class SlpSendScriptCore implements SlpSendScript {
     public Integer getMinimumTransactionOutputCount() {
         int tokenOutputCount = 0;
         for (int i = 0; i < MAX_OUTPUT_COUNT; ++i) {
-            final Long amount = _amounts[i];
+            final BigInteger amount = _amounts[i];
             if (amount == null) { break; }
 
             tokenOutputCount += 1;
@@ -51,7 +53,7 @@ abstract class SlpSendScriptCore implements SlpSendScript {
     }
 
     @Override
-    public Long getAmount(final Integer transactionOutputIndex) {
+    public BigInteger getAmount(final Integer transactionOutputIndex) {
         if (transactionOutputIndex >= MAX_OUTPUT_COUNT) { return null; }
         if (transactionOutputIndex < 0) { throw new IndexOutOfBoundsException(); }
         if (transactionOutputIndex == 0) { return null; }
@@ -60,13 +62,13 @@ abstract class SlpSendScriptCore implements SlpSendScript {
     }
 
     @Override
-    public Long getTotalAmount() {
-        long totalAmount = 0L;
+    public BigInteger getTotalAmount() {
+        BigInteger totalAmount = BigInteger.ZERO;
         for (int i = 0; i < MAX_OUTPUT_COUNT; ++i) {
-            final Long amount = _amounts[i];
+            final BigInteger amount = _amounts[i];
             if (amount == null) { continue; }
 
-            totalAmount += amount;
+            totalAmount = totalAmount.add(amount);
         }
 
         return totalAmount;

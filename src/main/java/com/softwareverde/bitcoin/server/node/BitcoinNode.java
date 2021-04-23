@@ -516,13 +516,13 @@ public class BitcoinNode extends Node {
                 if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
                     final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
                     final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
-                    final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
-                    final long bytesPerMs = (bytesReceiveSinceRequested / requestAgeMs);
+                    final long bytesReceivedSinceRequested = (newByteCountReceived - startingByteCountReceived);
+                    final long bytesPerMs = (bytesReceivedSinceRequested / requestAgeMs);
                     final double bytesPerSecond = (bytesPerMs * 1000L);
                     final double megabytesPerSecond = (bytesPerSecond / ByteUtil.Unit.Binary.MEBIBYTES);
 
                     if (Logger.isTraceEnabled()) {
-                        Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + this.getConnectionString() + " - " + failableRequest.requestDescription);
+                        Logger.trace("Download progress: bytesReceivedSinceRequested=" + bytesReceivedSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + this.getConnectionString() + " - " + failableRequest.requestDescription);
                     }
 
                     if (bytesPerSecond < BitcoinNode.MIN_BYTES_PER_SECOND) {

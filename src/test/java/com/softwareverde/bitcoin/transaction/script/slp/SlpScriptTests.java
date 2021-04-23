@@ -7,8 +7,11 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.MutableSlpGenesisScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.ByteUtil;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.math.BigInteger;
 
 public class SlpScriptTests {
 
@@ -32,7 +35,7 @@ public class SlpScriptTests {
         slpGenesisScript.setDocumentHash(null);
         slpGenesisScript.setDecimalCount(8);
         slpGenesisScript.setBatonOutputIndex(null);
-        slpGenesisScript.setTokenCount(21000000L * Transaction.SATOSHIS_PER_BITCOIN);
+        slpGenesisScript.setTokenCount(BigInteger.valueOf(21000000L * Transaction.SATOSHIS_PER_BITCOIN));
 
         // Action
         final LockingScript lockingScript = slpScriptBuilder.createGenesisScript(slpGenesisScript);
@@ -48,7 +51,7 @@ public class SlpScriptTests {
     public void decimal_count_byte_length_must_be_1_byte_for_zero_decimals() {
         final MutableSlpGenesisScript slpGenesisScript = new MutableSlpGenesisScript();
         slpGenesisScript.setTokenName("Bitcoin Cash");
-        slpGenesisScript.setTokenCount(0xFFFFFFFFFFFFFFFFL);
+        slpGenesisScript.setTokenCount(new BigInteger(1, ByteUtil.longToBytes(0xFFFFFFFFFFFFFFFFL))); // 2^64-1
         slpGenesisScript.setBatonOutputIndex(null);
         slpGenesisScript.setTokenAbbreviation("BCH");
         slpGenesisScript.setDocumentUrl(null);

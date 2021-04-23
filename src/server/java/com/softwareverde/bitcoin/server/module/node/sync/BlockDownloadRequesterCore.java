@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
@@ -44,26 +45,21 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
         return blockHeaderDatabaseManager.getBlockHash(parentBlockId);
     }
 
-    protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash parentBlockHash, final Long priority) {
-        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+    protected void _requestBlock(final FullNodeDatabaseManager databaseManager, final Sha256Hash blockHash, final Sha256Hash parentBlockHash, final Long priority) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
-            if (priority >= 256) {
-                final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
-                if (! Util.coalesce(pendingBlockConnectedToMainChain, true)) { return; }
-            }
-
-            TransactionUtil.startTransaction(databaseConnection);
-            final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
-            pendingBlockDatabaseManager.setPriority(pendingBlockId, priority);
-            TransactionUtil.commitTransaction(databaseConnection);
-
-            _blockDownloader.wakeUp();
+        if (priority >= 256) {
+            final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
+            if (! Util.coalesce(pendingBlockConnectedToMainChain, true)) { return; }
         }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-        }
+
+        TransactionUtil.startTransaction(databaseConnection);
+        final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
+        pendingBlockDatabaseManager.setPriority(pendingBlockId, priority);
+        TransactionUtil.commitTransaction(databaseConnection);
+
+        _blockDownloader.wakeUp();
     }
 
     public BlockDownloadRequesterCore(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager) {
@@ -77,11 +73,38 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
         final Sha256Hash blockHash = blockHeader.getHash();
         final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
         final Long timestamp = blockHeader.getTimestamp();
-        _requestBlock(blockHash, previousBlockHash, timestamp);
+
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _requestBlock(databaseManager, blockHash, previousBlockHash, timestamp);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+        }
     }
 
     @Override
     public void requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) {
-        _requestBlock(blockHash, previousBlockHash, 0L);
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            _requestBlock(databaseManager, blockHash, previousBlockHash, 0L);
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+        }
+    }
+
+    @Override
+    public void requestBlocks(final List<BlockHeader> blockHeaders) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            for (final BlockHeader blockHeader : blockHeaders) {
+                final Sha256Hash blockHash = blockHeader.getHash();
+                final Sha256Hash previousBlockHash = blockHeader.getPreviousBlockHash();
+                final Long timestamp = blockHeader.getTimestamp();
+
+                _requestBlock(databaseManager, blockHash, previousBlockHash, timestamp);
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.debug(exception);
+        }
     }
 }

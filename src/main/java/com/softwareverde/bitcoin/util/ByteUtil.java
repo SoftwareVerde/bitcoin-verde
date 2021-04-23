@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.util;
 
 import com.softwareverde.constable.bytearray.ByteArray;
 
+import java.math.BigInteger;
+
 public class ByteUtil extends com.softwareverde.util.ByteUtil {
     public static byte[] variableLengthIntegerToBytes(final long value) {
         final byte[] bytes = ByteUtil.longToBytes(value);
@@ -63,5 +65,21 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
         }
 
         return Integer.compare(aByteCount, bByteCount);
+    }
+
+    public static BigInteger bytesToBigInteger(final ByteArray byteArray) {
+        return ByteUtil.bytesToBigInteger(byteArray.getBytes());
+    }
+
+    public static BigInteger bytesToBigIntegerUnsigned(final ByteArray byteArray) {
+        return ByteUtil.bytesToBigIntegerUnsigned(byteArray.getBytes());
+    }
+
+    public static BigInteger bytesToBigInteger(final byte[] bytes) {
+        return new BigInteger(bytes);
+    }
+
+    public static BigInteger bytesToBigIntegerUnsigned(final byte[] bytes) {
+        return new BigInteger(1, bytes);
     }
 }
