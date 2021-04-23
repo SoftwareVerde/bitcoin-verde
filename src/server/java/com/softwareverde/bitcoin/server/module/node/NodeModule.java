@@ -89,6 +89,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndexer;
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloadPlannerCore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
@@ -129,7 +130,6 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
-import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
@@ -622,68 +622,7 @@ public class NodeModule {
                 }
             };
 
-            final BlockDownloader.BlockDownloadPlanner blockDownloadPlanner = new BlockDownloader.BlockDownloadPlanner() {
-                @Override
-                public List<BlockDownloader.PendingBlockInventory> getNextPendingBlockInventoryBatch() {
-                    final NanoTimer nanoTimer = new NanoTimer();
-                    nanoTimer.start();
-
-                    final int batchSize = 256;
-                    final MutableList<BlockDownloader.PendingBlockInventory> pendingBlockInventoryBatch = new MutableList<>();
-
-                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-                        final BlockId headBlockId;
-                        final Long headBlockHeight;
-                        {
-                            final BlockId nullableHeadBlockId = blockDatabaseManager.getHeadBlockId();
-                            if (nullableHeadBlockId != null) {
-                                headBlockId = nullableHeadBlockId;
-                            }
-                            else {
-                                final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(0L, BlockHeader.GENESIS_BLOCK_HASH);
-                                pendingBlockInventoryBatch.add(pendingBlockInventory);
-                                headBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
-                            }
-
-                            headBlockHeight = (headBlockId != null ? blockHeaderDatabaseManager.getBlockHeight(headBlockId) : null);
-                        }
-
-                        if (headBlockId != null) {
-                            BlockId previousBlockId = headBlockId;
-                            for (int i = 0; i < batchSize; ++i) {
-                                final BlockId blockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, previousBlockId);
-                                if (blockId == null) { break; }
-
-                                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-                                final Long blockHeight = (headBlockHeight + i);
-
-                                final Boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
-                                if (! pendingBlockExists) {
-                                    final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(blockHeight, blockHash, null, blockHeight);
-                                    pendingBlockInventoryBatch.add(pendingBlockInventory);
-                                }
-
-                                previousBlockId = blockId;
-                            }
-                        }
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.debug(exception);
-                    }
-
-                    nanoTimer.stop();
-                    Logger.trace("Determined next BlockDownloader batch in " + nanoTimer.getMillisecondsElapsed() + "ms.");
-
-                    return pendingBlockInventoryBatch;
-                }
-            };
-
+            final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, _blockStore);
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
 
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
