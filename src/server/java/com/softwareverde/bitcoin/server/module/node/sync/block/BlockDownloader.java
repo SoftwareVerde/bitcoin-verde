@@ -182,20 +182,35 @@ public class BlockDownloader extends GracefulSleepyService {
 
     @Override
     protected Boolean _run() {
-        if (Logger.isDebugEnabled()) {
-            // ConcurrentSkipListSet::size is not constant-time...
+        if (Logger.isTraceEnabled()) {
+            String separator = "";
+            int downloadBlockQueueCount = 0; // NOTE: ConcurrentSkipListSet::size is not constant-time...
             final StringBuilder stringBuilder = new StringBuilder();
             for (final PendingBlockInventory pendingBlockInventory : _downloadBlockQueue) {
-                stringBuilder.append(pendingBlockInventory.blockHash + ":" + pendingBlockInventory.priority + ":" + pendingBlockInventory.bitcoinNode.get());
-                stringBuilder.append(" ");
+                final Sha256Hash blockHash = pendingBlockInventory.blockHash;
+                final Long priority = pendingBlockInventory.priority;
+                final BitcoinNode bitcoinNode = pendingBlockInventory.bitcoinNode.get();
+                final Long blockHeight = pendingBlockInventory.blockHeight;
+
+                stringBuilder.append(separator);
+                stringBuilder.append(priority);
+                stringBuilder.append(":");
+                stringBuilder.append(blockHash);
+                stringBuilder.append(":");
+                stringBuilder.append(blockHeight);
+                stringBuilder.append(":");
+                stringBuilder.append(bitcoinNode);
+                separator = " ";
+
+                downloadBlockQueueCount += 1;
             }
-            Logger.debug("BlockDownloader Queue Count: " + _downloadBlockQueue.size() + " " + stringBuilder);
+            Logger.trace("BlockDownloader Queue Count: " + downloadBlockQueueCount + " " + stringBuilder);
         }
 
         while (true) {
             final PendingBlockInventory pendingBlockInventory = _downloadBlockQueue.pollFirst();
             if (pendingBlockInventory == null) {
-                Logger.debug("Nothing to do.");
+                Logger.debug("BlockDownloader - Nothing to do.");
                 return false;
             }
 
@@ -213,7 +228,7 @@ public class BlockDownloader extends GracefulSleepyService {
             }
             if (currentActiveDownloadCount > _maxConcurrentDownloadCount) {
                 _downloadBlockQueue.add(pendingBlockInventory);
-                Logger.debug("Too busy.");
+                Logger.trace("BlockDownloader - Too busy.");
                 return false;
             }
 
@@ -251,7 +266,7 @@ public class BlockDownloader extends GracefulSleepyService {
             }
             if (bitcoinNode == null) {
                 _downloadBlockQueue.add(pendingBlockInventory);
-                Logger.debug("No nodes available to download block: " + blockHash);
+                Logger.debug("BlockDownloader - No nodes available to download block: " + blockHash);
                 return false;
             }
 
@@ -259,7 +274,7 @@ public class BlockDownloader extends GracefulSleepyService {
             final AtomicInteger activeDownloadCount = _getActiveDownloadCount(bitcoinNode);
             activeDownloadCount.incrementAndGet();
 
-            Logger.debug("Requesting Block " + blockHash + " from " + bitcoinNode + ".");
+            Logger.trace("Requesting Block " + blockHash + " from " + bitcoinNode + ".");
             bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
@@ -358,7 +373,13 @@ public class BlockDownloader extends GracefulSleepyService {
     }
 
     public void submitBlock(final Block block) {
+        final Sha256Hash blockHash = block.getHash();
+        final Boolean blockExists = _pendingBlockStore.pendingBlockExists(blockHash);
+        if (blockExists) { return; }
+
         _pendingBlockStore.storePendingBlock(block);
+        // NOTE: The blockHash is not removed from the _downloadBlockQueue since it would require a O(N) search and the
+        //  the main loop skips the entry once encountered if it has already been downloaded...
 
         final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
         if (blockDownloadCallback != null) {

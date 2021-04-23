@@ -262,14 +262,14 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
             final Boolean processBlockWasSuccessful = _processPendingBlock(block);
 
-            { // Queue the pending block for deletion...
+            { // Delete the pending block...
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
 
                 _blockStore.removePendingBlock(pendingBlockHash);
 
                 nanoTimer.stop();
-                Logger.trace("Pending block queued for deletion in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                Logger.trace("Pending block deleted in " + nanoTimer.getMillisecondsElapsed() + "ms.");
             }
 
             if (! processBlockWasSuccessful) {
