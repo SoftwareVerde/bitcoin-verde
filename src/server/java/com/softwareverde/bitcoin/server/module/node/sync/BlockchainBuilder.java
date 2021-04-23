@@ -244,7 +244,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
             }
 
             final Sha256Hash pendingBlockHash = nextBlockHash;
-            final ByteArray pendingBlockData = _blockStore.getPendingBlockData(pendingBlockHash);
+            final Boolean blockDataExists = _blockStore.pendingBlockExists(pendingBlockHash);
+            final ByteArray pendingBlockData = (blockDataExists ? _blockStore.getPendingBlockData(pendingBlockHash) : null);
 
             if (pendingBlockData == null) {
                 Logger.debug("Waiting for unavailable block: " + pendingBlockHash);

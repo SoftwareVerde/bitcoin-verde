@@ -38,6 +38,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -97,6 +98,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.transaction.Transaction
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
+import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -487,6 +489,31 @@ public class NodeModule {
                 @Override
                 public void run(final BitcoinNode bitcoinNode) {
                     spvUnconfirmedTransactionsHandler.broadcastUnconfirmedTransactions(bitcoinNode);
+                }
+            };
+
+            nodeInitializerContext.unsolicitedBlockReceivedCallback = new BitcoinNode.DownloadBlockCallback() {
+                @Override
+                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+                    final Sha256Hash blockHash = block.getHash();
+
+                    final Boolean blockWasAlreadyDownloaded = _blockStore.pendingBlockExists(blockHash);
+                    if (blockWasAlreadyDownloaded) { return; }
+
+                    boolean blockHeaderIsKnown = false;
+                    try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        blockHeaderIsKnown = (blockId != null);
+                    }
+                    catch (final Exception exception) {
+                        Logger.debug(exception);
+                    }
+
+                    if (blockHeaderIsKnown) {
+                        Logger.debug("Storing unsolicited Block: " + blockHash);
+                        _blockDownloader.submitBlock(block);
+                    }
                 }
             };
 

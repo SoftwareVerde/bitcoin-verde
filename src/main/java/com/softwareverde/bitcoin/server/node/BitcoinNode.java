@@ -280,6 +280,8 @@ public class BitcoinNode extends Node {
     protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementCallback = null;
     protected DoubleSpendProofAnnouncementHandler _doubleSpendProofAnnouncementCallback = null;
 
+    protected DownloadBlockCallback _unsolicitedBlockReceivedCallback = null;
+
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
     protected Boolean _slpTransactionsIsEnabled = false;
@@ -845,6 +847,16 @@ public class BitcoinNode extends Node {
 
         if (! wasRequested) {
             Logger.debug("Received unsolicited block: " + blockHash + " from " + BitcoinNode.this);
+
+            final DownloadBlockCallback unsolicitedBlockReceivedCallback = _unsolicitedBlockReceivedCallback;
+            if (unsolicitedBlockReceivedCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        unsolicitedBlockReceivedCallback.onResult(null, BitcoinNode.this, block);
+                    }
+                });
+            }
         }
     }
 
@@ -2181,5 +2193,9 @@ public class BitcoinNode extends Node {
 
     public void removeObserver(final BitcoinNodeObserver observer) {
         _observers.remove(observer);
+    }
+
+    public void setUnsolicitedBlockReceivedCallback(final DownloadBlockCallback unsolicitedBlockReceivedCallback) {
+        _unsolicitedBlockReceivedCallback = unsolicitedBlockReceivedCallback;
     }
 }
