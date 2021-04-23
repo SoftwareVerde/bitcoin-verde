@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
 import com.softwareverde.bitcoin.server.module.explorer.api.v1.get.GetSlpValidityHandler;
-import com.softwareverde.bitcoin.server.module.explorer.api.v1.get.GetStatusHandler;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.json.Json;
