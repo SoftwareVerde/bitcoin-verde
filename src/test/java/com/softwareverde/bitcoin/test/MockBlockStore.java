@@ -12,13 +12,13 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 import java.util.HashMap;
 
-public class FakeBlockStore implements PendingBlockStore {
+public class MockBlockStore implements PendingBlockStore {
     protected final BlockInflaters _blockInflaters = new CoreInflater();
 
     protected final HashMap<Sha256Hash, Block> _pendingBlocks = new HashMap<Sha256Hash, Block>();
     protected final HashMap<Sha256Hash, Block> _blocks = new HashMap<Sha256Hash, Block>();
 
-    public FakeBlockStore() { }
+    public MockBlockStore() { }
 
     @Override
     public Boolean storePendingBlock(final Block block) {

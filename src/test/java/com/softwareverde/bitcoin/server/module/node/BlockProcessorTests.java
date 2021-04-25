@@ -34,8 +34,8 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
 import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -781,7 +781,7 @@ public class BlockProcessorTests extends IntegrationTest {
             blockInflaters.defineBlockHash(block663749ShimBlock.getInvalidHash(), block663749ShimBlock.getHash());
         }
 
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
 
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();

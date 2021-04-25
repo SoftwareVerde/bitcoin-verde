@@ -18,7 +18,7 @@ public class MutableChainWork extends MutableByteArray implements ChainWork {
     }
 
     public MutableChainWork() {
-        super(32);
+        super(ChainWork.BYTE_COUNT);
     }
 
     public MutableChainWork(final Work blockWork) {

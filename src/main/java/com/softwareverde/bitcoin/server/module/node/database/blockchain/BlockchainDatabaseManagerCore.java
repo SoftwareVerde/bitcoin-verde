@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.ListUtil;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
@@ -353,5 +354,22 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
     @Override
     public Map<BlockchainSegmentId, Boolean> areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final List<BlockchainSegmentId> blockchainSegmentIds, final BlockRelationship blockRelationship) throws DatabaseException {
         return _areBlockchainSegmentsConnected(blockchainSegmentId0, blockchainSegmentIds, blockRelationship);
+    }
+
+    @Override
+    public List<BlockchainSegmentId> getLeafBlockchainSegmentIds() throws DatabaseException {
+        final MutableList<BlockchainSegmentId> childBlockchainSegmentIds = new MutableList<>();
+
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM blockchain_segments WHERE (nested_set_left + 1) = nested_set_right")
+        );
+        for (final Row row : rows) {
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
+            childBlockchainSegmentIds.add(blockchainSegmentId);
+        }
+
+        return childBlockchainSegmentIds;
     }
 }

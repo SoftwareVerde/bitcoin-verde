@@ -13,8 +13,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.slp.validator.TransactionAccumulator;
 import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
@@ -47,7 +47,7 @@ public class SlpTransactionProcessorAccumulatorTests extends IntegrationTest {
         final SystemTime systemTime = new SystemTime();
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final TransactionInflaters transactionInflaters = _masterInflater;
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 

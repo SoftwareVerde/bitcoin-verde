@@ -6,7 +6,9 @@ import com.softwareverde.bitcoin.server.configuration.CheckpointConfiguration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.BlockHeaderDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManagerCore;
@@ -74,7 +76,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public BlockchainDatabaseManagerCore getBlockchainDatabaseManager() {
+    public BlockchainDatabaseManager getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
             _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this);
         }
@@ -92,7 +94,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public BlockHeaderDatabaseManagerCore getBlockHeaderDatabaseManager() {
+    public BlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
             _blockHeaderDatabaseManager = new BlockHeaderDatabaseManagerCore(this, _checkpointConfiguration);
         }

@@ -24,8 +24,8 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.fake.FakeStaticMedianBlockTimeContext;
 import com.softwareverde.bitcoin.test.fake.FakeUnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.test.util.BlockTestUtil;
@@ -127,7 +127,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
     @Test
     public void should_synchronize_pending_blocks() throws Exception {
         final SystemTime systemTime = new SystemTime();
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
 
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
@@ -195,7 +195,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final SystemTime systemTime = new SystemTime();
         final TransactionInflaters transactionInflaters = _masterInflater;
         final AddressInflater addressInflater = new AddressInflater();
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
@@ -432,7 +432,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         //  The insertion order is Genesis -> Block01 -> Block02 -> Block03a -> Block03b
 
         final SystemTime systemTime = new SystemTime();
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final TransactionInflaters transactionInflaters = _masterInflater;
@@ -572,7 +572,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         // This test creates a (fake) Block03, with a spendable coinbase, then creates a (fake) Block04 that spends the Block03's coinbase twice, which is invalid.
 
         final SystemTime systemTime = new SystemTime();
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final FakeBitcoinNodeManager bitcoinNodeManager = new FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
         final TransactionInflaters transactionInflaters = _masterInflater;
