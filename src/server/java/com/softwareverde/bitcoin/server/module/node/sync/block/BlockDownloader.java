@@ -207,7 +207,7 @@ public class BlockDownloader extends GracefulSleepyService {
             Logger.trace("BlockDownloader Queue Count: " + downloadBlockQueueCount + " " + stringBuilder);
         }
 
-        while (true) {
+        while (! _shouldAbort()) {
             final PendingBlockInventory pendingBlockInventory = _downloadBlockQueue.pollFirst();
             if (pendingBlockInventory == null) {
                 Logger.debug("BlockDownloader - Nothing to do.");
@@ -308,6 +308,8 @@ public class BlockDownloader extends GracefulSleepyService {
                 }
             }, requestPriority);
         }
+
+        return false;
     }
 
     @Override
