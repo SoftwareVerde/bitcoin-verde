@@ -279,4 +279,4 @@ CREATE TABLE properties (
     PRIMARY KEY (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-INSERT INTO metadata (version, timestamp) VALUES (5, UNIX_TIMESTAMP());
+INSERT INTO metadata (version, timestamp) VALUES (6, UNIX_TIMESTAMP());
