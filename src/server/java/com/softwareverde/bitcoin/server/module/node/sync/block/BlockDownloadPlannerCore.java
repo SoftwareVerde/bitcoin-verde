@@ -56,6 +56,9 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                 final Long blockHeight = (headBlockHeight + i);
 
+                final Boolean isBlockInvalid = blockHeaderDatabaseManager.isBlockInvalid(blockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+                if (isBlockInvalid) { break; }
+
                 final Boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
                 if (! pendingBlockExists) {
                     final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(blockHeight, blockHash, null, blockHeight);
