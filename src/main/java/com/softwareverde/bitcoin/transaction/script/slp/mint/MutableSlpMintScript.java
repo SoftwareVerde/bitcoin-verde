@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.slp.mint;
 
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 
+import java.math.BigInteger;
+
 public class MutableSlpMintScript extends SlpMintScriptCore {
 
     public MutableSlpMintScript() { }
@@ -18,7 +20,7 @@ public class MutableSlpMintScript extends SlpMintScriptCore {
         _batonOutputIndex = batonOutputIndex;
     }
 
-    public void setTokenCount(final Long tokenCount) {
+    public void setTokenCount(final BigInteger tokenCount) {
         _tokenCount = tokenCount;
     }
 

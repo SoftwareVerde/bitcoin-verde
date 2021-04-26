@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.slp.send;
 
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 
+import java.math.BigInteger;
+
 public class MutableSlpSendScript extends SlpSendScriptCore {
 
     public MutableSlpSendScript() { }
@@ -21,7 +23,7 @@ public class MutableSlpSendScript extends SlpSendScriptCore {
      *  Setting an amount to a non-null value sets all lesser indexes to zero if they have not been set.
      *  Setting an amount to null will unset all indexes after transactionOutputIndex.
      */
-    public void setAmount(final Integer transactionOutputIndex, final Long amount) {
+    public void setAmount(final Integer transactionOutputIndex, final BigInteger amount) {
         if (transactionOutputIndex < 0) { throw new IndexOutOfBoundsException(); }
         if (transactionOutputIndex >= MAX_OUTPUT_COUNT) { throw new IndexOutOfBoundsException(); }
         if (transactionOutputIndex == 0) { return; }
@@ -37,7 +39,7 @@ public class MutableSlpSendScript extends SlpSendScriptCore {
             else {
                 for (int i = 1; i < transactionOutputIndex; ++i) {
                     if (_amounts[i] == null) {
-                        _amounts[i] = 0L;
+                        _amounts[i] = BigInteger.ZERO;
                     }
                 }
             }

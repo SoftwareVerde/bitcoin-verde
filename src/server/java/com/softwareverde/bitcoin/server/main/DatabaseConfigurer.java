@@ -9,11 +9,23 @@ import com.softwareverde.util.SystemUtil;
 import java.io.File;
 
 public class DatabaseConfigurer {
+
+    public static Long getBytesPerDatabaseConnection() {
+        // The default per_thread_buffer is roughly 3mb excluding the max_allowed_packet.
+        //  per_thread_buffer = read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + join_buffer_size + max_allowed_packet
+
+        // Technically for the worst-case scenario, the bytesPerConnection should be a function of maxAllowedPacketByteCount,
+        //  but since the vast majority of queries only use a fraction of this amount, the calculation takes the "steadyState" packet size instead.
+        final long steadyStatePacketSize = (8L * ByteUtil.Unit.Binary.MEBIBYTES);
+        final long bytesPerConnection = ((3L * ByteUtil.Unit.Binary.MEBIBYTES) + steadyStatePacketSize);
+        return bytesPerConnection;
+    }
+
     public static Long toNearestMegabyte(final Long byteCount) {
         return ((byteCount / ByteUtil.Unit.Binary.MEBIBYTES) * ByteUtil.Unit.Binary.MEBIBYTES);
     }
 
-    public static EmbeddedDatabaseProperties configureDatabase(final Integer maxDatabaseThreadCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
+    public static EmbeddedDatabaseProperties configureDatabase(final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
         final MutableEmbeddedDatabaseProperties embeddedDatabaseProperties = new MutableEmbeddedDatabaseProperties(bitcoinVerdeDatabaseProperties);
 
         { // Copy configuration settings specific to BitcoinVerdeDatabaseProperties from the provided property set...
@@ -31,31 +43,20 @@ public class DatabaseConfigurer {
         final long maxAllowedPacketByteCount = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
         embeddedDatabaseProperties.setMaxAllowedPacketByteCount(maxAllowedPacketByteCount);
 
+        final long bytesPerConnection = DatabaseConfigurer.getBytesPerDatabaseConnection();
+        final long overheadByteCount = (bytesPerConnection * maxDatabaseConnectionCount);
+        final long bufferDatabaseMemory = (bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() - overheadByteCount);
+
         if (SystemUtil.isWindowsOperatingSystem()) {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
             embeddedDatabaseProperties.setInnoDbBufferPoolByteCount(Math.min(ByteUtil.Unit.Binary.GIBIBYTES, bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount()));
             embeddedDatabaseProperties.setQueryCacheByteCount(0L);
-            embeddedDatabaseProperties.setMaxConnectionCount(maxDatabaseThreadCount + connectionsReservedForRoot);
+            embeddedDatabaseProperties.setMaxConnectionCount(maxDatabaseConnectionCount + connectionsReservedForRoot);
         }
         else {
-            // The default per_thread_buffer is roughly 3mb excluding the max_allowed_packet.
-            //  per_thread_buffer = read_buffer_size + read_rnd_buffer_size + sort_buffer_size + thread_stack + join_buffer_size + max_allowed_packet
-
-            // Technically for the worst-case scenario, the bytesPerConnection should be a function of maxAllowedPacketByteCount,
-            //  but since the vast majority of queries only use a fraction of this amount, the calculation takes the "steadyState" packet size instead.
-            final long steadyStatePacketSize = (8L * ByteUtil.Unit.Binary.MEBIBYTES);
-            final long bytesPerConnection = ((3L * ByteUtil.Unit.Binary.MEBIBYTES) + steadyStatePacketSize);
-            final long overheadByteCount = (bytesPerConnection * maxDatabaseThreadCount);
-
-            final long minMemoryRequired = (256L * ByteUtil.Unit.Binary.MEBIBYTES);
-            final long maxDatabaseMemory = (bitcoinVerdeDatabaseProperties.getMaxMemoryByteCount() - overheadByteCount);
-            if (maxDatabaseMemory < minMemoryRequired) {
-                throw new RuntimeException("Insufficient memory available to allocate desired settings. Consider reducing the number of allowed connections.");
-            }
-
             final Long logFileByteCount = DatabaseConfigurer.toNearestMegabyte(bitcoinVerdeDatabaseProperties.getLogFileByteCount());
-            final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (maxDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total database memory.
-            final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(maxDatabaseMemory - logBufferByteCount);
+            final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((logFileByteCount / 4L), (bufferDatabaseMemory / 4L))); // 25% of the logFile size but no larger than 25% of the total buffer memory.
+            final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(bufferDatabaseMemory - logBufferByteCount);
             final int bufferPoolInstanceCount;
             { // https://www.percona.com/blog/2020/08/13/how-many-innodb_buffer_pool_instances-do-you-need-in-mysql-8/
                 final int segmentCount = (int) (bufferPoolByteCount / (256L * ByteUtil.Unit.Binary.MEBIBYTES));
@@ -85,7 +86,7 @@ public class DatabaseConfigurer {
             embeddedDatabaseProperties.setMyisamSortBufferSize(4096); // Reduce per-connection memory allocation (only used for MyISAM DDL statements).
 
             embeddedDatabaseProperties.setQueryCacheByteCount(null); // Deprecated, removed in Mysql 8.
-            embeddedDatabaseProperties.setMaxConnectionCount(maxDatabaseThreadCount + connectionsReservedForRoot);
+            embeddedDatabaseProperties.setMaxConnectionCount(maxDatabaseConnectionCount + connectionsReservedForRoot);
 
             // embeddedDatabaseProperties.enableSlowQueryLog("slow-query.log", 1L);
             // embeddedDatabaseProperties.enableGeneralQueryLog("query.log");

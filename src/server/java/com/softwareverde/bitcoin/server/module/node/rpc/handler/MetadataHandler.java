@@ -40,6 +40,7 @@ import com.softwareverde.json.Json;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
@@ -191,7 +192,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     if (previousTransaction != null) {
                         final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(previousTransaction, previousOutputIndex);
                         if (isSlpOutput) {
-                            final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
+                            final BigInteger slpTokenAmount = SlpUtil.getOutputTokenAmount(previousTransaction, previousOutputIndex);
                             final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(previousTransaction, previousOutputIndex);
 
                             final Json slpOutputJson = new Json(false);
@@ -233,7 +234,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
                     if (hasSlpData && Util.coalesce(isSlpValid, false)) { // SLP
                         final Boolean isSlpOutput = SlpUtil.isSlpTokenOutput(transaction, transactionOutputIndex);
                         if (isSlpOutput) {
-                            final Long slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
+                            final BigInteger slpTokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
                             final Boolean isSlpBatonOutput = SlpUtil.isSlpTokenBatonHolder(transaction, transactionOutputIndex);
 
                             final Json slpOutputJson = new Json(false);

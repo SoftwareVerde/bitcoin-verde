@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
+import java.math.BigInteger;
+
 public class MutableSlpGenesisScript extends SlpGenesisScriptCore {
 
     public void setTokenAbbreviation(final String tokenAbbreviation) {
@@ -32,7 +34,7 @@ public class MutableSlpGenesisScript extends SlpGenesisScriptCore {
      * Sets the number of tokens created.
      *  The tokenCount is the equivalent to the number of "satoshis" created, not the number of "bitcoin".
      */
-    public void setTokenCount(final Long tokenCount) {
+    public void setTokenCount(final BigInteger tokenCount) {
         _tokenCount = tokenCount;
     }
 

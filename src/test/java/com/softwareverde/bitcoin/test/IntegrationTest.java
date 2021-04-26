@@ -55,7 +55,7 @@ public class IntegrationTest extends UnitTest {
     protected final CachedThreadPool _threadPool = new CachedThreadPool(1, 1L);
 
     protected final MasterInflater _masterInflater;
-    protected final FakeBlockStore _blockStore;
+    protected final MockBlockStore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
@@ -75,7 +75,7 @@ public class IntegrationTest extends UnitTest {
         Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
 
         _masterInflater = new CoreInflater();
-        _blockStore = new FakeBlockStore();
+        _blockStore = new MockBlockStore();
         _synchronizationStatus = new FakeSynchronizationStatus();
 
         _syncingSynchronizationStatus = new FakeSynchronizationStatus();

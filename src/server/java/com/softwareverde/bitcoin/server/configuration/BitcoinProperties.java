@@ -28,11 +28,11 @@ public class BitcoinProperties {
     protected Integer _maxThreadCount;
     protected Long _trustedBlockHeight;
     protected Boolean _shouldSkipNetworking;
+    protected Boolean _shouldPrioritizeNewPeers;
     protected Long _maxUtxoCacheByteCount;
     protected Long _utxoCommitFrequency;
     protected Float _utxoPurgePercent;
     protected Boolean _bootstrapIsEnabled;
-    protected Boolean _shouldReIndexPendingBlocks;
     protected Boolean _indexingModeIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
@@ -83,7 +83,8 @@ public class BitcoinProperties {
     public Integer getMaxPeerCount() { return _maxPeerCount; }
     public Integer getMaxThreadCount() { return _maxThreadCount; }
     public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
-    public Boolean skipNetworking() { return _shouldSkipNetworking; }
+    public Boolean shouldSkipNetworking() { return _shouldSkipNetworking; }
+    public Boolean shouldPrioritizeNewPeers() { return _shouldPrioritizeNewPeers; }
     public Boolean isDeletePendingBlocksEnabled() { return _deletePendingBlocksIsEnabled; }
     public String getLogDirectory() { return _logDirectory; }
     public LogLevel getLogLevel() { return _logLevel; }
@@ -102,7 +103,6 @@ public class BitcoinProperties {
     public Boolean isIndexingModeEnabled() { return _indexingModeIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return (_isTestNet() ? false : _bootstrapIsEnabled); }
-    public Boolean shouldReIndexPendingBlocks() { return _shouldReIndexPendingBlocks; } // May be null if unset.
     public String getDataDirectory() { return _dataDirectory; }
     public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
 }

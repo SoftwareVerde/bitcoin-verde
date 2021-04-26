@@ -14,6 +14,8 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
+
 public class SlpScriptBuilder {
     protected static final ByteArray EMPTY_BYTE_ARRAY = new ImmutableByteArray(new byte[0]);
 
@@ -38,6 +40,23 @@ public class SlpScriptBuilder {
         return fixedLengthBytes;
     }
 
+    protected static ByteArray bigIntegerToFixedBytes(final BigInteger value, final Integer byteCount) {
+        if (value == null) {
+            return new MutableByteArray(byteCount);
+        }
+        final byte[] bigIntegerBytes = value.toByteArray();
+        final MutableByteArray outputBytes = new MutableByteArray(byteCount);
+        // extract the last byteCount bytes from the big integer byte array
+        for (int i=0; i<byteCount; i++) {
+            final int bigIntegerByteIndex = bigIntegerBytes.length - i - 1;
+            if (bigIntegerByteIndex < 0) {
+                break;
+            }
+            outputBytes.setByte(byteCount - i - 1, bigIntegerBytes[bigIntegerByteIndex]);
+        }
+        return outputBytes;
+    }
+
     public LockingScript createGenesisScript(final SlpGenesisScript slpGenesisScript) {
         // Allowed Non-Return Opcodes:
         //  PUSH_DATA                           (0x01, 0x4B),
@@ -53,7 +72,7 @@ public class SlpScriptBuilder {
         final Integer batonOutputIndex = slpGenesisScript.getBatonOutputIndex();
         final ByteArray tokenDecimalBytes = SlpScriptBuilder.longToBytes(Util.coalesce(slpGenesisScript.getDecimalCount()).longValue());
         final ByteArray batonOutputIndexBytes = (batonOutputIndex == null ? EMPTY_BYTE_ARRAY : SlpScriptBuilder.longToBytes(batonOutputIndex.longValue()));
-        final ByteArray totalCountCountBytes = SlpScriptBuilder.longToFixedBytes(Util.coalesce(slpGenesisScript.getTokenCount()), 8);
+        final ByteArray totalCountCountBytes = SlpScriptBuilder.bigIntegerToFixedBytes(slpGenesisScript.getTokenCount(), 8);
 
         final MutableLockingScript lockingScript = new MutableLockingScript();
         lockingScript.addOperation(ControlOperation.RETURN);
@@ -73,7 +92,7 @@ public class SlpScriptBuilder {
     public LockingScript createMintScript(final SlpMintScript slpMintScript) {
         final Integer batonOutputIndex = slpMintScript.getBatonOutputIndex();
         final ByteArray batonOutputIndexBytes = (batonOutputIndex == null ? EMPTY_BYTE_ARRAY : SlpScriptBuilder.longToBytes(batonOutputIndex.longValue()));
-        final ByteArray totalCountCountBytes = SlpScriptBuilder.longToFixedBytes(Util.coalesce(slpMintScript.getTokenCount()), 8);
+        final ByteArray totalCountCountBytes = SlpScriptBuilder.bigIntegerToFixedBytes(slpMintScript.getTokenCount(), 8);
 
         final MutableLockingScript lockingScript = new MutableLockingScript();
         lockingScript.addOperation(ControlOperation.RETURN);
@@ -95,10 +114,10 @@ public class SlpScriptBuilder {
         lockingScript.addOperation(PushOperation.pushBytes(slpSendScript.getTokenId()));        // Token id
 
         for (int i = 1; i < SlpSendScript.MAX_OUTPUT_COUNT; ++i) {
-            final Long amount = slpSendScript.getAmount(i);
+            final BigInteger amount = slpSendScript.getAmount(i);
             if (amount == null) { break; }
 
-            final ByteArray spendAmountBytes = SlpScriptBuilder.longToFixedBytes(amount, 8);
+            final ByteArray spendAmountBytes = SlpScriptBuilder.bigIntegerToFixedBytes(amount, 8);
             lockingScript.addOperation(PushOperation.pushBytes(spendAmountBytes));
         }
 

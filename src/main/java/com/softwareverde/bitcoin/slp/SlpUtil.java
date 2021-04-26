@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
+
 public class SlpUtil {
 
     /**
@@ -18,8 +20,8 @@ public class SlpUtil {
      *  This only includes Genesis Receiver, Baton Receiver, and Send outputs.
      */
     public static Boolean outputContainsSpendableSlpTokens(final Transaction transaction, final Integer transactionOutputIndex) {
-        final Long tokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
-        return (tokenAmount > 0);
+        final BigInteger tokenAmount = SlpUtil.getOutputTokenAmount(transaction, transactionOutputIndex);
+        return (tokenAmount.compareTo(BigInteger.ZERO) > 0);
     }
 
     /**
@@ -68,21 +70,21 @@ public class SlpUtil {
                 final SlpSendScript slpSendScript = slpScriptInflater.sendScriptFromScript(lockingScript);
                 if (slpSendScript == null) { return false; }
 
-                final Long tokenAmount = Util.coalesce(slpSendScript.getAmount(transactionOutputIndex));
-                if (tokenAmount > 0) { return true; }
+                final BigInteger tokenAmount = slpSendScript.getAmount(transactionOutputIndex);
+                if (tokenAmount != null && tokenAmount.compareTo(BigInteger.ZERO) > 0) { return true; }
             } break;
         }
 
         return false;
     }
 
-    public static Long getOutputTokenAmount(final Transaction transaction, final Integer transactionOutputIndex) {
+    public static BigInteger getOutputTokenAmount(final Transaction transaction, final Integer transactionOutputIndex) {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
         final LockingScript lockingScript = transactionOutput.getLockingScript();
 
         final SlpScriptType slpScriptType = SlpScriptInflater.getScriptType(lockingScript);
-        if (slpScriptType == null) { return 0L; } // Transaction is not an SLP transaction.
+        if (slpScriptType == null) { return BigInteger.ZERO; } // Transaction is not an SLP transaction.
 
         final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
 
@@ -90,10 +92,10 @@ public class SlpUtil {
             case GENESIS: {
                 // Check for the output containing genesis tokens...
                 final Boolean isGenesisReceiver = Util.areEqual(transactionOutputIndex, SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
-                if (! isGenesisReceiver) { return 0L; }
+                if (! isGenesisReceiver) { return BigInteger.ZERO; }
 
                 final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(lockingScript);
-                if (slpGenesisScript == null) { return 0L; }
+                if (slpGenesisScript == null) { return BigInteger.ZERO; }
 
                 return slpGenesisScript.getTokenCount();
             }
@@ -101,10 +103,10 @@ public class SlpUtil {
             case MINT: {
                 // Check for the output containing mint tokens...
                 final Boolean isMintReceiver = Util.areEqual(transactionOutputIndex, SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
-                if (! isMintReceiver) { return 0L; }
+                if (! isMintReceiver) { return BigInteger.ZERO; }
 
                 final SlpMintScript slpMintScript = slpScriptInflater.mintScriptFromScript(lockingScript);
-                if (slpMintScript == null) { return 0L; }
+                if (slpMintScript == null) { return BigInteger.ZERO; }
 
                 return slpMintScript.getTokenCount();
             }
@@ -112,13 +114,15 @@ public class SlpUtil {
             case SEND: {
                 // Check for the output containing tokens sent from another output...
                 final SlpSendScript slpSendScript = slpScriptInflater.sendScriptFromScript(lockingScript);
-                if (slpSendScript == null) { return 0L; }
+                if (slpSendScript == null) { return BigInteger.ZERO; }
 
-                return Util.coalesce(slpSendScript.getAmount(transactionOutputIndex));
+                final BigInteger amount = slpSendScript.getAmount(transactionOutputIndex);
+                if (amount == null) { return BigInteger.ZERO; }
+                return amount;
             }
         }
 
-        return 0L;
+        return BigInteger.ZERO;
     }
 
     public static Boolean isSlpTokenBatonHolder(final Transaction transaction, final Integer transactionOutputIndex) {

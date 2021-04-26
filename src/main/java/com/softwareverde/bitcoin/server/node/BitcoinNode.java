@@ -280,6 +280,8 @@ public class BitcoinNode extends Node {
     protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementCallback = null;
     protected DoubleSpendProofAnnouncementHandler _doubleSpendProofAnnouncementCallback = null;
 
+    protected DownloadBlockCallback _unsolicitedBlockReceivedCallback = null;
+
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
     protected Boolean _slpTransactionsIsEnabled = false;
@@ -362,6 +364,15 @@ public class BitcoinNode extends Node {
         final MessageType messageType = queryAddressBlocksMessage.getCommand();
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataRequested(BitcoinNode.this, messageType);
+        }
+    }
+
+    @Override
+    protected void _onHandshakeComplete() {
+        super._onHandshakeComplete();
+
+        for (final BitcoinNodeObserver observer : _observers) {
+            observer.onHandshakeComplete(BitcoinNode.this);
         }
     }
 
@@ -507,13 +518,13 @@ public class BitcoinNode extends Node {
                 if (requestAgeMs >= ((ping * 2L) + REQUEST_TIME_BUFFER)) {
                     final Long startingByteCountReceived = failableRequest.startingByteCountReceived;
                     final Long newByteCountReceived = _connection.getTotalBytesReceivedCount();
-                    final long bytesReceiveSinceRequested = (newByteCountReceived - startingByteCountReceived);
-                    final long bytesPerMs = (bytesReceiveSinceRequested / requestAgeMs);
+                    final long bytesReceivedSinceRequested = (newByteCountReceived - startingByteCountReceived);
+                    final long bytesPerMs = (bytesReceivedSinceRequested / requestAgeMs);
                     final double bytesPerSecond = (bytesPerMs * 1000L);
                     final double megabytesPerSecond = (bytesPerSecond / ByteUtil.Unit.Binary.MEBIBYTES);
 
                     if (Logger.isTraceEnabled()) {
-                        Logger.trace("Download progress: bytesReceiveSinceRequested=" + bytesReceiveSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + this.getConnectionString() + " - " + failableRequest.requestDescription);
+                        Logger.trace("Download progress: bytesReceivedSinceRequested=" + bytesReceivedSinceRequested + ", requestAgeMs=" + requestAgeMs + ", bytesPerMs=" + bytesPerMs + ", megabytesPerSecond=" + megabytesPerSecond + ", minMbps=" + (BitcoinNode.MIN_BYTES_PER_SECOND / ByteUtil.Unit.Binary.MEBIBYTES.doubleValue()) + " - " + this.getConnectionString() + " - " + failableRequest.requestDescription);
                     }
 
                     if (bytesPerSecond < BitcoinNode.MIN_BYTES_PER_SECOND) {
@@ -841,6 +852,20 @@ public class BitcoinNode extends Node {
         final Integer byteCount = blockMessage.getByteCount();
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataReceived(BitcoinNode.this, messageType, byteCount, wasRequested);
+        }
+
+        if (! wasRequested) {
+            Logger.debug("Received unsolicited block: " + blockHash + " from " + BitcoinNode.this);
+
+            final DownloadBlockCallback unsolicitedBlockReceivedCallback = _unsolicitedBlockReceivedCallback;
+            if (unsolicitedBlockReceivedCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        unsolicitedBlockReceivedCallback.onResult(null, BitcoinNode.this, block);
+                    }
+                });
+            }
         }
     }
 
@@ -1190,6 +1215,8 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onNotFoundMessageReceived(final NotFoundResponseMessage notFoundResponseMessage) {
+        Logger.trace("Received NOT FOUND from " + BitcoinNode.this + ".");
+
         for (final InventoryItem inventoryItem : notFoundResponseMessage.getInventoryItems()) {
             final Sha256Hash itemHash = inventoryItem.getItemHash();
             switch (inventoryItem.getItemType()) {
@@ -2175,5 +2202,9 @@ public class BitcoinNode extends Node {
 
     public void removeObserver(final BitcoinNodeObserver observer) {
         _observers.remove(observer);
+    }
+
+    public void setUnsolicitedBlockReceivedCallback(final DownloadBlockCallback unsolicitedBlockReceivedCallback) {
+        _unsolicitedBlockReceivedCallback = unsolicitedBlockReceivedCallback;
     }
 }

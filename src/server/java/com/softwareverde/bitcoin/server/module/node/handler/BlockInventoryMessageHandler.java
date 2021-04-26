@@ -20,6 +20,13 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
         default void onNewBlockHashesReceived(List<Sha256Hash> blockHashes) { }
         default void onNewBlockHeadersReceived(BitcoinNode bitcoinNode, List<BlockHeader> blockHeaders) { }
     }
+
+    protected static class StoreBlockHashesResult {
+        public Boolean nodeInventoryWasUpdated = false;
+        public Boolean newBlockHashWasReceived = false;
+        public Long maxBlockHeight = null;
+    }
+
     public static final BitcoinNode.BlockInventoryAnnouncementHandler IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryAnnouncementHandler() {
         @Override
         public void onNewInventory(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) { }
@@ -34,12 +41,6 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryA
 
     protected NewInventoryReceivedCallback _newInventoryReceivedCallback;
     protected Runnable _nodeInventoryUpdatedCallback;
-
-    protected static class StoreBlockHashesResult {
-        public Boolean nodeInventoryWasUpdated = false;
-        public Boolean newBlockHashWasReceived = false;
-        public Long maxBlockHeight = null;
-    }
 
     protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();

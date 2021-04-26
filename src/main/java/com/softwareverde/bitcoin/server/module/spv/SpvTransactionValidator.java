@@ -16,6 +16,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
+import java.math.BigInteger;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,49 +51,51 @@ public class SpvTransactionValidator {
         return (isSlpTransaction ? lockingScript : null);
     }
 
-    protected Long _getSlpAmount(final SlpTokenId slpTokenId, final Transaction transaction, final Integer transactionOutputIndex) {
+    protected BigInteger _getSlpAmount(final SlpTokenId slpTokenId, final Transaction transaction, final Integer transactionOutputIndex) {
         final LockingScript slpScript = _getSlpScript(transaction);
-        if (slpScript == null) { return 0L; }
+        if (slpScript == null) { return BigInteger.ZERO; }
 
         final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
         final SlpScriptType slpScriptType = SlpScriptInflater.getScriptType(slpScript);
-        if (slpScriptType == null) { return 0L; }
+        if (slpScriptType == null) { return BigInteger.ZERO; }
 
         switch (slpScriptType) {
             case MINT: {
-                if (! Util.areEqual(SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX, transactionOutputIndex)) { return 0L; }
+                if (! Util.areEqual(SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX, transactionOutputIndex)) { return BigInteger.ZERO; }
 
                 final SlpMintScript slpMintScript = slpScriptInflater.mintScriptFromScript(slpScript);
-                if (slpMintScript == null) { return 0L; }
+                if (slpMintScript == null) { return BigInteger.ZERO; }
 
-                if (! Util.areEqual(slpMintScript.getTokenId(), slpTokenId)) { return 0L; }
+                if (! Util.areEqual(slpMintScript.getTokenId(), slpTokenId)) { return BigInteger.ZERO; }
 
                 return slpMintScript.getTokenCount();
             }
 
             case SEND: {
                 final SlpSendScript slpSendScript = slpScriptInflater.sendScriptFromScript(slpScript);
-                if (slpSendScript == null) { return 0L; }
+                if (slpSendScript == null) { return BigInteger.ZERO; }
 
-                if (! Util.areEqual(slpSendScript.getTokenId(), slpTokenId)) { return 0L; }
+                if (! Util.areEqual(slpSendScript.getTokenId(), slpTokenId)) { return BigInteger.ZERO; }
 
-                return Util.coalesce(slpSendScript.getAmount(transactionOutputIndex));
+                final BigInteger sendAmount = slpSendScript.getAmount(transactionOutputIndex);
+                if (sendAmount == null) { return BigInteger.ZERO; }
+                return sendAmount;
             }
 
             case GENESIS: {
-                if (! Util.areEqual(SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX, transactionOutputIndex)) { return 0L; }
+                if (! Util.areEqual(SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX, transactionOutputIndex)) { return BigInteger.ZERO; }
 
                 final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(slpScript);
-                if (slpGenesisScript == null) { return 0L; }
+                if (slpGenesisScript == null) { return BigInteger.ZERO; }
 
                 final SlpTokenId genesisTokenId = SlpTokenId.wrap(transaction.getHash());
-                if (! Util.areEqual(genesisTokenId, slpTokenId)) { return 0L; }
+                if (! Util.areEqual(genesisTokenId, slpTokenId)) { return BigInteger.ZERO; }
 
                 return slpGenesisScript.getTokenCount();
             }
         }
 
-        return 0L;
+        return BigInteger.ZERO;
     }
 
     protected static SlpTokenId _getTokenId(final Transaction transaction) {
@@ -140,7 +143,7 @@ public class SpvTransactionValidator {
         return new MutableList<Sha256Hash>(uniqueTransactionHashes);
     }
 
-    protected static Long _calculateTotalSlpAmountSpent(final Transaction transaction) {
+    protected static BigInteger _calculateTotalSlpAmountSpent(final Transaction transaction) {
         final LockingScript slpScript = _getSlpScript(transaction);
 
         final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
@@ -148,10 +151,12 @@ public class SpvTransactionValidator {
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
-        long total = 0L;
+        BigInteger total = BigInteger.ZERO;
         for (int i = 1; i < transactionOutputs.getCount(); ++i) {
-            final Long slpAmount = Util.coalesce(slpSendScript.getAmount(i));
-            total += slpAmount;
+            final BigInteger slpAmount = slpSendScript.getAmount(i);
+            if (slpAmount != null) {
+                total = total.add(slpAmount);
+            }
         }
         return total;
     }
@@ -313,7 +318,7 @@ public class SpvTransactionValidator {
         });
     }
 
-    protected void _validateSendTransaction(final ValidationMetaData validationMetaData, final Transaction transaction, final Integer recursionCount, final Long totalSlpAmountSent, final Container<Long> totalReceived, final Runnable onSuccess) {
+    protected void _validateSendTransaction(final ValidationMetaData validationMetaData, final Transaction transaction, final Integer recursionCount, final BigInteger totalSlpAmountSent, final Container<BigInteger> totalReceived, final Runnable onSuccess) {
         final List<Sha256Hash> previousTransactionHashes = _getPreviousTransactionHashes(transaction);
 
         final SlpTokenId slpTokenId = _getTokenId(transaction);
@@ -365,8 +370,8 @@ public class SpvTransactionValidator {
 
                     if (slpScriptType == SlpScriptType.GENESIS) { // If a valid genesis is found, then the mint is successful.
                         final SlpGenesisScript slpGenesisScript = slpScriptInflater.genesisScriptFromScript(previousSlpTransactionScript);
-                        final Long genesisTokenAmount = slpGenesisScript.getTokenCount();
-                        final Boolean isValid = (totalSlpAmountSent <= genesisTokenAmount);
+                        final BigInteger genesisTokenAmount = slpGenesisScript.getTokenCount();
+                        final Boolean isValid = (totalSlpAmountSent.compareTo(genesisTokenAmount) <= 0);
                         if (isValid) {
                             validationMetaData.onSuccess();
                         }
@@ -385,10 +390,10 @@ public class SpvTransactionValidator {
                                 @Override
                                 public void run() {
                                     synchronized (totalReceived) {
-                                        totalReceived.value += slpMintScript.getTokenCount();
+                                        totalReceived.value = totalReceived.value.add(slpMintScript.getTokenCount());
                                     }
 
-                                    if (totalReceived.value >= totalSlpAmountSent) {
+                                    if (totalReceived.value.compareTo(totalSlpAmountSent) >= 0) {
                                         onSuccess.run();
                                     }
 
@@ -404,17 +409,20 @@ public class SpvTransactionValidator {
                         final SlpSendScript slpSendScript = slpScriptInflater.sendScriptFromScript(previousSlpTransactionScript);
 
                         // Validate that the total inputs are at least the total outputs...
-                        final Long totalSlpSentInPreviousTransaction = _calculateTotalSlpAmountSpent(previousTransaction);
-                        final Container<Long> previousTransactionReceived = new Container<Long>(0L);
+                        final BigInteger totalSlpSentInPreviousTransaction = _calculateTotalSlpAmountSpent(previousTransaction);
+                        final Container<BigInteger> previousTransactionReceived = new Container<>(BigInteger.ZERO);
 
                         _validateSendTransaction(validationMetaData, previousTransaction, (recursionCount + 1), totalSlpSentInPreviousTransaction, previousTransactionReceived, new Runnable() {
                             @Override
                             public void run() {
                                 synchronized (totalReceived) {
-                                    totalReceived.value += Util.coalesce(slpSendScript.getAmount(previousTransactionOutputIndex));
+                                    final BigInteger inputAmount = slpSendScript.getAmount(previousTransactionOutputIndex);
+                                    if (inputAmount != null) {
+                                        totalReceived.value = totalReceived.value.add(inputAmount);
+                                    }
                                 }
 
-                                if (totalReceived.value >= totalSlpAmountSent) {
+                                if (totalReceived.value.compareTo(totalSlpAmountSent) >= 0) {
                                     onSuccess.run();
                                 }
                                 validationMetaData.onOther();
@@ -470,9 +478,9 @@ public class SpvTransactionValidator {
         }
 
         if (slpScriptType == SlpScriptType.SEND) {
-            final Long totalSlpSent = _calculateTotalSlpAmountSpent(transactionToValidate);
+            final BigInteger totalSlpSent = _calculateTotalSlpAmountSpent(transactionToValidate);
             final ValidationMetaData validationMetaData = new ValidationMetaData(transactionToValidate, _validationCallback);
-            _validateSendTransaction(validationMetaData, transactionToValidate, 0, totalSlpSent, new Container<Long>(0L), new Runnable() {
+            _validateSendTransaction(validationMetaData, transactionToValidate, 0, totalSlpSent, new Container<BigInteger>(BigInteger.ZERO), new Runnable() {
                 @Override
                 public void run() {
                     validationMetaData.onSuccess();

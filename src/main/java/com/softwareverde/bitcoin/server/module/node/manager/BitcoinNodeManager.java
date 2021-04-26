@@ -39,6 +39,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -77,6 +78,7 @@ public class BitcoinNodeManager {
     public static class Context {
         public Integer minNodeCount;
         public Integer maxNodeCount;
+        public Boolean shouldPrioritizeNewConnections;
         public DatabaseManagerFactory databaseManagerFactory;
         public BitcoinNodeFactory nodeFactory;
         public MutableNetworkTime networkTime;
@@ -134,6 +136,7 @@ public class BitcoinNodeManager {
     protected Integer _minNodeCount;
     protected Integer _maxNodeCount;
     protected Boolean _shouldOnlyConnectToSeedNodes = false;
+    protected Boolean _shouldPrioritizeNewConnections = false;
     protected volatile Boolean _isShuttingDown = false;
 
     protected Integer _defaultExternalPort = BitcoinConstants.getDefaultNetworkPort();
@@ -841,8 +844,31 @@ public class BitcoinNodeManager {
 
         // Ensure the NodeManager does not exceed maxNodeCount.
         if ((allNodes.size() + _pendingNodes.size()) >= _maxNodeCount) {
-            bitcoinNode.disconnect();
-            return;
+            final MutableList<BitcoinNode> otherNodes = new MutableList<>(_otherNodes.values()); // NOTE: List is copied before isEmpty evaluation to avoid race condition due to concurrent modification of _otherNodes.
+            final boolean hasNonPreferredPeers = (! otherNodes.isEmpty());
+            if (_shouldPrioritizeNewConnections && hasNonPreferredPeers) {
+                // find oldest non-preferred peer and disconnect before continuing
+                synchronized (_performanceStatistics) {
+                    otherNodes.sort(new Comparator<BitcoinNode>() {
+                        @Override
+                        public int compare(final BitcoinNode node0, final BitcoinNode node1) {
+                            final NodePerformance nodePerformance0 = _performanceStatistics.get(node0);
+                            final NodePerformance nodePerformance1 = _performanceStatistics.get(node1);
+                            final Long nodeTimestamp0 = nodePerformance0 != null ? nodePerformance0.connectionTimestampMs : Long.MAX_VALUE;
+                            final Long nodeTimestamp1 = nodePerformance1 != null ? nodePerformance1.connectionTimestampMs : Long.MAX_VALUE;
+                            return nodeTimestamp0.compareTo(nodeTimestamp1);
+                        }
+                    });
+                }
+
+                final BitcoinNode nodeToDisconnect = otherNodes.get(0);
+                nodeToDisconnect.disconnect();
+            }
+            else {
+                // prioritizing existing connections, disconnect from this new node and bail out
+                bitcoinNode.disconnect();
+                return;
+            }
         }
 
         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
@@ -1052,8 +1078,20 @@ public class BitcoinNodeManager {
         return _maxNodeCount;
     }
 
+    public void setShouldPrioritizeNewConnections(final Boolean shouldPrioritizeNewConnections) {
+        _shouldPrioritizeNewConnections = shouldPrioritizeNewConnections;
+    }
+
+    public Boolean shouldPrioritizeNewConnections() {
+        return _shouldPrioritizeNewConnections;
+    }
+
     public void setShouldOnlyConnectToSeedNodes(final Boolean shouldOnlyConnectToSeedNodes) {
         _shouldOnlyConnectToSeedNodes = shouldOnlyConnectToSeedNodes;
+    }
+
+    public Boolean shouldOnlyConnectToSeedNodes() {
+        return _shouldOnlyConnectToSeedNodes;
     }
 
     public void shutdown() {
@@ -1111,6 +1149,12 @@ public class BitcoinNodeManager {
                     _performanceStatistics.put(bitcoinNode, nodePerformance);
                     return nodePerformance;
                 }
+            }
+
+            @Override
+            public void onHandshakeComplete(final BitcoinNode bitcoinNode) {
+                // ensure node performance is created
+                _getNodePerformance(bitcoinNode);
             }
 
             @Override

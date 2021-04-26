@@ -1,596 +1,396 @@
 package com.softwareverde.bitcoin.server.module.node.sync.block;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.context.MultiConnectionFullDatabaseContext;
-import com.softwareverde.bitcoin.context.NodeManagerContext;
-import com.softwareverde.bitcoin.context.PendingBlockStoreContext;
-import com.softwareverde.bitcoin.context.SynchronizationStatusContext;
-import com.softwareverde.bitcoin.context.SystemTimeContext;
-import com.softwareverde.bitcoin.context.ThreadPoolContext;
-import com.softwareverde.bitcoin.inflater.BlockInflaters;
-import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
-import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.server.node.RequestPriority;
-import com.softwareverde.concurrent.ConcurrentHashSet;
-import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.util.RotatingQueue;
-import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
-import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.lang.ref.WeakReference;
+import java.util.Comparator;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockDownloader extends GracefulSleepyService {
-    public interface Context extends BlockInflaters, NodeManagerContext, MultiConnectionFullDatabaseContext, PendingBlockStoreContext, SynchronizationStatusContext, SystemTimeContext, ThreadPoolContext { }
+    public static class PendingBlockInventory {
+        public final long priority;
+        public final Sha256Hash blockHash;
+        public final WeakReference<BitcoinNode> bitcoinNode;
+        public final Long blockHeight;
 
-    public static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
+        public PendingBlockInventory(final Long priority, final Sha256Hash blockHash) {
+            this(priority, blockHash, null);
+        }
 
-    protected static class CurrentDownload {
-        public final NodeId nodeId;
-        public final MilliTimer milliTimer;
+        public PendingBlockInventory(final Long priority, final Sha256Hash blockHash, final BitcoinNode bitcoinNode) {
+            this(priority, blockHash, bitcoinNode, null);
+        }
 
-        public CurrentDownload(final NodeId nodeId, final MilliTimer milliTimer) {
-            this.nodeId = nodeId;
-            this.milliTimer = milliTimer;
+        public PendingBlockInventory(final Long priority, final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final Long blockHeight) {
+            this.priority = priority;
+            this.blockHash = blockHash;
+            this.bitcoinNode = new WeakReference<>(bitcoinNode);
+            this.blockHeight = blockHeight;
         }
     }
 
-    protected final Context _context;
-
-    protected final ConcurrentHashMap<Sha256Hash, CurrentDownload> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, CurrentDownload>();
-    protected final ConcurrentHashSet<NodeId> _hasBlockInFlight = new ConcurrentHashSet<NodeId>();
-    protected final ConcurrentHashSet<NodeId> _hasSecondBlockInFlight = new ConcurrentHashSet<NodeId>();
-
-    protected Runnable _newBlockAvailableCallback = null;
-
-    protected Long _lastBlockfinderTime = null;
-
-    protected Boolean _hasGenesisBlock = false;
-    protected Long _lastGenesisDownloadTimestamp = null;
-
-    protected Thread _unsynchronizedWatcher = null;
-
-    protected final Integer _historicThroughputMaxItemCount = 256;
-    protected final AtomicLong _totalDownloadCount = new AtomicLong(0L);
-    protected final AtomicLong _totalBytesDownloaded = new AtomicLong(0L);
-    protected final RotatingQueue<Long> _historicBytesPerSecond = new RotatingQueue<Long>(_historicThroughputMaxItemCount);
-    protected Long _lastCacheUpdate = null;
-    protected Long _cachedBytesPerSecond = null;
-    protected Float _cachedBlocksPerSecond = null;
-
-    /**
-     * Attempts to reserve a download slot for the node.
-     *  Returns true if the nodeId had capacity to accept a new request.
-     */
-    protected boolean _addBlockInFlight(final NodeId nodeId) {
-        final boolean hadCapacity = _hasBlockInFlight.add(nodeId);
-        if (hadCapacity) { return true; }
-
-        final boolean hadSecondaryCapacity = _hasSecondBlockInFlight.add(nodeId);
-        return hadSecondaryCapacity;
+    public interface BlockDownloadCallback {
+        void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode);
     }
 
-    protected void _removeInFlightBlock(final NodeId nodeId) {
-        final boolean wasRemoved = _hasBlockInFlight.remove(nodeId);
-        if (! wasRemoved) {
-            _hasSecondBlockInFlight.remove(nodeId);
-        }
+    public interface BitcoinNodeCollector {
+        List<BitcoinNode> getBitcoinNodes();
     }
 
-    protected void _calculateThroughput() {
-        final SystemTime systemTime = _context.getSystemTime();
-        final Long now = systemTime.getCurrentTimeInSeconds();
-
-        int i = 0;
-        long sum = 0L;
-        for (final Long bytesPerSecond : _historicBytesPerSecond) {
-            sum += bytesPerSecond;
-            i += 1;
-        }
-        if (i == 0) { return; }
-
-        if (_lastCacheUpdate != null) {
-            final long secondsSinceLastUpdate = (now - _lastCacheUpdate);
-            _cachedBlocksPerSecond = ( ((float) i) / secondsSinceLastUpdate);
-        }
-
-        _cachedBytesPerSecond = (sum / i);
-        _lastCacheUpdate = now;
+    public interface BlockDownloadPlanner {
+        List<PendingBlockInventory> getNextPendingBlockInventoryBatch();
     }
 
-    protected Long _calculateTimeoutInMilliseconds() {
-        final float buffer = 2.0F;
-        return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_BYTES_PER_SECOND) * buffer * 1000L);
+    protected final ThreadPool _threadPool;
+    protected final ConcurrentSkipListSet<PendingBlockInventory> _downloadBlockQueue;
+    protected final PendingBlockStore _pendingBlockStore;
+    protected final BitcoinNodeCollector _bitcoinNodeCollector;
+    // References to the nodes are used instead of the NodeId so that cleanup is done automatically when the node is disconnected.
+    protected final WeakHashMap<BitcoinNode, AtomicInteger> _activeDownloadCounts = new WeakHashMap<>();
+    protected final BitcoinNodeBlockInventoryTracker _blockInventoryTracker;
+    protected final BlockDownloadPlanner _blockDownloadPlanner;
+
+    protected Integer _maxConcurrentDownloadCountPerNode = 2;
+    protected Integer _maxConcurrentDownloadCount = 8;
+    protected BlockDownloadCallback _blockDownloadCallback;
+
+    protected AtomicInteger _getActiveDownloadCount(final BitcoinNode bitcoinNode) {
+        final AtomicInteger newActiveDownloadCount = new AtomicInteger(0);
+        final AtomicInteger existingActiveDownloadCount;
+        synchronized (_activeDownloadCounts) {
+            existingActiveDownloadCount = _activeDownloadCounts.putIfAbsent(bitcoinNode, newActiveDownloadCount); // NOTE: Atomic/Thread-Safe...
+        }
+        return Util.coalesce(existingActiveDownloadCount, newActiveDownloadCount);
     }
 
-    protected void _storePendingBlock(final Block block, final FullNodeDatabaseManager databaseManager) {
-        try {
-            final Sha256Hash blockHash = block.getHash();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-            final Boolean pendingBlockConnectedToMainChain = pendingBlockDatabaseManager.isPendingBlockConnectedToMainChain(blockHash);
-            if (Util.coalesce(pendingBlockConnectedToMainChain, true)) {
-                pendingBlockDatabaseManager.storeBlock(block);
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug(exception);
-        }
-    }
-
-    protected void _markPendingBlockIdsAsFailed(final Set<Sha256Hash> pendingBlockHashes) {
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-            for (final Sha256Hash pendingBlockHash : pendingBlockHashes) {
-                final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(pendingBlockHash);
-                if (pendingBlockId == null) { continue; }
-
-                pendingBlockDatabaseManager.incrementFailedDownloadCount(pendingBlockId);
-            }
-            pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
-    }
-
-    // This function iterates through each Block in-flight, and checks for items that have exceeded the MAX_TIMEOUT.
-    //  Items exceeding the timeout have their onFailure method called.
-    //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
-    protected void _checkForStalledDownloads() {
-        final Long maxRequestDurationInMilliseconds = _calculateTimeoutInMilliseconds();
-        Logger.trace("Max download request duration: " + maxRequestDurationInMilliseconds + "ms");
-
-        final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<Sha256Hash>();
-        for (final Sha256Hash blockHash : _currentBlockDownloadSet.keySet()) {
-            final CurrentDownload currentDownload = _currentBlockDownloadSet.get(blockHash);
-            if (currentDownload == null) { continue; }
-
-            final MilliTimer milliTimer = currentDownload.milliTimer;
-            if (milliTimer == null) {
-                stalledBlockHashes.add(blockHash);
-                continue;
+    protected List<BitcoinNode> _filterBitcoinNodesByActiveDownloadCount(final List<BitcoinNode> bitcoinNodes) {
+        MutableList<Tuple<BitcoinNode, Integer>> bitcoinNodeDownloadCounts = new MutableList<>();
+        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+            final AtomicInteger activeDownloadCount;
+            synchronized (_activeDownloadCounts) {
+                activeDownloadCount = _activeDownloadCounts.get(bitcoinNode);
             }
 
-            milliTimer.stop();
-            final Long msElapsed = milliTimer.getMillisecondsElapsed();
-            if (msElapsed >= maxRequestDurationInMilliseconds) {
-                stalledBlockHashes.add(blockHash);
+            final int downloadCount = (activeDownloadCount != null ? activeDownloadCount.get() : 0);
+            if (downloadCount < _maxConcurrentDownloadCountPerNode) {
+                bitcoinNodeDownloadCounts.add(new Tuple<>(bitcoinNode, downloadCount));
             }
         }
-
-        boolean encounteredStalledBlock = false;
-        for (final Sha256Hash stalledBlockHash : stalledBlockHashes) {
-            Logger.warn("Stalled Block Detected: " + stalledBlockHash);
-            encounteredStalledBlock = true;
-            final CurrentDownload currentDownload = _currentBlockDownloadSet.remove(stalledBlockHash);
-            if (currentDownload != null) {
-                final NodeId nodeId = currentDownload.nodeId;
-                if (nodeId != null) {
-                    _removeInFlightBlock(nodeId);
-                }
-            }
-        }
-        if (encounteredStalledBlock) {
-            BlockDownloader.this.wakeUp();
-        }
-    }
-
-    protected void _downloadBlock(final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final CurrentDownload currentDownload) {
-        Logger.trace("Downloading " + blockHash + " from " + bitcoinNode.getConnectionString() + " (id: " + bitcoinNode.getId() + ")");
-
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-
-        final long maxTimeoutMs = _calculateTimeoutInMilliseconds();
-        final AtomicBoolean didRespond = new AtomicBoolean(false);
-        final Pin pin = new Pin();
-
-        final String nodeName = bitcoinNode.getConnectionString();
-        final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
+        bitcoinNodeDownloadCounts.sort(new Comparator<Tuple<BitcoinNode, Integer>>() {
             @Override
-            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
-                if (_shouldAbort()) { return; }
-
-                final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
-                pin.release();
-
-                final CurrentDownload removedCurrentDownload = _currentBlockDownloadSet.remove(blockHash);
-                Logger.trace("Download requested from " + (removedCurrentDownload == null ? null : removedCurrentDownload.nodeId) + ", received response from " + (currentDownload == null ? null : currentDownload.nodeId) + " / " + (bitcoinNode == null ? null : bitcoinNode.getId()));
-
-                if (currentDownload != null) {
-                    currentDownload.milliTimer.stop();
-
-                    final NodeId nodeId = currentDownload.nodeId;
-                    if (nodeId != null) {
-                        _removeInFlightBlock(nodeId);
-                    }
-                }
-
-                final Sha256Hash blockHash = block.getHash();
-                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                    _storePendingBlock(block, databaseManager);
-                }
-                catch (final DatabaseException exception) {
-                    Logger.debug(exception);
-                }
-                final Long msElapsed = (currentDownload != null ? currentDownload.milliTimer.getMillisecondsElapsed() : null);
-                Logger.info("Block " + blockHash + " downloaded from " + nodeName + " in " + msElapsed + "ms");
-
-                { // Handle throughput monitoring...
-                    final Integer byteCount = block.getByteCount();
-                    final Long bytesPerSecond = ( ((msElapsed != null) && (msElapsed > 0)) ? ((byteCount / msElapsed) * 1000L) : null );
-                    if (bytesPerSecond != null) {
-                        _historicBytesPerSecond.add(bytesPerSecond);
-                    }
-                    _totalBytesDownloaded.addAndGet(byteCount);
-                    final long downloadCount = _totalDownloadCount.incrementAndGet();
-                    if ((downloadCount % _historicThroughputMaxItemCount) == 0) {
-                        _calculateThroughput();
-                    }
-                }
-
-                BlockDownloader.this.wakeUp();
-
-                final Runnable newBlockAvailableCallback = _newBlockAvailableCallback;
-                if (newBlockAvailableCallback != null) {
-                    newBlockAvailableCallback.run();
-                }
-            }
-
-            @Override
-            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
-                if (_shouldAbort()) { return; }
-
-                final boolean hasAlreadyResponded = (! didRespond.compareAndSet(false, true));
-                pin.release();
-
-                if (bitcoinNode != null) {
-                    bitcoinNode.removeCallback(requestId);
-                }
-
-                final CurrentDownload removedCurrentDownload = _currentBlockDownloadSet.remove(blockHash);
-                Logger.trace("Download requested from " + (removedCurrentDownload == null ? null : removedCurrentDownload.nodeId) + ", received response from " + (currentDownload == null ? null : currentDownload.nodeId) + " / " + (bitcoinNode == null ? null : bitcoinNode.getId()));
-
-                final boolean callbackExistedInSet = (removedCurrentDownload != null);
-                if (currentDownload != null) {
-                    currentDownload.milliTimer.stop();
-
-                    final NodeId nodeId = currentDownload.nodeId;
-                    if (nodeId != null) {
-                        _removeInFlightBlock(nodeId);
-                    }
-                }
-                final Long msElapsed = (currentDownload != null ? currentDownload.milliTimer.getMillisecondsElapsed() : null);
-
-                if ( callbackExistedInSet && (! hasAlreadyResponded) ) {
-                    Logger.info("Block " + blockHash + " failed from " + nodeName + ((msElapsed != null) ? (" after " + msElapsed + "ms.") : "."));
-                }
-
-                BlockDownloader.this.wakeUp();
-            }
-        };
-
-        RequestPriority requestPriority = RequestPriority.NORMAL;
-        try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-            if (blockId != null) {
-                final BlockchainSegmentId blockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
-                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-                if (! blockchainDatabaseManager.areBlockchainSegmentsConnected(blockBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY)) {
-                    // block is on a fork relative to our current head block
-                    requestPriority = RequestPriority.NONE;
-                }
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.debug("Unable to determine block priority: " + blockHash, exception);
-        }
-
-        final RequestId requestId = bitcoinNode.requestBlock(blockHash, downloadBlockCallback, requestPriority);
-
-        final ThreadPool threadPool = _context.getThreadPool();
-        threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                final Thread thread = Thread.currentThread();
-
-                try {
-                    final long sleepInterval = 500L;
-                    int msWaited = 0;
-                    while ( (! thread.isInterrupted()) && (! pin.wasReleased()) ) {
-                        pin.waitForRelease(sleepInterval);
-                        if (pin.wasReleased()) { break; }
-
-                        msWaited += sleepInterval;
-                        if (msWaited >= maxTimeoutMs) { break; }
-                    }
-                }
-                catch (final Exception exception) { }
-
-                if (! didRespond.get()) {
-                    downloadBlockCallback.onFailure(requestId, bitcoinNode, blockHash);
-                }
+            public int compare(final Tuple<BitcoinNode, Integer> tuple0, final Tuple<BitcoinNode, Integer> tuple1) {
+                final Integer downloadCount0 = tuple0.second;
+                final Integer downloadCount1 = tuple1.second;
+                return Integer.compare(downloadCount0, downloadCount1);
             }
         });
 
+        final MutableList<BitcoinNode> filteredBitcoinNodes = new MutableList<>();
+        for (final Tuple<BitcoinNode, ?> tuple : bitcoinNodeDownloadCounts) {
+            final BitcoinNode bitcoinNode = tuple.first;
+            filteredBitcoinNodes.add(bitcoinNode);
+        }
+        return filteredBitcoinNodes;
+    }
+
+    protected List<BitcoinNode> _filterBitcoinNodesByBlockHeight(final List<BitcoinNode> bitcoinNodes, final Long blockHeight) {
+        MutableList<Tuple<BitcoinNode, Long>> bitcoinNodeBlockHeightDifferences = new MutableList<>();
+        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
+            final Long bitcoinNodeBlockHeight = bitcoinNode.getBlockHeight();
+            if (bitcoinNodeBlockHeight == null) { continue; }
+
+            final long blockHeightDifference = (bitcoinNodeBlockHeight - blockHeight);
+            if (blockHeightDifference < 0L) { continue; } // The node is behind the requested blockHeight...
+
+            bitcoinNodeBlockHeightDifferences.add(new Tuple<>(bitcoinNode, blockHeightDifference));
+        }
+        bitcoinNodeBlockHeightDifferences.sort(new Comparator<Tuple<BitcoinNode, Long>>() {
+            @Override
+            public int compare(final Tuple<BitcoinNode, Long> tuple0, final Tuple<BitcoinNode, Long> tuple1) {
+                final Long blockHeightDifference0 = tuple0.second;
+                final Long blockHeightDifference1 = tuple1.second;
+                final int compareValueAscending = Long.compare(blockHeightDifference0, blockHeightDifference1);
+                if (compareValueAscending == 0) { return 0; } // Comparison is equal.
+
+                final int compareValueDescending = (compareValueAscending > 0 ? -1 : 1);
+                return compareValueDescending;
+            }
+        });
+
+        final MutableList<BitcoinNode> filteredBitcoinNodes = new MutableList<>();
+        for (final Tuple<BitcoinNode, ?> tuple : bitcoinNodeBlockHeightDifferences) {
+            final BitcoinNode bitcoinNode = tuple.first;
+            filteredBitcoinNodes.add(bitcoinNode);
+        }
+        return filteredBitcoinNodes;
+    }
+
+    protected BitcoinNode _selectBitcoinNode(final Sha256Hash blockHash) {
+        return _selectBitcoinNode(blockHash, null);
+    }
+
+    protected BitcoinNode _selectBitcoinNode(final Sha256Hash blockHash, final Long blockHeight) {
+        if (blockHash != null) { // Attempt to find a BitcoinNode that has the provided inventory, assuming it isn't at max concurrent download capacity.
+            final List<BitcoinNode> bitcoinNodesWithInventory = _blockInventoryTracker.getNodesWithInventory(blockHash);
+            final List<BitcoinNode> filteredNodes = _filterBitcoinNodesByActiveDownloadCount(bitcoinNodesWithInventory);
+            if (! filteredNodes.isEmpty()) {
+                return filteredNodes.get(0);
+            }
+        }
+
+        // Fallback to selecting any node that is not at max concurrent download capacity...
+        final List<BitcoinNode> allPreferredBitcoinNodes = _bitcoinNodeCollector.getBitcoinNodes();
+
+        List<BitcoinNode> filteredNodes = _filterBitcoinNodesByActiveDownloadCount(allPreferredBitcoinNodes);
+
+        // If blockHeight is available then also filter by the bitcoinNode's blockHeight.
+        if (blockHeight != null) {
+            filteredNodes = _filterBitcoinNodesByBlockHeight(filteredNodes, blockHeight);
+        }
+
+        if (filteredNodes.isEmpty()) { return null; }
+        return filteredNodes.get(0);
     }
 
     @Override
-    protected void _onStart() { }
+    protected void _onStart() {
+        if (! _downloadBlockQueue.isEmpty()) { return; }
+
+        final List<PendingBlockInventory> blockInventoryBatch = _blockDownloadPlanner.getNextPendingBlockInventoryBatch();
+        if (blockInventoryBatch.isEmpty()) { return; }
+
+        for (final PendingBlockInventory pendingBlockInventory : blockInventoryBatch) {
+            _downloadBlockQueue.add(pendingBlockInventory);
+        }
+    }
 
     @Override
     protected Boolean _run() {
-        final SystemTime systemTime = _context.getSystemTime();
-        final BitcoinNodeManager bitcoinNodeManager = _context.getBitcoinNodeManager();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-
-        final Integer activeNodeCount = bitcoinNodeManager.getActiveNodeCount();
-        final int maximumConcurrentDownloadCount = (activeNodeCount * 2);
-
-        _checkForStalledDownloads();
-        if (_shouldAbort()) { return false; }
-
-        if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) {
-            Logger.trace("Downloader busy; " + _currentBlockDownloadSet.size() + " in flight. Sleeping.");
-            return false;
-        }
-
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
-
-            if (! _hasGenesisBlock) { // Since nodes do not advertise inventory of the genesis block, specifically add it if it is required...
-                final Sha256Hash blockHash = BlockHeader.GENESIS_BLOCK_HASH;
-                final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                if ( (genesisBlockId == null) || (! blockDatabaseManager.hasTransactions(genesisBlockId)) ) {
-                    final PendingBlockId genesisPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(BlockHeader.GENESIS_BLOCK_HASH);
-                    if ( (genesisPendingBlockId == null) || (! pendingBlockDatabaseManager.hasBlockData(genesisPendingBlockId)) ) {
-                        final Long now = systemTime.getCurrentTimeInSeconds();
-                        final long secondsSinceLastDownloadAttempt = (now - Util.coalesce(_lastGenesisDownloadTimestamp));
-
-                        if (secondsSinceLastDownloadAttempt > 5) {
-                            _lastGenesisDownloadTimestamp = systemTime.getCurrentTimeInSeconds();
-                            final List<BitcoinNode> bitcoinNodes = bitcoinNodeManager.getPreferredNodes();
-                            for (final BitcoinNode bitcoinNode : bitcoinNodes) {
-                                final NodeId nodeId = bitcoinNode.getId();
-
-                                final MilliTimer timer = new MilliTimer();
-                                final CurrentDownload currentDownload = new CurrentDownload(nodeId, timer);
-
-                                _currentBlockDownloadSet.put(blockHash, currentDownload);
-                                _downloadBlock(blockHash, bitcoinNode, currentDownload);
-                            }
-                        }
-                    }
-                }
-                else {
-                    _hasGenesisBlock = true;
-                }
-            }
-
-            final FullNodePendingBlockDatabaseManager.DownloadPlan downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(maximumConcurrentDownloadCount * 2);
-            if (downloadPlan.isEmpty()) {
-                Logger.trace("Downloader has nothing to do.");
-                return false;
-            }
-            Logger.trace("Download plan contains " + downloadPlan.getCount() + " items.");
-
-            if (_shouldAbort()) { return false; }
-
-            final Long minBlockHeight = downloadPlan.getMinimumBlockHeight();
-            final List<BitcoinNode> bitcoinNodes;
-            {
-                final List<BitcoinNode> idealBitcoinNodes = bitcoinNodeManager.getPreferredNodes(new NodeFilter() {
-                    @Override
-                    public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
-                        final Long blockHeight = bitcoinNode.getBlockHeight();
-                        if (blockHeight == null) { return false; }
-                        if (minBlockHeight == null) { return true; } // No minimum was able to be determined...
-                        return (blockHeight >= minBlockHeight); // Ensure bitcoinNode is up-to-date before requesting block.
-                    }
-                });
-                if (! idealBitcoinNodes.isEmpty()) {
-                    bitcoinNodes = idealBitcoinNodes;
-                }
-                else {
-                    bitcoinNodes = bitcoinNodeManager.getPreferredNodes();
-                }
-            }
-            final int nodeCount = bitcoinNodes.getCount();
-            if (nodeCount == 0) {
-                Logger.debug("No nodes met download criteria.");
-                return false;
-            }
-
-            for (final PendingBlockId pendingBlockId : downloadPlan.getPendingBlockIds()) {
-                if (_shouldAbort()) { return false; }
-
-                if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
-
-                final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
-                if (blockHash == null) { continue; }
-
-                final boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(blockHash);
-                if (itemIsAlreadyBeingDownloaded) {
-                    Logger.trace(blockHash + " already in-flight.");
-                    continue;
-                }
-
-                BitcoinNode selectedNode = null;
-                { // Prefer a node that does not already have a block in-flight.
-                    for (final BitcoinNode bitcoinNode : bitcoinNodes) { // Prefer download based on blockHeight...
-                        final Long pendingBlockHeight = downloadPlan.getBlockHeight(pendingBlockId);
-                        if (pendingBlockHeight != null) {
-                            final Long nodeBlockHeight = bitcoinNode.getBlockHeight();
-                            if (nodeBlockHeight == null) { continue; }
-                            if (nodeBlockHeight < pendingBlockHeight) { continue; }
-                        }
-
-                        final NodeId nodeId = bitcoinNode.getId();
-                        final boolean hadCapacity = _addBlockInFlight(nodeId);
-                        if (! hadCapacity) { continue; }
-
-                        selectedNode = bitcoinNode;
-                        break;
-                    }
-                    if (selectedNode == null) { // Fallback download via brute-force...
-                        for (final BitcoinNode bitcoinNode : bitcoinNodes) {
-                            final NodeId nodeId = bitcoinNode.getId();
-                            final boolean hadCapacity = _addBlockInFlight(nodeId);
-                            if (! hadCapacity) { continue; }
-
-                            selectedNode = bitcoinNode;
-                            break;
-                        }
-                    }
-                }
-                if (selectedNode == null) {
-                    Logger.trace("No nodes with capacity found for " + blockHash);
-                    break;
-                }
-
-                final NodeId nodeId = selectedNode.getId();
-
-                final MilliTimer timer = new MilliTimer();
-                final CurrentDownload currentDownload = new CurrentDownload(nodeId, timer);
-
-                _currentBlockDownloadSet.put(blockHash, currentDownload);
-
-                timer.start();
-                _downloadBlock(blockHash, selectedNode, currentDownload);
-
-                pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-            return false;
-        }
-
         if (Logger.isTraceEnabled()) {
-            final StringBuilder stringBuilder = new StringBuilder("In Flight: ");
-            stringBuilder.append(_currentBlockDownloadSet.size());
-            stringBuilder.append(" of ");
-            stringBuilder.append(maximumConcurrentDownloadCount);
-            for (final Map.Entry<Sha256Hash, CurrentDownload> entry : _currentBlockDownloadSet.entrySet()) {
-                final CurrentDownload currentDownload = entry.getValue();
-                final MilliTimer milliTimer = (currentDownload != null ? currentDownload.milliTimer : null);
-                if (milliTimer != null) { milliTimer.stop(); }
-                final Long msElapsed = (milliTimer != null ? milliTimer.getMillisecondsElapsed() : null);
-                stringBuilder.append("\n");
-                stringBuilder.append(entry.getKey() + ": " + msElapsed + "ms via " + (currentDownload != null ? currentDownload.nodeId : null));
+            String separator = "";
+            int downloadBlockQueueCount = 0; // NOTE: ConcurrentSkipListSet::size is not constant-time...
+            final StringBuilder stringBuilder = new StringBuilder();
+            for (final PendingBlockInventory pendingBlockInventory : _downloadBlockQueue) {
+                final Sha256Hash blockHash = pendingBlockInventory.blockHash;
+                final Long priority = pendingBlockInventory.priority;
+                final BitcoinNode bitcoinNode = pendingBlockInventory.bitcoinNode.get();
+                final Long blockHeight = pendingBlockInventory.blockHeight;
+
+                stringBuilder.append(separator);
+                stringBuilder.append(priority);
+                stringBuilder.append(":");
+                stringBuilder.append(blockHash);
+                stringBuilder.append(":");
+                stringBuilder.append(blockHeight);
+                stringBuilder.append(":");
+                stringBuilder.append(bitcoinNode);
+                separator = " ";
+
+                downloadBlockQueueCount += 1;
             }
-            Logger.trace(stringBuilder.toString());
+            Logger.trace("BlockDownloader Queue Count: " + downloadBlockQueueCount + " " + stringBuilder);
         }
 
-        if (_cachedBytesPerSecond != null) {
-            final String blocksPerSecondLog = (StringUtil.formatPercent(Util.coalesce(_cachedBlocksPerSecond), false) + " blocks/s, ");
-            final String kBpsLog = ((_cachedBytesPerSecond / 1024L) + " kBps, ");
-            final String activeNodeLog = (activeNodeCount + " active nodes, ");
-            final String blocksInFlightLog = (_currentBlockDownloadSet.size() + " blocks in flight");
-            Logger.info("Download " + kBpsLog + blocksPerSecondLog + activeNodeLog + blocksInFlightLog + ".");
+        while (! _shouldAbort()) {
+            final PendingBlockInventory pendingBlockInventory = _downloadBlockQueue.pollFirst();
+            if (pendingBlockInventory == null) {
+                Logger.debug("BlockDownloader - Nothing to do.");
+                return false;
+            }
+
+            final Sha256Hash blockHash = pendingBlockInventory.blockHash;
+            final Long blockHeight = pendingBlockInventory.blockHeight;
+
+            final Boolean hasAlreadyBeenDownloaded = _pendingBlockStore.pendingBlockExists(blockHash);
+            if (hasAlreadyBeenDownloaded) { continue; }
+
+            int currentActiveDownloadCount = 0;
+            synchronized (_activeDownloadCounts) {
+                for (final AtomicInteger activeDownloadCount : _activeDownloadCounts.values()) {
+                    currentActiveDownloadCount += activeDownloadCount.get();
+                }
+            }
+            if (currentActiveDownloadCount > _maxConcurrentDownloadCount) {
+                _downloadBlockQueue.add(pendingBlockInventory);
+                Logger.trace("BlockDownloader - Too busy.");
+                return false;
+            }
+
+            final RequestPriority requestPriority;
+            final BitcoinNode bitcoinNode;
+            {
+                final BitcoinNode suggestedBitcoinNode = pendingBlockInventory.bitcoinNode.get();
+                if (suggestedBitcoinNode != null) {
+                    // If the active download count for the suggested node, then attempt a different node...
+                    final AtomicInteger suggestedNodeActiveDownloadCount = _getActiveDownloadCount(suggestedBitcoinNode);
+
+                    if ( suggestedBitcoinNode.isConnected() && (suggestedNodeActiveDownloadCount.get() < _maxConcurrentDownloadCountPerNode) ) {
+                        bitcoinNode = suggestedBitcoinNode;
+                        requestPriority = RequestPriority.NORMAL;
+                    }
+                    else {
+                        bitcoinNode = _selectBitcoinNode(blockHash);
+
+                        // Set the requestPriority to NORMAL if the selected node should have the block...
+                        final Long bitcoinNodeBlockHeight = bitcoinNode.getBlockHeight();
+                        if (bitcoinNodeBlockHeight != null && blockHeight != null) {
+                            final long minDistanceForNormalPriority = 128L; // TODO: Consider setting to pruning mode depth / max reorg depth...
+                            final long blockHeightDistance = (bitcoinNodeBlockHeight - blockHeight);
+                            requestPriority = (blockHeightDistance >= minDistanceForNormalPriority ? RequestPriority.NORMAL : RequestPriority.NONE);
+                        }
+                        else {
+                            requestPriority = RequestPriority.NONE;
+                        }
+                    }
+                }
+                else {
+                    bitcoinNode = _selectBitcoinNode(blockHash, blockHeight);
+                    requestPriority = RequestPriority.NONE;
+                }
+            }
+            if (bitcoinNode == null) {
+                _downloadBlockQueue.add(pendingBlockInventory);
+                Logger.debug("BlockDownloader - No nodes available to download block: " + blockHash);
+                return false;
+            }
+
+            // Maintain the active download count for each node...
+            final AtomicInteger activeDownloadCount = _getActiveDownloadCount(bitcoinNode);
+            activeDownloadCount.incrementAndGet();
+
+            Logger.trace("Requesting Block " + blockHash + " from " + bitcoinNode + ".");
+            bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
+                @Override
+                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final Block block) {
+                    activeDownloadCount.decrementAndGet();
+                    _pendingBlockStore.storePendingBlock(block);
+
+                    Logger.debug("Block " + blockHash + " downloaded from " + bitcoinNode + ".");
+
+                    final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
+                    if (blockDownloadCallback != null) {
+                        _threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                blockDownloadCallback.onBlockDownloaded(block, bitcoinNode);
+                            }
+                        });
+                    }
+
+                    BlockDownloader.this.wakeUp();
+                }
+
+                @Override
+                public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+                    activeDownloadCount.decrementAndGet();
+                    Logger.debug("Block " + blockHash + " failed to download from " + bitcoinNode + ".");
+
+                    // Reinsert the pendingBlockInventory into the queue with a higher priority...
+                    final Long newPriority = (pendingBlockInventory.priority + Math.max(8, _maxConcurrentDownloadCount));
+                    final PendingBlockInventory newPendingBlockInventory = new PendingBlockInventory(newPriority, blockHash, null, blockHeight);
+                    _downloadBlockQueue.add(newPendingBlockInventory);
+                }
+            }, requestPriority);
         }
 
         return false;
     }
 
     @Override
-    protected void _onSleep() {
-        final SynchronizationStatus synchronizationStatus = _context.getSynchronizationStatus();
+    protected void _onSleep() { }
 
-        synchronized (this) {
-            final boolean isInterrupted;
-            {
-                final Thread currentThread = Thread.currentThread();
-                isInterrupted = currentThread.isInterrupted();
-            }
+    public BlockDownloader(final PendingBlockStore pendingBlockStore, final BitcoinNodeCollector bitcoinNodeCollector, final BitcoinNodeBlockInventoryTracker blockInventoryTracker, final BlockDownloadPlanner blockDownloadPlanner, final ThreadPool threadPool) {
+        _threadPool = threadPool;
+        _pendingBlockStore = pendingBlockStore;
+        _bitcoinNodeCollector = bitcoinNodeCollector;
+        _downloadBlockQueue = new ConcurrentSkipListSet<>(new Comparator<PendingBlockInventory>() {
+            @Override
+            public int compare(final PendingBlockInventory pendingBlockInventory0, final PendingBlockInventory pendingBlockInventory1) {
+                if (pendingBlockInventory0 == pendingBlockInventory1) { return 0; }
 
-            if ( isInterrupted && (_unsynchronizedWatcher != null) ) {
-                _unsynchronizedWatcher.interrupt();
-            }
-            else if ( (! isInterrupted) && (_unsynchronizedWatcher == null) ) {
-                _unsynchronizedWatcher = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Thread.sleep(10000L);
+                final int priorityCompare = Long.compare(pendingBlockInventory0.priority, pendingBlockInventory1.priority);
+                if (priorityCompare != 0) {
+                    return priorityCompare;
+                }
 
-                            final boolean synchronizationIsComplete = synchronizationStatus.isBlockchainSynchronized();
-                            if (! synchronizationIsComplete) {
-                                BlockDownloader.this.wakeUp();
-                            }
-                        }
-                        catch (final InterruptedException exception) { }
-                        finally {
-                            synchronized (BlockDownloader.this) {
-                                _unsynchronizedWatcher = null;
-                            }
-                        }
-                    }
-                });
-                _unsynchronizedWatcher.start();
+                final int hashCompare = pendingBlockInventory0.blockHash.compareTo(pendingBlockInventory1.blockHash);
+                if (hashCompare != 0) {
+                    return hashCompare;
+                }
+
+                final long nodeId0;
+                {
+                    final BitcoinNode bitcoinNode = pendingBlockInventory0.bitcoinNode.get();
+                    final NodeId nodeId = (bitcoinNode != null ? bitcoinNode.getId() : null);
+                    nodeId0 = (nodeId != null ? nodeId.longValue() : Long.MAX_VALUE);
+                }
+
+                final long nodeId1;
+                {
+                    final BitcoinNode bitcoinNode = pendingBlockInventory1.bitcoinNode.get();
+                    final NodeId nodeId = (bitcoinNode != null ? bitcoinNode.getId() : null);
+                    nodeId1 = (nodeId != null ? nodeId.longValue() : Long.MAX_VALUE);
+                }
+
+                return Long.compare(nodeId0, nodeId1);
             }
-        }
+        });
+        _blockInventoryTracker = blockInventoryTracker;
+        _blockDownloadPlanner = blockDownloadPlanner;
     }
 
-    public BlockDownloader(final Context context) {
-        _context = context;
+    public void requestBlock(final Sha256Hash blockHash, final Long priority, final BitcoinNode bitcoinNode) {
+        final PendingBlockInventory pendingBlockInventory = new PendingBlockInventory(priority, blockHash, bitcoinNode);
+        _downloadBlockQueue.add(pendingBlockInventory);
+
+        this.wakeUp();
     }
 
-    public void setNewBlockAvailableCallback(final Runnable runnable) {
-        _newBlockAvailableCallback = runnable;
+    public void setBlockDownloadedCallback(final BlockDownloadCallback blockDownloadCallback) {
+        _blockDownloadCallback = blockDownloadCallback;
+    }
+
+    public void setMaxConcurrentDownloadCount(final Integer maxConcurrentDownloadCount) {
+        _maxConcurrentDownloadCount = maxConcurrentDownloadCount;
+    }
+
+    public void setMaxConcurrentDownloadCountPerNode(final Integer maxConcurrentDownloadCountPerNode) {
+        _maxConcurrentDownloadCountPerNode = maxConcurrentDownloadCountPerNode;
     }
 
     public void submitBlock(final Block block) {
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            _storePendingBlock(block, databaseManager);
-            Logger.info("Block submitted: " + block.getHash());
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-            return;
-        }
+        final Sha256Hash blockHash = block.getHash();
+        final Boolean blockExists = _pendingBlockStore.pendingBlockExists(blockHash);
+        if (blockExists) { return; }
 
-        final Runnable newBlockAvailableCallback = _newBlockAvailableCallback;
-        if (newBlockAvailableCallback != null) {
-            newBlockAvailableCallback.run();
+        _pendingBlockStore.storePendingBlock(block);
+        // NOTE: The blockHash is not removed from the _downloadBlockQueue since it would require a O(N) search and the
+        //  the main loop skips the entry once encountered if it has already been downloaded...
+
+        final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
+        if (blockDownloadCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    blockDownloadCallback.onBlockDownloaded(block, null);
+                }
+            });
         }
     }
-
 }

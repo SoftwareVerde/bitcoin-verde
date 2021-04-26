@@ -1,7 +1,7 @@
 package com.softwareverde.test.database;
 
+import com.softwareverde.bitcoin.server.database.pool.ApacheCommonsDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
-import com.softwareverde.bitcoin.server.database.pool.hikari.HikariDatabaseConnectionPool;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -106,6 +106,6 @@ public class MysqlTestDatabase extends MysqlDatabase {
     }
 
     public DatabaseConnectionPool getDatabaseConnectionPool() {
-        return new HikariDatabaseConnectionPool(_databaseProperties);
+        return new ApacheCommonsDatabaseConnectionPool(_databaseProperties, 32);
     }
 }

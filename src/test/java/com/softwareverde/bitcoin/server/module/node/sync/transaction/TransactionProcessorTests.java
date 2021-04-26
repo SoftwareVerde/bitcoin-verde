@@ -8,21 +8,18 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.context.core.BlockProcessorContext;
 import com.softwareverde.bitcoin.context.core.BlockchainBuilderContext;
-import com.softwareverde.bitcoin.context.core.PendingBlockLoaderContext;
 import com.softwareverde.bitcoin.context.core.TransactionProcessorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilderTests;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.test.BlockData;
-import com.softwareverde.bitcoin.test.FakeBlockStore;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.MockBlockStore;
 import com.softwareverde.bitcoin.test.util.BlockTestUtil;
 import com.softwareverde.bitcoin.test.util.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -64,20 +61,19 @@ public class TransactionProcessorTests extends IntegrationTest {
         //  Only one of the transactions should be added to the mempool.
 
         // Setup
+        final SystemTime systemTime = new SystemTime();
         final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final TransactionInflaters transactionInflaters = _masterInflater;
         final AddressInflater addressInflater = new AddressInflater();
-        final FakeBlockStore blockStore = new FakeBlockStore();
+        final MockBlockStore blockStore = new MockBlockStore();
         final BlockchainBuilderTests.FakeBitcoinNodeManager bitcoinNodeManager = new BlockchainBuilderTests.FakeBitcoinNodeManager();
         final BlockInflaters blockInflaters = BlockchainBuilderTests.FAKE_BLOCK_INFLATERS;
 
         final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
         final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(blockInflaters, transactionInflaters, blockStore, _fullNodeDatabaseManagerFactory, new MutableNetworkTime(), _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, upgradeSchedule);
-        final PendingBlockLoaderContext pendingBlockLoaderContext = new PendingBlockLoaderContext(blockInflaters, _fullNodeDatabaseManagerFactory, _threadPool);
-        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, _threadPool);
+        final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(blockInflaters, _fullNodeDatabaseManagerFactory, bitcoinNodeManager, systemTime, _threadPool);
 
         final BlockProcessor blockProcessor = new BlockProcessor(blockProcessorContext);
-        final PendingBlockLoader pendingBlockLoader = new PendingBlockLoader(pendingBlockLoaderContext, 1);
 
         final Sha256Hash block02Hash;
         {
@@ -154,21 +150,20 @@ public class TransactionProcessorTests extends IntegrationTest {
 
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             for (final String blockData : new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
                 final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
 
             for (final Block block : new Block[] { fakeBlock03 }) {
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockHeaderDatabaseManager.storeBlockHeader(block);
                 }
-                pendingBlockDatabaseManager.storeBlock(block);
+                blockStore.storePendingBlock(block);
             }
 
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
@@ -177,7 +172,7 @@ public class TransactionProcessorTests extends IntegrationTest {
         }
 
         { // Store the prerequisite blocks which sets up the utxo set for the mempool...
-            final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, pendingBlockLoader, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR, BlockchainBuilderTests.FAKE_BLOCK_DOWNLOAD_REQUESTER);
+            final BlockchainBuilder blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, blockStore, BlockchainBuilderTests.FAKE_DOWNLOAD_STATUS_MONITOR);
             final BlockchainBuilder.StatusMonitor statusMonitor = blockchainBuilder.getStatusMonitor();
             blockchainBuilder.start();
             final int maxSleepCount = 10;

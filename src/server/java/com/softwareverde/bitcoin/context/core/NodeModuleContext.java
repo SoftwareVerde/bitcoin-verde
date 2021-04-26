@@ -18,8 +18,6 @@ import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
-import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.blockloader.PendingBlockLoader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -30,7 +28,7 @@ import com.softwareverde.concurrent.threadpool.ThreadPool;
 import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownloader.Context, BlockHeaderDownloader.Context, BlockProcessor.Context, PendingBlockLoader.Context, TransactionProcessor.Context, UpgradeScheduleContext {
+public class NodeModuleContext implements BlockchainBuilder.Context, BlockHeaderDownloader.Context, BlockProcessor.Context, TransactionProcessor.Context, UpgradeScheduleContext {
     protected final UpgradeSchedule _upgradeSchedule;
     protected final BlockInflaters _blockInflaters;
     protected final TransactionInflaters _transactionInflaters;
@@ -77,11 +75,6 @@ public class NodeModuleContext implements BlockchainBuilder.Context, BlockDownlo
     @Override
     public BitcoinNodeManager getBitcoinNodeManager() {
         return _nodeManager;
-    }
-
-    @Override
-    public PendingBlockStore getPendingBlockStore() {
-        return _blockStore;
     }
 
     @Override
