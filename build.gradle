@@ -44,7 +44,7 @@ dependencies {
 
     // SPV Library
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.7.2'
-    api             group: 'com.github.softwareverde',  name: 'java-concurrent',        version: 'v1.0.0'
+    api             group: 'com.github.softwareverde',  name: 'java-concurrent',        version: 'v1.0.1'
     api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.0.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
     api             group: 'com.github.softwareverde',  name: 'java-db',                version: 'v3.3.0'
@@ -62,6 +62,8 @@ dependencies {
     // Server
     serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql',          version: 'v4.2.1'
     serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.2'
+    serverImplementation group: 'mysql',                        name: 'mysql-connector-java',   version: '8.0.24'
+
     serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-osx',       version: 'v10.5.9-p1'
     serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-linux',     version: 'v10.5.9'
     serverImplementation group: 'com.github.softwareverde',     name: 'java-mariadb-windows',   version: 'v10.5.9'
