@@ -38,7 +38,7 @@ public class ApacheCommonsDatabaseConnectionPool implements DatabaseConnectionPo
 
     protected void _initDataSource(final DatabaseProperties databaseProperties) {
         // NOTE: Using the MariaDB driver causes an unbounded memory leak within MySQL 5.7 & 8 (and Percona 8).
-        _dataSource.setDriverClassName(com.mysql.jdbc.Driver.class.getName());
+        _dataSource.setDriverClassName(org.mariadb.jdbc.Driver.class.getName());
 
         _dataSource.setConnectionInitSqls(Collections.singleton("SET NAMES 'utf8mb4'"));
         _dataSource.setMaxWaitMillis(TimeUnit.SECONDS.toMillis(15));
@@ -69,6 +69,12 @@ public class ApacheCommonsDatabaseConnectionPool implements DatabaseConnectionPo
 //            config.setProperty("prepStmtCacheSqlLimit", "2048");
 //            _dataSource.setDataSourceProperties(config);
 //        }
+
+        // Experimental features to mitigate server hang on com.mysql.jdbc.util.ReadAheadInputStream.fill...
+        //  https://bugs.mysql.com/bug.php?id=31353
+        //  https://bugs.mysql.com/bug.php?id=56411
+        //  https://bugs.mysql.com/bug.php?id=9515
+        _dataSource.setConnectionProperties("useUnbufferedInput=true;useReadAheadInput=false;socketTimeout=30000");
 
         try {
             _dataSource.setLogWriter(new PrintWriter(new Writer() {
