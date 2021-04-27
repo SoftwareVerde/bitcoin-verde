@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction.dsproof;
 
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
@@ -34,9 +35,17 @@ public class DoubleSpendProofAnnouncementHandlerFactory implements NodeInitializ
             final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
             Logger.debug("DoubleSpendProof validated: " + doubleSpendProofHash);
 
+            final Boolean isExtendedDoubleSpendProof = doubleSpendProof.usesExtendedFormat();
+
             final List<BitcoinNode> bitcoinNodes = _bitcoinNodeCollector.getConnectedNodes();
             for (final BitcoinNode bitcoinNode : bitcoinNodes) {
                 if (Util.areEqual(originatingBitcoinNode, bitcoinNode)) { continue; }
+
+                if (isExtendedDoubleSpendProof) {
+                    final Boolean nodeSupportsExtendedDoubleSpendProofs = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED);
+                    if (! nodeSupportsExtendedDoubleSpendProofs) { continue; }
+                }
+
                 bitcoinNode.transmitDoubleSpendProofHash(doubleSpendProofHash);
             }
         }

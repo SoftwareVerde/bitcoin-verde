@@ -76,4 +76,8 @@ public class DoubleSpendProofPreimage {
     public List<ByteArray> getUnlockingScriptPushData() {
         return _unlockingScriptPushData;
     }
+
+    public Boolean usesExtendedFormat() {
+        return _alternateTransactionOutputsDigests.size() > 0;
+    }
 }

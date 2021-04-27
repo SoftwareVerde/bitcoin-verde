@@ -235,12 +235,7 @@ public class DoubleSpendProof implements Hashable, Const {
         }
 
         { // Serialize extra TransactionOutputDigests, if there are any...
-            final List<HashType> preimage0HashTypes = _doubleSpendProofPreimage0.getExtraTransactionOutputsDigestHashTypes();
-            final List<HashType> preimage1HashTypes = _doubleSpendProofPreimage1.getExtraTransactionOutputsDigestHashTypes();
-
-            final int preimage0HashTypesCount = preimage0HashTypes.getCount();
-            final int preimage1HashTypesCount = preimage1HashTypes.getCount();
-            if ( (preimage0HashTypesCount > 0) || (preimage1HashTypesCount > 0) ) {
+            if (_doubleSpendProofPreimage0.usesExtendedFormat() || _doubleSpendProofPreimage1.usesExtendedFormat()) {
                 final DoubleSpendProofPreimageDeflater doubleSpendProofPreimageDeflater = new DoubleSpendProofPreimageDeflater();
                 final ByteArray extraDigestsBytes0 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage0);
                 final ByteArray extraDigestsBytes1 = doubleSpendProofPreimageDeflater.serializeExtraTransactionOutputDigests(_doubleSpendProofPreimage1);
@@ -290,5 +285,9 @@ public class DoubleSpendProof implements Hashable, Const {
         }
 
         return _cachedHash;
+    }
+
+    public Boolean usesExtendedFormat() {
+        return _doubleSpendProofPreimage0.usesExtendedFormat() || _doubleSpendProofPreimage1.usesExtendedFormat();
     }
 }

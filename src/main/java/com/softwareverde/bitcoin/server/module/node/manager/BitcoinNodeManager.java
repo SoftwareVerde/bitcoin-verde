@@ -1202,9 +1202,15 @@ public class BitcoinNodeManager {
 
     public void broadcastDoubleSpendProof(final DoubleSpendProofWithTransactions doubleSpendProof) {
         final Sha256Hash doubleSpendProofHash = doubleSpendProof.getHash();
+        final Boolean isExtendedDoubleSpendProof = doubleSpendProof.usesExtendedFormat();
 
         final Map<NodeId, BitcoinNode> allNodes = _getAllHandshakedNodes();
         for (BitcoinNode bitcoinNode : allNodes.values()) {
+            if (isExtendedDoubleSpendProof) {
+                final Boolean nodeSupportsExtendedDoubleSpendProofs = bitcoinNode.hasFeatureEnabled(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED);
+                if (! nodeSupportsExtendedDoubleSpendProofs) { continue; }
+            }
+
             final Transaction firstSeenTransaction = doubleSpendProof.getTransaction0();
             final Transaction doubleSpendTransaction = doubleSpendProof.getTransaction1();
 
