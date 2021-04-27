@@ -399,7 +399,7 @@ public class NodeModule {
             }
         };
 
-        final boolean isPruningModeEnabled = bitcoinProperties.isPruningModeEnabled();
+        final boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
             public NodeFeatures getNodeFeatures() {
@@ -410,7 +410,7 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
                 nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
 
-                if (! isPruningModeEnabled) {
+                if (! pruningModeIsEnabled) {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 }
 
@@ -621,7 +621,6 @@ public class NodeModule {
             final Long utxoCommitFrequency = _getUtxoCommitFrequency();
             final Integer maxThreadCount = bitcoinProperties.getMaxThreadCount();
             final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
-            final Boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
 
             final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory, _upgradeSchedule);
             blockProcessor = new BlockProcessor(blockProcessorContext);
@@ -642,6 +641,10 @@ public class NodeModule {
             };
 
             final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, _blockStore);
+            if (pruningModeIsEnabled) {
+                blockDownloadPlanner.setMaxDownloadAheadDepth(256);
+            }
+
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
 
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
@@ -695,6 +698,7 @@ public class NodeModule {
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
                         _blockHeaderDownloader.wakeUp();
+                        _blockDownloader.wakeUp();
                     }
 
                     if (blockHeight >= blockHeaderDownloaderBlockHeight) {
@@ -786,6 +790,9 @@ public class NodeModule {
                     }
 
                     _blockDownloader.wakeUp();
+
+                    // TODO: If the BlockHeader(s) are on the main chain and the node is (mostly) synced, then prioritize the download
+                    //  of the new block via BlockDownloader::requestBlock(blockHash, 0L, bitcoinNode)
 
                     if (synchronizationStatusHandler.getState() == State.ONLINE) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {

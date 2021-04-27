@@ -40,7 +40,6 @@ import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
-import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockchainBuilder extends GracefulSleepyService {
     public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext, SystemTimeContext { }
@@ -262,21 +261,19 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
             final Boolean processBlockWasSuccessful = _processPendingBlock(block);
 
-            { // Delete the pending block...
-                final NanoTimer nanoTimer = new NanoTimer();
-                nanoTimer.start();
-
-                _blockStore.removePendingBlock(pendingBlockHash);
-
-                nanoTimer.stop();
-                Logger.trace("Pending block deleted in " + nanoTimer.getMillisecondsElapsed() + "ms.");
-            }
-
             if (! processBlockWasSuccessful) {
                 blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash, 1);
                 Logger.debug("Pending block failed during processing: " + pendingBlockHash);
+
+                final Boolean blockIsOfficiallyInvalid = blockHeaderDatabaseManager.isBlockInvalid(pendingBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+                if (blockIsOfficiallyInvalid) {
+                    _blockStore.removePendingBlock(pendingBlockHash);
+                }
+
                 return false;
             }
+
+            _blockStore.removePendingBlock(pendingBlockHash);
 
             headBlockId = nextBlockId;
 

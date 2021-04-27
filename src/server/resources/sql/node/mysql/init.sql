@@ -107,9 +107,19 @@ CREATE TABLE pruned_previous_transaction_outputs (
     expires_after_block_height INT UNSIGNED NOT NULL,
     amount BIGINT NOT NULL,
     locking_script BLOB NOT NULL,
-    PRIMARY KEY (transaction_hash, `index`),
+    PRIMARY KEY (transaction_hash, `index`, expires_after_block_height),
     INDEX pruned_prevouts_block_height (expires_after_block_height) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE TABLE pruned_previous_transaction_outputs_buffer LIKE pruned_previous_transaction_outputs;
+
+DELIMITER //
+CREATE PROCEDURE ROTATE_PRUNED_PREVIOUS_TRANSACTION_OUTPUTS()
+BEGIN
+    RENAME TABLE pruned_previous_transaction_outputs TO pruned_previous_transaction_outputs_tmp, pruned_previous_transaction_outputs_buffer TO pruned_previous_transaction_outputs, pruned_previous_transaction_outputs_tmp TO pruned_previous_transaction_outputs_buffer;
+    TRUNCATE TABLE pruned_previous_transaction_outputs_buffer;
+END //
+DELIMITER ;
 
 -- Unconfirmed Transaction (Mempool) Tables
 

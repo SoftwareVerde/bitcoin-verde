@@ -520,8 +520,21 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             UndoLogCreator.WRITE_LOCK.lock();
 
             databaseConnection.executeSql(
-                new Query("DELETE FROM pruned_previous_transaction_outputs WHERE expires_after_block_height < ?")
+                new Query("INSERT INTO pruned_previous_transaction_outputs_buffer SELECT * FROM pruned_previous_transaction_outputs WHERE expires_after_block_height >= ?")
                     .setParameter(newCommittedBlockHeight)
+            );
+
+            // databaseConnection.executeDdl(
+            //     new Query("RENAME TABLE pruned_previous_transaction_outputs TO pruned_previous_transaction_outputs2, pruned_previous_transaction_outputs_buffer TO pruned_previous_transaction_outputs, pruned_previous_transaction_outputs2 TO pruned_previous_transaction_outputs_buffer")
+            //         .setParameter(newCommittedBlockHeight)
+            // );
+            //
+            // databaseConnection.executeDdl(
+            //     new Query("TRUNCATE TABLE pruned_previous_transaction_outputs_buffer")
+            //         .setParameter(newCommittedBlockHeight)
+            // );
+            databaseConnection.executeSql(
+                new Query("CALL ROTATE_PRUNED_PREVIOUS_TRANSACTION_OUTPUTS")
             );
         }
         finally {

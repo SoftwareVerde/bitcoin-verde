@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -25,10 +26,13 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
     protected final PendingBlockStore _blockStore;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    protected List<BlockDownloader.PendingBlockInventory> _getPendingBlockInventoryBatchForBlockchainSegment(final BlockId nullableHeadBlockId, final BlockchainSegmentId headBlockchainSegmentId, final FullNodeDatabaseManager databaseManager, final Integer batchSize) throws DatabaseException {
+    protected Integer _maxDownloadAheadDepth = 2048;
+    protected PendingBlockInventory _bestCompletedInventory = null;
+
+    protected List<PendingBlockInventory> _getPendingBlockInventoryBatchForBlockchainSegment(final BlockId nullableHeadBlockId, final BlockchainSegmentId headBlockchainSegmentId, final FullNodeDatabaseManager databaseManager, final Integer batchSize) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final MutableList<BlockDownloader.PendingBlockInventory> pendingBlockInventoryBatch = new MutableList<>();
+        final MutableList<PendingBlockInventory> pendingBlockInventoryBatch = new MutableList<>();
 
         final BlockId headBlockId;
         {
@@ -38,7 +42,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
             else {
                 final Boolean genesisHasAlreadyBeenDownloaded = _blockStore.pendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH);
                 if (! genesisHasAlreadyBeenDownloaded) {
-                    final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(0L, BlockHeader.GENESIS_BLOCK_HASH);
+                    final PendingBlockInventory pendingBlockInventory = new PendingBlockInventory(0L, BlockHeader.GENESIS_BLOCK_HASH, 0L);
                     pendingBlockInventoryBatch.add(pendingBlockInventory);
                 }
                 headBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
@@ -56,12 +60,17 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                 final Long blockHeight = (headBlockHeight + i);
 
+                if (_maxDownloadAheadDepth != null) {
+                    final long downloadAheadDepth = (blockHeight - headBlockHeight);
+                    if (downloadAheadDepth > _maxDownloadAheadDepth) { break; }
+                }
+
                 final Boolean isBlockInvalid = blockHeaderDatabaseManager.isBlockInvalid(blockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
                 if (isBlockInvalid) { break; }
 
                 final Boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
                 if (! pendingBlockExists) {
-                    final BlockDownloader.PendingBlockInventory pendingBlockInventory = new BlockDownloader.PendingBlockInventory(blockHeight, blockHash, null, blockHeight);
+                    final PendingBlockInventory pendingBlockInventory = new PendingBlockInventory(blockHeight, blockHash, blockHeight);
                     pendingBlockInventoryBatch.add(pendingBlockInventory);
                 }
 
@@ -88,11 +97,11 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         return _getStartingBlockIdOfBlockchainSegment(parentBlockchainSegmentId, databaseManager);
     }
 
-    protected List<BlockDownloader.PendingBlockInventory> _getAlternateChainPendingBlockInventoryBatch(final ChainWork minAlternateChainWork, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected List<PendingBlockInventory> _getAlternateChainPendingBlockInventoryBatch(final ChainWork minAlternateChainWork, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final MutableList<BlockDownloader.PendingBlockInventory> nextInventoryBatch = new MutableList<>();
+        final MutableList<PendingBlockInventory> nextInventoryBatch = new MutableList<>();
 
         final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
@@ -107,7 +116,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
             final BlockId startingBlockId = _getStartingBlockIdOfBlockchainSegment(blockchainSegmentId, databaseManager);
 
             final int batchSizeRemaining = (_batchSize - nextInventoryBatch.getCount());
-            final List<BlockDownloader.PendingBlockInventory> blockchainSegmentInventory = _getPendingBlockInventoryBatchForBlockchainSegment(startingBlockId, blockchainSegmentId, databaseManager, batchSizeRemaining);
+            final List<PendingBlockInventory> blockchainSegmentInventory = _getPendingBlockInventoryBatchForBlockchainSegment(startingBlockId, blockchainSegmentId, databaseManager, batchSizeRemaining);
             nextInventoryBatch.addAll(blockchainSegmentInventory);
 
             if (nextInventoryBatch.getCount() >= _batchSize) {
@@ -124,7 +133,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
     }
 
     @Override
-    public List<BlockDownloader.PendingBlockInventory> getNextPendingBlockInventoryBatch() {
+    public List<PendingBlockInventory> getNextPendingBlockInventoryBatch() {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
@@ -136,8 +145,18 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             { // Prioritize downloading the main chain...
-                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                final List<BlockDownloader.PendingBlockInventory> mainChainInventoryBatch = _getPendingBlockInventoryBatchForBlockchainSegment(headBlockId, headBlockchainSegmentId, databaseManager, _batchSize);
+                final BlockId headBlockId;
+                final PendingBlockInventory bestCompletedInventory = _bestCompletedInventory;
+                if (bestCompletedInventory != null) {
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(bestCompletedInventory.blockHash);
+                    final Boolean isStillMainChainBlock = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANY);
+                    headBlockId = (isStillMainChainBlock ? blockId : blockDatabaseManager.getHeadBlockId());
+                }
+                else {
+                    headBlockId = blockDatabaseManager.getHeadBlockId();
+                }
+
+                final List<PendingBlockInventory> mainChainInventoryBatch = _getPendingBlockInventoryBatchForBlockchainSegment(headBlockId, headBlockchainSegmentId, databaseManager, _batchSize);
                 if (! mainChainInventoryBatch.isEmpty()) {
                     return mainChainInventoryBatch;
                 }
@@ -165,5 +184,35 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
             nanoTimer.stop();
             Logger.trace("Determined next BlockDownloader batch in " + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
+    }
+
+    @Override
+    public void markInventoryComplete(final PendingBlockInventory pendingBlockInventory) {
+        final long bestBlockHeight = (_bestCompletedInventory != null ? _bestCompletedInventory.blockHeight : 0L);
+        if (pendingBlockInventory.blockHeight > bestBlockHeight) {
+            try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(pendingBlockInventory.blockHash);
+                final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+
+                final Boolean isMainChainBlock = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+                if (isMainChainBlock) {
+                    _bestCompletedInventory = pendingBlockInventory;
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.debug(exception);
+            }
+        }
+    }
+
+    public void clearInventoryComplete() {
+        _bestCompletedInventory = null;
+    }
+
+    public void setMaxDownloadAheadDepth(final Integer maxDownloadAheadDepth) {
+        _maxDownloadAheadDepth = maxDownloadAheadDepth;
     }
 }

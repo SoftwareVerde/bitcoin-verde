@@ -47,12 +47,12 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, blockStore);
 
         // Action
-        final List<BlockDownloader.PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
+        final List<PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
 
         // Assert
         Assert.assertEquals(1, nextPendingBlockInventoryBatch.getCount());
 
-        final BlockDownloader.PendingBlockInventory pendingBlockInventory = nextPendingBlockInventoryBatch.get(0);
+        final PendingBlockInventory pendingBlockInventory = nextPendingBlockInventoryBatch.get(0);
         Assert.assertEquals(BlockHeader.GENESIS_BLOCK_HASH, pendingBlockInventory.blockHash);
     }
 
@@ -75,7 +75,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, blockStore);
 
         // Action
-        final List<BlockDownloader.PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
+        final List<PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
 
         // Assert
         Assert.assertTrue(nextPendingBlockInventoryBatch.isEmpty());
@@ -139,7 +139,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, blockStore);
 
         // Action
-        final List<BlockDownloader.PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
+        final List<PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
 
         // Assert
         Assert.assertTrue(nextPendingBlockInventoryBatch.isEmpty());
@@ -276,7 +276,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, blockStore);
 
         // Action
-        final List<BlockDownloader.PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
+        final List<PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
 
         // Assert
         Assert.assertEquals(3, nextPendingBlockInventoryBatch.getCount());
