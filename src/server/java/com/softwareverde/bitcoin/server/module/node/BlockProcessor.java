@@ -415,7 +415,13 @@ public class BlockProcessor {
                 undoLogTimer.start();
 
                 final UndoLogCreator undoLogCreator = new UndoLogCreator();
-                undoLogCreator.createUndoLog(blockHeight, block, unspentTransactionOutputContext, databaseConnection);
+                try {
+                    UndoLogCreator.WRITE_LOCK.lock();
+                    undoLogCreator.createUndoLog(blockHeight, block, unspentTransactionOutputContext, databaseConnection);
+                }
+                finally {
+                    UndoLogCreator.WRITE_LOCK.unlock();
+                }
 
                 undoLogTimer.stop();
                 Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");

@@ -303,7 +303,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             }
         }
 
-        { // Check for the amount/script via the pruned_previous_transaction_outputs table (aka the semi- undo-log)...
+        try { // Check for the amount/script via the pruned_previous_transaction_outputs table (aka the semi- undo-log)...
+            UndoLogCreator.READ_LOCK.lock();
+
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query("SELECT amount, locking_script FROM pruned_previous_transaction_outputs WHERE transaction_hash = ? AND `index` = ?")
@@ -316,6 +318,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 final byte[] lockingScriptBytes = row.getBytes("locking_script");
                 return new Tuple<>(amount, lockingScriptBytes);
             }
+        }
+        finally {
+            UndoLogCreator.READ_LOCK.unlock();
         }
 
         { // Attempt to find the amount/script from block flat-file, which may not exist for nodes operating in pruned mode.
@@ -511,11 +516,16 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             nextInsertBatch.clear();
         }
 
-        { // Delete expired pruning/undoLog outputs...
+        try { // Delete expired pruning/undoLog outputs...
+            UndoLogCreator.WRITE_LOCK.lock();
+
             databaseConnection.executeSql(
                 new Query("DELETE FROM pruned_previous_transaction_outputs WHERE expires_after_block_height < ?")
                     .setParameter(newCommittedBlockHeight)
             );
+        }
+        finally {
+            UndoLogCreator.WRITE_LOCK.unlock();
         }
 
         iterationTimer.stop();

@@ -16,11 +16,24 @@ import com.softwareverde.database.DatabaseException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class UndoLogCreator {
+    public static final ReentrantReadWriteLock.WriteLock WRITE_LOCK;
+    public static final ReentrantReadWriteLock.ReadLock READ_LOCK;
+    static {
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        WRITE_LOCK = readWriteLock.writeLock();
+        READ_LOCK = readWriteLock.readLock();
+    }
+
     public static final Integer MAX_REORG_DEPTH = 256;
 
     public void createUndoLog(final Long blockHeight, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DatabaseConnection databaseConnection) throws DatabaseException {
+        if (! UndoLogCreator.WRITE_LOCK.isHeldByCurrentThread()) {
+            throw new DatabaseException("Attempted to create UndoLog without acquiring mutex.");
+        }
+
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
 
