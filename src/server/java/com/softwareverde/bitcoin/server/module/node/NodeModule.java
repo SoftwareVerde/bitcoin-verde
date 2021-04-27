@@ -48,6 +48,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogCreator;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
@@ -183,6 +184,11 @@ public class NodeModule {
     protected final LowMemoryMonitor _lowMemoryMonitor;
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
+
+    protected Long _getUtxoCommitFrequency() {
+        final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
+        return (_bitcoinProperties.isPruningModeEnabled() ? Math.min(UndoLogCreator.MAX_REORG_DEPTH, utxoCommitProperty) : utxoCommitProperty);
+    }
 
     protected void _shutdown() {
         synchronized (_isShuttingDown) {
@@ -612,12 +618,17 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockProcessor...
+            final Long utxoCommitFrequency = _getUtxoCommitFrequency();
+            final Integer maxThreadCount = bitcoinProperties.getMaxThreadCount();
+            final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
+            final Boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
+
             final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory, _upgradeSchedule);
             blockProcessor = new BlockProcessor(blockProcessorContext);
-            blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
-            blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
-            blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
-            blockProcessor.enableUndoLog(bitcoinProperties.isPruningModeEnabled());
+            blockProcessor.setUtxoCommitFrequency(utxoCommitFrequency);
+            blockProcessor.setMaxThreadCount(maxThreadCount);
+            blockProcessor.setTrustedBlockHeight(trustedBlockHeight);
+            blockProcessor.enableUndoLog(pruningModeIsEnabled);
         }
 
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
@@ -1084,7 +1095,7 @@ public class NodeModule {
         );
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
-            final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory, true);
+            final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory);
             if (headersBootstrapper.shouldRun()) {
                 Logger.info("[Bootstrapping Headers]");
                 headersBootstrapper.run();
@@ -1094,10 +1105,7 @@ public class NodeModule {
         { // Validate the UTXO set is up to date...
             Logger.info("[Checking UTXO Set]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-                final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
+                final long utxoCommitFrequency = _getUtxoCommitFrequency();
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
 
                 if (_rebuildUtxoSet) {
