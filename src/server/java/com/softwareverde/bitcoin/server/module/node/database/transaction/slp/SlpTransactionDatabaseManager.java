@@ -28,4 +28,9 @@ public interface SlpTransactionDatabaseManager {
      * Returns a list of (SLP) TransactionIds that have not been validated yet that reside in the mempool.
      */
     List<TransactionId> getUnconfirmedPendingValidationSlpTransactions(Integer maxCount) throws DatabaseException;
+
+    /**
+     * Removes all currently stored SLP validation results and deletes the last SLP-validated block ID property.
+     */
+    void deleteAllSlpValidationResults() throws DatabaseException;
 }

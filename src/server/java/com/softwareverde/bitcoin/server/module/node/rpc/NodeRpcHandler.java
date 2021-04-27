@@ -150,6 +150,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         void setLogLevel(String packageName, String logLevel);
     }
 
+    public interface SlpValidationHandler {
+        Boolean clearAllSlpValidation();
+    }
+
     public interface MetadataHandler {
         void applyMetadataToBlockHeader(Sha256Hash blockHash, Json blockJson);
         void applyMetadataToTransaction(Transaction transaction, Json transactionJson);
@@ -236,6 +240,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
     protected LogLevelSetter _logLevelSetter = null;
+    protected SlpValidationHandler _slpValidationHandler = null;
 
     public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
         this(statisticsContainer, threadPool, new CoreInflater());
@@ -1517,6 +1522,18 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires POST:
+    protected  void _clearSlpValidation(final Json parameters, final Json response) {
+        final SlpValidationHandler slpValidationHandler = _slpValidationHandler;
+        if (slpValidationHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Boolean wasSuccessful = slpValidationHandler.clearAllSlpValidation();
+        response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
+    }
+
     // Requires POST: <host>
     protected void _addIpToWhitelist(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1663,6 +1680,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public void setLogLevelSetter(final LogLevelSetter logLevelSetter) {
         _logLevelSetter = logLevelSetter;
+    }
+
+    public void setSlpValidationHandler(final SlpValidationHandler slpValidationHandler) {
+        _slpValidationHandler = slpValidationHandler;
     }
 
     public void onNewBlock(final BlockHeader block) {
@@ -2047,6 +2068,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "RECONSIDER_BLOCK": {
                                 _reconsiderBlock(parameters, response);
+                            } break;
+
+                            case "CLEAR_SLP_VALIDATION": {
+                                _clearSlpValidation(parameters, response);
                             } break;
 
                             // TODO: Add invalidate-block command (see: feature/invalidate-block/master).

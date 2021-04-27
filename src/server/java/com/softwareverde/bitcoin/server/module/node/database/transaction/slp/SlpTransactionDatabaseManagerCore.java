@@ -9,6 +9,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.util.Util;
 
 import java.util.LinkedHashMap;
@@ -181,5 +182,23 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
     @Override
     public List<TransactionId> getUnconfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
         return _getUnconfirmedPendingValidationSlpTransactions(maxCount);
+    }
+
+    @Override
+    public void deleteAllSlpValidationResults() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        TransactionUtil.startTransaction(databaseConnection);
+
+        databaseConnection.executeSql(
+                new Query("DELETE FROM validated_slp_transactions")
+        );
+
+        databaseConnection.executeSql(
+                new Query("DELETE FROM properties WHERE `key` = ?")
+                        .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+        );
+
+        TransactionUtil.commitTransaction(databaseConnection);
     }
 }

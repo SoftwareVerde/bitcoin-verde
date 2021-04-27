@@ -74,15 +74,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.DisabledBanFilter;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.NodeHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryAddressHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryBlockchainHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcDataHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.ServiceInquisitor;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -914,6 +906,8 @@ public class NodeModule {
                     }
                 };
 
+                final SlpValidationHandler slpValidationHandler = new SlpValidationHandler(databaseManagerFactory);
+
                 rpcSocketServerHandler.setSynchronizationStatusHandler(synchronizationStatusHandler);
                 rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
                 rpcSocketServerHandler.setUtxoCacheHandler(utxoCacheHandler);
@@ -925,6 +919,7 @@ public class NodeModule {
                 rpcSocketServerHandler.setMetadataHandler(metadataHandler);
                 rpcSocketServerHandler.setQueryBlockchainHandler(queryBlockchainHandler);
                 rpcSocketServerHandler.setLogLevelSetter(logLevelSetter);
+                rpcSocketServerHandler.setSlpValidationHandler(slpValidationHandler);
             }
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
