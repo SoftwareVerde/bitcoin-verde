@@ -643,6 +643,7 @@ public class NodeModule {
             final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, _blockStore);
             if (pruningModeIsEnabled) {
                 blockDownloadPlanner.setMaxDownloadAheadDepth(256);
+                blockDownloadPlanner.enableAlternateChainDownload(false);
             }
 
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);

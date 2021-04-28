@@ -107,7 +107,7 @@ CREATE TABLE pruned_previous_transaction_outputs (
     expires_after_block_height INT UNSIGNED NOT NULL,
     amount BIGINT NOT NULL,
     locking_script BLOB NOT NULL,
-    PRIMARY KEY (transaction_hash, `index`, expires_after_block_height),
+    PRIMARY KEY (transaction_hash, `index`),
     INDEX pruned_prevouts_block_height (expires_after_block_height) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 

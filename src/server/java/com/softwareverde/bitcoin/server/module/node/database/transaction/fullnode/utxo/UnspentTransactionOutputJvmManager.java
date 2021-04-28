@@ -516,7 +516,11 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             nextInsertBatch.clear();
         }
 
+        final Long undoLogPruneTime;
         try { // Delete expired pruning/undoLog outputs...
+            final MilliTimer milliTimer = new MilliTimer();
+            milliTimer.start();
+
             UndoLogCreator.WRITE_LOCK.lock();
 
             databaseConnection.executeSql(
@@ -536,6 +540,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             databaseConnection.executeSql(
                 new Query("CALL ROTATE_PRUNED_PREVIOUS_TRANSACTION_OUTPUTS")
             );
+
+            milliTimer.stop();
+            undoLogPruneTime = milliTimer.getMillisecondsElapsed();
         }
         finally {
             UndoLogCreator.WRITE_LOCK.unlock();
@@ -551,6 +558,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             ", onDiskInsertExecutionTime=" + onDiskInsertExecutionTime +
             ", onDiskInsertItemCount=" + onDiskInsertItemCount +
             ", onDiskInsertBatchCount=" + onDiskInsertBatchCount +
+            ", undoLogPruneTimer=" + undoLogPruneTime +
             ", totalTimeWaited=" + totalTimeWaited
         );
 
