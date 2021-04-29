@@ -92,6 +92,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndex
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloadPlannerCore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockPruner;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
@@ -630,6 +631,14 @@ public class NodeModule {
             blockProcessor.enableUndoLog(pruningModeIsEnabled);
         }
 
+        final BlockPruner blockPruner;
+        if (pruningModeIsEnabled) {
+            blockPruner = new BlockPruner(databaseManagerFactory, _blockStore);
+        }
+        else {
+            blockPruner = null;
+        }
+
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
             final BitcoinNodeBlockInventoryTracker blockInventoryTracker = new BitcoinNodeBlockInventoryTracker();
 
@@ -755,25 +764,8 @@ public class NodeModule {
                         nodeRpcHandler.onNewBlock(block);
                     }
 
-                    if (bitcoinProperties.isPruningModeEnabled()) { // Handle Block Pruning...
-                        final long prunedBlockHeight = (blockHeight - 288L);
-                        if (prunedBlockHeight >= 1L) {
-                            try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                                // TODO: delete all blocks at the old height, regardless of blockchain segment.
-                                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-
-                                final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-                                final BlockId prunedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, prunedBlockHeight);
-                                final Sha256Hash prunedBlockHash = blockHeaderDatabaseManager.getBlockHash(prunedBlockId);
-
-                                _blockStore.removeBlock(prunedBlockHash, prunedBlockHeight);
-                                Logger.info("Pruned Block: " + prunedBlockHash);
-                            }
-                            catch (final DatabaseException exception) {
-                                Logger.debug(exception);
-                            }
-                        }
+                    if (pruningModeIsEnabled) { // Handle Block Pruning...
+                        blockPruner.pruneBlocks();
                     }
                 }
             });

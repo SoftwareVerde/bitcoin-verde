@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -31,7 +32,7 @@ public class UndoLogDatabaseManager {
         READ_LOCK = readWriteLock.readLock();
     }
 
-    public static final Integer MAX_REORG_DEPTH = 256;
+    public static final Integer MAX_REORG_DEPTH = 288;
 
     protected final DatabaseManager _databaseManager;
 
@@ -85,6 +86,7 @@ public class UndoLogDatabaseManager {
 
             final TransactionOutput transactionOutput = outputs.get(outputIndex);
             transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+            utxoBlockHeights.put(transactionOutputIdentifier, blockHeight);
         }
 
         if (transactionOutputs.isEmpty()) { return; } // Block contains only its coinbase...
@@ -102,13 +104,14 @@ public class UndoLogDatabaseManager {
 
             final Long amount = transactionOutput.getAmount();
             final LockingScript lockingScript = transactionOutput.getLockingScript();
+            final ByteArray lockingScriptBytes = lockingScript.getBytes();
 
             query.setParameter(transactionHash);
             query.setParameter(outputIndex);
             query.setParameter(utxoBlockHeight);
-            query.setParameter(expiresAfterBlockHeight);
             query.setParameter(amount);
-            query.setParameter(lockingScript.getBytes());
+            query.setParameter(lockingScriptBytes);
+            query.setParameter(expiresAfterBlockHeight);
         }
 
         databaseConnection.executeSql(query);
