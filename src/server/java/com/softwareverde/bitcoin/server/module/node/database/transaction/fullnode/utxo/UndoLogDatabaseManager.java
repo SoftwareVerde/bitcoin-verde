@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -13,12 +15,14 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.logging.Logger;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class UndoLogCreator {
+public class UndoLogDatabaseManager {
     public static final ReentrantReadWriteLock.WriteLock WRITE_LOCK;
     public static final ReentrantReadWriteLock.ReadLock READ_LOCK;
     static {
@@ -29,11 +33,9 @@ public class UndoLogCreator {
 
     public static final Integer MAX_REORG_DEPTH = 256;
 
-    public void createUndoLog(final Long blockHeight, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DatabaseConnection databaseConnection) throws DatabaseException {
-        if (! UndoLogCreator.WRITE_LOCK.isHeldByCurrentThread()) {
-            throw new DatabaseException("Attempted to create UndoLog without acquiring mutex.");
-        }
+    protected final DatabaseManager _databaseManager;
 
+    protected void _createUndoLog(final Long blockHeight, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext, final DatabaseConnection databaseConnection) throws DatabaseException {
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
 
@@ -83,7 +85,7 @@ public class UndoLogCreator {
 
         if (transactionOutputs.isEmpty()) { return; } // Block contains only its coinbase...
 
-        final Long expiresAfterBlockHeight = (blockHeight + UndoLogCreator.MAX_REORG_DEPTH);
+        final Long expiresAfterBlockHeight = (blockHeight + UndoLogDatabaseManager.MAX_REORG_DEPTH);
 
         final BatchedInsertQuery query = new BatchedInsertQuery("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, expires_after_block_height, amount, locking_script) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE expires_after_block_height = GREATEST(VALUES(expires_after_block_height), expires_after_block_height);");
         for (Map.Entry<TransactionOutputIdentifier, TransactionOutput> transactionOutputEntry : transactionOutputs.entrySet()) {
@@ -104,5 +106,74 @@ public class UndoLogCreator {
         }
 
         databaseConnection.executeSql(query);
+    }
+
+    protected void _clearExpiredPrunedOutputs(final Long committedBlockHeight, final DatabaseConnection databaseConnection) throws DatabaseException {
+        // Delete expired pruning/undoLog outputs...
+        final MilliTimer milliTimer = new MilliTimer();
+        milliTimer.start();
+
+        // final java.util.List<Row> heightRows = databaseConnection.query(
+        //     new Query("SELECT DISTINCT expires_after_block_height FROM pruned_previous_transaction_outputs WHERE expires_after_block_height >= ? ORDER BY expires_after_block_height ASC")
+        //         .setParameter(committedBlockHeight)
+        // );
+        // for (final Row row : heightRows) {
+        //     final Long blockHeight = row.getLong("expires_after_block_height");
+        //
+        //     databaseConnection.executeSql(
+        //         new Query("INSERT INTO pruned_previous_transaction_outputs_buffer SELECT * FROM pruned_previous_transaction_outputs WHERE expires_after_block_height = ?")
+        //             .setParameter(blockHeight)
+        //     );
+        // }
+        databaseConnection.executeSql(
+            new Query("INSERT INTO pruned_previous_transaction_outputs_buffer SELECT * FROM pruned_previous_transaction_outputs WHERE expires_after_block_height >= ?")
+                .setParameter(committedBlockHeight)
+        );
+
+        // NOTICE: The method of table rotation and truncation causes an implicit database commit.
+
+        // databaseConnection.executeDdl(
+        //     new Query("RENAME TABLE pruned_previous_transaction_outputs TO pruned_previous_transaction_outputs2, pruned_previous_transaction_outputs_buffer TO pruned_previous_transaction_outputs, pruned_previous_transaction_outputs2 TO pruned_previous_transaction_outputs_buffer")
+        //         .setParameter(newCommittedBlockHeight)
+        // );
+        //
+        // databaseConnection.executeDdl(
+        //     new Query("TRUNCATE TABLE pruned_previous_transaction_outputs_buffer")
+        //         .setParameter(newCommittedBlockHeight)
+        // );
+        databaseConnection.executeSql(
+            new Query("CALL ROTATE_PRUNED_PREVIOUS_TRANSACTION_OUTPUTS")
+        );
+
+        milliTimer.stop();
+        Logger.trace("Cleared expired pruned outputs in " + milliTimer.getMillisecondsElapsed() + "ms.");
+    }
+
+    public UndoLogDatabaseManager(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
+    }
+
+    public void createUndoLog(final Long blockHeight, final Block block, final UnspentTransactionOutputContext unspentTransactionOutputContext) throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            _createUndoLog(blockHeight, block, unspentTransactionOutputContext, databaseConnection);
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
+    public void clearExpiredPrunedOutputs(final Long committedBlockHeight) throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            _clearExpiredPrunedOutputs(committedBlockHeight, databaseConnection);
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 }

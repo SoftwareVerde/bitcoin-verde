@@ -48,7 +48,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogCreator;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
@@ -187,7 +187,7 @@ public class NodeModule {
 
     protected Long _getUtxoCommitFrequency() {
         final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
-        return (_bitcoinProperties.isPruningModeEnabled() ? Math.min(UndoLogCreator.MAX_REORG_DEPTH, utxoCommitProperty) : utxoCommitProperty);
+        return (_bitcoinProperties.isPruningModeEnabled() ? Math.min(UndoLogDatabaseManager.MAX_REORG_DEPTH, utxoCommitProperty) : utxoCommitProperty);
     }
 
     protected void _shutdown() {

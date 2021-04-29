@@ -10,16 +10,16 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.JvmSpentState;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UnspentTransactionOutput;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.Utxo;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UtxoKey;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.jvm.UtxoValue;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -304,7 +304,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         }
 
         try { // Check for the amount/script via the pruned_previous_transaction_outputs table (aka the semi- undo-log)...
-            UndoLogCreator.READ_LOCK.lock();
+            UndoLogDatabaseManager.READ_LOCK.lock();
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final java.util.List<Row> rows = databaseConnection.query(
@@ -320,7 +320,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             }
         }
         finally {
-            UndoLogCreator.READ_LOCK.unlock();
+            UndoLogDatabaseManager.READ_LOCK.unlock();
         }
 
         { // Attempt to find the amount/script from block flat-file, which may not exist for nodes operating in pruned mode.
@@ -418,9 +418,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final AtomicLong onDiskInsertExecutionTime = new AtomicLong(0L);
         final AtomicInteger onDiskInsertItemCount = new AtomicInteger(0);
         final AtomicInteger onDiskInsertBatchCount = new AtomicInteger(0);
-        final BatchRunner.Batch<UnspentTransactionOutput> onDiskUtxoInsertBatch = new BatchRunner.Batch<UnspentTransactionOutput>() {
+        final BatchRunner.Batch<Utxo> onDiskUtxoInsertBatch = new BatchRunner.Batch<Utxo>() {
             @Override
-            public void run(final List<UnspentTransactionOutput> batchItems) throws Exception {
+            public void run(final List<Utxo> batchItems) throws Exception {
                 onDiskInsertBatchCount.incrementAndGet();
 
                 // NOTE: block_height is currently unused, however the field could become useful during re-loading UTXOs
@@ -428,7 +428,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
                 // NOTE: resetting the amount on a duplicate key is required in order to undo a block that has been committed to disk.
                 final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
-                for (final UnspentTransactionOutput unspentTransactionOutput : batchItems) {
+                for (final Utxo unspentTransactionOutput : batchItems) {
                     onDiskInsertItemCount.incrementAndGet();
 
                     final long blockHeight = unspentTransactionOutput.getBlockHeight();
@@ -456,7 +456,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final Iterator<Map.Entry<UtxoKey, UtxoValue>> iterator = DOUBLE_BUFFER.entrySet().iterator();
 
         final MutableList<UtxoKey> nextDeleteBatch = new MutableList<UtxoKey>(maxUtxoPerBatch);
-        final MutableList<UnspentTransactionOutput> nextInsertBatch = new MutableList<UnspentTransactionOutput>(maxUtxoPerBatch);
+        final MutableList<Utxo> nextInsertBatch = new MutableList<Utxo>(maxUtxoPerBatch);
 
         while (iterator.hasNext()) {
             final Map.Entry<UtxoKey, UtxoValue> entry = iterator.next();
@@ -471,7 +471,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             }
             else {
                 // Insert the unspent UTXO to disk.
-                final UnspentTransactionOutput unspentTransactionOutput = new UnspentTransactionOutput(utxoKey, utxoValue);
+                final Utxo unspentTransactionOutput = new Utxo(utxoKey, utxoValue);
                 nextInsertBatch.add(unspentTransactionOutput);
             }
 
@@ -516,38 +516,6 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             nextInsertBatch.clear();
         }
 
-        final Long undoLogPruneTime;
-        try { // Delete expired pruning/undoLog outputs...
-            final MilliTimer milliTimer = new MilliTimer();
-            milliTimer.start();
-
-            UndoLogCreator.WRITE_LOCK.lock();
-
-            databaseConnection.executeSql(
-                new Query("INSERT INTO pruned_previous_transaction_outputs_buffer SELECT * FROM pruned_previous_transaction_outputs WHERE expires_after_block_height >= ?")
-                    .setParameter(newCommittedBlockHeight)
-            );
-
-            // databaseConnection.executeDdl(
-            //     new Query("RENAME TABLE pruned_previous_transaction_outputs TO pruned_previous_transaction_outputs2, pruned_previous_transaction_outputs_buffer TO pruned_previous_transaction_outputs, pruned_previous_transaction_outputs2 TO pruned_previous_transaction_outputs_buffer")
-            //         .setParameter(newCommittedBlockHeight)
-            // );
-            //
-            // databaseConnection.executeDdl(
-            //     new Query("TRUNCATE TABLE pruned_previous_transaction_outputs_buffer")
-            //         .setParameter(newCommittedBlockHeight)
-            // );
-            databaseConnection.executeSql(
-                new Query("CALL ROTATE_PRUNED_PREVIOUS_TRANSACTION_OUTPUTS")
-            );
-
-            milliTimer.stop();
-            undoLogPruneTime = milliTimer.getMillisecondsElapsed();
-        }
-        finally {
-            UndoLogCreator.WRITE_LOCK.unlock();
-        }
-
         iterationTimer.stop();
 
         Logger.trace(
@@ -558,7 +526,6 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             ", onDiskInsertExecutionTime=" + onDiskInsertExecutionTime +
             ", onDiskInsertItemCount=" + onDiskInsertItemCount +
             ", onDiskInsertBatchCount=" + onDiskInsertBatchCount +
-            ", undoLogPruneTimer=" + undoLogPruneTime +
             ", totalTimeWaited=" + totalTimeWaited
         );
 
@@ -578,6 +545,29 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         // usage, it is useful to ensure a collection after the double-buffer is cleared, particularly in cases when
         // periodic calls to gc aren't schedule (i.e. initial node boot).
         System.gc();
+    }
+
+    protected void _startClearExpiredPrunedOutputsThread(final Long committedUtxoBlockHeight, final DatabaseManagerFactory databaseManagerFactory) {
+        final Thread thread = (new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                    final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
+                    undoLogDatabaseManager.clearExpiredPrunedOutputs(committedUtxoBlockHeight);
+                }
+                catch (final Exception exception) {
+                    Logger.debug("Unable to clear expired pruned outputs.", exception);
+                }
+            }
+        }));
+        thread.setName("PrunedOutputsCleanupThread");
+        thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                Logger.debug(exception);
+            }
+        });
+        thread.start();
     }
 
     protected Boolean _commitUnspentTransactionOutputs(final DatabaseManagerFactory databaseManagerFactory, final CommitAsyncMode commitAsyncMode) throws DatabaseException {
@@ -621,6 +611,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                             TransactionUtil.startTransaction(databaseConnection);
                             UnspentTransactionOutputJvmManager.commitDoubleBufferedUnspentTransactionOutputs(newCommittedBlockHeight, databaseManager);
                             TransactionUtil.commitTransaction(databaseConnection);
+
+                            _startClearExpiredPrunedOutputsThread(newCommittedBlockHeight, databaseManagerFactory);
                         }
                         catch (final Exception exception) {
                             _invalidateUncommittedUtxoSet();
@@ -821,7 +813,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     }
 
     @Override
-    public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+    public UnspentTransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         if (UnspentTransactionOutputJvmManager.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
@@ -834,6 +826,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             if (utxoValue != null) {
                 final JvmSpentState spentState = utxoValue.getSpentState();
                 if (spentState.isSpent()) { return null; }
+                return UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, utxoValue);
             }
             else { // Possible cache miss
                 // Check the double-buffer before checking disk...
@@ -844,12 +837,13 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 if (doubleBufferedUtxoValue != null) {
                     final JvmSpentState spentState = doubleBufferedUtxoValue.getSpentState();
                     if (spentState.isSpent()) { return null; }
+                    return UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, doubleBufferedUtxoValue);
                 }
                 else {
                     // check the committed set for the UTXO.
                     final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
                     final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT amount FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
+                        new Query("SELECT amount, locking_script, block_height FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
                             .setParameter(transactionHash)
                             .setParameter(outputIndex)
                     );
@@ -859,6 +853,19 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     final Row row = rows.get(0);
                     final Long amount = row.getLong("amount");
                     if (amount < 0L) { return null; }
+
+                    final Long blockHeight = row.getLong("block_height");
+                    final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+
+                    final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
+                    {
+                        transactionOutput.setIndex(outputIndex);
+                        transactionOutput.setAmount(amount);
+                        transactionOutput.setLockingScript(lockingScript);
+                        transactionOutput.setBlockHeight(blockHeight);
+                    }
+
+                    return transactionOutput;
                 }
             }
         }
@@ -868,33 +875,22 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         finally {
             UTXO_READ_MUTEX.unlock();
         }
-
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-        if (transactionId == null) { return null; }
-
-        final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-        if (transaction == null) { return null; }
-
-        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        if (outputIndex >= transactionOutputs.getCount()) { return null; }
-
-        return transactionOutputs.get(outputIndex);
     }
 
-    protected static TransactionOutput inflateTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final UtxoValue utxoValue) {
+    protected static UnspentTransactionOutput inflateTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final UtxoValue utxoValue) {
         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+        final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
         transactionOutput.setAmount(utxoValue.amount);
         transactionOutput.setLockingScript(ByteArray.wrap(utxoValue.lockingScript));
         transactionOutput.setIndex(outputIndex);
+        transactionOutput.setBlockHeight(utxoValue.blockHeight);
         return transactionOutput;
     }
 
     @Override
-    public List<TransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
+    public List<UnspentTransactionOutput> getUnspentTransactionOutputs(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
         if (UnspentTransactionOutputJvmManager.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
-        if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<TransactionOutput>(0); }
+        if (transactionOutputIdentifiers.isEmpty()) { return new MutableList<>(0); }
 
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final int transactionOutputIdentifierCount = transactionOutputIdentifiers.getCount();
@@ -902,10 +898,14 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         final MutableList<TransactionOutputIdentifier> cacheMissIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
         final HashSet<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionOutputIdentifierCount);
 
-        final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputs = new HashMap<>();
+        final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> transactionOutputs = new HashMap<>();
 
         UTXO_READ_MUTEX.lock();
         try {
+            final NanoTimer cacheTimer = new NanoTimer();
+            cacheTimer.start();
+
+            int cacheHitCount = 0;
             { // Only return outputs that are in the UTXO set...
                 for (TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                     final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
@@ -915,8 +915,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         if (! spentState.isSpent()) {
                             unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
 
-                            final TransactionOutput transactionOutput = UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, utxoValue);
+                            final UnspentTransactionOutput transactionOutput = UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, utxoValue);
                             transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+                            cacheHitCount += 1;
                         }
                     }
                     else { // Possible cache miss...
@@ -930,8 +931,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                             if (! spentState.isSpent()) {
                                 unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
 
-                                final TransactionOutput transactionOutput = UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, doubleBufferedUtxoValue);
+                                final UnspentTransactionOutput transactionOutput = UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, doubleBufferedUtxoValue);
                                 transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+                                cacheHitCount += 1;
                             }
                         }
                         else { // Queue for disk lookup.
@@ -940,6 +942,13 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     }
                 }
             }
+            cacheTimer.stop();
+            Logger.trace("getUnspentTransactionOutputs " + cacheHitCount + " from cache in " + cacheTimer.getMillisecondsElapsed() + "ms.");
+
+            final NanoTimer diskTimer = new NanoTimer();
+            diskTimer.start();
+
+            int diskHitCount = 0;
             { // Load UTXOs that weren't in the memory-cache but are in the greater UTXO set on disk...
                 final int cacheMissCount = cacheMissIdentifiers.getCount();
                 if (cacheMissCount > 0) {
@@ -951,7 +960,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         @Override
                         public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {
                             rows.addAll(databaseConnection.query(
-                                new Query("SELECT transaction_hash, `index`, amount, locking_script FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND amount >= 0")
+                                new Query("SELECT transaction_hash, `index`, amount, locking_script, block_height FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?) AND amount >= 0")
                                     .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
                             ));
                         }
@@ -961,38 +970,53 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         final Integer outputIndex = row.getInteger("index");
                         final Long amount = row.getLong("amount");
                         final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+                        final Long blockHeight = row.getLong("block_height");
 
                         final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
                         unspentTransactionOutputIdentifiers.add(transactionOutputIdentifier);
 
-                        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+                        final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
                         {
                             transactionOutput.setIndex(outputIndex);
                             transactionOutput.setAmount(amount);
                             transactionOutput.setLockingScript(lockingScript);
+                            transactionOutput.setBlockHeight(blockHeight);
                         }
 
                         transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+                        diskHitCount += 1;
                     }
                 }
             }
+
+            cacheTimer.stop();
+            Logger.trace("getUnspentTransactionOutputs " + diskHitCount + " from disk in " + diskTimer.getMillisecondsElapsed() + "ms.");
         }
         finally {
             UTXO_READ_MUTEX.unlock();
         }
 
-        final ImmutableListBuilder<TransactionOutput> transactionOutputsBuilder = new ImmutableListBuilder<TransactionOutput>(transactionOutputIdentifierCount);
+        final NanoTimer nanoTimer = new NanoTimer();
+        nanoTimer.start();
+
+        final ImmutableListBuilder<UnspentTransactionOutput> transactionOutputsBuilder = new ImmutableListBuilder<>(transactionOutputIdentifierCount);
         for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
             if (! unspentTransactionOutputIdentifiers.contains(transactionOutputIdentifier)) {
                 transactionOutputsBuilder.add(null);
                 continue;
             }
 
-            final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIdentifier);
+            final UnspentTransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIdentifier);
             transactionOutputsBuilder.add(transactionOutput);
         }
 
-        return transactionOutputsBuilder.build();
+        try {
+            return transactionOutputsBuilder.build();
+        }
+        finally {
+            nanoTimer.stop();
+            Logger.trace("getUnspentTransactionOutputs list overhead: " + nanoTimer.getMillisecondsElapsed() + "ms");
+        }
     }
 
     @Override
