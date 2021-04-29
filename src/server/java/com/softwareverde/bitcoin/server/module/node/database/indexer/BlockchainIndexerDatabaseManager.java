@@ -22,4 +22,6 @@ public interface BlockchainIndexerDatabaseManager {
 
     void indexTransactionOutputs(List<TransactionId> transactionIds, List<Integer> outputIndexes, List<Long> amounts, List<ScriptType> scriptTypes, List<Address> addresses, List<TransactionId> slpTransactionIds, List<ByteArray> memoActionTypes, List<ByteArray> memoActionIdentifiers) throws DatabaseException;
     void indexTransactionInputs(List<TransactionId> transactionIds, List<Integer> inputIndexes, List<TransactionOutputId> transactionOutputIds) throws DatabaseException;
+
+    void deleteTransactionIndexes() throws DatabaseException;
 }

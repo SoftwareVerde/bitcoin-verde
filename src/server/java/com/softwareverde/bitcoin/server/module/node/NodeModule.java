@@ -906,7 +906,7 @@ public class NodeModule {
                     }
                 };
 
-                final SlpValidationHandler slpValidationHandler = new SlpValidationHandler(databaseManagerFactory);
+                final RpcIndexerHandler slpValidationHandler = new RpcIndexerHandler(databaseManagerFactory);
 
                 rpcSocketServerHandler.setSynchronizationStatusHandler(synchronizationStatusHandler);
                 rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
@@ -919,7 +919,7 @@ public class NodeModule {
                 rpcSocketServerHandler.setMetadataHandler(metadataHandler);
                 rpcSocketServerHandler.setQueryBlockchainHandler(queryBlockchainHandler);
                 rpcSocketServerHandler.setLogLevelSetter(logLevelSetter);
-                rpcSocketServerHandler.setSlpValidationHandler(slpValidationHandler);
+                rpcSocketServerHandler.setIndexerHandler(slpValidationHandler);
             }
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);

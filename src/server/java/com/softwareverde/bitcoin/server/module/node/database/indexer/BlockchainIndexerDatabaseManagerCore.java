@@ -29,6 +29,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.query.parameter.InClauseParameter;
 import com.softwareverde.database.query.parameter.TypedParameter;
 import com.softwareverde.database.row.Row;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
@@ -429,5 +430,25 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
                 databaseConnection.executeSql(batchedInsertQuery);
             }
         });
+    }
+
+    @Override
+    public void deleteTransactionIndexes() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        TransactionUtil.startTransaction(databaseConnection);
+
+        databaseConnection.executeSql(
+                new Query("DELETE FROM indexed_transaction_outputs")
+        );
+        databaseConnection.executeSql(
+                new Query("DELETE FROM indexed_transaction_inputs")
+        );
+        databaseConnection.executeSql(
+                new Query("DELETE FROM properties WHERE `key` = ?")
+                        .setParameter(LAST_INDEXED_TRANSACTION_KEY)
+        );
+
+        TransactionUtil.commitTransaction(databaseConnection);
     }
 }

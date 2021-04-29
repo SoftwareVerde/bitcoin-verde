@@ -150,7 +150,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         void setLogLevel(String packageName, String logLevel);
     }
 
-    public interface SlpValidationHandler {
+    public interface IndexerHandler {
+        Boolean clearTransactionIndexes();
         Boolean clearAllSlpValidation();
     }
 
@@ -240,7 +241,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
     protected LogLevelSetter _logLevelSetter = null;
-    protected SlpValidationHandler _slpValidationHandler = null;
+    protected IndexerHandler _indexerHandler = null;
 
     public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
         this(statisticsContainer, threadPool, new CoreInflater());
@@ -1523,14 +1524,26 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires POST:
-    protected  void _clearSlpValidation(final Json parameters, final Json response) {
-        final SlpValidationHandler slpValidationHandler = _slpValidationHandler;
-        if (slpValidationHandler == null) {
+    protected  void _clearTransactionIndexes(final Json parameters, final Json response) {
+        final IndexerHandler indexerHandler = _indexerHandler;
+        if (indexerHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
             return;
         }
 
-        final Boolean wasSuccessful = slpValidationHandler.clearAllSlpValidation();
+        final Boolean wasSuccessful = indexerHandler.clearTransactionIndexes();
+        response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
+    }
+
+    // Requires POST:
+    protected  void _clearSlpValidation(final Json parameters, final Json response) {
+        final IndexerHandler indexerHandler = _indexerHandler;
+        if (indexerHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Boolean wasSuccessful = indexerHandler.clearAllSlpValidation();
         response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
     }
 
@@ -1682,8 +1695,8 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         _logLevelSetter = logLevelSetter;
     }
 
-    public void setSlpValidationHandler(final SlpValidationHandler slpValidationHandler) {
-        _slpValidationHandler = slpValidationHandler;
+    public void setIndexerHandler(final IndexerHandler indexerHandler) {
+        _indexerHandler = indexerHandler;
     }
 
     public void onNewBlock(final BlockHeader block) {
@@ -2068,6 +2081,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "RECONSIDER_BLOCK": {
                                 _reconsiderBlock(parameters, response);
+                            } break;
+
+                            case "CLEAR_TRANSACTION_INDEXES": {
+                                _clearTransactionIndexes(parameters, response);
                             } break;
 
                             case "CLEAR_SLP_VALIDATION": {
