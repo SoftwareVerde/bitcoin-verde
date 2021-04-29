@@ -446,12 +446,7 @@ public class BlockProcessor {
                 transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory, _maxThreadCount);
                 final boolean transactionsStoredSuccessfully = (transactionIds != null);
 
-                if (transactionsStoredSuccessfully) {
-                    blockStore.storeBlock(block, blockHeight);
-                }
-                else {
-                    blockStore.removeBlock(blockHash, blockHeight);
-
+                if (! transactionsStoredSuccessfully) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
                     return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");

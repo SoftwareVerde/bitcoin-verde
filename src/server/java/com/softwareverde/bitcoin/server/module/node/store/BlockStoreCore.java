@@ -117,6 +117,12 @@ public class BlockStoreCore implements BlockStore {
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         final ByteArray byteArray = blockDeflater.toBytes(block);
 
+        if (Logger.isTraceEnabled()) {
+            if (IoUtil.fileExists(blockPath)) {
+                Logger.trace("Overwriting existing block: " + blockHash, new Exception());
+            }
+        }
+
         return IoUtil.putFileContents(blockPath, byteArray);
     }
 
