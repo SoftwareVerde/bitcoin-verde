@@ -42,6 +42,7 @@ public class UndoLogDatabaseManager {
         final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputs = new HashMap<>();
         final MutableList<TransactionOutputIdentifier> missingPreviousOutputs = new MutableList<>();
         final HashMap<Sha256Hash, Transaction> blockTransactions = new HashMap<>(transactionCount);
+        final HashMap<TransactionOutputIdentifier, Long> utxoBlockHeights = new HashMap<>();
 
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
@@ -61,7 +62,10 @@ public class UndoLogDatabaseManager {
                     continue;
                 }
 
+                final Long utxoBlockHeight = unspentTransactionOutputContext.getBlockHeight(transactionOutputIdentifier);
+
                 transactionOutputs.put(transactionOutputIdentifier, unspentTransactionOutput);
+                utxoBlockHeights.put(transactionOutputIdentifier, utxoBlockHeight);
             }
         }
 
@@ -87,10 +91,11 @@ public class UndoLogDatabaseManager {
 
         final Long expiresAfterBlockHeight = (blockHeight + UndoLogDatabaseManager.MAX_REORG_DEPTH);
 
-        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, expires_after_block_height, amount, locking_script) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE expires_after_block_height = GREATEST(VALUES(expires_after_block_height), expires_after_block_height);");
+        final BatchedInsertQuery query = new BatchedInsertQuery("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script, expires_after_block_height) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE block_height = VALUES(block_height), expires_after_block_height = GREATEST(VALUES(expires_after_block_height), expires_after_block_height)");
         for (Map.Entry<TransactionOutputIdentifier, TransactionOutput> transactionOutputEntry : transactionOutputs.entrySet()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputEntry.getKey();
             final TransactionOutput transactionOutput = transactionOutputEntry.getValue();
+            final Long utxoBlockHeight = utxoBlockHeights.get(transactionOutputIdentifier);
 
             final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
             final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -100,6 +105,7 @@ public class UndoLogDatabaseManager {
 
             query.setParameter(transactionHash);
             query.setParameter(outputIndex);
+            query.setParameter(utxoBlockHeight);
             query.setParameter(expiresAfterBlockHeight);
             query.setParameter(amount);
             query.setParameter(lockingScript.getBytes());

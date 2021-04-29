@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 public class UtxoValue {
 
-    public static final long UNKNOWN_BLOCK_HEIGHT = -1L;
+    public static final long UNKNOWN_BLOCK_HEIGHT = -1L; // Sentinel value for Utxo's with an unknown block height; this state is only possible if the UTXO has been spent.
     public static final long SPENT_AMOUNT = -1L;
 
     public final int spentStateCode;
