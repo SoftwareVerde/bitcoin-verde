@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -430,7 +429,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             public void run(final List<UtxoKey> unspentTransactionOutputs) throws Exception {
                 onDiskDeleteBatchCount.incrementAndGet();
 
-                final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET amount = -1 WHERE (transaction_hash, `index`) IN (?)");
+                // final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET amount = -1 WHERE (transaction_hash, `index`) IN (?)");
+                final Query query = new Query("DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)");
                 query.setInClauseParameters(unspentTransactionOutputs, new ValueExtractor<UtxoKey>() {
                     @Override
                     public InClauseParameter extractValues(final UtxoKey value) {
@@ -1153,11 +1153,16 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
         UTXO_WRITE_MUTEX.lock();
         try {
+            final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-            final FullNodeBlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
             final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
-            BlockId blockId = blockDatabaseManager.getHeadBlockId();
+            final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final Long committedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+
+            final int blockBatchCount = 12;
+
+            BlockId nextBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, committedBlockHeight);
             final int maxKeepCount = (int) (_maxUtxoCount * (1.0D - _purgePercent));
             long maxRemainingCount = maxKeepCount;
 
@@ -1165,9 +1170,18 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
 
+                final MutableList<BlockId> blockIds = new MutableList<>();
+                for (int i = 0; i < blockBatchCount; ++i) {
+                    blockIds.add(nextBlockId);
+
+                    nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
+                    if (nextBlockId == null) { break; }
+                }
+                if (blockIds.isEmpty()) { break; }
+
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT committed_unspent_transaction_outputs.transaction_hash, committed_unspent_transaction_outputs.`index`, committed_unspent_transaction_outputs.amount, committed_unspent_transaction_outputs.locking_script, committed_unspent_transaction_outputs.block_height FROM committed_unspent_transaction_outputs INNER JOIN transactions ON transactions.hash = committed_unspent_transaction_outputs.transaction_hash INNER JOIN block_transactions ON block_transactions.transaction_id = transactions.id WHERE block_transactions.block_id = ? AND committed_unspent_transaction_outputs.amount > 0 LIMIT " + maxRemainingCount)
-                        .setParameter(blockId)
+                    new Query("SELECT committed_unspent_transaction_outputs.transaction_hash, committed_unspent_transaction_outputs.`index`, committed_unspent_transaction_outputs.amount, committed_unspent_transaction_outputs.locking_script, committed_unspent_transaction_outputs.block_height FROM committed_unspent_transaction_outputs INNER JOIN transactions ON transactions.hash = committed_unspent_transaction_outputs.transaction_hash INNER JOIN block_transactions ON block_transactions.transaction_id = transactions.id WHERE block_transactions.block_id IN (?) AND committed_unspent_transaction_outputs.amount > 0 ORDER BY committed_unspent_transaction_outputs.block_height DESC LIMIT " + maxRemainingCount)
+                        .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
                 );
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
@@ -1196,11 +1210,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     UTXO_SET.putIfAbsent(newUtxoKey, newUtxoValue);
                     maxRemainingCount -= 1;
                 }
-                blockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
-                if (blockId == null) { break; }
 
                 nanoTimer.stop();
-                Logger.trace("Populated " + rows.size() + " UTXOs in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                Logger.trace("Populated " + rows.size() + " UTXOs in " + nanoTimer.getMillisecondsElapsed() + "ms, " + maxRemainingCount + " remaining.");
             }
         }
         finally {

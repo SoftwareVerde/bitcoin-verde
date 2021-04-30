@@ -23,6 +23,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
@@ -40,6 +42,7 @@ import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockchainBuilder extends GracefulSleepyService {
     public interface Context extends MultiConnectionFullDatabaseContext, ThreadPoolContext, BlockInflaters, NodeManagerContext, SystemTimeContext { }
@@ -58,6 +61,23 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
+
+    protected void _checkUtxoSet(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        if (! UnspentTransactionOutputDatabaseManager.isUtxoCacheReady()) {
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
+            Logger.info("Rebuilding UTXO set.");
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
+
+            final Long utxoCommitFrequency = _blockProcessor.getUtxoCommitFrequency();
+            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
+            unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);
+
+            nanoTimer.stop();
+            Logger.trace("Rebuilt UTXO set in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+        }
+    }
 
     /**
      * Stores and validates the pending Block.
@@ -258,6 +278,8 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash, 1);
                 return false;
             }
+
+            _checkUtxoSet(databaseManager);
 
             final Boolean processBlockWasSuccessful = _processPendingBlock(block);
 

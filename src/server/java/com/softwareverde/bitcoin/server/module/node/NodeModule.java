@@ -1070,14 +1070,6 @@ public class NodeModule {
                 Logger.warn(exception);
             }
         });
-
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            unspentTransactionOutputDatabaseManager.populateCache();
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
     }
 
     public void loop() {
@@ -1127,6 +1119,20 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);
+
+                _shutdown();
+                System.exit(1);
+            }
+        }
+
+        { // Warm up the UTXO cache...
+            Logger.info("[Warming UTXO Cache]");
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                unspentTransactionOutputDatabaseManager.populateCache();
+            }
+            catch (final DatabaseException exception) {
+                Logger.warn(exception);
             }
         }
 
