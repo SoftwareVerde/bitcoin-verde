@@ -708,8 +708,9 @@ public class NodeModule {
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
                         _blockHeaderDownloader.wakeUp();
-                        _blockDownloader.wakeUp();
                     }
+
+                    _blockDownloader.wakeUp();
 
                     if (blockHeight >= blockHeaderDownloaderBlockHeight) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
