@@ -1066,10 +1066,18 @@ public class NodeModule {
         _loggerFlushThread.setName("Logger Flush Thread");
         _loggerFlushThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
-            public void uncaughtException(final Thread t, final Throwable exception) {
+            public void uncaughtException(final Thread thread, final Throwable exception) {
                 Logger.warn(exception);
             }
         });
+
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            unspentTransactionOutputDatabaseManager.populateCache();
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
     }
 
     public void loop() {

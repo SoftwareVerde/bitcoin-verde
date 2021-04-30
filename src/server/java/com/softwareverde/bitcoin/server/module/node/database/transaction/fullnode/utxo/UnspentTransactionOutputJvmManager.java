@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -1143,6 +1144,67 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         }
         finally {
             if (! noLock) { UTXO_READ_MUTEX.unlock(); }
+        }
+    }
+
+    @Override
+    public void populateCache() throws DatabaseException {
+        if (UnspentTransactionOutputJvmManager.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+
+        UTXO_WRITE_MUTEX.lock();
+        try {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+            BlockId blockId = blockDatabaseManager.getHeadBlockId();
+            final int maxKeepCount = (int) (_maxUtxoCount * (1.0D - _purgePercent));
+            long maxRemainingCount = maxKeepCount;
+
+            while (maxRemainingCount > 0) {
+                final NanoTimer nanoTimer = new NanoTimer();
+                nanoTimer.start();
+
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT committed_unspent_transaction_outputs.transaction_hash, committed_unspent_transaction_outputs.`index`, committed_unspent_transaction_outputs.amount, committed_unspent_transaction_outputs.locking_script, committed_unspent_transaction_outputs.block_height FROM committed_unspent_transaction_outputs INNER JOIN transactions ON transactions.hash = committed_unspent_transaction_outputs.transaction_hash INNER JOIN block_transactions ON block_transactions.transaction_id = transactions.id WHERE block_transactions.block_id = ? AND committed_unspent_transaction_outputs.amount > 0 LIMIT " + maxRemainingCount)
+                        .setParameter(blockId)
+                );
+                for (final Row row : rows) {
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                    final Integer outputIndex = row.getInteger("index");
+                    final Long amount = row.getLong("amount");
+                    final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+                    final Long blockHeight = row.getLong("block_height");
+
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                    final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
+                    {
+                        transactionOutput.setIndex(outputIndex);
+                        transactionOutput.setAmount(amount);
+                        transactionOutput.setLockingScript(lockingScript);
+                        transactionOutput.setBlockHeight(blockHeight);
+                    }
+
+                    final JvmSpentState newSpentState = new JvmSpentState();
+                    newSpentState.setIsSpent(false);
+                    newSpentState.setIsFlushedToDisk(false);
+                    newSpentState.setIsFlushMandatory(false);
+
+                    final UtxoKey newUtxoKey = new UtxoKey(transactionOutputIdentifier);
+                    final UtxoValue newUtxoValue = new UtxoValue(newSpentState, blockHeight, amount, lockingScript.getBytes());
+
+                    UTXO_SET.putIfAbsent(newUtxoKey, newUtxoValue);
+                    maxRemainingCount -= 1;
+                }
+                blockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+                if (blockId == null) { break; }
+
+                nanoTimer.stop();
+                Logger.trace("Populated " + rows.size() + " UTXOs in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            }
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
         }
     }
 
