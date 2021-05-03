@@ -82,6 +82,11 @@ public class MockBlockStore implements PendingBlockStore {
         return ByteArray.wrap(byteArray.getBytes(diskOffset.intValue(), byteCount));
     }
 
+    @Override
+    public String getDataDirectory() {
+        return null;
+    }
+
     public void clear() {
         _pendingBlocks.clear();
         _blocks.clear();

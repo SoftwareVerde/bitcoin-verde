@@ -297,4 +297,9 @@ class MockBlockStore implements FakeBlockStore {
     public void setBlockExists(final Sha256Hash blockHash, final Boolean exists) {
         _existingBlocks.put(blockHash, exists);
     }
+
+    @Override
+    public String getDataDirectory() {
+        return null;
+    }
 }

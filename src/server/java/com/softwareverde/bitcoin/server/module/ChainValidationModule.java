@@ -62,13 +62,11 @@ public class ChainValidationModule {
         final MasterInflater masterInflater = new CoreInflater();
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
 
-        { // Initialize the BlockCache...
-            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks");
-            final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks");
-
+        { // Initialize the BlockStore...
+            final String dataDirectory = bitcoinProperties.getDataDirectory();
             final BlockHeaderInflaters blockHeaderInflaters = masterInflater;
             final BlockInflaters blockInflaters = masterInflater;
-            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, blockHeaderInflaters, blockInflaters) {
+            _blockStore = new PendingBlockStoreCore(dataDirectory, blockHeaderInflaters, blockInflaters) {
                 @Override
                 protected void _deletePendingBlockData(final String blockPath) {
                     if (bitcoinProperties.isDeletePendingBlocksEnabled()) {
