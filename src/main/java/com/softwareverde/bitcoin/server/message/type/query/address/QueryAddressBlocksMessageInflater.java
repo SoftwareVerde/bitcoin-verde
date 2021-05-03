@@ -26,7 +26,7 @@ public class QueryAddressBlocksMessageInflater extends BitcoinProtocolMessageInf
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.QUERY_ADDRESS_BLOCKS);
         if (protocolMessageHeader == null) { return null; }
 
-        final int addressCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int addressCount = byteArrayReader.readVariableLengthInteger().intValue();
         if ( (addressCount < 0) || (addressCount >= QueryAddressBlocksMessage.MAX_ADDRESS_COUNT) ) { return null; }
 
         final Integer bytesRequired = (Address.BYTE_COUNT * addressCount);

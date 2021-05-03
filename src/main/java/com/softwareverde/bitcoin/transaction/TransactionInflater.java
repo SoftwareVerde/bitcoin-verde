@@ -26,7 +26,7 @@ public class TransactionInflater {
         transaction._version = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
-        final Long transactionInputCount = byteArrayReader.readVariableSizedInteger();
+        final Long transactionInputCount = byteArrayReader.readVariableLengthInteger();
         for (int i = 0; i < transactionInputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionInput transactionInput = transactionInputInflater.fromBytes(byteArrayReader);
@@ -35,7 +35,7 @@ public class TransactionInflater {
         }
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final Long transactionOutputCount = byteArrayReader.readVariableSizedInteger();
+        final Long transactionOutputCount = byteArrayReader.readVariableLengthInteger();
         for (int i = 0; i < transactionOutputCount; ++i) {
             if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final MutableTransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
@@ -67,7 +67,7 @@ public class TransactionInflater {
         System.out.println("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
 
         {
-            final ByteArrayReader.VariableSizedInteger inputCount = byteArrayReader.peakVariableSizedInteger();
+            final ByteArrayReader.CompactVariableLengthInteger inputCount = byteArrayReader.peakVariableLengthInteger();
             System.out.println("Tx Input Count: " + HexUtil.toHexString(byteArrayReader.readBytes(inputCount.bytesConsumedCount)));
 
             final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
@@ -77,7 +77,7 @@ public class TransactionInflater {
         }
 
         {
-            final ByteArrayReader.VariableSizedInteger outputCount = byteArrayReader.peakVariableSizedInteger();
+            final ByteArrayReader.CompactVariableLengthInteger outputCount = byteArrayReader.peakVariableLengthInteger();
             System.out.println("Tx Output Count: " + HexUtil.toHexString(byteArrayReader.readBytes(outputCount.bytesConsumedCount)));
             final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
             for (int i = 0; i < outputCount.value; ++i) {

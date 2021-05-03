@@ -17,7 +17,7 @@ public class TransactionInputInflater {
         transactionInput._previousOutputTransactionHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
         transactionInput._previousOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Integer scriptByteCount = byteArrayReader.readVariableLengthInteger().intValue();
         if ( (scriptByteCount > Script.MAX_BYTE_COUNT) || (scriptByteCount < 0)) { return null; }
         transactionInput._unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG)));
         transactionInput._sequenceNumber = new ImmutableSequenceNumber(byteArrayReader.readLong(4, Endian.LITTLE));
@@ -31,9 +31,9 @@ public class TransactionInputInflater {
         Logger.debug("Tx Input: Prev Tx: " + MutableByteArray.wrap(byteArrayReader.readBytes(32)));
         Logger.debug("Tx Input: Prev Out Ix: " + MutableByteArray.wrap(byteArrayReader.readBytes(4)));
 
-        final ByteArrayReader.VariableSizedInteger variableSizedInteger = byteArrayReader.peakVariableSizedInteger();
-        Logger.debug("Tx Input: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
-        Logger.debug("Tx Input: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
+        final ByteArrayReader.CompactVariableLengthInteger variableLengthInteger = byteArrayReader.peakVariableLengthInteger();
+        Logger.debug("Tx Input: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableLengthInteger.bytesConsumedCount)));
+        Logger.debug("Tx Input: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableLengthInteger.value)));
         Logger.debug("Tx Input: Sequence Number: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
     }
 

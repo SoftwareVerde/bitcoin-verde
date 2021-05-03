@@ -7,7 +7,7 @@ public class BlockHeaderWithTransactionCountInflater extends BlockHeaderInflater
     @Override
     protected MutableBlockHeaderWithTransactionCount _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableBlockHeader blockHeader = super._fromByteArrayReader(byteArrayReader);
-        final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Integer transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
         return new MutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
     }
 
