@@ -164,6 +164,7 @@ public class NodeModule {
     protected final SlpTransactionProcessor _slpTransactionProcessor;
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
+    protected final BlockPruner _blockPruner;
     protected final List<SleepyService> _allServices;
 
     protected final BitcoinNodeFactory _bitcoinNodeFactory;
@@ -239,6 +240,11 @@ public class NodeModule {
 
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
+
+        if (_blockPruner != null) {
+            Logger.info("[Stopping BlockPruner]");
+            _blockPruner.stop();
+        }
 
         Logger.info("[Committing UTXO Set]");
         {
@@ -631,12 +637,11 @@ public class NodeModule {
             blockProcessor.enableUndoLog(pruningModeIsEnabled);
         }
 
-        final BlockPruner blockPruner;
         if (pruningModeIsEnabled) {
-            blockPruner = new BlockPruner(databaseManagerFactory, _blockStore);
+            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore);
         }
         else {
-            blockPruner = null;
+            _blockPruner = null;
         }
 
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
@@ -766,7 +771,7 @@ public class NodeModule {
                     }
 
                     if (pruningModeIsEnabled) { // Handle Block Pruning...
-                        blockPruner.pruneBlocks();
+                        _blockPruner.wakeUp();
                     }
                 }
             });
@@ -902,15 +907,20 @@ public class NodeModule {
             }
         });
 
-        _allServices = new ImmutableList<SleepyService>(
-            _blockchainIndexer,
-            _slpTransactionProcessor,
-            _transactionProcessor,
-            _transactionDownloader,
-            _blockchainBuilder,
-            _blockDownloader,
-            _blockHeaderDownloader
-        );
+        {
+            final ImmutableListBuilder<SleepyService> listBuilder = new ImmutableListBuilder<>();
+            listBuilder.add(_blockchainIndexer);
+            listBuilder.add(_slpTransactionProcessor);
+            listBuilder.add(_transactionProcessor);
+            listBuilder.add(_transactionDownloader);
+            listBuilder.add(_blockchainBuilder);
+            listBuilder.add(_blockDownloader);
+            listBuilder.add(_blockHeaderDownloader);
+            if (_blockPruner != null) {
+                listBuilder.add(_blockPruner);
+            }
+            _allServices = listBuilder.build();
+        }
 
         final Integer rpcPort = _bitcoinProperties.getBitcoinRpcPort();
         if (rpcPort > 0) {
@@ -1237,6 +1247,11 @@ public class NodeModule {
         if (_slpTransactionProcessor != null) {
             Logger.info("[Started SlpTransaction Processor]");
             _slpTransactionProcessor.start();
+        }
+
+        if (_blockPruner != null) {
+            Logger.info("[Starting BlockPruner]");
+            _blockPruner.start();
         }
 
         _uptimeTimer.start();

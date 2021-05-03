@@ -1167,6 +1167,8 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
             long maxRemainingCount = maxKeepCount;
 
             while (maxRemainingCount > 0) {
+                if (nextBlockId == null) { break; }
+
                 final NanoTimer nanoTimer = new NanoTimer();
                 nanoTimer.start();
 
