@@ -328,17 +328,16 @@ public class BlockHeaderDownloader extends SleepyService {
         }
     }
 
-    protected void _processBlockHeaders(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
+    protected Boolean _processBlockHeaders(final List<BlockHeader> blockHeaders, final BitcoinNode bitcoinNode) {
         final MilliTimer storeHeadersTimer = new MilliTimer();
         storeHeadersTimer.start();
 
-        final Integer blockHeaderCount = blockHeaders.getCount();
-        if (blockHeaderCount == 0) { return; }
+        final int blockHeaderCount = blockHeaders.getCount();
+        if (blockHeaderCount == 0) { return true; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
         Logger.debug("Downloaded Block headers: "+ firstBlockHeader.getHash() + " + " + blockHeaderCount);
 
-        final ThreadPool threadPool = _context.getThreadPool();
         final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -350,7 +349,7 @@ public class BlockHeaderDownloader extends SleepyService {
                     Logger.info("Marking " + invalidBlockHash + " as invalid.");
                     blockHeaderDatabaseManager.markBlockAsInvalid(invalidBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD); // Auto-ban any invalid headers...
                 }
-                return;
+                return false;
             }
 
             for (final BlockHeader blockHeader : blockHeaders) {
@@ -372,11 +371,12 @@ public class BlockHeaderDownloader extends SleepyService {
         }
         catch (final DatabaseException exception) {
             Logger.warn("Processing BlockHeaders failed.", exception);
-            return;
+            return false;
         }
 
         storeHeadersTimer.stop();
         Logger.info("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
+        return true;
     }
 
     public BlockHeaderDownloader(final Context context, final BitcoinNodeBlockInventoryTracker blockInventoryTracker) {
@@ -395,7 +395,8 @@ public class BlockHeaderDownloader extends SleepyService {
                 if (_shouldAbort()) { return; }
 
                 try {
-                    _processBlockHeaders(blockHeaders, bitcoinNode);
+                    final Boolean headersAreValid = _processBlockHeaders(blockHeaders, bitcoinNode);
+                    if (! headersAreValid) { return; }
 
                     final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
                     if (newBlockHeaderAvailableCallback != null) {
@@ -543,7 +544,8 @@ public class BlockHeaderDownloader extends SleepyService {
     }
 
     public void onNewBlockHeaders(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
-        _processBlockHeaders(blockHeaders, bitcoinNode);
+        final Boolean headersAreValid = _processBlockHeaders(blockHeaders, bitcoinNode);
+        if (! headersAreValid) { return; }
 
         final NewBlockHeadersAvailableCallback newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
         if (newBlockHeaderAvailableCallback != null) {
