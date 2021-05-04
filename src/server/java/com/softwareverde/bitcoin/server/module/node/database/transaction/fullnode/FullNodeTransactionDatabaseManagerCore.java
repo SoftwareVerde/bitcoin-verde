@@ -704,6 +704,18 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
+    public void removeAllUnconfirmedTransactions() throws DatabaseException {
+        TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.lock();
+        try {
+            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+            databaseConnection.executeSql(new Query("DELETE FROM unconfirmed_transactions"));
+        }
+        finally {
+            TransactionDatabaseManager.UNCONFIRMED_TRANSACTIONS_WRITE_LOCK.unlock();
+        }
+    }
+
+    @Override
     public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 

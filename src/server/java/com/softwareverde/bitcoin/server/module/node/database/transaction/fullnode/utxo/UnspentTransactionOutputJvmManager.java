@@ -836,9 +836,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         long writtenByteCount = 0L;
 
         try (final FileOutputStream fileOutputStream = new FileOutputStream(file)) {
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-
-            final Long committedBlockHeight = _getCommittedUnspentTransactionOutputBlockHeight(databaseConnection);
+            final Long committedBlockHeight = UnspentTransactionOutputJvmManager.getUtxoBlockHeight();
             {
                 final byte[] blockHeightBytes = ByteUtil.longToBytes(committedBlockHeight);
                 fileOutputStream.write(blockHeightBytes);

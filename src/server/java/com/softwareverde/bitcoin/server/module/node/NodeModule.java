@@ -256,20 +256,6 @@ public class NodeModule {
             _blockPruner.stop();
         }
 
-        Logger.info("[Committing UTXO Set]");
-        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-            final MilliTimer utxoCommitTimer = new MilliTimer();
-            utxoCommitTimer.start();
-            Logger.info("Committing UTXO set.");
-            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
-            utxoCommitTimer.stop();
-            Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
-        }
-        catch (final DatabaseException exception) {
-            Logger.warn(exception);
-        }
-
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
@@ -283,6 +269,20 @@ public class NodeModule {
                     unspentTransactionOutputJvmManager.deleteUtxoCacheLoadFile();
                 }
             }
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
+
+        Logger.info("[Committing UTXO Set]");
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final MilliTimer utxoCommitTimer = new MilliTimer();
+            utxoCommitTimer.start();
+            Logger.info("Committing UTXO set.");
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+            utxoCommitTimer.stop();
+            Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
         }
         catch (final DatabaseException exception) {
             Logger.warn(exception);

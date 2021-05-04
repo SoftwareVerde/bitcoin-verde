@@ -487,24 +487,34 @@ public class BlockProcessor {
                 }
             }
             else if (blockIsConnectedToUtxoSet) {
-                // Update mempool transactions...
-                final List<TransactionId> blockTransactionIds = blockDatabaseManager.getTransactionIds(blockId);
-                final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(blockTransactionIds);
-                mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
+                final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                final Long headBlockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
+                final long blockCountBehindHeadBlockHeader = (headBlockHeaderHeight - blockHeight);
+                final boolean shouldMaintainMempool = (blockCountBehindHeadBlockHeader < UndoLogDatabaseManager.MAX_REORG_DEPTH);
+                if (shouldMaintainMempool) {
+                    // Update mempool transactions...
+                    final List<TransactionId> blockTransactionIds = blockDatabaseManager.getTransactionIds(blockId);
+                    final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(blockTransactionIds);
+                    mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
 
-                { // Remove any transactions in the memory pool that were included in this block...
-                    transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
-                }
-
-                { // Remove any transactions in the memory pool that are now considered double-spends...
-                    final List<TransactionId> dependentUnconfirmedTransaction = transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(blockTransactions);
-                    final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(dependentUnconfirmedTransaction);
-                    while (! transactionsToRemove.isEmpty()) {
-                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
-                        final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
-                        transactionsToRemove.clear();
-                        transactionsToRemove.addAll(chainedInvalidTransactions);
+                    { // Remove any transactions in the memory pool that were included in this block...
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(mutableTransactionIds);
                     }
+
+                    { // Remove any transactions in the memory pool that are now considered double-spends...
+                        final List<TransactionId> dependentUnconfirmedTransaction = transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(blockTransactions);
+                        final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(dependentUnconfirmedTransaction);
+                        while (! transactionsToRemove.isEmpty()) {
+                            transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
+                            final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
+                            transactionsToRemove.clear();
+                            transactionsToRemove.addAll(chainedInvalidTransactions);
+                        }
+                    }
+                }
+                else {
+                    // The node is still synchronizing or is substantially behind, so don't bother maintaining the mempool...
+                    transactionDatabaseManager.removeAllUnconfirmedTransactions();
                 }
             }
         }
