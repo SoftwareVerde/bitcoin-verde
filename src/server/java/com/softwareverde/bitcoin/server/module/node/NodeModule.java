@@ -699,6 +699,29 @@ public class NodeModule {
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
             final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
             _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, _blockStore, blockDownloaderStatusMonitor);
+            _blockchainBuilder.setUnavailableBlockCallback(new BlockchainBuilder.UnavailableBlockCallback() {
+                @Override
+                public void onRequiredBlockUnavailable(final Sha256Hash blockHash, final Long blockHeight) {
+                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        if (blockId == null) { return; }
+
+                        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                        final Boolean blockIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+                        if (blockIsOnMainChain) {
+                            Logger.debug("Requesting Block: " + blockHash + ":" + blockHeight);
+                            _blockDownloader.requestBlock(blockHash, blockHeight, null);
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.debug(exception);
+                    }
+                }
+            });
         }
 
         final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();

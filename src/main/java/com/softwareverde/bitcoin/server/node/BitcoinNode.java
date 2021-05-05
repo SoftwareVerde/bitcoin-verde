@@ -836,9 +836,12 @@ public class BitcoinNode extends Node {
             return;
         }
 
-        final Boolean blockHeaderIsValid = block.isValid();
-
         final Sha256Hash blockHash = block.getHash();
+        final Boolean blockHeaderIsValid = block.isValid();
+        if (! blockHeaderIsValid) {
+            Logger.info("Received invalid Block from " + BitcoinNode.this + ": " + blockHash);
+        }
+
         final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadBlockRequests, _failableRequests, blockHash, new CallbackExecutor<DownloadBlockCallback>() {
             @Override
             public void onResult(final PendingRequest<DownloadBlockCallback> pendingRequest) {

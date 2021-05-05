@@ -186,7 +186,6 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-
             final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
             final DifficultyCalculatorFactory difficultyCalculatorFactory = _context;
             final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);

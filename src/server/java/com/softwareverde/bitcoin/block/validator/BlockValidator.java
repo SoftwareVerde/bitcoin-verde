@@ -282,15 +282,17 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    protected BlockValidationResult _validateBlock(final Block block, final Long blockHeight) {
-        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_context);
-        final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(block, blockHeight);
-        if (! blockHeaderValidationResult.isValid) {
-            return BlockValidationResult.invalid(blockHeaderValidationResult.errorMessage);
-        }
+    protected BlockValidationResult _validateBlock(final Block block, final Long blockHeight, final Boolean skipHeaderValidation) {
+        if (! skipHeaderValidation) {
+            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(_context);
+            final BlockHeaderValidator.BlockHeaderValidationResult blockHeaderValidationResult = blockHeaderValidator.validateBlockHeader(block, blockHeight);
+            if (! blockHeaderValidationResult.isValid) {
+                return BlockValidationResult.invalid(blockHeaderValidationResult.errorMessage);
+            }
 
-        if (! block.isValid()) {
-            return BlockValidationResult.invalid("Block header is invalid.");
+            if (! block.isValid()) {
+                return BlockValidationResult.invalid("Block header is invalid.");
+            }
         }
 
         { // Ensure the Coinbase Transaction is valid.
@@ -347,7 +349,7 @@ public class BlockValidator {
     }
 
     public BlockValidationResult validateBlock(final Block block, final Long blockHeight) {
-        return _validateBlock(block, blockHeight);
+        return _validateBlock(block, blockHeight, false);
     }
 
     /**
@@ -359,11 +361,11 @@ public class BlockValidator {
         final Difficulty difficulty = prototypeBlock.getDifficulty();
         final PrototypeDifficulty prototypeDifficulty = new PrototypeDifficulty(difficulty);
         mutableBlock.setDifficulty(prototypeDifficulty);
-        return _validateBlock(mutableBlock, blockHeight);
+        return _validateBlock(mutableBlock, blockHeight, false);
     }
 
     public BlockValidationResult validateBlockTransactions(final Block block, final Long blockHeight) {
-        return _validateBlock(block, blockHeight);
+        return _validateBlock(block, blockHeight, true);
     }
 
     public void setShouldLogValidBlocks(final Boolean shouldLogValidBlocks) {

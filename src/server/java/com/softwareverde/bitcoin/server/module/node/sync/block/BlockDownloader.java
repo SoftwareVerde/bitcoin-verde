@@ -32,7 +32,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
     public interface BlockDownloadPlanner {
         List<PendingBlockInventory> getNextPendingBlockInventoryBatch();
-        void markInventoryComplete(PendingBlockInventory pendingBlockInventory);
+        void requestInventory(Sha256Hash blockHash, Long blockHeight);
     }
 
     protected final ThreadPool _threadPool;
@@ -259,8 +259,6 @@ public class BlockDownloader extends GracefulSleepyService {
                     activeDownloadCount.decrementAndGet();
                     _pendingBlockStore.storePendingBlock(block);
 
-                    _blockDownloadPlanner.markInventoryComplete(pendingBlockInventory);
-
                     Logger.debug("Block " + blockHash + " downloaded from " + bitcoinNode + ".");
 
                     final BlockDownloadCallback blockDownloadCallback = _blockDownloadCallback;
@@ -356,6 +354,13 @@ public class BlockDownloader extends GracefulSleepyService {
 
     public void submitBlock(final Block block) {
         final Sha256Hash blockHash = block.getHash();
+
+        final Boolean headerIsValid = block.isValid();
+        if (! headerIsValid) {
+            Logger.info("Invalid Block submitted: " + blockHash);
+            return;
+        }
+
         final Boolean blockExists = _pendingBlockStore.pendingBlockExists(blockHash);
         if (blockExists) { return; }
 

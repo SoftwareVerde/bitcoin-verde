@@ -32,6 +32,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
     protected Integer _cachedHashCode = null;
     protected Sha256Hash _cachedHash = null;
     protected Integer _cachedByteCount = null;
+    protected Boolean _cachedValidity = null;
 
     protected Integer _calculateByteCount() {
         return _blockDeflater.getByteCount(this);
@@ -42,6 +43,7 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
         _cachedHash = null;
         _cachedHashCode = null;
         _merkleRoot = null;
+        _cachedValidity = null;
     }
 
     protected void cacheByteCount(final Integer byteCount) {
@@ -204,9 +206,13 @@ public class MutableBlock extends AbstractBlockHeader implements Block {
 
     @Override
     public Boolean isValid() {
-        if (_transactions.isEmpty()) { return false; }
+        final Boolean cachedValidity = _cachedValidity;
+        if (cachedValidity != null) { return cachedValidity; }
 
-        return super.isValid();
+        boolean isValid = (! _transactions.isEmpty());
+        isValid = (isValid && super.isValid());
+        _cachedValidity = isValid;
+        return isValid;
     }
 
     @Override
