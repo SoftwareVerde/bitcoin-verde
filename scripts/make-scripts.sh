@@ -19,6 +19,8 @@ echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"ADDRESS\"\n" > out/run-add
 echo -e "#!/bin/bash\n\necho -n \"Address Prefix: \"\nread addressPrefix\necho -n \"Case insensitive? [true|FALSE] \"\nread caseInsensitive\n\nexec java -jar bin/main.jar \"ADDRESS\" \"\${addressPrefix}\" \"\${caseInsensitive}\"\n" > out/run-address.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SIGNATURE\" \"SIGN\" \"\$1\" \"\$2\" \"\$3\"\n" > out/run-signature.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SIGNATURE\" \"VERIFY\" \"\$1\" \"\$2\" \"\$3\"\n" > out/run-verify-signature.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"ECIES\" \"ENCRYPT\"\n" > out/run-encrypt.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"ECIES\" \"DECRYPT\"\n" > out/run-decrypt.sh
 echo -e "#!/bin/bash\n\necho -n \"Thread Count: \"\nread cpu_thread_count\n\necho -n \"Prototype Block Data: \"\nread prototype_block_data\necho\n\nexec java -jar bin/main.jar \"MINER\" \"\${cpu_thread_count}\" \"\${prototype_block_data}\"\n" > out/run-miner.sh
 echo -e "#!/bin/bash\n\n(echo '{\"method\":\"POST\",\"query\":\"SHUTDOWN\"}') | curl -s --data-binary @- localhost:8334\n" > out/shutdown.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"CONFIGURATION\" \"conf/server.conf\"\n" > out/configure-node.sh
