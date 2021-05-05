@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.ChainValidationModule;
 import com.softwareverde.bitcoin.server.module.ConfigurationModule;
 import com.softwareverde.bitcoin.server.module.DatabaseModule;
+import com.softwareverde.bitcoin.server.module.EciesModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.SignatureModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
@@ -157,6 +158,13 @@ public class Main {
         _printError("\t\tThe address used to sign the message in Base-58 format.");
         _printError("\tArgument Description: <Signature>");
         _printError("\t\tThe signature to verify against the address and message in Base-64 format.");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: ECIES");
+        _printError("\tArguments: ENCRYPT");
+        _printError("\tArguments: DECRYPT");
+        _printError("\tDescription: Encrypts file contents using ECIES and an ephemeral key derives via password hash.");
         _printError("\t----------------");
         _printError("");
 
@@ -502,8 +510,36 @@ public class Main {
 
                 _printUsage();
                 BitcoinUtil.exitFailure();
-                break;
-            }
+            } break;
+
+            case "ECIES": {
+                Logger.setLog(SystemLog.getInstance());
+                Logger.setLogLevel(LogLevel.WARN);
+
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String actionString = _arguments[1];
+                final EciesModule.Action action;
+                if (Util.areEqual("ENCRYPT", actionString.toUpperCase())) {
+                    action = EciesModule.Action.ENCRYPT;
+                }
+                else if (Util.areEqual("DECRYPT", actionString.toUpperCase())) {
+                    action = EciesModule.Action.DECRYPT;
+                }
+                else {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                try (final EciesModule eciesModule = new EciesModule()) {
+                    eciesModule.run(action);
+                }
+            } break;
 
             case "MINER": {
                 if (_arguments.length != 3) {

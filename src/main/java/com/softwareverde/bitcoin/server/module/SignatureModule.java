@@ -100,4 +100,6 @@ public class SignatureModule {
         System.out.println("------------");
         System.out.println("Is Valid:   " + (signatureIsValid ? "1" : "0"));
     }
+
+    protected SignatureModule() { }
 }
