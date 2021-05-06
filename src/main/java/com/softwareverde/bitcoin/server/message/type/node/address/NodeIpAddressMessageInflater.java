@@ -24,7 +24,7 @@ public class NodeIpAddressMessageInflater extends BitcoinProtocolMessageInflater
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.NODE_ADDRESSES);
         if (protocolMessageHeader == null) { return null; }
 
-        final int networkAddressCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int networkAddressCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (byteArrayReader.remainingByteCount() < (networkAddressCount * networkAddressByteCount)) { return null; }
 
         for (int i = 0; i < networkAddressCount; ++i) {

@@ -16,35 +16,12 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
-import java.lang.ref.WeakReference;
 import java.util.Comparator;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockDownloader extends GracefulSleepyService {
-    public static class PendingBlockInventory {
-        public final long priority;
-        public final Sha256Hash blockHash;
-        public final WeakReference<BitcoinNode> bitcoinNode;
-        public final Long blockHeight;
-
-        public PendingBlockInventory(final Long priority, final Sha256Hash blockHash) {
-            this(priority, blockHash, null);
-        }
-
-        public PendingBlockInventory(final Long priority, final Sha256Hash blockHash, final BitcoinNode bitcoinNode) {
-            this(priority, blockHash, bitcoinNode, null);
-        }
-
-        public PendingBlockInventory(final Long priority, final Sha256Hash blockHash, final BitcoinNode bitcoinNode, final Long blockHeight) {
-            this.priority = priority;
-            this.blockHash = blockHash;
-            this.bitcoinNode = new WeakReference<>(bitcoinNode);
-            this.blockHeight = blockHeight;
-        }
-    }
-
     public interface BlockDownloadCallback {
         void onBlockDownloaded(final Block block, final BitcoinNode bitcoinNode);
     }
@@ -55,6 +32,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
     public interface BlockDownloadPlanner {
         List<PendingBlockInventory> getNextPendingBlockInventoryBatch();
+        void requestInventory(Sha256Hash blockHash, Long blockHeight);
     }
 
     protected final ThreadPool _threadPool;
@@ -303,7 +281,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
                     // Reinsert the pendingBlockInventory into the queue with a higher priority...
                     final Long newPriority = (pendingBlockInventory.priority + Math.max(8, _maxConcurrentDownloadCount));
-                    final PendingBlockInventory newPendingBlockInventory = new PendingBlockInventory(newPriority, blockHash, null, blockHeight);
+                    final PendingBlockInventory newPendingBlockInventory = new PendingBlockInventory(newPriority, blockHash, blockHeight);
                     _downloadBlockQueue.add(newPendingBlockInventory);
                 }
             }, requestPriority);
@@ -376,6 +354,13 @@ public class BlockDownloader extends GracefulSleepyService {
 
     public void submitBlock(final Block block) {
         final Sha256Hash blockHash = block.getHash();
+
+        final Boolean headerIsValid = block.isValid();
+        if (! headerIsValid) {
+            Logger.info("Invalid Block submitted: " + blockHash);
+            return;
+        }
+
         final Boolean blockExists = _pendingBlockStore.pendingBlockExists(blockHash);
         if (blockExists) { return; }
 

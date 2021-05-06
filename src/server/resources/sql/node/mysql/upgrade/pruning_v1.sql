@@ -1,0 +1,2 @@
+DELETE FROM committed_unspent_transaction_outputs WHERE is_spent = 1;
+ALTER TABLE committed_unspent_transaction_outputs DROP COLUMN is_spent, ADD COLUMN amount BIGINT NOT NULL AFTER block_height, ADD COLUMN locking_script BLOB;

@@ -39,15 +39,14 @@ import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainI
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
-import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidationResult;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.concurrent.Pin;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -58,33 +57,11 @@ import com.softwareverde.network.time.VolatileNetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
     public interface Context extends BlockInflaters, TransactionInflaters, BlockStoreContext, MultiConnectionFullDatabaseContext, NetworkTimeContext, SynchronizationStatusContext, TransactionValidatorFactory, DifficultyCalculatorFactory, UpgradeScheduleContext { }
-
-
-    protected static class AsyncFuture {
-        protected final Pin _pin = new Pin();
-        protected DatabaseException _exception;
-
-        public void setException(final DatabaseException exception) {
-            _exception = exception;
-        }
-
-        public void release() {
-            _pin.release();
-        }
-
-        public void waitFor() throws DatabaseException {
-            _pin.waitForRelease();
-
-            final DatabaseException exception = _exception;
-            if (exception != null) {
-                throw exception;
-            }
-        }
-    }
 
     protected final Context _context;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
@@ -94,6 +71,8 @@ public class BlockProcessor {
     protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
+
+    protected Boolean _undoLogIsEnabled = false;
 
     protected Long _utxoCommitFrequency = 2016L;
     protected Integer _maxThreadCount = 4;
@@ -325,34 +304,11 @@ public class BlockProcessor {
         Logger.info("Unspent Transactions Reorganization: " + originalHeadBlockId + " -> " + blockId + " (" + timer.getMillisecondsElapsed() + "ms)");
     }
 
-    protected AsyncFuture _applyBlockToUtxoSetAsync(final Long blockHeight, final Block block, final FullNodeDatabaseManager databaseManager) {
-        final AsyncFuture future = new AsyncFuture();
-
-        (new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
-                    unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight, _context.getDatabaseManagerFactory());
-                }
-                catch (final DatabaseException exception) {
-                    future.setException(exception);
-                }
-                catch (final Exception exception) {
-                    future.setException(new DatabaseException(exception));
-                }
-                finally {
-                    future.release();
-                }
-            }
-        })).start();
-
-        return future;
-    }
-
     protected ProcessBlockResult _processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
-        final BlockStore blockStore = _context.getBlockStore();
+        final MultiTimer multiTimer = new MultiTimer();
+        multiTimer.start();
+
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
 
         final NanoTimer processBlockTimer = new NanoTimer();
@@ -389,6 +345,7 @@ public class BlockProcessor {
             blockId = blockHeaderResult.getBlockId();
             blockHeight = blockHeaderResult.getBlockHeight();
         }
+        multiTimer.mark("metadata");
 
         final Boolean blockIsConnectedToUtxoSet;
         { // Determine if the Block should use the head Block UTXO set...
@@ -401,111 +358,110 @@ public class BlockProcessor {
                 blockIsConnectedToUtxoSet = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
             }
         }
+        multiTimer.mark("blockchain");
 
         TransactionUtil.startTransaction(databaseConnection);
+
+        final UnspentTransactionOutputContext unspentTransactionOutputContext;
         {
-            final UnspentTransactionOutputContext unspentTransactionOutputContext;
-            {
-                if ( blockIsConnectedToUtxoSet && (preLoadedUnspentTransactionOutputContext != null) ) {
-                    unspentTransactionOutputContext = preLoadedUnspentTransactionOutputContext;
-                    Logger.debug("Using preLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
-                }
-                else {
-                    final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
-                    final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
-                    if (! unspentTransactionOutputsExistForBlock) {
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-                        Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
-                        return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
-                    }
-                    unspentTransactionOutputContext = mutableUnspentTransactionOutputSet;
-                    Logger.debug("Using liveLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
-                }
+            if ( blockIsConnectedToUtxoSet && (preLoadedUnspentTransactionOutputContext != null) ) {
+                unspentTransactionOutputContext = preLoadedUnspentTransactionOutputContext;
+                Logger.debug("Using preLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
             }
-
-            final BlockValidationResult blockValidationResult;
-            {
-                final BlockValidator blockValidator;
-                {
-                    final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
-                    final TransactionInflaters transactionInflaters = _context;
-                    final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
-                    final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputContext, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, networkTime, upgradeSchedule);
-                    blockValidatorContext.loadBlock(blockHeight, blockId, block);
-                    blockValidator = new BlockValidator(blockValidatorContext);
-                }
-
-                blockValidator.setMaxThreadCount(_maxThreadCount);
-                blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-                blockValidator.setShouldLogValidBlocks(true);
-
-                blockValidationTimer.start();
-                blockValidationResult = blockValidator.validateBlockTransactions(block, blockHeight); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
-
-                if (! blockValidationResult.isValid) {
-                    Logger.info(blockValidationResult.errorMessage);
-                }
-
-                blockValidationTimer.stop();
-            }
-
-            if (! blockValidationResult.isValid) {
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                Logger.debug("Invalid block. " + blockHash);
-                return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
-            }
-
-            final List<TransactionId> transactionIds;
-            { // Store the Block's Transactions...
-                storeBlockTimer.start();
-
-                final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
-
-                final AsyncFuture utxoFuture;
-                if (blockIsConnectedToUtxoSet && (blockHeight > 0L)) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
-                    Logger.debug("Applying " + blockHash + " @ " + blockHeight + " to UTXO set.");
-                    utxoFuture = _applyBlockToUtxoSetAsync(blockHeight, block, databaseManager);
-                }
-                else {
-                    utxoFuture = null;
-                }
-
-                transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory, _maxThreadCount);
-                final boolean transactionsStoredSuccessfully = (transactionIds != null);
-
-                if (transactionsStoredSuccessfully) {
-                    blockStore.storeBlock(block, blockHeight);
-                }
-                else {
-                    blockStore.removeBlock(blockHash, blockHeight);
-
+            else {
+                final MutableUnspentTransactionOutputSet mutableUnspentTransactionOutputSet = new MutableUnspentTransactionOutputSet();
+                final Boolean unspentTransactionOutputsExistForBlock = mutableUnspentTransactionOutputSet.loadOutputsForBlock(databaseManager, block, blockHeight); // Ensure the the UTXOs for this block are pre-loaded into the cache...
+                if (! unspentTransactionOutputsExistForBlock) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
-                    Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
-                    return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
+                    Logger.debug("Invalid block. Could not find UTXOs for block: " + blockHash);
+                    return ProcessBlockResult.invalid(block, blockHeight, "Could not find UTXOs for block.");
                 }
-
-                if (utxoFuture != null) {
-                    utxoFuture.waitFor();
-                }
-
-                storeBlockTimer.stop();
-                Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000D)) + " tps). " + blockHash);
-            }
-
-            { // Queue the transactions for processing...
-                blockchainIndexerDatabaseManager.queueTransactionsForProcessing(transactionIds);
+                unspentTransactionOutputContext = mutableUnspentTransactionOutputSet;
+                Logger.debug("Using liveLoadedUnspentTransactionOutputs for blockHeight: " + blockHeight);
             }
         }
+        multiTimer.mark("utxoContext");
+
+        final BlockValidationResult blockValidationResult;
+        {
+            final BlockValidator blockValidator;
+            {
+                final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
+                final TransactionInflaters transactionInflaters = _context;
+                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+
+                final LazyBlockValidatorContext blockValidatorContext = new LazyBlockValidatorContext(transactionInflaters, blockchainSegmentId, unspentTransactionOutputContext, _difficultyCalculatorFactory, _transactionValidatorFactory, databaseManager, networkTime, upgradeSchedule);
+                blockValidatorContext.loadBlock(blockHeight, blockId, block);
+                blockValidator = new BlockValidator(blockValidatorContext);
+            }
+
+            blockValidator.setMaxThreadCount(_maxThreadCount);
+            blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+            blockValidator.setShouldLogValidBlocks(true);
+
+            blockValidationTimer.start();
+            blockValidationResult = blockValidator.validateBlockTransactions(block, blockHeight); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+
+            if (! blockValidationResult.isValid) {
+                Logger.info(blockValidationResult.errorMessage);
+            }
+
+            blockValidationTimer.stop();
+        }
+        multiTimer.mark("validation");
+
+        if (! blockValidationResult.isValid) {
+            TransactionUtil.rollbackTransaction(databaseConnection);
+            Logger.debug("Invalid block. " + blockHash);
+            return ProcessBlockResult.invalid(block, blockHeight, blockValidationResult.errorMessage);
+        }
+
+        final DatabaseConnectionFactory databaseConnectionFactory = databaseManagerFactory.getDatabaseConnectionFactory();
+        if ( blockIsConnectedToUtxoSet && (blockHeight > 0L) ) { // Maintain the UTXO (Unspent Transaction Output) set (and exclude UTXOs from the genesis block)...
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
+
+            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, _utxoCommitFrequency);
+            unspentTransactionOutputManager.applyBlockToUtxoSet(block, blockHeight, databaseManagerFactory);
+
+            nanoTimer.stop();
+            Logger.debug("Applied " + blockHash + " @ " + blockHeight + " to UTXO set in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+        }
+        multiTimer.mark("utxoUpdate");
+
+        final List<TransactionId> transactionIds;
+        { // Store the Block's Transactions...
+            storeBlockTimer.start();
+
+            transactionIds = blockDatabaseManager.storeBlockTransactions(block, databaseConnectionFactory, _maxThreadCount);
+            final boolean transactionsStoredSuccessfully = (transactionIds != null);
+
+            if (! transactionsStoredSuccessfully) {
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                Logger.debug("Invalid block. Unable to store transactions for block: " + blockHash);
+                return ProcessBlockResult.invalid(block, blockHeight, "Unable to store transactions for block.");
+            }
+
+            storeBlockTimer.stop();
+            Logger.info("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000D)) + " tps). " + blockHash);
+        }
+        multiTimer.mark("txStore");
+
+        { // Queue the transactions for processing...
+            blockchainIndexerDatabaseManager.queueTransactionsForProcessing(transactionIds);
+        }
+        multiTimer.mark("txIndexing");
 
         final Integer byteCount = block.getByteCount();
         blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
+        multiTimer.mark("blockSize");
 
         final BlockchainSegmentId newHeadBlockchainSegmentId;
         {
             final BlockId newHeadBlockId = blockDatabaseManager.getHeadBlockId();
             newHeadBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newHeadBlockId);
         }
+        multiTimer.mark("blockchainSegment");
 
         final boolean bestBlockchainHasChanged;
         {
@@ -518,6 +474,7 @@ public class BlockProcessor {
             }
         }
         Logger.trace("bestBlockchainHasChanged=" + bestBlockchainHasChanged);
+        multiTimer.mark("blockchainChange");
 
         { // Maintain utxo and mempool correctness...
             if (bestBlockchainHasChanged) {
@@ -530,9 +487,14 @@ public class BlockProcessor {
                 }
             }
             else if (blockIsConnectedToUtxoSet) {
-                { // Update mempool transactions...
-                    final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
-                    final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(transactionIds);
+                final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                final Long headBlockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
+                final long blockCountBehindHeadBlockHeader = (headBlockHeaderHeight - blockHeight);
+                final boolean shouldMaintainMempool = (blockCountBehindHeadBlockHeader < UndoLogDatabaseManager.MAX_REORG_DEPTH);
+                if (shouldMaintainMempool) {
+                    // Update mempool transactions...
+                    final List<TransactionId> blockTransactionIds = blockDatabaseManager.getTransactionIds(blockId);
+                    final MutableList<TransactionId> mutableTransactionIds = new MutableList<TransactionId>(blockTransactionIds);
                     mutableTransactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
 
                     { // Remove any transactions in the memory pool that were included in this block...
@@ -550,8 +512,29 @@ public class BlockProcessor {
                         }
                     }
                 }
+                else {
+                    // The node is still synchronizing or is substantially behind, so don't bother maintaining the mempool...
+                    transactionDatabaseManager.removeAllUnconfirmedTransactions();
+                }
             }
         }
+        multiTimer.mark("mempool");
+
+        if (_undoLogIsEnabled) {
+            // NOTE: UndoLog generation creates records within the pruned_previous_transaction_outputs table within a DB transaction, which causes a DB lock
+            //  until the transaction is committed.  Applying a block to the UTXO can trigger a UTXO commit, which will require a scan of the same table,
+            //  causing a deadlock.  Therefore, while UndoLog creation is now a background task, that task will be blocked until this transaction is committed,
+            //  so it is best that the UndoLog is created after the UTXO update.
+            final NanoTimer undoLogTimer = new NanoTimer();
+            undoLogTimer.start();
+
+            final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
+            undoLogDatabaseManager.createUndoLog(blockHeight, block, unspentTransactionOutputContext);
+
+            undoLogTimer.stop();
+            Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");
+        }
+        multiTimer.mark("undoLog");
 
         TransactionUtil.commitTransaction(databaseConnection);
 
@@ -584,8 +567,14 @@ public class BlockProcessor {
         _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
         processBlockTimer.stop();
-        Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+        multiTimer.stop("commit");
+
+        if (Logger.isTraceEnabled()) {
+            Logger.trace("ProcessBlock MultiTimer: " + multiTimer);
+        }
         Logger.debug("Block Height: " + blockHeight);
+        Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+
         return ProcessBlockResult.valid(block, blockHeight, bestBlockchainHasChanged, false);
     }
 
@@ -632,5 +621,13 @@ public class BlockProcessor {
 
     public Container<Float> getAverageTransactionsPerSecondContainer() {
         return _averageTransactionsPerSecond;
+    }
+
+    public Boolean isUndoLogEnabled() {
+        return _undoLogIsEnabled;
+    }
+
+    public void enableUndoLog(final Boolean undoLogIsEnabled) {
+        _undoLogIsEnabled = undoLogIsEnabled;
     }
 }

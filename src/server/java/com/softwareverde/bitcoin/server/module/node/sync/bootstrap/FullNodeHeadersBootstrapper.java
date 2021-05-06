@@ -25,7 +25,7 @@ public class FullNodeHeadersBootstrapper extends HeadersBootstrapper {
         return blockIds;
     }
 
-    public FullNodeHeadersBootstrapper(final FullNodeDatabaseManagerFactory databaseManagerFactory, final Boolean insertPendingBlocks) {
+    public FullNodeHeadersBootstrapper(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         super(databaseManagerFactory);
     }
 }

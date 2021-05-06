@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -41,9 +42,9 @@ public class PendingBlockStoreCore extends BlockStoreCore implements PendingBloc
         file.delete();
     }
 
-    public PendingBlockStoreCore(final String blockDataDirectory, final String pendingBlockDataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
-        super(blockDataDirectory, blockHeaderInflaters, blockInflaters);
-        _pendingBlockDataDirectory = pendingBlockDataDirectory;
+    public PendingBlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
+        super(dataDirectory, blockHeaderInflaters, blockInflaters);
+        _pendingBlockDataDirectory = (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks") : null);
     }
 
     @Override

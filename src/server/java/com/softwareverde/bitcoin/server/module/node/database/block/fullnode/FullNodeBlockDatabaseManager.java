@@ -224,10 +224,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
             returnedTransactionIds.addAll(transactionIds);
         }
 
-        if (_blockStore != null) {
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            _blockStore.storeBlock(block, blockHeight);
-        }
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        _blockStore.storeBlock(block, blockHeight);
 
         return blockId;
     }
@@ -245,10 +243,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
 
         final List<TransactionId> transactionIds = _storeBlockTransactions(blockId, block, databaseConnectionFactory, maxThreadCount);
 
-        if (_blockStore != null) {
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            _blockStore.storeBlock(block, blockHeight);
-        }
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        _blockStore.storeBlock(block, blockHeight);
 
         return transactionIds;
     }

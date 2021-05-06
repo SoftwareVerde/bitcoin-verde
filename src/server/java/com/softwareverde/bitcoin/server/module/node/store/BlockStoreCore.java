@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
@@ -21,6 +22,7 @@ import java.io.RandomAccessFile;
 public class BlockStoreCore implements BlockStore {
     protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final BlockInflaters _blockInflaters;
+    protected final String _dataDirectory;
     protected final String _blockDataDirectory;
     protected final Integer _blocksPerDirectoryCount = 2016; // About 2 weeks...
 
@@ -84,8 +86,9 @@ public class BlockStoreCore implements BlockStore {
         }
     }
 
-    public BlockStoreCore(final String blockDataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
-        _blockDataDirectory = blockDataDirectory;
+    public BlockStoreCore(final String dataDirectory, final BlockHeaderInflaters blockHeaderInflaters, final BlockInflaters blockInflaters) {
+        _dataDirectory = dataDirectory;
+        _blockDataDirectory = (dataDirectory != null ? (dataDirectory + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks") : null);
         _blockInflaters = blockInflaters;
         _blockHeaderInflaters = blockHeaderInflaters;
     }
@@ -116,6 +119,12 @@ public class BlockStoreCore implements BlockStore {
 
         final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
         final ByteArray byteArray = blockDeflater.toBytes(block);
+
+        if (Logger.isTraceEnabled()) {
+            if (IoUtil.fileExists(blockPath)) {
+                Logger.trace("Overwriting existing block: " + blockHash, new Exception());
+            }
+        }
 
         return IoUtil.putFileContents(blockPath, byteArray);
     }
@@ -166,6 +175,11 @@ public class BlockStoreCore implements BlockStore {
     @Override
     public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
         return _readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
+    }
+
+    @Override
+    public String getDataDirectory() {
+        return _dataDirectory;
     }
 
     public String getBlockDataDirectory() {

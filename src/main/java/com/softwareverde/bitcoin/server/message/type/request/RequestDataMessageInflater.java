@@ -25,7 +25,7 @@ public class RequestDataMessageInflater extends BitcoinProtocolMessageInflater {
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.REQUEST_DATA);
         if (protocolMessageHeader == null) { return null; }
 
-        final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
+        final Long inventoryCount = byteArrayReader.readVariableLengthInteger();
         for (int i = 0; i < inventoryCount; ++i) {
             final InventoryItem inventoryItem = inventoryItemInflater.fromBytes(byteArrayReader);
             inventoryMessage.addInventoryItem(inventoryItem);

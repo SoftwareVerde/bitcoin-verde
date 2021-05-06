@@ -2,10 +2,10 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import java.util.Comparator;
 
-public class UnspentTransactionOutput {
-    public static final Comparator<UnspentTransactionOutput> COMPARATOR = new Comparator<UnspentTransactionOutput>() {
+public class Utxo {
+    public static final Comparator<Utxo> COMPARATOR = new Comparator<Utxo>() {
         @Override
-        public int compare(final UnspentTransactionOutput o1, final UnspentTransactionOutput o2) {
+        public int compare(final Utxo o1, final Utxo o2) {
             return o1._utxoKey.compareTo(o2._utxoKey);
         }
     };
@@ -13,7 +13,7 @@ public class UnspentTransactionOutput {
     protected final UtxoKey _utxoKey;
     protected final UtxoValue _utxoValue;
 
-    public UnspentTransactionOutput(final UtxoKey utxoKey, final UtxoValue utxoValue) {
+    public Utxo(final UtxoKey utxoKey, final UtxoValue utxoValue) {
         _utxoKey = utxoKey;
         _utxoValue = utxoValue;
     }
@@ -28,5 +28,13 @@ public class UnspentTransactionOutput {
 
     public long getBlockHeight() {
         return _utxoValue.blockHeight;
+    }
+
+    public long getAmount() {
+        return _utxoValue.amount;
+    }
+
+    public byte[] getLockingScript() {
+        return _utxoValue.lockingScript;
     }
 }

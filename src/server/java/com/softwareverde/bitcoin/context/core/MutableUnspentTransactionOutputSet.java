@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.validator.UtxoUndoLog;
 import com.softwareverde.constable.list.JavaListWrapper;
@@ -24,6 +25,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MultiTimer;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,7 +42,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     /**
      * Populates _transactionBlockHeights and _transactionOutputs for a block on the provided blockchainSegmentId...
      */
-    public Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId blockIdToProcess, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs, final HashSet<Sha256Hash> transactionsWithUnknownBlockHeights) throws DatabaseException {
+    public Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId blockIdToProcess, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -64,9 +66,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             final List<Transaction> blockTransactions = block.getTransactions();
             for (final Transaction transaction : blockTransactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
-                if (transactionsWithUnknownBlockHeights.contains(transactionHash)) {
-                    _transactionBlockHeights.put(transactionHash, blockHeight);
-                }
+                _transactionBlockHeights.put(transactionHash, blockHeight);
             }
 
             blockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
@@ -96,9 +96,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             final List<Transaction> blockTransactions = block.getTransactions();
             for (final Transaction transaction : blockTransactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
-                if (transactionsWithUnknownBlockHeights.contains(transactionHash)) {
-                    _transactionBlockHeights.put(transactionHash, blockHeight);
-                }
+                _transactionBlockHeights.put(transactionHash, blockHeight);
             }
 
             redoDepth += 1;
@@ -127,6 +125,9 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
      *  The BlockHeader for the provided Block must have been stored before attempting to load its outputs.
      */
     public synchronized Boolean loadOutputsForBlock(final FullNodeDatabaseManager databaseManager, final Block block, final Long blockHeight) throws DatabaseException {
+        final MultiTimer multiTimer = new MultiTimer();
+        multiTimer.start();
+
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -136,6 +137,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) { return false; }
+        multiTimer.mark("headerId");
 
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
         final BlockchainSegmentId utxoSetBlockchainSegmentId;
@@ -145,12 +147,11 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             utxoSetBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
         }
         final Boolean blockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(blockchainSegmentId, utxoSetBlockchainSegmentId, BlockRelationship.ANY);
+        multiTimer.mark("blockchainSegmentId");
 
         _blockHashesByBlockHeight.put(blockHeight, blockHash);
 
         final List<Transaction> transactions = block.getTransactions();
-
-        final HashSet<Sha256Hash> transactionsWithUnknownBlockHeights = new HashSet<Sha256Hash>();
 
         Transaction coinbaseTransaction = null;
         final HashSet<TransactionOutputIdentifier> requiredTransactionOutputs = new HashSet<TransactionOutputIdentifier>();
@@ -164,15 +165,11 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 continue;
             }
 
-            { // Add the PreviousTransactionOutputs to the list of outputs to retrieve...
+            { // Add the PreviousTransactionOutputs to the list of outputs to retrieve and check for duplicates...
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
                     final Sha256Hash previousTransactionHash = transactionOutputIdentifier.getTransactionHash();
-
-                    if (! _transactionBlockHeights.containsKey(previousTransactionHash)) {
-                        transactionsWithUnknownBlockHeights.add(previousTransactionHash);
-                    }
 
                     final boolean isUnique = requiredTransactionOutputs.add(transactionOutputIdentifier);
                     if (! isUnique) { // Two inputs cannot spent the same output...
@@ -191,6 +188,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 }
             }
         }
+        multiTimer.mark("blockTxns");
 
         if (coinbaseTransaction != null) {
             final Sha256Hash coinbaseTransactionHash = coinbaseTransaction.getHash();
@@ -198,28 +196,19 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         }
 
         requiredTransactionOutputs.removeAll(newOutputs); // New outputs created by this block are not added to this UTXO set.
+        multiTimer.mark("excludeOutputs");
 
         if (! Util.coalesce(blockIsOnMainChain, true)) {
-            return _loadOutputsForAlternateBlock(databaseManager, blockId, requiredTransactionOutputs, transactionsWithUnknownBlockHeights);
+            return _loadOutputsForAlternateBlock(databaseManager, blockId, requiredTransactionOutputs);
         }
 
-        { // Load the BlockHeights for the unknown Transactions (the previous Transactions being spent by (and outside of) this block)...
-            final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, JavaListWrapper.wrap(transactionsWithUnknownBlockHeights));
-            final HashSet<BlockId> uniqueBlockIds = new HashSet<BlockId>(transactionBlockIds.values());
-            final Map<BlockId, Long> blockHeights = blockHeaderDatabaseManager.getBlockHeights(JavaListWrapper.wrap(uniqueBlockIds));
-            for (final Sha256Hash transactionHash : transactionBlockIds.keySet()) {
-                final BlockId transactionBlockId = transactionBlockIds.get(transactionHash);
-                final Long transactionBlockHeight = blockHeights.get(transactionBlockId);
-                _transactionBlockHeights.put(transactionHash, transactionBlockHeight);
-            }
-        }
-
+        final HashSet<Sha256Hash> unknownTransactionBlockHeightsSet = new HashSet<>();
         boolean allTransactionOutputsWereLoaded = true;
         final List<TransactionOutputIdentifier> transactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(requiredTransactionOutputs);
-        final List<TransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
+        final List<UnspentTransactionOutput> transactionOutputs = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutputs(transactionOutputIdentifiers);
         for (int i = 0; i < transactionOutputs.getCount(); ++i) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputIdentifiers.get(i);
-            final TransactionOutput transactionOutput = transactionOutputs.get(i);
+            final UnspentTransactionOutput transactionOutput = transactionOutputs.get(i);
             if (transactionOutput == null) {
                 if (allTransactionOutputsWereLoaded) {
                     Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
@@ -229,6 +218,39 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             }
 
             _transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+
+            final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+            final Long transactionOutputBlockHeight = transactionOutput.getBlockHeight();
+            if ( (transactionOutputBlockHeight == null) || Util.areEqual(transactionOutputBlockHeight, UnspentTransactionOutput.UNKNOWN_BLOCK_HEIGHT) ) {
+                unknownTransactionBlockHeightsSet.add(transactionHash);
+            }
+            else {
+                _transactionBlockHeights.put(transactionHash, transactionOutputBlockHeight);
+            }
+        }
+        multiTimer.mark("loadOutputs");
+
+        { // Load the BlockHeights for the unknown Transactions (the previous Transactions being spent by (and outside of) this block)...
+            final MutableList<Sha256Hash> transactionsWithUnknownBlockHeight = new MutableList<>();
+            for (final Sha256Hash transactionHash : unknownTransactionBlockHeightsSet) {
+                if (! _transactionBlockHeights.containsKey(transactionHash)) {
+                    transactionsWithUnknownBlockHeight.add(transactionHash);
+                }
+            }
+
+            final Map<Sha256Hash, BlockId> transactionBlockIds = transactionDatabaseManager.getBlockIds(blockchainSegmentId, transactionsWithUnknownBlockHeight);
+            final HashSet<BlockId> uniqueBlockIds = new HashSet<BlockId>(transactionBlockIds.values());
+            final Map<BlockId, Long> blockHeights = blockHeaderDatabaseManager.getBlockHeights(JavaListWrapper.wrap(uniqueBlockIds));
+            for (final Sha256Hash transactionHash : transactionBlockIds.keySet()) {
+                final BlockId transactionBlockId = transactionBlockIds.get(transactionHash);
+                final Long transactionBlockHeight = blockHeights.get(transactionBlockId);
+                _transactionBlockHeights.put(transactionHash, transactionBlockHeight);
+            }
+        }
+        multiTimer.stop("blockHeights");
+
+        if (Logger.isTraceEnabled()) {
+            Logger.trace("Load UTXOs MultiTimer: " + multiTimer);
         }
 
         return allTransactionOutputsWereLoaded;

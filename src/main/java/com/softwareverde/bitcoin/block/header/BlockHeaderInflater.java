@@ -29,7 +29,7 @@ public class BlockHeaderInflater {
         final byte[] difficultyBytes = byteArrayReader.readBytes(4, Endian.LITTLE);
         blockHeader._difficulty = Difficulty.decode(ByteArray.wrap(difficultyBytes));
         blockHeader._nonce = byteArrayReader.readLong(4, Endian.LITTLE);
-        // blockHeader._transactionCount = byteArrayReader.readVariableSizedInteger().intValue(); // Always 0 for Block Headers...
+        // blockHeader._transactionCount = byteArrayReader.readVariableLengthInteger().intValue(); // Always 0 for Block Headers...
 
         if (byteArrayReader.didOverflow()) { return null; }
 

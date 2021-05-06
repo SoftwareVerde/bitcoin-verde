@@ -27,7 +27,7 @@ public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.BLOCK_HEADERS);
         if (protocolMessageHeader == null) { return null; }
 
-        final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Integer blockHeaderCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (blockHeaderCount > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
             Logger.debug("Block Header Count Exceeded: " + blockHeaderCount);
             return null;

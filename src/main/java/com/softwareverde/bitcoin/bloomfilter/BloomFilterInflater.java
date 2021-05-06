@@ -10,7 +10,7 @@ public class BloomFilterInflater {
     public static final Integer MAX_BYTE_COUNT = (32 * 1024 * 1024);
 
     protected MutableBloomFilter _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final Integer bloomFilterByteCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Integer bloomFilterByteCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (bloomFilterByteCount > MAX_BYTE_COUNT) { return null; }
 
         final Integer bloomFilterBitCount = (bloomFilterByteCount * 8);

@@ -17,7 +17,7 @@ public class PartialMerkleTreeInflater {
 
         final Integer transactionCount = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final Integer hashesCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Integer hashesCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (hashesCount > MAX_HASHES_COUNT) {
             Logger.debug("MerkleBlock exceeded maximum hashes count: " + hashesCount);
             return null;
@@ -29,7 +29,7 @@ public class PartialMerkleTreeInflater {
             hashesBuilder.add(hash);
         }
 
-        final Integer flagsByteCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final Integer flagsByteCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (flagsByteCount > MAX_HASHES_COUNT) {
             Logger.debug("MerkleBlock exceeded maximum flag-bytes count: " + flagsByteCount);
             return null;

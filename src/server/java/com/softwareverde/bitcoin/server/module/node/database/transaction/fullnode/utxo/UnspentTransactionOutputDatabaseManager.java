@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database.transaction.fullno
 
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -53,7 +54,7 @@ public interface UnspentTransactionOutputDatabaseManager {
     ReentrantReadWriteLock.WriteLock UTXO_WRITE_MUTEX = UnspentTransactionOutputJvmManager.WRITE_MUTEX;
 
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
-    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, Long blockHeight) throws DatabaseException;
+    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, List<TransactionOutput> transactionOutputs, Long blockHeight) throws DatabaseException;
 
     /**
      * Marks the provided UTXOs as spent, logically removing them from the UTXO set, and forces the outputs to be synchronized to disk on the next UTXO commit.
@@ -65,9 +66,9 @@ public interface UnspentTransactionOutputDatabaseManager {
      */
     void undoSpendingOfTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
-    TransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
+    UnspentTransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 
-    List<TransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
+    List<UnspentTransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
     /**
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked during commit duration.

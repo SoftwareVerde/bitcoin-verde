@@ -18,7 +18,7 @@ public class QuerySlpStatusMessageInflater extends BitcoinProtocolMessageInflate
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.QUERY_SLP_STATUS);
         if (protocolMessageHeader == null) { return null; }
 
-        final int addressCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int addressCount = byteArrayReader.readVariableLengthInteger().intValue();
         if ( (addressCount < 0) || (addressCount >= QuerySlpStatusMessage.MAX_HASH_COUNT) ) { return null; }
 
         final Integer bytesRequired = (Sha256Hash.BYTE_COUNT * addressCount);

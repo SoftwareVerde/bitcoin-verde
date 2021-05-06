@@ -22,6 +22,7 @@ public class BitcoinProperties {
     protected List<String> _userAgentBlacklist;
     protected List<NodeProperties> _nodeWhitelist;
     protected Boolean _banFilterIsEnabled;
+    protected Boolean _pruningModeIsEnabled;
     protected Integer _minPeerCount;
     protected Integer _maxPeerCount;
     protected Integer _maxThreadCount;
@@ -88,7 +89,8 @@ public class BitcoinProperties {
     public String getLogDirectory() { return _logDirectory; }
     public LogLevel getLogLevel() { return _logLevel; }
     public Boolean isTestNet() { return _isTestNet(); }
-    public Integer getTestNet() { return _testNet; }
+    public Integer getTestNetVersion() { return _testNet; }
+    public Boolean isPruningModeEnabled() { return _pruningModeIsEnabled; }
 
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     public Long getMaxCachedUtxoCount() {

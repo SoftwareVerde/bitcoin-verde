@@ -47,8 +47,11 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CacheLoadingMethod;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
@@ -74,7 +77,16 @@ import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.BanFilterCore;
 import com.softwareverde.bitcoin.server.module.node.manager.banfilter.DisabledBanFilter;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.MetadataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.NodeHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryAddressHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryBlockchainHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcDataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcIndexerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ServiceInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
@@ -83,6 +95,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.DisabledBlockchainIndex
 import com.softwareverde.bitcoin.server.module.node.sync.SlpTransactionProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloadPlannerCore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockPruner;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
@@ -131,6 +144,7 @@ import java.util.regex.Pattern;
 
 public class NodeModule {
     protected final Boolean _rebuildUtxoSet = false;
+    protected final Boolean _utxoCacheLoadFileIsEnabled;
 
     protected final SystemTime _systemTime;
     protected final BitcoinProperties _bitcoinProperties;
@@ -154,6 +168,7 @@ public class NodeModule {
     protected final SlpTransactionProcessor _slpTransactionProcessor;
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
+    protected final BlockPruner _blockPruner;
     protected final List<SleepyService> _allServices;
 
     protected final BitcoinNodeFactory _bitcoinNodeFactory;
@@ -176,6 +191,11 @@ public class NodeModule {
 
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
 
+    protected Long _getUtxoCommitFrequency() {
+        final Long utxoCommitProperty = _bitcoinProperties.getUtxoCacheCommitFrequency();
+        return (_bitcoinProperties.isPruningModeEnabled() ? Math.min(UndoLogDatabaseManager.MAX_REORG_DEPTH, utxoCommitProperty) : utxoCommitProperty);
+    }
+
     protected void _shutdown() {
         synchronized (_isShuttingDown) {
             if (! _isShuttingDown.compareAndSet(false, true)) {
@@ -183,6 +203,13 @@ public class NodeModule {
                 try { _isShuttingDown.wait(30000); } catch (final Exception exception) { }
                 return;
             }
+        }
+
+        final FullNodeDatabaseManagerFactory databaseManagerFactory;
+        {
+            final Database database = _environment.getDatabase();
+            final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
         }
 
         Logger.info("[Stopping Request Handler]");
@@ -225,23 +252,41 @@ public class NodeModule {
         Logger.info("[Stopping Socket Server]");
         _socketServer.stop();
 
+        if (_blockPruner != null) {
+            Logger.info("[Stopping BlockPruner]");
+            _blockPruner.stop();
+        }
+
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
+                Logger.info("[Saving UTXO Cache]");
+
+                final UnspentTransactionOutputJvmManager unspentTransactionOutputJvmManager = (UnspentTransactionOutputJvmManager) unspentTransactionOutputDatabaseManager;
+                if (_utxoCacheLoadFileIsEnabled) {
+                    unspentTransactionOutputJvmManager.writeUtxoCacheLoadFile();
+                }
+                else {
+                    unspentTransactionOutputJvmManager.deleteUtxoCacheLoadFile();
+                }
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
+        }
+
         Logger.info("[Committing UTXO Set]");
-        {
-            final Database database = _environment.getDatabase();
-            final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
-            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
-                final MilliTimer utxoCommitTimer = new MilliTimer();
-                utxoCommitTimer.start();
-                Logger.info("Committing UTXO set.");
-                unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
-                utxoCommitTimer.stop();
-                Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
-            }
-            catch (final DatabaseException exception) {
-                Logger.warn(exception);
-            }
+        try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final MilliTimer utxoCommitTimer = new MilliTimer();
+            utxoCommitTimer.start();
+            Logger.info("Committing UTXO set.");
+            unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+            utxoCommitTimer.stop();
+            Logger.debug("Commit Timer: " + utxoCommitTimer.getMillisecondsElapsed() + "ms.");
+        }
+        catch (final DatabaseException exception) {
+            Logger.warn(exception);
         }
 
         Logger.info("[Shutting Down Thread Server]");
@@ -284,6 +329,17 @@ public class NodeModule {
 
     public NodeModule(final BitcoinProperties bitcoinProperties, final Environment environment) {
         final Thread mainThread = Thread.currentThread();
+        mainThread.setName("Bitcoin Verde - Main");
+        mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable throwable) {
+                try {
+                    Logger.error(throwable);
+                    _shutdown();
+                }
+                catch (final Throwable ignored) { }
+            }
+        });
 
         _systemTime = new SystemTime();
         _masterInflater = new CoreInflater();
@@ -298,12 +354,10 @@ public class NodeModule {
         }
 
         { // Initialize the BlockCache...
-            final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/blocks");
-            final String pendingBlockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/pending-blocks");
-
+            final String dataDirectory = bitcoinProperties.getDataDirectory();
             final BlockHeaderInflaters blockHeaderInflaters = _masterInflater;
             final BlockInflaters blockInflaters = _masterInflater;
-            _blockStore = new PendingBlockStoreCore(blockCacheDirectory, pendingBlockCacheDirectory, blockHeaderInflaters, blockInflaters) {
+            _blockStore = new PendingBlockStoreCore(dataDirectory, blockHeaderInflaters, blockInflaters) {
                 @Override
                 protected void _deletePendingBlockData(final String blockPath) {
                     if (bitcoinProperties.isDeletePendingBlocksEnabled()) {
@@ -326,6 +380,8 @@ public class NodeModule {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
+        _utxoCacheLoadFileIsEnabled = true;
+
         final int minPeerCount = (bitcoinProperties.shouldSkipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
@@ -334,17 +390,6 @@ public class NodeModule {
         _networkThreadPool = new CachedThreadPool((16 + (maxPeerCount * 8)), 60000L);
         _blockProcessingThreadPool = new CachedThreadPool(256, 60000L);
         _rpcThreadPool = new CachedThreadPool(32, 60000L);
-
-        mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(final Thread thread, final Throwable throwable) {
-                try {
-                    Logger.error(throwable);
-                    _shutdown();
-                }
-                catch (final Throwable ignored) { }
-            }
-        });
 
         final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
@@ -385,17 +430,23 @@ public class NodeModule {
             }
         };
 
+        final boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
             public NodeFeatures getNodeFeatures() {
                 final NodeFeatures nodeFeatures = new NodeFeatures();
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
                 nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
                 nodeFeatures.enableFeature(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED); // BitcoinVerde 2021-04-27
+
+                if (! pruningModeIsEnabled) {
+                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                }
+                nodeFeatures.enableFeature(NodeFeatures.Feature.MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED);
+
                 return nodeFeatures;
             }
         };
@@ -598,11 +649,23 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockProcessor...
+            final Long utxoCommitFrequency = _getUtxoCommitFrequency();
+            final Integer maxThreadCount = bitcoinProperties.getMaxThreadCount();
+            final Long trustedBlockHeight = bitcoinProperties.getTrustedBlockHeight();
+
             final BlockProcessor.Context blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, databaseManagerFactory, _mutableNetworkTime, synchronizationStatusHandler, _difficultyCalculatorFactory, transactionValidatorFactory, _upgradeSchedule);
             blockProcessor = new BlockProcessor(blockProcessorContext);
-            blockProcessor.setUtxoCommitFrequency(bitcoinProperties.getUtxoCacheCommitFrequency());
-            blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
-            blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
+            blockProcessor.setUtxoCommitFrequency(utxoCommitFrequency);
+            blockProcessor.setMaxThreadCount(maxThreadCount);
+            blockProcessor.setTrustedBlockHeight(trustedBlockHeight);
+            blockProcessor.enableUndoLog(pruningModeIsEnabled);
+        }
+
+        if (pruningModeIsEnabled) {
+            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore);
+        }
+        else {
+            _blockPruner = null;
         }
 
         { // Initialize the BlockHeaderDownloader/BlockDownloader...
@@ -616,6 +679,11 @@ public class NodeModule {
             };
 
             final BlockDownloadPlannerCore blockDownloadPlanner = new BlockDownloadPlannerCore(databaseManagerFactory, _blockStore);
+            if (pruningModeIsEnabled) {
+                blockDownloadPlanner.setMaxDownloadAheadDepth(256);
+                blockDownloadPlanner.enableAlternateChainDownload(false);
+            }
+
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
 
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
@@ -632,6 +700,29 @@ public class NodeModule {
             final BlockDownloader.StatusMonitor blockDownloaderStatusMonitor = _blockDownloader.getStatusMonitor();
             final BlockchainBuilderContext blockchainBuilderContext = new BlockchainBuilderContext(_masterInflater, databaseManagerFactory, _bitcoinNodeManager, _systemTime, _blockProcessingThreadPool);
             _blockchainBuilder = new BlockchainBuilder(blockchainBuilderContext, blockProcessor, _blockStore, blockDownloaderStatusMonitor);
+            _blockchainBuilder.setUnavailableBlockCallback(new BlockchainBuilder.UnavailableBlockCallback() {
+                @Override
+                public void onRequiredBlockUnavailable(final Sha256Hash blockHash, final Long blockHeight) {
+                    try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                        final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        if (blockId == null) { return; }
+
+                        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                        final Boolean blockIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+                        if (blockIsOnMainChain) {
+                            Logger.debug("Requesting Block: " + blockHash + ":" + blockHeight);
+                            _blockDownloader.requestBlock(blockHash, blockHeight, null);
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.debug(exception);
+                    }
+                }
+            });
         }
 
         final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
@@ -670,6 +761,8 @@ public class NodeModule {
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
                         _blockHeaderDownloader.wakeUp();
                     }
+
+                    _blockDownloader.wakeUp();
 
                     if (blockHeight >= blockHeaderDownloaderBlockHeight) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -723,6 +816,10 @@ public class NodeModule {
                     if (nodeRpcHandler != null) {
                         nodeRpcHandler.onNewBlock(block);
                     }
+
+                    if (pruningModeIsEnabled) { // Handle Block Pruning...
+                        _blockPruner.wakeUp();
+                    }
                 }
             });
 
@@ -739,6 +836,9 @@ public class NodeModule {
                     }
 
                     _blockDownloader.wakeUp();
+
+                    // TODO: If the BlockHeader(s) are on the main chain and the node is (mostly) synced, then prioritize the download
+                    //  of the new block via BlockDownloader::requestBlock(blockHash, 0L, bitcoinNode)
 
                     if (synchronizationStatusHandler.getState() == State.ONLINE) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -854,15 +954,20 @@ public class NodeModule {
             }
         });
 
-        _allServices = new ImmutableList<SleepyService>(
-            _blockchainIndexer,
-            _slpTransactionProcessor,
-            _transactionProcessor,
-            _transactionDownloader,
-            _blockchainBuilder,
-            _blockDownloader,
-            _blockHeaderDownloader
-        );
+        {
+            final ImmutableListBuilder<SleepyService> listBuilder = new ImmutableListBuilder<>();
+            listBuilder.add(_blockchainIndexer);
+            listBuilder.add(_slpTransactionProcessor);
+            listBuilder.add(_transactionProcessor);
+            listBuilder.add(_transactionDownloader);
+            listBuilder.add(_blockchainBuilder);
+            listBuilder.add(_blockDownloader);
+            listBuilder.add(_blockHeaderDownloader);
+            if (_blockPruner != null) {
+                listBuilder.add(_blockPruner);
+            }
+            _allServices = listBuilder.build();
+        }
 
         final Integer rpcPort = _bitcoinProperties.getBitcoinRpcPort();
         if (rpcPort > 0) {
@@ -1021,7 +1126,7 @@ public class NodeModule {
         _loggerFlushThread.setName("Logger Flush Thread");
         _loggerFlushThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
-            public void uncaughtException(final Thread t, final Throwable exception) {
+            public void uncaughtException(final Thread thread, final Throwable exception) {
                 Logger.warn(exception);
             }
         });
@@ -1051,7 +1156,7 @@ public class NodeModule {
         );
 
         if (_bitcoinProperties.isBootstrapEnabled()) {
-            final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory, true);
+            final HeadersBootstrapper headersBootstrapper = new FullNodeHeadersBootstrapper(databaseManagerFactory);
             if (headersBootstrapper.shouldRun()) {
                 Logger.info("[Bootstrapping Headers]");
                 headersBootstrapper.run();
@@ -1061,10 +1166,7 @@ public class NodeModule {
         { // Validate the UTXO set is up to date...
             Logger.info("[Checking UTXO Set]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
-                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
-                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-
-                final Long utxoCommitFrequency = _bitcoinProperties.getUtxoCacheCommitFrequency();
+                final long utxoCommitFrequency = _getUtxoCommitFrequency();
                 final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
 
                 if (_rebuildUtxoSet) {
@@ -1077,6 +1179,41 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.error(exception);
+
+                _shutdown();
+                System.exit(1);
+            }
+        }
+
+        { // Warm up the UTXO cache...
+            try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                if (unspentTransactionOutputDatabaseManager instanceof UnspentTransactionOutputJvmManager) {
+                    Logger.info("[Warming UTXO Cache]");
+
+                    final UnspentTransactionOutputJvmManager unspentTransactionOutputJvmManager = (UnspentTransactionOutputJvmManager) unspentTransactionOutputDatabaseManager;
+                    final Boolean utxoCacheFileExists = unspentTransactionOutputJvmManager.doesUtxoCacheLoadFileExist();
+                    // The LOAD_VIA_RECENT_TRANSACTIONS depends on the transactions table being populated which is (effectively) unavailable in pruning mode.
+                    final Boolean pruningModeIsEnabled = _bitcoinProperties.isPruningModeEnabled();
+
+                    final CacheLoadingMethod cacheLoadingMethod;
+                    if (utxoCacheFileExists && _utxoCacheLoadFileIsEnabled) {
+                        cacheLoadingMethod = CacheLoadingMethod.LOAD_VIA_UTXO_LOAD_FILE;
+                    }
+                    else {
+                        cacheLoadingMethod =  (! pruningModeIsEnabled ? CacheLoadingMethod.LOAD_VIA_RECENT_TRANSACTIONS : null);
+                    }
+
+                    if (cacheLoadingMethod != null) {
+                        unspentTransactionOutputJvmManager.populateCache(cacheLoadingMethod);
+                    }
+                }
+                else {
+                    Logger.debug("Unexpected UnspentTransactionOutputDatabaseManager implementation.");
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.warn(exception);
             }
         }
 
@@ -1181,6 +1318,11 @@ public class NodeModule {
         if (_slpTransactionProcessor != null) {
             Logger.info("[Started SlpTransaction Processor]");
             _slpTransactionProcessor.start();
+        }
+
+        if (_blockPruner != null) {
+            Logger.info("[Starting BlockPruner]");
+            _blockPruner.start();
         }
 
         _uptimeTimer.start();

@@ -22,7 +22,7 @@ public class BlockInflater {
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
-        final int transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
+        final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
         if (transactionCount > MAX_TRANSACTION_COUNT) { return null; }
 
         final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount);

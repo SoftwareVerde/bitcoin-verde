@@ -23,6 +23,8 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
@@ -49,16 +51,38 @@ public class BlockchainBuilder extends GracefulSleepyService {
         void onNewBlock(ProcessBlockResult processBlockResult);
     }
 
+    public interface UnavailableBlockCallback {
+        void onRequiredBlockUnavailable(Sha256Hash blockHash, Long blockHeight);
+    }
+
     protected final Context _context;
     protected final BlockProcessor _blockProcessor;
     protected final BlockDownloader.StatusMonitor _blockDownloaderStatusMonitor;
     protected final PendingBlockStore _blockStore;
     protected Boolean _hasGenesisBlock;
-    protected NewBlockProcessedCallback _asynchronousNewBlockProcessedCallback = null;
-    protected NewBlockProcessedCallback _synchronousNewBlockProcessedCallback = null;
+    protected NewBlockProcessedCallback _asynchronousNewBlockProcessedCallback;
+    protected NewBlockProcessedCallback _synchronousNewBlockProcessedCallback;
+    protected UnavailableBlockCallback _unavailableBlockCallback;
 
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
+
+    protected void _checkUtxoSet(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        if (! UnspentTransactionOutputDatabaseManager.isUtxoCacheReady()) {
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
+
+            Logger.info("Rebuilding UTXO set.");
+            final NanoTimer nanoTimer = new NanoTimer();
+            nanoTimer.start();
+
+            final Long utxoCommitFrequency = _blockProcessor.getUtxoCommitFrequency();
+            final UnspentTransactionOutputManager unspentTransactionOutputManager = new UnspentTransactionOutputManager(databaseManager, utxoCommitFrequency);
+            unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);
+
+            nanoTimer.stop();
+            Logger.trace("Rebuilt UTXO set in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+        }
+    }
 
     /**
      * Stores and validates the pending Block.
@@ -243,40 +267,53 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 return true;
             }
 
-            final Sha256Hash pendingBlockHash = nextBlockHash;
-            final Boolean blockDataExists = _blockStore.pendingBlockExists(pendingBlockHash);
-            final ByteArray pendingBlockData = (blockDataExists ? _blockStore.getPendingBlockData(pendingBlockHash) : null);
+            final Boolean blockDataExists = _blockStore.pendingBlockExists(nextBlockHash);
+            final ByteArray pendingBlockData = (blockDataExists ? _blockStore.getPendingBlockData(nextBlockHash) : null);
 
             if (pendingBlockData == null) {
-                Logger.debug("Waiting for unavailable block: " + pendingBlockHash);
+                Logger.debug("Waiting for unavailable block: " + nextBlockHash);
+
+                final UnavailableBlockCallback unavailableBlockCallback = _unavailableBlockCallback;
+                if (unavailableBlockCallback != null) {
+                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(nextBlockId);
+
+                    final ThreadPool threadPool = _context.getThreadPool();
+                    threadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            unavailableBlockCallback.onRequiredBlockUnavailable(nextBlockHash, blockHeight);
+                        }
+                    });
+                }
+
                 return false;
             }
 
             final BlockInflater blockInflater = _context.getBlockInflater();
             final Block block = blockInflater.fromBytes(pendingBlockData);
             if (block == null) {
-                Logger.info("Unable to inflate block: " + pendingBlockHash);
-                blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash, 1);
+                Logger.info("Unable to inflate block: " + nextBlockHash);
+                blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
                 return false;
             }
+
+            _checkUtxoSet(databaseManager);
 
             final Boolean processBlockWasSuccessful = _processPendingBlock(block);
 
-            { // Delete the pending block...
-                final NanoTimer nanoTimer = new NanoTimer();
-                nanoTimer.start();
-
-                _blockStore.removePendingBlock(pendingBlockHash);
-
-                nanoTimer.stop();
-                Logger.trace("Pending block deleted in " + nanoTimer.getMillisecondsElapsed() + "ms.");
-            }
-
             if (! processBlockWasSuccessful) {
-                blockHeaderDatabaseManager.markBlockAsInvalid(pendingBlockHash, 1);
-                Logger.debug("Pending block failed during processing: " + pendingBlockHash);
+                blockHeaderDatabaseManager.markBlockAsInvalid(nextBlockHash, 1);
+                Logger.debug("Pending block failed during processing: " + nextBlockHash);
+
+                final Boolean blockIsOfficiallyInvalid = blockHeaderDatabaseManager.isBlockInvalid(nextBlockHash, BlockHeaderDatabaseManager.INVALID_PROCESS_THRESHOLD);
+                if (blockIsOfficiallyInvalid) {
+                    _blockStore.removePendingBlock(nextBlockHash);
+                }
+
                 return false;
             }
+
+            _blockStore.removePendingBlock(nextBlockHash);
 
             headBlockId = nextBlockId;
 
@@ -363,6 +400,13 @@ public class BlockchainBuilder extends GracefulSleepyService {
 
     public Container<Float> getAverageBlocksPerSecondContainer() {
         return _averageBlocksPerSecond;
+    }
+
+    /**
+     * Sets a callback to be executed when the BlockchainBuilder requires a block to continue that is currently unavailable.
+     */
+    public void setUnavailableBlockCallback(final UnavailableBlockCallback unavailableBlockCallback) {
+        _unavailableBlockCallback = unavailableBlockCallback;
     }
 
     @Override

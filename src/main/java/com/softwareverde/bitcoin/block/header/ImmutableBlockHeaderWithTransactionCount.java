@@ -23,8 +23,13 @@ public class ImmutableBlockHeaderWithTransactionCount extends ImmutableBlockHead
     }
 
     @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
+
+    @Override
     public boolean equals(final Object object) {
-        final Boolean transactionCountIsEqual = BlockHeaderWithTransactionCountCore.equals(this, object);
+        final boolean transactionCountIsEqual = BlockHeaderWithTransactionCountCore.equals(this, object);
         if (! transactionCountIsEqual) { return false; }
 
         return super.equals(object);
