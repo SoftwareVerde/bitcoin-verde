@@ -173,6 +173,16 @@ public class BlockStoreCore implements BlockStore {
     }
 
     @Override
+    public Boolean blockExists(final Sha256Hash blockHash, final Long blockHeight) {
+        if (_blockDataDirectory == null) { return false; }
+
+        final String blockPath = _getBlockDataPath(blockHash, blockHeight);
+        if (blockPath == null) { return false; }
+
+        return IoUtil.fileExists(blockPath);
+    }
+
+    @Override
     public ByteArray readFromBlock(final Sha256Hash blockHash, final Long blockHeight, final Long diskOffset, final Integer byteCount) {
         return _readFromBlock(blockHash, blockHeight, diskOffset, byteCount);
     }

@@ -11,6 +11,7 @@ public interface BlockStore {
     void removeBlock(Sha256Hash blockHash, Long blockHeight);
     MutableBlockHeader getBlockHeader(Sha256Hash blockHash, Long blockHeight);
     MutableBlock getBlock(Sha256Hash blockHash, Long blockHeight);
+    Boolean blockExists(Sha256Hash blockHash, Long blockHeight);
     ByteArray readFromBlock(Sha256Hash blockHash, Long blockHeight, Long diskOffset, Integer byteCount);
     String getDataDirectory();
 }
