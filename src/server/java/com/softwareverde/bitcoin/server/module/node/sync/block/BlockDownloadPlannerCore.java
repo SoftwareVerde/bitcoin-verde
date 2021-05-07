@@ -197,10 +197,10 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
                 _bestCompletedInventory = _calculateBestCompletedInventory(databaseManager);
             }
             else { // Update _bestCompletedInventory with completed blocks, starting with at current best inventory...
+                final NanoTimer updateBestInventoryTimer = new NanoTimer();
+                updateBestInventoryTimer.start();
+                int loopCount = 0;
                 while (true) {
-                    final Boolean blockHasBeenDownloaded = _hasBlockBeenDownloaded(_bestCompletedInventory.blockHash, _bestCompletedInventory.blockHeight);
-                    if (! blockHasBeenDownloaded) { break; }
-
                     final BlockId childBlockId;
                     {
                         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(_bestCompletedInventory.blockHash);
@@ -210,9 +210,18 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
 
                     final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(childBlockId);
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(childBlockId);
+
+                    final Boolean blockHasBeenDownloaded = _hasBlockBeenDownloaded(blockHash, blockHeight);
+                    if (! blockHasBeenDownloaded) { break; }
+
                     _bestCompletedInventory = new PendingBlockInventory(_bestCompletedInventory.priority, blockHash, blockHeight);
+
+                    loopCount += 1;
                 }
-                Logger.trace("New best inventory: " + _bestCompletedInventory.blockHash + " " + _bestCompletedInventory.blockHeight);
+                updateBestInventoryTimer.stop();
+                if (Logger.isTraceEnabled()) {
+                    Logger.trace("New best inventory: " + _bestCompletedInventory.blockHash + " " + _bestCompletedInventory.blockHeight + ", " + loopCount + " iterations in " + updateBestInventoryTimer.getMillisecondsElapsed() + "ms.");
+                }
             }
 
             { // Prioritize downloading the main chain...
@@ -249,7 +258,14 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
                 }
                 Logger.trace("Batch Size: " + batchSize);
 
+                final NanoTimer getBatchTimer = new NanoTimer();
+                getBatchTimer.start();
+
                 final List<PendingBlockInventory> mainChainInventoryBatch = _getPendingBlockInventoryBatchForBlockchainSegment(startingBlockId, headBlockchainSegmentId, databaseManager, batchSize);
+
+                getBatchTimer.stop();
+                Logger.trace("Got Inventory Batch for next BlockchainSegment in " + getBatchTimer.getMillisecondsElapsed() + "ms.");
+
                 if (! mainChainInventoryBatch.isEmpty()) {
                     if (inventoryBatch.isEmpty()) { // Avoid copying the list unnecessarily...
                         return mainChainInventoryBatch;
