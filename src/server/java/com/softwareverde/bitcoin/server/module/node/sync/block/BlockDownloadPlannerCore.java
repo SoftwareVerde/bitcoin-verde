@@ -198,6 +198,14 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
                 final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                 final BlockId startingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(_bestCompletedInventory.blockHash);
 
+                if (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _bestCompletedInventory.blockHash)) {
+                    // Check if the GenesisBlock needs to be downloaded...
+                    final Boolean genesisBlockHasBeenProcessed = blockDatabaseManager.hasTransactions(startingBlockId);
+                    if ( (! genesisBlockHasBeenProcessed) && (! _blockStore.pendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH)) ) {
+                        inventoryBatch.add(_bestCompletedInventory);
+                    }
+                }
+
                 final int batchSize;
                 final Integer maxDownloadAheadDepth = _maxDownloadAheadDepth;
                 if (maxDownloadAheadDepth != null) {

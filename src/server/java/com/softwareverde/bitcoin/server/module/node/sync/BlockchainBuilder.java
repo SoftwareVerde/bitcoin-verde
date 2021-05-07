@@ -198,6 +198,20 @@ public class BlockchainBuilder extends GracefulSleepyService {
                 if (genesisBlockWasLoaded) {
                     _hasGenesisBlock = true;
                 }
+                else {
+                    Logger.debug("Waiting for genesis block.");
+                    final UnavailableBlockCallback unavailableBlockCallback = _unavailableBlockCallback;
+                    if (unavailableBlockCallback != null) {
+                        final ThreadPool threadPool = _context.getThreadPool();
+                        threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                unavailableBlockCallback.onRequiredBlockUnavailable(BlockHeader.GENESIS_BLOCK_HASH, 0L);
+                            }
+                        });
+                    }
+                    return;
+                }
             }
         }
 
@@ -235,7 +249,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
         final MilliTimer milliTimer = new MilliTimer();
         milliTimer.start();
 
-        // Find the next head block be downloaded... (depends on BlockHeaders)
+        // Find the next head block be processed... (depends on BlockHeaders)
         //  Traverse from the head blockHeader to the first processed block, then select its child blockHeader along the head blockchainSegment path.
         //  Since the head block and head blockHeader may have diverged, traversing backwards along the head blockHeader blockchainSegments is necessary.
         BlockId headBlockId = null;
