@@ -219,9 +219,9 @@ public class BlockValidator {
         }
         if (! invalidTransactions.isEmpty()) { return BlockValidationResult.invalid("Invalid transactions expenditures.", invalidTransactions); }
 
-        final StringBuilder errorMessage = new StringBuilder("Transactions failed to unlock inputs.");
         final int totalSignatureOperationCount;
         {
+            final StringBuilder errorMessage = new StringBuilder("Transactions failed to unlock inputs.");
             boolean allTransactionsAreValid = true;
             int signatureOperationCount = 0;
             for (final TransactionValidationTaskHandler.TransactionValidationTaskResult transactionValidationTaskResult : transactionValidationTaskResults) {

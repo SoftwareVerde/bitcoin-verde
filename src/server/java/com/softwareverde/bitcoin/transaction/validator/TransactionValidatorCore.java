@@ -224,6 +224,10 @@ public class TransactionValidatorCore implements TransactionValidator {
         return ValidationResult.valid();
     }
 
+    protected ScriptRunner _getScriptRunner(final UpgradeSchedule upgradeSchedule) {
+        return new ScriptRunner(upgradeSchedule);
+    }
+
     public TransactionValidatorCore(final Context context) {
         this(null, context);
     }
@@ -238,7 +242,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         final UpgradeSchedule upgradeSchedule = _context.getUpgradeSchedule();
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final ScriptRunner scriptRunner = new ScriptRunner(upgradeSchedule);
+        final ScriptRunner scriptRunner = _getScriptRunner(upgradeSchedule);
 
         final Long previousBlockHeight = (blockHeight - 1L);
         final MedianBlockTime medianBlockTime = _context.getMedianBlockTime(previousBlockHeight);
