@@ -97,7 +97,7 @@ CREATE TABLE committed_unspent_transaction_outputs (
     `index` INT UNSIGNED NOT NULL,
     block_height INT UNSIGNED NOT NULL,
     amount BIGINT NOT NULL,
-    locking_script BLOB,
+    locking_script BLOB NOT NULL,
     PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 

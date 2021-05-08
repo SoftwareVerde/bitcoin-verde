@@ -82,6 +82,15 @@ public class BitcoinVerdeDatabase implements Database {
                 upgradedVersion = 6;
             }
 
+            // v6 -> v7 (Pruning Mode / UTXO Model)
+            if ( (upgradedVersion == 6) && (requiredVersion >= 7) ) {
+                Logger.info("[Upgrading DB to v7]");
+                final Boolean wasSuccessful = _upgradePruningModeSupport(maintenanceDatabaseConnection);
+                if (! wasSuccessful) { return false; }
+
+                upgradedVersion = 7;
+            }
+
             return (upgradedVersion >= requiredVersion);
         }
     };
@@ -210,6 +219,24 @@ public class BitcoinVerdeDatabase implements Database {
     protected static Boolean _dropPendingBlocksTable(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/drop_pending_blocks.sql");
+            if (Util.isBlank(upgradeScript)) { return false; }
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final SqlScriptRunner scriptRunner = new SqlScriptRunner(databaseConnection.getRawConnection(), false, true);
+            scriptRunner.runScript(new StringReader(upgradeScript));
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean _upgradePruningModeSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+        try {
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/pruning_mode_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);
