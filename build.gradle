@@ -60,7 +60,7 @@ dependencies {
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.64'
 
     // Server
-    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql',          version: 'v4.2.1'
+    serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql',          version: 'v4.2.2'
     serverImplementation group: 'com.github.softwareverde',     name: 'java-db-mysql-embedded', version: 'v3.0.2'
     serverImplementation group: 'org.mariadb.jdbc',             name: 'mariadb-java-client',    version: '2.7.2'
 

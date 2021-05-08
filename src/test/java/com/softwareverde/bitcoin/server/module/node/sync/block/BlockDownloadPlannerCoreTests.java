@@ -62,7 +62,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final MockBlockStore blockStore = new MockBlockStore();
         final FakeFullNodeDatabaseManagerFactory databaseManagerFactory = new FakeFullNodeDatabaseManagerFactory();
 
-        blockStore.setBlockExists(BlockHeader.GENESIS_BLOCK_HASH, true);
+        blockStore.setPendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH, true);
 
         final MockBlockchainDatabaseManager blockchainDatabaseManager = new MockBlockchainDatabaseManager();
         databaseManagerFactory.setBlockchainDatabaseManager(blockchainDatabaseManager);
@@ -87,7 +87,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final MockBlockStore blockStore = new MockBlockStore();
         final FakeFullNodeDatabaseManagerFactory databaseManagerFactory = new FakeFullNodeDatabaseManagerFactory();
 
-        blockStore.setBlockExists(BlockHeader.GENESIS_BLOCK_HASH, true);
+        blockStore.setPendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH, true);
 
         final MockBlockchainDatabaseManager blockchainDatabaseManager = new MockBlockchainDatabaseManager();
         databaseManagerFactory.setBlockchainDatabaseManager(blockchainDatabaseManager);
@@ -152,7 +152,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final MockBlockStore blockStore = new MockBlockStore();
         final FakeFullNodeDatabaseManagerFactory databaseManagerFactory = new FakeFullNodeDatabaseManagerFactory();
 
-        blockStore.setBlockExists(BlockHeader.GENESIS_BLOCK_HASH, true);
+        blockStore.setPendingBlockExists(BlockHeader.GENESIS_BLOCK_HASH, true);
 
         final MockBlockchainDatabaseManager blockchainDatabaseManager = new MockBlockchainDatabaseManager();
         databaseManagerFactory.setBlockchainDatabaseManager(blockchainDatabaseManager);
@@ -224,7 +224,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
             blockchainDatabaseManager.setHeadBlockId(rootBlockchainSegmentId, blockId);
 
             blockDatabaseManager.setHeadBlockIdOfBlockchainSegment(rootBlockchainSegmentId, blockId);
-            blockStore.setBlockExists(blockHash, true);
+            blockStore.setPendingBlockExists(blockHash, true);
         }
 
         final MutableList<Sha256Hash> expectedInventories = new MutableList<>();
@@ -242,7 +242,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
                 final Long blockHeight = 661648L;
                 blockHeaderDatabaseManager.defineBlock(alternateBlockchainSegmentId, blockId, blockHash, blockHeight);
                 blockchainDatabaseManager.setTailBlockId(blockchainSegmentId, blockId);
-                blockStore.setBlockExists(blockHash, false);
+                blockStore.setPendingBlockExists(blockHash, false);
 
                 expectedInventories.add(blockHash);
             }
@@ -252,7 +252,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
                 final Sha256Hash blockHash = Sha256Hash.fromHexString("000000000000000003C0396339897BAC7EFC5075B74B0BA3C7DB6E94BF682CB6");
                 final Long blockHeight = 661649L;
                 blockHeaderDatabaseManager.defineBlock(alternateBlockchainSegmentId, blockId, blockHash, blockHeight);
-                blockStore.setBlockExists(blockHash, false);
+                blockStore.setPendingBlockExists(blockHash, false);
 
                 expectedInventories.add(blockHash);
             }
@@ -263,7 +263,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
                 final Long blockHeight = 661650L;
                 blockHeaderDatabaseManager.defineBlock(alternateBlockchainSegmentId, blockId, blockHash, blockHeight);
                 blockchainDatabaseManager.setHeadBlockId(blockchainSegmentId, blockId);
-                blockStore.setBlockExists(blockHash, false);
+                blockStore.setPendingBlockExists(blockHash, false);
 
                 expectedInventories.add(blockHash);
             }
@@ -288,14 +288,24 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
 
 class MockBlockStore implements FakeBlockStore {
     protected final HashMap<Sha256Hash, Boolean> _existingBlocks = new HashMap<>();
+    protected final HashMap<Sha256Hash, Boolean> _existingPendingBlocks = new HashMap<>();
 
     @Override
     public Boolean pendingBlockExists(final Sha256Hash blockHash) {
-        return Util.coalesce(_existingBlocks.get(blockHash), false);
+        return Util.coalesce(_existingPendingBlocks.get(blockHash), false);
+    }
+
+    public void setPendingBlockExists(final Sha256Hash blockHash, final Boolean exists) {
+        _existingPendingBlocks.put(blockHash, exists);
     }
 
     public void setBlockExists(final Sha256Hash blockHash, final Boolean exists) {
         _existingBlocks.put(blockHash, exists);
+    }
+
+    @Override
+    public Boolean blockExists(final Sha256Hash blockHash, final Long blockHeight) {
+        return Util.coalesce(_existingBlocks.get(blockHash), false);
     }
 
     @Override
