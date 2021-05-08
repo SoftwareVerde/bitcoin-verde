@@ -236,7 +236,7 @@ public class BitcoinVerdeDatabase implements Database {
 
     protected static Boolean _upgradePruningModeSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
-            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/pruning_mode_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
+            final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/pruning_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
 
             TransactionUtil.startTransaction(databaseConnection);
