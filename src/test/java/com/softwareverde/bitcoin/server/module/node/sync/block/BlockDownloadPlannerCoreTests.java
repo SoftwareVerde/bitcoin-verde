@@ -50,7 +50,7 @@ public class BlockDownloadPlannerCoreTests extends UnitTest {
         final List<PendingBlockInventory> nextPendingBlockInventoryBatch = blockDownloadPlanner.getNextPendingBlockInventoryBatch();
 
         // Assert
-        Assert.assertEquals(1, nextPendingBlockInventoryBatch.getCount());
+        Assert.assertTrue(nextPendingBlockInventoryBatch.getCount() > 0);
 
         final PendingBlockInventory pendingBlockInventory = nextPendingBlockInventoryBatch.get(0);
         Assert.assertEquals(BlockHeader.GENESIS_BLOCK_HASH, pendingBlockInventory.blockHash);

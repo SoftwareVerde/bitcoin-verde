@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumberType;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
@@ -36,7 +37,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         return TransactionValidator.COINBASE_MATURITY;
     }
     protected Integer _getMaximumSignatureOperations() {
-        return TransactionValidator.MAX_SIGNATURE_OPERATIONS;
+        return Script.MAX_SIGNATURE_OPERATION_COUNT;
     }
 
     protected Json _createInvalidTransactionReport(final String errorMessage, final Transaction transaction, final TransactionContext transactionContext) {
@@ -340,11 +341,6 @@ public class TransactionValidatorCore implements TransactionValidator {
                 transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
                 transactionContext.setTransactionInputIndex(i);
 
-                if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
-                    final Json errorJson = _createInvalidTransactionReport("Transaction unlocking script exceeds max size.", transaction, transactionContext);
-                    return TransactionValidationResult.invalid(errorJson);
-                }
-
                 final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
                 final boolean inputIsUnlocked = scriptRunnerResult.isValid;
                 if (! inputIsUnlocked) {
@@ -371,12 +367,6 @@ public class TransactionValidatorCore implements TransactionValidator {
                 }
 
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-                    final LockingScript lockingScript = transactionOutput.getLockingScript();
-                    if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
-                        final Json errorJson = _createInvalidTransactionReport("Transaction locking script exceeds max size.", transaction, transactionContext);
-                        return TransactionValidationResult.invalid(errorJson);
-                    }
-
                     final Long transactionOutputAmount = transactionOutput.getAmount();
                     if (transactionOutputAmount < 0L) {
                         final Json errorJson = _createInvalidTransactionReport("TransactionOutput has negative amount.", transaction, transactionContext);

@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -37,7 +37,7 @@ public class DoubleSpendProofPreimageInflater {
         doubleSpendProofPreimage.setExecutedTransactionOutputsDigest(transactionOutputsDigest);
 
         final Long pushDataCount = byteArrayReader.readVariableLengthInteger();
-        if (pushDataCount > ScriptRunner.MAX_OPERATION_COUNT) { return null; }
+        if (pushDataCount > Script.MAX_OPERATION_COUNT) { return null; }
         for (int i = 0; i < pushDataCount; ++i) {
             final Long pushDataByteCount = byteArrayReader.readVariableLengthInteger();
             if (pushDataByteCount > PushOperation.VALUE_MAX_BYTE_COUNT) { return null; }
@@ -64,7 +64,7 @@ public class DoubleSpendProofPreimageInflater {
         if (byteArrayReader.remainingByteCount() < 1) { return; }
 
         final Long extraDigestCount = byteArrayReader.readVariableLengthInteger();
-        if (extraDigestCount > ScriptRunner.MAX_OPERATION_COUNT) { return; }
+        if (extraDigestCount > Script.MAX_OPERATION_COUNT) { return; }
 
         for (int i = 0; i < extraDigestCount; ++i) {
             final byte hashTypeByte = byteArrayReader.readByte();

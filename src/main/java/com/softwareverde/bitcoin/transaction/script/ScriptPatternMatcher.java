@@ -338,6 +338,9 @@ public class ScriptPatternMatcher {
         // Since this function is used repeatedly during UTXO caching to determine eligibility, this optimization
         //  warrants the code complexity.
         if (lockingScript instanceof ImmutableScript) {
+            final int scriptByteCount = lockingScript.getByteCount();
+            if (scriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return true; }
+
             final ByteArray byteArray = lockingScript.getBytes();
             if (byteArray.isEmpty()) { return false; }
 
@@ -352,7 +355,12 @@ public class ScriptPatternMatcher {
             if (operation.getType() != Operation.Type.OP_CONTROL) { return false; }
 
             final ControlOperation controlOperation = (ControlOperation) operation;
-            return Opcode.RETURN.matchesByte(controlOperation.getOpcodeByte());
+            final boolean isOpReturn = Opcode.RETURN.matchesByte(controlOperation.getOpcodeByte());
+            if (isOpReturn) { return true; }
+
+            // ByteCount is checked last since MutableLockingScript::getByteCount may be an expensive operation.
+            final int scriptByteCount = lockingScript.getByteCount();
+            return (scriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT);
         }
     }
 }

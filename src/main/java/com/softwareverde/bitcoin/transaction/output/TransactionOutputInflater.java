@@ -16,7 +16,11 @@ public class TransactionOutputInflater {
         transactionOutput._index = index;
 
         final Integer scriptByteCount = byteArrayReader.readVariableLengthInteger().intValue();
-        transactionOutput._lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG)));
+        final ByteArray lockingScriptBytes = MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
+
+        // NOTE: Using an ImmutableLockingScript may be important for the performance of ScriptPatternMatcher::isProvablyUnspendable,
+        //  which is used for UTXO acceptance into the UTXO Cache.
+        transactionOutput._lockingScript = new ImmutableLockingScript(lockingScriptBytes);
 
         if (byteArrayReader.didOverflow()) { return null; }
 

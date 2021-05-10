@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.runner.context.TransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
@@ -274,7 +273,7 @@ public class CryptographicOperation extends SubTypedOperation {
         }
 
         transactionContext.incrementOperationCount(publicKeyCount);
-        if (transactionContext.getOperationCount() > ScriptRunner.MAX_OPERATION_COUNT) {
+        if (transactionContext.getOperationCount() > Script.MAX_OPERATION_COUNT) {
             Logger.debug("Maximum number of operations exceeded.");
             return false;
         }

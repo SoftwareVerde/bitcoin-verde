@@ -26,9 +26,6 @@ import com.softwareverde.logging.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
-    public static final Integer MAX_SCRIPT_BYTE_COUNT = 10000;
-    public static final Integer MAX_OPERATION_COUNT = 201;
-
     public static class ScriptRunnerResult {
         public static ScriptRunnerResult valid(final TransactionContext transactionContext) {
             final Integer signatureOperationCount = transactionContext.getSignatureOperationCount();
@@ -64,10 +61,8 @@ public class ScriptRunner {
 
         final ControlState controlState = new ControlState();
 
-        if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
-            return ScriptRunnerResult.invalid(mutableContext);
-        }
-        if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) {
+        final int lockingScriptByteCount = lockingScript.getByteCount();
+        if (lockingScriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) {
             return ScriptRunnerResult.invalid(mutableContext);
         }
 
@@ -263,7 +258,7 @@ public class ScriptRunner {
     private Boolean _incrementAndCheckOperationCount(final Operation operation, final MutableTransactionContext mutableContext) {
         if (ByteUtil.byteToInteger(operation.getOpcodeByte()) > Opcode.PUSH_VALUE.getMaxValue()) {
             mutableContext.incrementOperationCount(1);
-            if (mutableContext.getOperationCount() > ScriptRunner.MAX_OPERATION_COUNT) {
+            if (mutableContext.getOperationCount() > Script.MAX_OPERATION_COUNT) {
                 Logger.debug("Maximum number of operations exceeded.");
                 return false;
             }
