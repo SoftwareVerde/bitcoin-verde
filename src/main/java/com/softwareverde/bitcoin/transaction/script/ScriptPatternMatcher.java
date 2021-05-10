@@ -339,7 +339,7 @@ public class ScriptPatternMatcher {
         //  warrants the code complexity.
         if (lockingScript instanceof ImmutableScript) {
             final int scriptByteCount = lockingScript.getByteCount();
-            if (scriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return true; }
+            if (scriptByteCount > Script.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return true; }
 
             final ByteArray byteArray = lockingScript.getBytes();
             if (byteArray.isEmpty()) { return false; }
@@ -360,7 +360,7 @@ public class ScriptPatternMatcher {
 
             // ByteCount is checked last since MutableLockingScript::getByteCount may be an expensive operation.
             final int scriptByteCount = lockingScript.getByteCount();
-            return (scriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT);
+            return (scriptByteCount > Script.MAX_SPENDABLE_SCRIPT_BYTE_COUNT);
         }
     }
 }

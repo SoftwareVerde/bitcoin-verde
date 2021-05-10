@@ -62,7 +62,11 @@ public class ScriptRunner {
         final ControlState controlState = new ControlState();
 
         final int lockingScriptByteCount = lockingScript.getByteCount();
-        if (lockingScriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) {
+        if (lockingScriptByteCount > Script.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) {
+            return ScriptRunnerResult.invalid(mutableContext);
+        }
+        final int unlockingScriptByteCount = unlockingScript.getByteCount();
+        if (unlockingScriptByteCount > Script.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) {
             return ScriptRunnerResult.invalid(mutableContext);
         }
 
