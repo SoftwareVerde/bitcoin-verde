@@ -126,7 +126,7 @@ public class BitcoinVerdeDatabase implements Database {
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(embeddedDatabaseProperties, databaseInitializer);
                 if (Logger.isDebugEnabled()) {
                     final Version installedVersion = embeddedMysqlDatabase.getInstallationDirectoryVersion();
-                    Logger.debug("MariaDb Version: " + installedVersion);
+                    Logger.debug("MariaDb Version: " + Util.coalesce(installedVersion, new Version(0)));
                 }
                 embeddedMysqlDatabase.start();
 
