@@ -270,14 +270,10 @@ public class BitcoinConstants {
         BLOCK_MAX_BYTE_COUNT = byteCount;
     }
 
-    protected static Integer MAX_TRANSACTION_COUNT_PER_BLOCK;
     public static Integer getMaxTransactionCountPerBlock() {
-        if (! LOCKED) {
-            MAX_TRANSACTION_COUNT_PER_BLOCK = (BLOCK_MAX_BYTE_COUNT / TRANSACTION_MIN_BYTE_COUNT);
-        }
-
-        LOCKED = true;
-        return MAX_TRANSACTION_COUNT_PER_BLOCK;
+        final int blockMaxByteCount = BitcoinConstants.getBlockMaxByteCount();
+        final int transactionMinByteCount = BitcoinConstants.getTransactionMinByteCount();
+        return (blockMaxByteCount / transactionMinByteCount);
     }
 
     public static Long getBlockVersion() {
