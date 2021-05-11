@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -257,7 +257,7 @@ public class TransactionValidatorCore implements TransactionValidator {
         { // Enforce Transaction minimum byte count...
             if (upgradeSchedule.areTransactionsLessThanOneHundredBytesDisallowed(blockHeight)) {
                 final Integer transactionByteCount = transaction.getByteCount();
-                if (transactionByteCount < TransactionInflater.MIN_BYTE_COUNT) {
+                if (transactionByteCount < BitcoinConstants.getTransactionMinByteCount()) {
                     final Json errorJson = _createInvalidTransactionReport("Invalid byte count." + transactionByteCount + " " + transactionHash, transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }

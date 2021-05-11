@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.message.type.thin.block;
 
-import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -30,7 +30,7 @@ public class ThinBlockMessageInflater extends BitcoinProtocolMessageInflater {
         thinBlockMessage.setBlockHeader(blockHeader);
 
         final Integer transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (transactionCount > BlockInflater.MAX_TRANSACTION_COUNT) { return null; }
+        if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
         final ImmutableListBuilder<Sha256Hash> transactionHashesListBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {

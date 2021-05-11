@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.bip.UpgradeSchedule;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -14,6 +13,7 @@ import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHand
 import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.context.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -58,7 +58,7 @@ public class BlockValidator {
 
         { // Enforce max byte count...
             final Integer blockByteCount = block.getByteCount();
-            if (blockByteCount > BlockInflater.MAX_BYTE_COUNT) {
+            if (blockByteCount > BitcoinConstants.getBlockMaxByteCount()) {
                 return BlockValidationResult.invalid("Block exceeded maximum size.");
             }
         }
@@ -251,7 +251,7 @@ public class BlockValidator {
         if (upgradeSchedule.isSignatureOperationCountingVersionTwoEnabled(medianBlockTime)) { // Enforce maximum Signature operation count...
             // NOTE: Technically, checking the block's maxSigOp count should be checked "live" instead of at the end, but this check is redundant due to
             //  Transactions having a maximum signature operation count, and blocks having a maximum Transaction count.
-            final int maximumSignatureOperationCount = (BlockInflater.MAX_BYTE_COUNT / Block.MIN_BYTES_PER_SIGNATURE_OPERATION);
+            final int maximumSignatureOperationCount = (BitcoinConstants.getBlockMaxByteCount() / Block.MIN_BYTES_PER_SIGNATURE_OPERATION);
             Logger.trace("Signature Operations: " + totalSignatureOperationCount + " / " + maximumSignatureOperationCount);
             if (totalSignatureOperationCount > maximumSignatureOperationCount) {
                 return BlockValidationResult.invalid("Too many signature operations.");

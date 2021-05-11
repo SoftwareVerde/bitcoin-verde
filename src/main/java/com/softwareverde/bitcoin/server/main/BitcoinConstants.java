@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.main;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -16,14 +17,16 @@ public class BitcoinConstants {
         public final String netMagicNumber;
         public final Integer defaultRpcPort;
         public final AsertReferenceBlock asertReferenceBlock;
+        public final Integer defaultBlockMaxByteCount;
 
-        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber, final AsertReferenceBlock asertReferenceBlock) {
+        protected Default(final String genesisBlockHash, final Long genesisBlockTimestamp, final Integer defaultNetworkPort, final String netMagicNumber, final AsertReferenceBlock asertReferenceBlock, final Integer blockMaxByteCount) {
             this.genesisBlockHash = genesisBlockHash;
             this.genesisBlockTimestamp = genesisBlockTimestamp;
             this.defaultNetworkPort = defaultNetworkPort;
             this.netMagicNumber = netMagicNumber;
             this.defaultRpcPort = 8334;
             this.asertReferenceBlock = asertReferenceBlock;
+            this.defaultBlockMaxByteCount = blockMaxByteCount;
         }
     }
 
@@ -37,6 +40,10 @@ public class BitcoinConstants {
     protected static Integer DEFAULT_TEST_NETWORK_PORT;
     protected static Integer DEFAULT_RPC_PORT;
     protected static Integer DEFAULT_TEST_RPC_PORT;
+
+    protected static Integer TRANSACTION_MIN_BYTE_COUNT = 100;
+    protected static Integer TRANSACTION_MAX_BYTE_COUNT = (int) (2L * ByteUtil.Unit.Si.MEGABYTES);
+    protected static Integer BLOCK_MAX_BYTE_COUNT = (int) (32L * ByteUtil.Unit.Si.MEGABYTES);
 
     protected static Long BLOCK_VERSION;
     protected static Long TRANSACTION_VERSION;
@@ -63,7 +70,8 @@ public class BitcoinConstants {
         1231006505L, // In seconds.
         8333,
         "E8F3E1E3",
-        ASERT_REFERENCE_BLOCK
+        ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
     );
 
     public static final Default TestNet = new Default(
@@ -71,7 +79,8 @@ public class BitcoinConstants {
         1296688602L, // In seconds.
         18333,
         "F4F3E5F4",
-        TEST_NET_ASERT_REFERENCE_BLOCK
+        TEST_NET_ASERT_REFERENCE_BLOCK,
+        (int) (32L * ByteUtil.Unit.Si.MEGABYTES)
     );
 
     static {
@@ -209,12 +218,66 @@ public class BitcoinConstants {
         DEFAULT_RPC_PORT = defaultRpcPort;
     }
 
+    public static AsertReferenceBlock getAsertReferenceBlock() {
+        LOCKED = true;
+        return ASERT_REFERENCE_BLOCK;
+    }
+
     public static void setAsertReferenceBlock(final AsertReferenceBlock asertReferenceBlock) {
         if (LOCKED) {
             throw new RuntimeException(LOCKED_ERROR_MESSAGE);
         }
 
         ASERT_REFERENCE_BLOCK = asertReferenceBlock;
+    }
+
+    public static Integer getTransactionMinByteCount() {
+        LOCKED = true;
+        return TRANSACTION_MIN_BYTE_COUNT;
+    }
+
+    public static void setTransactionMinByteCount(final Integer byteCount) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        TRANSACTION_MIN_BYTE_COUNT = byteCount;
+    }
+
+    public static Integer getTransactionMaxByteCount() {
+        LOCKED = true;
+        return TRANSACTION_MAX_BYTE_COUNT;
+    }
+
+    public static void setTransactionMaxByteCount(final Integer byteCount) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        TRANSACTION_MAX_BYTE_COUNT = byteCount;
+    }
+
+    public static Integer getBlockMaxByteCount() {
+        LOCKED = true;
+        return BLOCK_MAX_BYTE_COUNT;
+    }
+
+    public static void setBlockMaxByteCount(final Integer byteCount) {
+        if (LOCKED) {
+            throw new RuntimeException(LOCKED_ERROR_MESSAGE);
+        }
+
+        BLOCK_MAX_BYTE_COUNT = byteCount;
+    }
+
+    protected static Integer MAX_TRANSACTION_COUNT_PER_BLOCK;
+    public static Integer getMaxTransactionCountPerBlock() {
+        if (! LOCKED) {
+            MAX_TRANSACTION_COUNT_PER_BLOCK = (BLOCK_MAX_BYTE_COUNT / TRANSACTION_MIN_BYTE_COUNT);
+        }
+
+        LOCKED = true;
+        return MAX_TRANSACTION_COUNT_PER_BLOCK;
     }
 
     public static Long getBlockVersion() {
@@ -284,10 +347,6 @@ public class BitcoinConstants {
 
     public static String getBitcoinSignatureMessageMagic() {
         return BITCOIN_SIGNATURE_MESSAGE_MAGIC;
-    }
-
-    public static AsertReferenceBlock getAsertReferenceBlock() {
-        return ASERT_REFERENCE_BLOCK;
     }
 
     protected BitcoinConstants() { }

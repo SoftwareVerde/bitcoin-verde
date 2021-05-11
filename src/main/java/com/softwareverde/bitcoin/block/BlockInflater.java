@@ -2,17 +2,14 @@ package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.util.ByteUtil;
 
 public class BlockInflater {
-    public static final Integer MAX_BYTE_COUNT = (int) (32L * ByteUtil.Unit.Si.MEGABYTES);
-    public static final Integer MAX_TRANSACTION_COUNT = (BlockInflater.MAX_BYTE_COUNT / TransactionInflater.MIN_BYTE_COUNT);
-
     protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final TransactionInflater transactionInflater = new TransactionInflater();
@@ -23,7 +20,7 @@ public class BlockInflater {
         if (blockHeader == null) { return null; }
 
         final int transactionCount = byteArrayReader.readVariableLengthInteger().intValue();
-        if (transactionCount > MAX_TRANSACTION_COUNT) { return null; }
+        if (transactionCount > BitcoinConstants.getMaxTransactionCountPerBlock()) { return null; }
 
         final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount);
 

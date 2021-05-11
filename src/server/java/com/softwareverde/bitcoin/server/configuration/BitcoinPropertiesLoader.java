@@ -109,6 +109,8 @@ public class BitcoinPropertiesLoader {
         bitcoinProperties._testNetworkBitcoinPort = Util.parseInt(properties.getProperty("bitcoin.testNetPort", null));
         bitcoinProperties._testNetworkRpcPort = Util.parseInt(properties.getProperty("bitcoin.testNetRpcPort", null));
 
+        bitcoinProperties._blockMaxByteCount = Util.parseInt(properties.getProperty("bitcoin.blockMaxByteCount", String.valueOf(BitcoinConstants.MainNet.defaultBlockMaxByteCount)));
+
         return bitcoinProperties;
     }
 

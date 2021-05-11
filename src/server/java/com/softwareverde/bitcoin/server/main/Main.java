@@ -223,6 +223,7 @@ public class Main {
                 if (bitcoinProperties.isTestNet()) {
                     BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
                 }
+                BitcoinConstants.setBlockMaxByteCount(bitcoinProperties.getBlockMaxByteCount());
 
                 { // Set Log Level...
                     try {
@@ -284,6 +285,7 @@ public class Main {
                 if (bitcoinProperties.isTestNet()) {
                     BitcoinConstants.configureForNetwork(NetworkType.TEST_NET);
                 }
+                BitcoinConstants.setBlockMaxByteCount(bitcoinProperties.getBlockMaxByteCount());
 
                 { // Set Log Level...
                     Logger.setLog(LineNumberAnnotatedLog.getInstance());

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.node;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
@@ -13,6 +12,7 @@ import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
@@ -347,7 +347,7 @@ public class BitcoinNode extends Node {
     protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
         if (callback instanceof DownloadBlockCallback) {
             final float buffer = 2.0F;
-            return (long) ((BlockInflater.MAX_BYTE_COUNT / BitcoinNode.MIN_BYTES_PER_SECOND) * buffer * 1000L);
+            return (long) ((BitcoinConstants.getBlockMaxByteCount() / BitcoinNode.MIN_BYTES_PER_SECOND) * buffer * 1000L);
         }
 
         return (30L * 1000L); // 30 seconds...

@@ -41,6 +41,7 @@ public class BitcoinProperties {
     protected String _logDirectory;
     protected LogLevel _logLevel;
     protected Integer _testNet;
+    protected Integer _blockMaxByteCount;
 
     protected Boolean _isTestNet() {
         return (Util.coalesce(_testNet) > 0);
@@ -105,4 +106,6 @@ public class BitcoinProperties {
     public Boolean isBootstrapEnabled() { return (_isTestNet() ? false : _bootstrapIsEnabled); }
     public String getDataDirectory() { return _dataDirectory; }
     public Boolean isInvalidSlpTransactionRelayEnabled() { return _shouldRelayInvalidSlpTransactions; }
+
+    public Integer getBlockMaxByteCount() { return _blockMaxByteCount; }
 }

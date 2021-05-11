@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.rpc;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.rpc.monitor.Monitor;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -46,7 +47,7 @@ public class BitcoinVerdeRpcConnector implements BitcoinMiningRpcConnector, Auto
             blockTemplate.setCoinbaseAmount(coinbaseTransaction.getTotalOutputValue());
         }
 
-        final long maxBlockByteCount = BlockInflater.MAX_BYTE_COUNT;
+        final long maxBlockByteCount = BitcoinConstants.getBlockMaxByteCount();
         final long maximumSignatureOperationCount = (maxBlockByteCount / Block.MIN_BYTES_PER_SIGNATURE_OPERATION);
 
         final Long now = systemTime.getCurrentTimeInSeconds();
