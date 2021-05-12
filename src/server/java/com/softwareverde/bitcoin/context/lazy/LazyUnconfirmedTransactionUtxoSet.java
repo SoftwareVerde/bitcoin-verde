@@ -40,7 +40,7 @@ public class LazyUnconfirmedTransactionUtxoSet implements UnspentTransactionOutp
             }
 
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
-            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
+            final TransactionOutput transactionOutput = unspentTransactionOutputDatabaseManager.loadUnspentTransactionOutput(transactionOutputIdentifier);
             if (! _includeUnconfirmedTransactions) {
                 return transactionOutput;
             }

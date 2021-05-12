@@ -756,16 +756,14 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
         System.gc();
     }
 
-    protected Tuple<UtxoKey, UtxoValue> _inflateUtxoFromRow(final Row row) {
-        final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
-        final Integer outputIndex = row.getInteger("index");
+    protected Tuple<UtxoKey, UtxoValue> _inflateUtxoFromCommittedTransactionOutputRow(final TransactionOutputIdentifier transactionOutputIdentifier, final Row row) {
         final Long amount = row.getLong("amount");
         final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
         final Long blockHeight = row.getLong("block_height");
 
-        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
         final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
         {
+            final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
             transactionOutput.setIndex(outputIndex);
             transactionOutput.setAmount(amount);
             transactionOutput.setLockingScript(lockingScript);
@@ -774,7 +772,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
         final JvmSpentState newSpentState = new JvmSpentState();
         newSpentState.setIsSpent(false);
-        newSpentState.setIsFlushedToDisk(false);
+        newSpentState.setIsFlushedToDisk(true);
         newSpentState.setIsFlushMandatory(false);
 
         final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
@@ -905,7 +903,11 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         .setExpandedInClauseParameters(transactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER)
                 );
                 for (final Row row : rows) {
-                    final Tuple<UtxoKey, UtxoValue> utxo = _inflateUtxoFromRow(row);
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                    final Integer outputIndex = row.getInteger("index");
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+                    final Tuple<UtxoKey, UtxoValue> utxo = _inflateUtxoFromCommittedTransactionOutputRow(transactionOutputIdentifier, row);
                     UTXO_SET.putIfAbsent(utxo.first, utxo.second);
                     maxRemainingCount -= 1;
                 }
@@ -956,13 +958,81 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     .setInClauseParameters(blockIds, ValueExtractor.IDENTIFIER)
             );
             for (final Row row : rows) {
-                final Tuple<UtxoKey, UtxoValue> utxo = _inflateUtxoFromRow(row);
+                final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                final Integer outputIndex = row.getInteger("index");
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
+                final Tuple<UtxoKey, UtxoValue> utxo = _inflateUtxoFromCommittedTransactionOutputRow(transactionOutputIdentifier, row);
                 UTXO_SET.putIfAbsent(utxo.first, utxo.second);
                 maxRemainingCount -= 1;
             }
 
             nanoTimer.stop();
             Logger.trace("Populated " + rows.size() + " UTXOs in " + nanoTimer.getMillisecondsElapsed() + "ms, " + maxRemainingCount + " remaining. BlockHeight: [" + (loadBlockHeight - blockIds.getCount()) + ", " + loadBlockHeight + "]");
+        }
+    }
+
+
+    protected UnspentTransactionOutput _getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final Boolean updateCacheOnMiss) throws DatabaseException {
+        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+
+        try {
+            final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
+            final UtxoValue utxoValue = UTXO_SET.get(utxoKey);
+            if (utxoValue != null) {
+                final JvmSpentState spentState = utxoValue.getSpentState();
+                if (spentState.isSpent()) { return null; }
+                return UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, utxoValue);
+            }
+            else { // Possible cache miss
+                // Check the double-buffer before checking disk...
+                final UtxoValue doubleBufferedUtxoValue;
+                synchronized (DOUBLE_BUFFER) {
+                    doubleBufferedUtxoValue = DOUBLE_BUFFER.get(utxoKey);
+                }
+                if (doubleBufferedUtxoValue != null) {
+                    final JvmSpentState spentState = doubleBufferedUtxoValue.getSpentState();
+                    if (spentState.isSpent()) { return null; }
+                    return UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, doubleBufferedUtxoValue);
+                }
+                else {
+                    // check the committed set for the UTXO.
+                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT amount, locking_script, block_height FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
+                            .setParameter(transactionHash)
+                            .setParameter(outputIndex)
+                    );
+
+                    if (rows.isEmpty()) { return null; }
+
+                    final Row row = rows.get(0);
+                    final Long amount = row.getLong("amount");
+                    if (amount < 0L) { return null; }
+
+                    final Long blockHeight = row.getLong("block_height");
+                    final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
+
+                    final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
+                    {
+                        transactionOutput.setIndex(outputIndex);
+                        transactionOutput.setAmount(amount);
+                        transactionOutput.setLockingScript(lockingScript);
+                        transactionOutput.setBlockHeight(blockHeight);
+                    }
+
+                    if (updateCacheOnMiss) {
+                        final Tuple<UtxoKey, UtxoValue> cachedUtxoValue = _inflateUtxoFromCommittedTransactionOutputRow(transactionOutputIdentifier, row);
+                        UTXO_SET.putIfAbsent(cachedUtxoValue.first, cachedUtxoValue.second);
+                    }
+
+                    return transactionOutput;
+                }
+            }
+        }
+        catch (final Exception exception) {
+            throw new DatabaseException(exception);
         }
     }
 
@@ -1050,64 +1120,25 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     public UnspentTransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
-        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-        final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
-
-        UTXO_READ_MUTEX.lock();
+        UTXO_READ_MUTEX.unlock();
         try {
-            final UtxoKey utxoKey = new UtxoKey(transactionOutputIdentifier);
-            final UtxoValue utxoValue = UTXO_SET.get(utxoKey);
-            if (utxoValue != null) {
-                final JvmSpentState spentState = utxoValue.getSpentState();
-                if (spentState.isSpent()) { return null; }
-                return UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, utxoValue);
-            }
-            else { // Possible cache miss
-                // Check the double-buffer before checking disk...
-                final UtxoValue doubleBufferedUtxoValue;
-                synchronized (DOUBLE_BUFFER) {
-                    doubleBufferedUtxoValue = DOUBLE_BUFFER.get(utxoKey);
-                }
-                if (doubleBufferedUtxoValue != null) {
-                    final JvmSpentState spentState = doubleBufferedUtxoValue.getSpentState();
-                    if (spentState.isSpent()) { return null; }
-                    return UnspentTransactionOutputJvmManager.inflateTransactionOutput(transactionOutputIdentifier, doubleBufferedUtxoValue);
-                }
-                else {
-                    // check the committed set for the UTXO.
-                    final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-                    final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT amount, locking_script, block_height FROM committed_unspent_transaction_outputs WHERE transaction_hash = ? AND `index` = ? LIMIT 1")
-                            .setParameter(transactionHash)
-                            .setParameter(outputIndex)
-                    );
-
-                    if (rows.isEmpty()) { return null; }
-
-                    final Row row = rows.get(0);
-                    final Long amount = row.getLong("amount");
-                    if (amount < 0L) { return null; }
-
-                    final Long blockHeight = row.getLong("block_height");
-                    final ByteArray lockingScript = ByteArray.wrap(row.getBytes("locking_script"));
-
-                    final MutableUnspentTransactionOutput transactionOutput = new MutableUnspentTransactionOutput();
-                    {
-                        transactionOutput.setIndex(outputIndex);
-                        transactionOutput.setAmount(amount);
-                        transactionOutput.setLockingScript(lockingScript);
-                        transactionOutput.setBlockHeight(blockHeight);
-                    }
-
-                    return transactionOutput;
-                }
-            }
-        }
-        catch (final Exception exception) {
-            throw new DatabaseException(exception);
+            return _getUnspentTransactionOutput(transactionOutputIdentifier, false);
         }
         finally {
             UTXO_READ_MUTEX.unlock();
+        }
+    }
+
+    @Override
+    public UnspentTransactionOutput loadUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
+
+        UTXO_WRITE_MUTEX.unlock();
+        try {
+            return _getUnspentTransactionOutput(transactionOutputIdentifier, true);
+        }
+        finally {
+            UTXO_WRITE_MUTEX.unlock();
         }
     }
 

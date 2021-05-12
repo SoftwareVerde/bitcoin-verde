@@ -68,7 +68,14 @@ public interface UnspentTransactionOutputDatabaseManager {
 
     UnspentTransactionOutput getUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 
+    /**
+     * Returns the UnspentTransactionOutput associated with the provided TransactionOutputIdentifier, or null if it does not exist or is spent.
+     *  loadUnspentTransactionOutput, unlike getUnspentTransactionOutput, ensures the UTXO is cached within the UTXO, if the implementation supports caching and the UTXO exists.
+     */
+    UnspentTransactionOutput loadUnspentTransactionOutput(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
+
     List<UnspentTransactionOutput> getUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
+    // List<UnspentTransactionOutput> loadUnspentTransactionOutputs(List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException;
 
     /**
      * Flushes all queued UTXO set changes to disk.  The UTXO set is locked during commit duration.
