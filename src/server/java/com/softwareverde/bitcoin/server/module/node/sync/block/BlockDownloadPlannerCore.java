@@ -33,19 +33,20 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
     protected Integer _maxDownloadAheadDepth = 2048;
     protected PendingBlockInventory _bestCompletedInventory = null;
 
-    protected PendingBlockInventory _calculateBestCompletedInventory(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected PendingBlockInventory _recalculateBestCompletedInventory(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
         final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
         final BlockId bestBlockId = blockDatabaseManager.getHeadBlockId();
-        final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
-        if ( (bestBlockId == null) || (genesisBlockId == null) ) {
+        if (bestBlockId == null) {
             return new PendingBlockInventory(0L, BlockHeader.GENESIS_BLOCK_HASH, 0L);
         }
 
-        final Tuple<BlockId, Sha256Hash> lastDownloadedBlock = new Tuple<>(genesisBlockId, BlockHeader.GENESIS_BLOCK_HASH);
+        final Sha256Hash bestBlockHash = blockHeaderDatabaseManager.getBlockHash(bestBlockId);
+        final Tuple<BlockId, Sha256Hash> lastDownloadedBlock = new Tuple<>(bestBlockId, bestBlockHash);
+
         do {
             final BlockId blockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, bestBlockId);
             if (blockId == null) { break; }
@@ -55,7 +56,17 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
             lastDownloadedBlock.first = blockId;
             lastDownloadedBlock.second = blockHash;
 
-            final Boolean blockIsDownloaded = _blockStore.pendingBlockExists(blockHash);
+            final boolean blockIsDownloaded;
+            {
+                final boolean pendingBlockExists = _blockStore.pendingBlockExists(blockHash);
+                if (pendingBlockExists) {
+                    blockIsDownloaded = true;
+                }
+                else {
+                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                     blockIsDownloaded = _blockStore.blockExists(blockHash, blockHeight);
+                }
+            }
             if (! blockIsDownloaded) { break; }
         } while (true);
 
@@ -160,11 +171,6 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
         return nextInventoryBatch;
     }
 
-    protected Boolean _hasBlockBeenDownloaded(final Sha256Hash blockHash, final Long blockHeight) {
-        if (_blockStore.pendingBlockExists(blockHash)) { return true; }
-        return _blockStore.blockExists(blockHash, blockHeight);
-    }
-
     public BlockDownloadPlannerCore(final FullNodeDatabaseManagerFactory databaseManagerFactory, final PendingBlockStore blockStore) {
         _blockStore = blockStore;
         _databaseManagerFactory = databaseManagerFactory;
@@ -194,7 +200,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
             }
 
             if (_bestCompletedInventory == null) {
-                _bestCompletedInventory = _calculateBestCompletedInventory(databaseManager);
+                _bestCompletedInventory = _recalculateBestCompletedInventory(databaseManager);
             }
             else { // Update _bestCompletedInventory with completed blocks, starting with at current best inventory...
                 final NanoTimer updateBestInventoryTimer = new NanoTimer();
@@ -211,7 +217,7 @@ public class BlockDownloadPlannerCore implements BlockDownloader.BlockDownloadPl
                     final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(childBlockId);
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(childBlockId);
 
-                    final Boolean blockHasBeenDownloaded = _hasBlockBeenDownloaded(blockHash, blockHeight);
+                    final boolean blockHasBeenDownloaded = ( _blockStore.pendingBlockExists(blockHash) || _blockStore.blockExists(blockHash, blockHeight) );
                     if (! blockHasBeenDownloaded) { break; }
 
                     _bestCompletedInventory = new PendingBlockInventory(_bestCompletedInventory.priority, blockHash, blockHeight);
