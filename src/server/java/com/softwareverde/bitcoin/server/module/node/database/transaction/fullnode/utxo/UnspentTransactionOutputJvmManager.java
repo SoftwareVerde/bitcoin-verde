@@ -1120,7 +1120,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     public UnspentTransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
-        UTXO_READ_MUTEX.unlock();
+        UTXO_READ_MUTEX.lock();
         try {
             return _getUnspentTransactionOutput(transactionOutputIdentifier, false);
         }
@@ -1133,7 +1133,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
     public UnspentTransactionOutput loadUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         if (UtxoCacheStaticState.isUtxoCacheDefunct()) { throw new DatabaseException("Attempting to access invalidated UTXO set."); }
 
-        UTXO_WRITE_MUTEX.unlock();
+        UTXO_WRITE_MUTEX.lock();
         try {
             return _getUnspentTransactionOutput(transactionOutputIdentifier, true);
         }
