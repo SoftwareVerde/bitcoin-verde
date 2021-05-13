@@ -53,6 +53,7 @@ public abstract class Socket implements AutoCloseable {
         void start();
 
         Boolean write(ByteArray bytes);
+        void flush();
 
         Long getTotalBytesWritten();
         Long getTotalBytesDroppedCount();
@@ -243,6 +244,11 @@ public abstract class Socket implements AutoCloseable {
 
         final ByteArray bytes = outboundMessage.getBytes();
         return _writeThread.write(bytes);
+    }
+
+    public void flush() {
+        if (_isClosed.get()) { return; }
+        _writeThread.flush();
     }
 
     /**

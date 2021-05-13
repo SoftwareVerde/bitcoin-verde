@@ -13,11 +13,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class BinarySocketWriteThread extends Thread implements Socket.WriteThread {
+    protected static final Long MAX_CLOSE_TIMEOUT_MS = 30000L;
     protected static final LoggerInstance LOG = Logger.getInstance(BinarySocketWriteThread.class);
 
+    protected static class Message {
+        public final Long id;
+        public final ByteArray byteArray;
+
+        public Message(final Long id, final ByteArray byteArray) {
+            this.id = id;
+            this.byteArray = byteArray;
+        }
+    }
+
+    protected final AtomicLong _nextMessageId = new AtomicLong(1L);
     protected final AtomicBoolean _isClosed = new AtomicBoolean(false);
     protected final AtomicLong _queuedMessageBufferByteCount = new AtomicLong(0L);
-    protected final LinkedList<ByteArray> _queuedMessageBuffer = new LinkedList<>();
+    protected final LinkedList<Message> _queuedMessageBuffer = new LinkedList<>();
+
+    protected final AtomicLong _lastWrittenMessageId = new AtomicLong(0L);
 
     protected final Integer _maxQueuedMessageBufferByteCount;
     protected final Integer _bufferByteCount;
@@ -44,7 +58,8 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
     }
 
     protected void _close() {
-        _isClosed.set(true);
+        final boolean wasOpen = _isClosed.compareAndSet(false, true);
+        if (! wasOpen) { return; }
 
         this.interrupt();
 
@@ -56,6 +71,31 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
             catch (final Exception exception) { }
         }
         _outputStream = null;
+    }
+
+    protected void _flush(final Long nullableMaxWaitMs) {
+        final long lastQueuedMessageId = (_nextMessageId.get() - 1);
+
+        final NanoTimer nanoTimer = new NanoTimer();
+        final long maxWaitMs = Util.coalesce(nullableMaxWaitMs, Long.MAX_VALUE);
+        final long period = Math.max(10L, Math.min(250L, (maxWaitMs / 10)));
+
+        long timeWaitedMs = 0L;
+        synchronized (_lastWrittenMessageId) {
+            while ( (_lastWrittenMessageId.get() < lastQueuedMessageId) && (! _isClosed.get()) && (timeWaitedMs < maxWaitMs) ) {
+                try {
+                    nanoTimer.start();
+                    _lastWrittenMessageId.wait(period);
+                    nanoTimer.stop();
+                    timeWaitedMs += nanoTimer.getMillisecondsElapsed();
+                }
+                catch (final InterruptedException exception) {
+                    final Thread thread = Thread.currentThread();
+                    thread.interrupt();
+                    break;
+                }
+            }
+        }
     }
 
     public BinarySocketWriteThread(final Integer bufferByteCount, final Integer maxQueuedMessageBufferByteCount) {
@@ -82,17 +122,17 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
             final OutputStream outputStream = _outputStream;
 
             while ( (! thread.isInterrupted()) && (! _isClosed.get()) ) {
-                final ByteArray byteArray;
+                final Message message;
                 final int byteArrayByteCount;
                 synchronized (_queuedMessageBuffer) {
-                    byteArray = _queuedMessageBuffer.poll();
+                    message = _queuedMessageBuffer.poll();
 
-                    if (byteArray == null) {
+                    if (message == null) {
                         _queuedMessageBuffer.wait();
                         continue;
                     }
 
-                    byteArrayByteCount = byteArray.getByteCount();
+                    byteArrayByteCount = message.byteArray.getByteCount();
                     _queuedMessageBufferByteCount.addAndGet(-byteArrayByteCount);
                 }
 
@@ -105,7 +145,7 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
                     final int packetSize = Math.min(byteCountRemaining, buffer.getByteCount());
 
                     for (int i = 0; i < packetSize; ++i) {
-                        buffer.setByte(i, byteArray.getByte(readIndex + i));
+                        buffer.setByte(i, message.byteArray.getByte(readIndex + i));
                     }
 
                     _durationOfCurrentPageWrite.start(); // The timer measures the time of the current page/packet, not the message as a whole...
@@ -122,6 +162,11 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
                 }
                 outputStream.flush();
                 _durationOfCurrentPageWrite = null;
+
+                synchronized (_lastWrittenMessageId) {
+                    _lastWrittenMessageId.set(message.id);
+                    _lastWrittenMessageId.notifyAll();
+                }
             }
         }
         catch (final Exception exception) {
@@ -156,8 +201,11 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
     }
 
     @Override
-    public Boolean write(final ByteArray bytes) {
+    public synchronized Boolean write(final ByteArray bytes) {
         if (_isClosed.get()) { return false; }
+
+        final Long messageId = _nextMessageId.getAndIncrement(); // NOTE: Synchronizing the method is necessary so that the messageIds in the queue are always increasing.
+        final Message message = new Message(messageId, bytes);
 
         final int byteCount = bytes.getByteCount();
         final long queuedByteCount = _queuedMessageBufferByteCount.get();
@@ -166,7 +214,7 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
         final boolean itemWasAdded;
         if (newQueuedByteCount <= _maxQueuedMessageBufferByteCount) {
             synchronized (_queuedMessageBuffer) {
-                itemWasAdded = _queuedMessageBuffer.add(bytes);
+                itemWasAdded = _queuedMessageBuffer.add(message);
 
                 if (itemWasAdded) {
                     _queuedMessageBufferByteCount.addAndGet(byteCount);
@@ -193,6 +241,15 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
     }
 
     @Override
+    public void flush() {
+        _flush(null);
+    }
+
+    public void flush(final Long maxTimeoutMs) {
+        _flush(maxTimeoutMs);
+    }
+
+    @Override
     public Long getTotalBytesWritten() {
         return _totalBytesWritten;
     }
@@ -205,6 +262,8 @@ public class BinarySocketWriteThread extends Thread implements Socket.WriteThrea
     @Override
     public synchronized void close() {
         if (_isClosed.get()) { return; }
+
+        _flush(MAX_CLOSE_TIMEOUT_MS);
         _close();
     }
 }
