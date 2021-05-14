@@ -251,7 +251,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
                         }
                     }
                 }
-            } while(! prototypeBlockIsValid);
+            } while (! prototypeBlockIsValid);
         }
 
         try {
