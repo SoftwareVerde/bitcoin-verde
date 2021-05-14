@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.util;
 
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ByteArrayCore;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 import java.math.BigInteger;
 
@@ -81,5 +83,17 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
 
     public static BigInteger bytesToBigIntegerUnsigned(final byte[] bytes) {
         return new BigInteger(1, bytes);
+    }
+
+    public static Boolean getBit(final byte b, final int index) {
+        return ByteArrayCore.getBit(ByteArray.wrap(new byte[]{ b }), index);
+    }
+
+    public static Boolean getBit(final byte[] bytes, final int index) {
+        return ByteArrayCore.getBit(MutableByteArray.wrap(bytes), index);
+    }
+
+    public static Boolean getBit(final ByteArray byteArray, final int index) {
+        return ByteArrayCore.getBit(byteArray, index);
     }
 }
