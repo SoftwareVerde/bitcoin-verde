@@ -20,7 +20,6 @@ public class MultisetHashTests extends UnitTest {
     @Before @Override
     public void before() throws Exception {
         super.before();
-
         Logger.setLogLevel("com.softwareverde.cryptography.secp256k1", LogLevel.ERROR); // TODO: Remove
     }
 

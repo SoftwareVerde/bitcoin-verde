@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.chain.utxo;
 
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayStream;
@@ -21,7 +19,6 @@ public class UtxoCommitmentLoader {
         nanoTimer.start();
 
         long bytesWrittenCount = 0L;
-        final MultisetHash multisetHash = new MultisetHash();
         try (
             final FileOutputStream fileOutputStream = new FileOutputStream(outputLoadFile);
             final ByteArrayStream byteArrayStream = new ByteArrayStream()
@@ -35,16 +32,13 @@ public class UtxoCommitmentLoader {
                 final CommittedUnspentTransactionOutput utxo = utxoInflater.fromByteArrayReader(byteArrayStream);
                 if (utxo == null) { break; }
 
-                final ByteArray utxoBytes = utxo.getBytes();
-                multisetHash.addItem(utxoBytes);
-
                 // transaction_hash BINARY(32) NOT NULL,
                 // `index` INT UNSIGNED NOT NULL,
                 // block_height INT UNSIGNED NOT NULL,
                 // amount BIGINT NOT NULL,
                 // locking_script BLOB NOT NULL,
 
-                final String separator = ", ";
+                final String separator = "\t";
 
                 final StringBuilder stringBuilder = new StringBuilder();
                 stringBuilder.append(utxo.getTransactionHash());
@@ -52,8 +46,8 @@ public class UtxoCommitmentLoader {
                 stringBuilder.append(utxo.getIndex());
                 stringBuilder.append(separator);
                 stringBuilder.append(utxo.getBlockHeight());
-                // stringBuilder.append(separator);
-                // stringBuilder.append(utxo.isCoinbaseTransaction() ? "1" : "0");
+                stringBuilder.append(separator);
+                stringBuilder.append(utxo.isCoinbaseTransaction() ? "1" : "0");
                 stringBuilder.append(separator);
                 stringBuilder.append(utxo.getAmount());
                 stringBuilder.append(separator);

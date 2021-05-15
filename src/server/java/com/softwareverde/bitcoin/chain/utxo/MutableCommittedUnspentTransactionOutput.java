@@ -55,7 +55,7 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
 
         final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(_blockHeight));
         if (_transactionIsCoinbase) {
-            blockHeightAndIsCoinbaseBytes.setBit(0, true);
+            blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, true);
         }
 
         byteArrayBuilder.appendBytes(_transactionHash, Endian.LITTLE);

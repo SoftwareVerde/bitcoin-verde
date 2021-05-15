@@ -25,10 +25,8 @@ public class CommittedUnspentTransactionOutputInflater {
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        final Boolean isCoinbase = blockHeightAndIsCoinbaseBytes.getBit(0);
-        blockHeightAndIsCoinbaseBytes.setBit(0, false);
-        // BCHD BUG:
-        blockHeightAndIsCoinbaseBytes.setBit(7, false);
+        final Boolean isCoinbase = blockHeightAndIsCoinbaseBytes.getBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX);
+        blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, false);
 
         final Long blockHeight = ByteUtil.bytesToLong(blockHeightAndIsCoinbaseBytes);
         final Long amount = ByteUtil.bytesToLong(amountBytes);
