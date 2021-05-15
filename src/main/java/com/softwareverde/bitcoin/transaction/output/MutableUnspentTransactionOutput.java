@@ -5,12 +5,14 @@ public class MutableUnspentTransactionOutput extends MutableTransactionOutput im
 
     public MutableUnspentTransactionOutput() { }
 
-    public MutableUnspentTransactionOutput(final TransactionOutput transactionOutput) {
+    public MutableUnspentTransactionOutput(final TransactionOutput transactionOutput, final Long blockHeight) {
         super(transactionOutput);
+        _blockHeight = blockHeight;
+    }
 
-        if (transactionOutput instanceof UnspentTransactionOutput) {
-            _blockHeight = ((UnspentTransactionOutput) transactionOutput).getBlockHeight();
-        }
+    public MutableUnspentTransactionOutput(final UnspentTransactionOutput unspentTransactionOutput) {
+        super(unspentTransactionOutput);
+        _blockHeight = unspentTransactionOutput.getBlockHeight();
     }
 
     public void setBlockHeight(final Long blockHeight) {
@@ -20,5 +22,10 @@ public class MutableUnspentTransactionOutput extends MutableTransactionOutput im
     @Override
     public Long getBlockHeight() {
         return _blockHeight;
+    }
+
+    @Override
+    public ImmutableUnspentTransactionOutput asConst() {
+        return new ImmutableUnspentTransactionOutput(this);
     }
 }
