@@ -5,6 +5,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 
 public interface CommittedUnspentTransactionOutput extends UnspentTransactionOutput {
+    Boolean isCoinbaseTransaction();
     Sha256Hash getTransactionHash();
     Integer getByteCount();
 

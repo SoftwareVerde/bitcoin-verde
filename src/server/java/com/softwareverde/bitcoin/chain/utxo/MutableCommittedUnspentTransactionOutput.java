@@ -4,12 +4,14 @@ import com.softwareverde.bitcoin.transaction.output.MutableUnspentTransactionOut
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTransactionOutput implements CommittedUnspentTransactionOutput {
     protected Sha256Hash _transactionHash;
+    protected Boolean _transactionIsCoinbase = false;
 
     public MutableCommittedUnspentTransactionOutput() { }
 
@@ -21,10 +23,20 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
     public MutableCommittedUnspentTransactionOutput(final CommittedUnspentTransactionOutput unspentTransactionOutput) {
         super(unspentTransactionOutput);
         _transactionHash = unspentTransactionOutput.getTransactionHash();
+        _transactionIsCoinbase = unspentTransactionOutput.isCoinbaseTransaction();
     }
 
     public void setTransactionHash(final Sha256Hash transactionHash) {
         _transactionHash = transactionHash;
+    }
+
+    public void setIsCoinbaseTransaction(final Boolean transactionIsCoinbase) {
+        _transactionIsCoinbase = transactionIsCoinbase;
+    }
+
+    @Override
+    public Boolean isCoinbaseTransaction() {
+        return _transactionIsCoinbase;
     }
 
     @Override
@@ -41,9 +53,14 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
     public ByteArray getBytes() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
-        byteArrayBuilder.appendBytes(_transactionHash);
+        final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(_blockHeight));
+        if (_transactionIsCoinbase) {
+            blockHeightAndIsCoinbaseBytes.setBit(0, true);
+        }
+
+        byteArrayBuilder.appendBytes(_transactionHash, Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_index), Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_blockHeight), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(blockHeightAndIsCoinbaseBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.longToBytes(_amount), Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_lockingScript.getByteCount()), Endian.LITTLE);
         byteArrayBuilder.appendBytes(_lockingScript.getBytes());
