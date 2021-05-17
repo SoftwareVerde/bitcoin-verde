@@ -92,6 +92,12 @@ public class UnspentTransactionOutputManager {
         final List<Transaction> transactions = block.getTransactions();
         final int transactionCount = transactions.getCount();
 
+        final Sha256Hash coinbaseTransactionHash;
+        {
+            final Transaction coinbaseTransaction = transactions.get(0);
+            coinbaseTransactionHash = coinbaseTransaction.getHash();
+        }
+
         int unspendableCount = 0;
         final MutableList<TransactionOutputIdentifier> spentTransactionOutputIdentifiers = new MutableList<>();
         final MutableList<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers = new MutableList<>();
@@ -139,7 +145,7 @@ public class UnspentTransactionOutputManager {
 
         utxoTimer.start();
 
-        unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, unspentTransactionOutputs, blockHeight);
+        unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(unspentTransactionOutputIdentifiers, unspentTransactionOutputs, blockHeight, coinbaseTransactionHash);
         unspentTransactionOutputDatabaseManager.markTransactionOutputsAsSpent(spentTransactionOutputIdentifiers);
 
         utxoTimer.stop();

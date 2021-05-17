@@ -2,10 +2,12 @@ package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.ImmutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -16,8 +18,8 @@ import java.util.HashSet;
 
 public class UtxoUndoLog {
     protected final FullNodeDatabaseManager _databaseManager;
-    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _reAvailableOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
-    protected final HashSet<TransactionOutputIdentifier> _uncreatedOutputs = new HashSet<TransactionOutputIdentifier>();
+    protected final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _availableOutputs = new HashMap<>();
+    protected final HashSet<TransactionOutputIdentifier> _unavailableOutputs = new HashSet<>();
 
     public UtxoUndoLog(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
@@ -25,7 +27,7 @@ public class UtxoUndoLog {
 
     public void undoBlock(final Block block) throws DatabaseException {
         Logger.debug("Undoing Block: " + block.getHash());
-        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
@@ -34,22 +36,26 @@ public class UtxoUndoLog {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    final TransactionOutput transactionOutput = transactionDatabaseManager.getTransactionOutput(transactionOutputIdentifier);
-                    _reAvailableOutputs.put(transactionOutputIdentifier, transactionOutput);
+                    final UnspentTransactionOutput unspentTransactionOutput = unspentTransactionOutputDatabaseManager.findOutputData(transactionOutputIdentifier);
+                    if (unspentTransactionOutput == null) {
+                        throw new DatabaseException("Unable to find Output: " + transactionOutputIdentifier);
+                    }
+
+                    _availableOutputs.put(transactionOutputIdentifier, unspentTransactionOutput);
                 }
             }
 
             final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
             for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-                _uncreatedOutputs.add(transactionOutputIdentifier);
+                _unavailableOutputs.add(transactionOutputIdentifier);
             }
 
             isCoinbase = false;
         }
     }
 
-    public void redoBlock(final Block block) {
-        Logger.debug("Redoing Block: " + block.getHash());
+    public void applyBlock(final Block block, final Long blockHeight) {
+        Logger.debug("Applying Block: " + block.getHash());
         final List<Transaction> transactions = block.getTransactions();
         boolean isCoinbase = true;
         for (final Transaction transaction : transactions) {
@@ -57,28 +63,35 @@ public class UtxoUndoLog {
                 final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
                 for (final TransactionInput transactionInput : transactionInputs) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    _reAvailableOutputs.remove(transactionOutputIdentifier);
+                    _availableOutputs.remove(transactionOutputIdentifier);
                 }
             }
 
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
             final List<TransactionOutputIdentifier> transactionOutputIdentifiers = TransactionOutputIdentifier.fromTransactionOutputs(transaction);
             for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-                _uncreatedOutputs.remove(transactionOutputIdentifier);
+                final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
+                final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
+
+                final UnspentTransactionOutput unspentTransactionOutput = new ImmutableUnspentTransactionOutput(transactionOutput, blockHeight, isCoinbase);
+
+                _unavailableOutputs.remove(transactionOutputIdentifier);
+                _availableOutputs.put(transactionOutputIdentifier, unspentTransactionOutput);
             }
 
             isCoinbase = false;
         }
     }
 
-    public TransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        if (_uncreatedOutputs.contains(transactionOutputIdentifier)) { return null; }
+    public UnspentTransactionOutput getUnspentTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        if (_unavailableOutputs.contains(transactionOutputIdentifier)) { return null; }
 
-        final TransactionOutput reAvailableOutput = _reAvailableOutputs.get(transactionOutputIdentifier);
+        final UnspentTransactionOutput reAvailableOutput = _availableOutputs.get(transactionOutputIdentifier);
         if (reAvailableOutput != null) { return reAvailableOutput; }
 
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
         try {
-            final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
-            return transactionDatabaseManager.getTransactionOutput(transactionOutputIdentifier);
+            return unspentTransactionOutputDatabaseManager.getUnspentTransactionOutput(transactionOutputIdentifier);
         }
         catch (final Exception exception) {
             Logger.debug(exception);

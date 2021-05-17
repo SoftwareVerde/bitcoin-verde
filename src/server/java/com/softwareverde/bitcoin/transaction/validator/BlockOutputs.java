@@ -51,8 +51,12 @@ public class BlockOutputs {
     }
 
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        final boolean transactionIsWithinThisBlock = _transactionOutputs.containsKey(transactionOutputIdentifier);
+        if (! transactionIsWithinThisBlock) { return null; }
+
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         return Util.areEqual(_coinbaseTransactionHash, transactionHash);
+
     }
 
     public Integer getOutputCount() {

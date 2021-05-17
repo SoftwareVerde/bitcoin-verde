@@ -889,7 +889,7 @@ public class BlockProcessorTests extends IntegrationTest {
                 _addRequiredUtxos(block663750_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
                 _addRequiredUtxos(block663750_A, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
 
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L);
+                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
                 unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
             }

@@ -96,6 +96,7 @@ CREATE TABLE committed_unspent_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     block_height INT UNSIGNED NOT NULL,
+    is_coinbase TINYINT(1) NOT NULL DEFAULT 0,
     amount BIGINT NOT NULL,
     locking_script BLOB NOT NULL,
     PRIMARY KEY (transaction_hash, `index`)
@@ -105,6 +106,7 @@ CREATE TABLE pruned_previous_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     block_height INT UNSIGNED NOT NULL,
+    is_coinbase TINYINT(1) NOT NULL DEFAULT 0,
     amount BIGINT NOT NULL,
     locking_script BLOB NOT NULL,
     expires_after_block_height INT UNSIGNED NOT NULL,

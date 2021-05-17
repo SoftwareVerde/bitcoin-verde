@@ -311,7 +311,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                 { // Enforce Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
                     final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = _isTransactionOutputCoinbase(transactionOutputIdentifierBeingSpent);
                     if (transactionOutputBeingSpentIsCoinbaseTransaction == null) {
-                        final Json errorJson = _createInvalidTransactionReport("Previous output does not exist.", transaction, transactionContext);
+                        final Json errorJson = _createInvalidTransactionReport("Unable to determine if output is a coinbase.", transaction, transactionContext);
                         return TransactionValidationResult.invalid(errorJson);
                     }
 
