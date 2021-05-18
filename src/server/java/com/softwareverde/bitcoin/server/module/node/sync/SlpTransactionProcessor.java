@@ -1,6 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -115,6 +120,9 @@ public class SlpTransactionProcessor extends SleepyService {
     protected Boolean _run() {
         Logger.trace("SlpTransactionProcessor Running.");
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
 
@@ -128,8 +136,28 @@ public class SlpTransactionProcessor extends SleepyService {
             // 3. Update those SLP transactions validation statuses via the slpTransactionDatabaseManager.
             // 4. Move on to the next block.
 
+            final BlockId lastValidatedBlockId = slpTransactionDatabaseManager.getLastSlpValidatedBlockId();
+            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            BlockId nextBlockId;
+            {
+                BlockId lastMainChainBlockId = lastValidatedBlockId;
+                while (true) {
+                    final Boolean blockIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(lastMainChainBlockId, headBlockchainSegmentId, BlockRelationship.ANY);
+                    if (blockIsOnMainChain) { break; }
+
+                    lastMainChainBlockId = blockHeaderDatabaseManager.getAncestorBlockId(lastMainChainBlockId, 1);
+                }
+
+                final BlockId childBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, lastMainChainBlockId);
+                if (childBlockId == null) { return false; }
+                final Boolean nextBlockHasTransactions = blockDatabaseManager.hasTransactions(childBlockId);
+                if (! nextBlockHasTransactions) { return false; }
+
+                nextBlockId = childBlockId;
+            }
+
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
-            final Map<BlockId, List<TransactionId>> pendingSlpTransactionIds = slpTransactionDatabaseManager.getConfirmedPendingValidationSlpTransactions(BATCH_SIZE);
+            final List<TransactionId> pendingSlpTransactionIds = slpTransactionDatabaseManager.getConfirmedPendingValidationSlpTransactions(nextBlockId);
             final List<TransactionId> unconfirmedPendingSlpTransactionIds;
             if (pendingSlpTransactionIds.isEmpty()) { // Only validate unconfirmed SLP Transactions if the history is up to date in order to reduce the validation depth.
                 unconfirmedPendingSlpTransactionIds = slpTransactionDatabaseManager.getUnconfirmedPendingValidationSlpTransactions(BATCH_SIZE);
@@ -142,21 +170,18 @@ public class SlpTransactionProcessor extends SleepyService {
             final MilliTimer milliTimer = new MilliTimer();
 
             // Validate Confirmed SLP Transactions...
-            for (final BlockId blockId : pendingSlpTransactionIds.keySet()) {
-                final List<TransactionId> transactionIds = pendingSlpTransactionIds.get(blockId);
-                for (final TransactionId transactionId : transactionIds) {
-                    transactionLookupCount.value = 0;
-                    milliTimer.start();
+            for (final TransactionId transactionId : pendingSlpTransactionIds) {
+                transactionLookupCount.value = 0;
+                milliTimer.start();
 
-                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
+                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
+                slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
 
-                    milliTimer.stop();
-                    Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
-                }
-                slpTransactionDatabaseManager.setLastSlpValidatedBlockId(blockId);
+                milliTimer.stop();
+                Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
             }
+            slpTransactionDatabaseManager.setLastSlpValidatedBlockId(nextBlockId);
 
             // Validate Unconfirmed SLP Transactions...
             for (final TransactionId transactionId : unconfirmedPendingSlpTransactionIds) {
