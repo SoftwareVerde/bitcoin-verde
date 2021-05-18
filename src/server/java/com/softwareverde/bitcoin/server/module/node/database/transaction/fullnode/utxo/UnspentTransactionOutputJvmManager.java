@@ -433,7 +433,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
 
                 // final Query query = new Query("UPDATE committed_unspent_transaction_outputs SET amount = -1 WHERE (transaction_hash, `index`) IN (?)");
                 final Query query = new Query("DELETE FROM committed_unspent_transaction_outputs WHERE (transaction_hash, `index`) IN (?)");
-                query.setInClauseParameters(unspentTransactionOutputs, new ValueExtractor<UtxoKey>() {
+                query.setExpandedInClauseParameters(unspentTransactionOutputs, new ValueExtractor<UtxoKey>() { // NOTE: DELETE ... WHERE IN <tuple> will not use the table index, so expanded in-clauses are necessary.
                     @Override
                     public InClauseParameter extractValues(final UtxoKey value) {
                         onDiskDeleteItemCount.incrementAndGet();
@@ -464,7 +464,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 //  into the cache based on recency, to facilitate UTXO commitments, and to facilitate more intelligent reorgs.
 
                 // NOTE: resetting the amount on a duplicate key is required in order to undo a block that has been committed to disk.
-                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
+                final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO committed_unspent_transaction_outputs (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
                 for (final Utxo unspentTransactionOutput : batchItems) {
                     onDiskInsertItemCount.incrementAndGet();
 
@@ -472,6 +472,7 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                     batchedInsertQuery.setParameter(unspentTransactionOutput.getTransactionHash());
                     batchedInsertQuery.setParameter(unspentTransactionOutput.getOutputIndex());
                     batchedInsertQuery.setParameter(Math.max(blockHeight, 0L)); // block_height is an UNSIGNED INT; in the case of a reorg UTXO, the UTXO height can be set to -1, so 0 is used as a compatible placeholder.
+                    batchedInsertQuery.setParameter(unspentTransactionOutput.isCoinbase());
                     batchedInsertQuery.setParameter(unspentTransactionOutput.getAmount());
                     batchedInsertQuery.setParameter(unspentTransactionOutput.getLockingScript());
                 }

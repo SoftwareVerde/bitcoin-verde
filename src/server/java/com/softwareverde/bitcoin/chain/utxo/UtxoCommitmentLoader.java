@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.chain.utxo;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.bytearray.ByteArrayStream;
@@ -32,11 +35,12 @@ public class UtxoCommitmentLoader {
                 final CommittedUnspentTransactionOutput utxo = utxoInflater.fromByteArrayReader(byteArrayStream);
                 if (utxo == null) { break; }
 
-                // transaction_hash BINARY(32) NOT NULL,
-                // `index` INT UNSIGNED NOT NULL,
-                // block_height INT UNSIGNED NOT NULL,
-                // amount BIGINT NOT NULL,
-                // locking_script BLOB NOT NULL,
+                // transaction_hash BINARY(32) NOT NULL
+                // `index` INT UNSIGNED NOT NULL
+                // block_height INT UNSIGNED NOT NULL
+                // is_coinbase TINYINT(1) NOT NULL DEFAULT 0
+                // amount BIGINT NOT NULL
+                // locking_script BLOB NOT NULL
 
                 final String separator = "\t";
 
@@ -64,5 +68,17 @@ public class UtxoCommitmentLoader {
 
         nanoTimer.stop();
         Logger.trace("Wrote " + bytesWrittenCount + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+    }
+
+    public void loadFile(final File loadFile, final DatabaseConnection databaseConnection) throws DatabaseException {
+        final String loadFilePath = loadFile.getAbsolutePath();
+        if ( (! loadFile.exists()) || (! loadFile.canRead()) ) {
+            throw new DatabaseException("Unable to access loadFile: " + loadFilePath);
+        }
+
+        databaseConnection.executeSql(
+            new Query("LOAD DATA INFILE ? INTO TABLE committed_unspent_transaction_outputs (@transaction_hash, `index`, block_height, is_coinbase, amount, @locking_script) SET transaction_hash = UNHEX(@transaction_hash), locking_script = UNHEX(@locking_script)")
+                .setParameter(loadFilePath)
+        );
     }
 }

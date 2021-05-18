@@ -43,9 +43,9 @@ dependencies {
     // implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // SPV Library
-    api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.7.2'
+    implementation  group: 'com.github.softwareverde',   name: 'java-util',             version: 'v2.7.3'
     api             group: 'com.github.softwareverde',  name: 'java-concurrent',        version: 'v1.0.1'
-    api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: 'v3.0.0'
+    api             group: 'com.github.softwareverde',  name: 'java-cryptography',      version: '940dad7'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v2.0.0'
     api             group: 'com.github.softwareverde',  name: 'java-db',                version: 'v3.3.0'
 

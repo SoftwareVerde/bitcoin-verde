@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentGenerator;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
@@ -133,6 +134,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -169,6 +171,7 @@ public class NodeModule {
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final BlockPruner _blockPruner;
+    protected final UtxoCommitmentGenerator _utxoCommitmentGenerator;
     protected final List<SleepyService> _allServices;
 
     protected final BitcoinNodeFactory _bitcoinNodeFactory;
@@ -227,6 +230,9 @@ public class NodeModule {
             Logger.info("[Stopping Blockchain Indexer]");
             _blockchainIndexer.stop();
         }
+
+        Logger.info("[Stopping UTXO Commitment Generator]");
+        _utxoCommitmentGenerator.stop();
 
         Logger.info("[Stopping Transaction Processor]");
         _transactionProcessor.stop();
@@ -744,6 +750,12 @@ public class NodeModule {
             });
         }
 
+        final String utxoCommitmentOutputDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/utxo");
+        if (! IoUtil.fileExists(utxoCommitmentOutputDirectory)) {
+            (new File(utxoCommitmentOutputDirectory)).mkdir();
+        }
+        _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, utxoCommitmentOutputDirectory);
+
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
@@ -820,6 +832,13 @@ public class NodeModule {
                     if (pruningModeIsEnabled) { // Handle Block Pruning...
                         _blockPruner.wakeUp();
                     }
+
+                    _generalThreadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            _utxoCommitmentGenerator.wakeUp();
+                        }
+                    });
                 }
             });
 
@@ -963,6 +982,7 @@ public class NodeModule {
             listBuilder.add(_blockchainBuilder);
             listBuilder.add(_blockDownloader);
             listBuilder.add(_blockHeaderDownloader);
+            listBuilder.add(_utxoCommitmentGenerator);
             if (_blockPruner != null) {
                 listBuilder.add(_blockPruner);
             }
@@ -1309,6 +1329,9 @@ public class NodeModule {
 
         Logger.info("[Starting Transaction Relay]");
         _transactionRelay.start();
+
+        Logger.info("[Starting UTXO Commitment Generator]");
+        _utxoCommitmentGenerator.start();
 
         if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
             Logger.info("[Starting Blockchain Indexer]");

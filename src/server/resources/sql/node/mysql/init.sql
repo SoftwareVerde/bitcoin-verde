@@ -102,6 +102,8 @@ CREATE TABLE committed_unspent_transaction_outputs (
     PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
+CREATE TABLE staged_unspent_transaction_output_commitment LIKE committed_unspent_transaction_outputs;
+
 CREATE TABLE pruned_previous_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
