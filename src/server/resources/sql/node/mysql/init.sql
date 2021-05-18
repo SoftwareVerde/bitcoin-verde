@@ -104,6 +104,24 @@ CREATE TABLE committed_unspent_transaction_outputs (
 
 CREATE TABLE staged_unspent_transaction_output_commitment LIKE committed_unspent_transaction_outputs;
 
+CREATE TABLE unspent_transaction_output_commitments (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    block_id INT UNSIGNED NOT NULL,
+    hash BINARY(32),
+    PRIMARY KEY (id),
+    FOREIGN KEY utxo_commitment_block_id_fk (block_id) REFERENCES blocks (id)
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE TABLE unspent_transaction_output_commitment_files (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    utxo_commitment_id INT UNSIGNED NOT NULL,
+    hash BINARY(32) NOT NULL,
+    utxo_count INT NOT NULL,
+    byte_count INT NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY utxo_commitment_id_fk (utxo_commitment_id) REFERENCES unspent_transaction_output_commitments (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
 CREATE TABLE pruned_previous_transaction_outputs (
     transaction_hash BINARY(32) NOT NULL,
     `index` INT UNSIGNED NOT NULL,

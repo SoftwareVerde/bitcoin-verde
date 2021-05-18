@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -69,7 +70,53 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         );
     }
 
-    protected UtxoCommitment _publishUtxoCommitment(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected final UtxoCommitmentId _createUtxoCommit(final BlockId blockId, final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+        final Long utxoCommitId = databaseConnection.executeSql(
+            new Query("INSERT INTO unspent_transaction_output_commitments (block_id) VALUES (?)")
+                .setParameter(blockId)
+        );
+
+        return UtxoCommitmentId.wrap(utxoCommitId);
+    }
+
+    protected final void _setUtxoCommitHash(final UtxoCommitmentId utxoCommitmentId, final Sha256Hash hash, final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("UPDATE unspent_transaction_output_commitments SET hash = ? WHERE id = ?")
+                .setParameter(hash)
+                .setParameter(utxoCommitmentId)
+        );
+    }
+
+    protected File _createPartialUtxoCommitFile(final UtxoCommitmentId utxoCommitmentId, final MultisetHash multisetHash, final File partialFile, final Integer utxoCount, final Long fileByteCount, final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final Sha256Hash newFileName = multisetHash.getHash();
+
+        final Sha256Hash hash = multisetHash.getHash();
+
+        databaseConnection.executeSql(
+            new Query("INSERT INTO unspent_transaction_output_commitment_files (utxo_commitment_id, hash, utxo_count, byte_count) VALUES (?, ?, ?, ?)")
+                .setParameter(utxoCommitmentId)
+                .setParameter(hash)
+                .setParameter(utxoCount)
+                .setParameter(fileByteCount)
+        );
+
+        final File newFile = new File(_outputDirectory, newFileName.toString());
+        final boolean renameWasSuccessful = partialFile.renameTo(newFile);
+        if (! renameWasSuccessful) {
+            throw new DatabaseException("Unable to create partial commit file: " + newFile.getAbsolutePath());
+        }
+
+        Logger.trace("Partial UTXO Commitment file created: " + newFile + ", " + fileByteCount + " bytes, " + utxoCount + " utxos.");
+
+        return newFile;
+    }
+
+    protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         Logger.debug("Creating UTXO commitment.");
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
@@ -88,19 +135,29 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
         OutputStream outputStream = null;
         try {
+            final UtxoCommitmentId utxoCommitmentId = _createUtxoCommit(blockId, databaseManager);
+
             final UtxoCommitment utxoCommitment = new UtxoCommitment();
             utxoCommitment._multisetHash = multisetHash;
+            utxoCommitment._blockId = blockId;
 
+            int utxoCount = 0;
             long bytesWrittenToStream = 0L;
             outputStream = new BufferedOutputStream(new FileOutputStream(partialFile), pageSize);
             TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, 0);
 
             while (true) {
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_unspent_transaction_output_commitment WHERE transaction_hash > ? AND `index` > ? ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
-                        .setParameter(previousTransactionOutputIdentifier.getTransactionHash())
-                        .setParameter(previousTransactionOutputIdentifier.getOutputIndex())
-                );
+                final java.util.List<Row> rows;
+                {
+                    final Sha256Hash transactionHash = previousTransactionOutputIdentifier.getTransactionHash();
+                    final Integer outputIndex = previousTransactionOutputIdentifier.getOutputIndex();
+                    rows = databaseConnection.query(
+                        new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_unspent_transaction_output_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
+                            .setParameter(transactionHash)
+                            .setParameter(transactionHash)
+                            .setParameter(outputIndex)
+                    );
+                }
                 if (rows.isEmpty()) { break; }
 
                 for (final Row row : rows) {
@@ -129,15 +186,12 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                         outputStream.flush();
                         outputStream.close();
 
-                        final Sha256Hash newFileName = multisetHash.getHash();
-                        final File newFile = new File(_outputDirectory, newFileName.toString());
-                        partialFile.renameTo(newFile);
+                        final File newFile = _createPartialUtxoCommitFile(utxoCommitmentId, multisetHash, partialFile, utxoCount, bytesWrittenToStream, databaseManager);
                         utxoCommitment._files.add(newFile);
-
-                        Logger.trace("Partial UTXO Commitment file created: " + newFileName + ", " + bytesWrittenToStream + " bytes.");
 
                         outputStream = new BufferedOutputStream(new FileOutputStream(partialFile), pageSize);
                         bytesWrittenToStream = 0L;
+                        utxoCount = 0;
                     }
 
                     final int byteCount = byteArray.getByteCount();
@@ -146,6 +200,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                         outputStream.write(b);
                     }
                     bytesWrittenToStream += byteCount;
+                    utxoCount += 1;
 
                     utxoCommitment._blockHeight = Math.max(utxoCommitment._blockHeight, blockHeight);
                 }
@@ -156,13 +211,12 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             outputStream = null;
 
             if (bytesWrittenToStream > 0) {
-                final Sha256Hash newFileName = multisetHash.getHash();
-                final File newFile = new File(_outputDirectory, newFileName.toString());
-                partialFile.renameTo(newFile);
+                final File newFile = _createPartialUtxoCommitFile(utxoCommitmentId, multisetHash, partialFile, utxoCount, bytesWrittenToStream, databaseManager);
                 utxoCommitment._files.add(newFile);
-
-                Logger.trace("Partial UTXO Commitment file created: " + newFileName + ", " + bytesWrittenToStream + " bytes.");
             }
+
+            final Sha256Hash commitHash = multisetHash.getHash();
+            _setUtxoCommitHash(utxoCommitmentId, commitHash, databaseManager);
 
             nanoTimer.stop();
             Logger.trace("Created UTXO Commitment in " + nanoTimer.getMillisecondsElapsed() + "ms.");
@@ -197,7 +251,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
 
         stagedUtxoBlockHeight = (stagedUtxoBlockHeight + 1L);
-        BlockId stagedUtxoBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (stagedUtxoBlockHeight + 1L));
+        BlockId stagedUtxoBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, stagedUtxoBlockHeight);
         while (stagedUtxoBlockId != null) {
             if (_shouldAbort()) { break; }
 
@@ -260,7 +314,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             });
 
             if ((blockHeight % _publishCommitInterval) == 0) {
-                _publishUtxoCommitment(databaseManager);
+                _publishUtxoCommitment(stagedUtxoBlockId, databaseManager);
                 // TODO: Delete old commitment.
             }
 
