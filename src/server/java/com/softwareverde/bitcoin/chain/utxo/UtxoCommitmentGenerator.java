@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.concurrent.service.GracefulSleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.database.DatabaseException;
@@ -28,6 +29,7 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -160,28 +162,64 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 }
                 if (rows.isEmpty()) { break; }
 
-                for (final Row row : rows) {
-                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
-                    final Integer outputIndex = row.getInteger("index");
+                final int rowCount = rows.size();
+                final ByteArray[] serializedUtxoBytes = new ByteArray[rowCount];
 
-                    final Long blockHeight = row.getLong("block_height");
-                    final Boolean isCoinbase = row.getBoolean("is_coinbase");
-                    final Long amount = row.getLong("amount");
-                    final ByteArray lockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+                { // Asynchronously deserialize and calculate the MultisetHash.
+                    final MutableList<Tuple<Integer, Row>> rowWithIndexes = new MutableList<>(rowCount);
+                    {
+                        int i = 0;
+                        for (final Row row : rows) {
+                            final Tuple<Integer, Row> tuple = new Tuple<>(i, row);
+                            rowWithIndexes.add(tuple);
+                            i += 1;
+                        }
+                    }
 
-                    previousTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                    final int maxItemsPerBatch;
+                    {
+                        final Runtime runtime = Runtime.getRuntime();
+                        final int cpuCount = runtime.availableProcessors();
+                        maxItemsPerBatch = ((rowCount / cpuCount) + 1);
+                    }
+                    final BatchRunner<Tuple<Integer, Row>> rowBatchRunner = new BatchRunner<>(maxItemsPerBatch, true);
+                    rowBatchRunner.run(rowWithIndexes, new BatchRunner.Batch<Tuple<Integer, Row>>() {
+                        @Override
+                        public void run(final List<Tuple<Integer, Row>> batchItems) {
+                            for (final Tuple<Integer, Row> tuple : batchItems) {
+                                final int index = tuple.first;
+                                final Row row = tuple.second;
 
-                    final MutableCommittedUnspentTransactionOutput committedUnspentTransactionOutput = new MutableCommittedUnspentTransactionOutput();
-                    committedUnspentTransactionOutput.setTransactionHash(transactionHash);
-                    committedUnspentTransactionOutput.setIndex(outputIndex);
-                    committedUnspentTransactionOutput.setBlockHeight(blockHeight);
-                    committedUnspentTransactionOutput.setIsCoinbaseTransaction(isCoinbase);
-                    committedUnspentTransactionOutput.setAmount(amount);
-                    committedUnspentTransactionOutput.setLockingScript(lockingScriptBytes);
+                                final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
+                                final Integer outputIndex = row.getInteger("index");
 
-                    final ByteArray byteArray = committedUnspentTransactionOutput.getBytes();
-                    multisetHash.addItem(byteArray);
+                                final Long blockHeight = row.getLong("block_height");
+                                final Boolean isCoinbase = row.getBoolean("is_coinbase");
+                                final Long amount = row.getLong("amount");
+                                final ByteArray lockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
 
+                                final MutableCommittedUnspentTransactionOutput committedUnspentTransactionOutput = new MutableCommittedUnspentTransactionOutput();
+                                committedUnspentTransactionOutput.setTransactionHash(transactionHash);
+                                committedUnspentTransactionOutput.setIndex(outputIndex);
+                                committedUnspentTransactionOutput.setBlockHeight(blockHeight);
+                                committedUnspentTransactionOutput.setIsCoinbaseTransaction(isCoinbase);
+                                committedUnspentTransactionOutput.setAmount(amount);
+                                committedUnspentTransactionOutput.setLockingScript(lockingScriptBytes);
+
+                                final ByteArray byteArray = committedUnspentTransactionOutput.getBytes();
+
+                                multisetHash.addItem(byteArray);
+                                serializedUtxoBytes[index] = byteArray;
+
+                                synchronized (utxoCommitment) {
+                                    utxoCommitment._blockHeight = Math.max(utxoCommitment._blockHeight, blockHeight);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                for (final ByteArray byteArray : serializedUtxoBytes) {
                     if (bytesWrittenToStream + byteArray.getByteCount() > _maxByteCountPerFile) {
                         outputStream.flush();
                         outputStream.close();
@@ -201,8 +239,14 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     }
                     bytesWrittenToStream += byteCount;
                     utxoCount += 1;
+                }
 
-                    utxoCommitment._blockHeight = Math.max(utxoCommitment._blockHeight, blockHeight);
+                { // Update the previousTransactionOutputIdentifier for the next loop...
+                    final Row row = rows.get(rowCount - 1);
+                    final Sha256Hash transactionHash = Sha256Hash.copyOf(row.getBytes("transaction_hash"));
+                    final Integer outputIndex = row.getInteger("index");
+
+                    previousTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
                 }
             }
 
