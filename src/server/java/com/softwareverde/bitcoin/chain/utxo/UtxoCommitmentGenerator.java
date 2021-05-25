@@ -38,7 +38,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected static final String LAST_STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "last_staged_commitment_block_height";
@@ -310,34 +312,50 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
             final UnspentTransactionOutputManager.BlockUtxoDiff blockUtxoDiff = UnspentTransactionOutputManager.getBlockUtxoDiff(block);
 
-            TransactionUtil.startTransaction(databaseConnection);
-
+            final int spentTransactionOutputCount = blockUtxoDiff.spentTransactionOutputIdentifiers.getCount();
             final int transactionOutputCount = blockUtxoDiff.unspentTransactionOutputIdentifiers.getCount();
-            final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputIdentifierMap = new HashMap<>();
-            for (int i = 0; i < transactionOutputCount; ++i) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = blockUtxoDiff.unspentTransactionOutputIdentifiers.get(i);
-                final TransactionOutput transactionOutput = blockUtxoDiff.unspentTransactionOutputs.get(i);
 
-                transactionOutputIdentifierMap.put(transactionOutputIdentifier, transactionOutput);
+            final Map<TransactionOutputIdentifier, TransactionOutput> unspentTransactionOutputMap;
+            final MutableList<TransactionOutputIdentifier> sortedSpentIdentifiers = new MutableList<>(spentTransactionOutputCount);
+            final MutableList<TransactionOutputIdentifier> sortedUnspentIdentifiers = new MutableList<>(transactionOutputCount);
+            {
+                final TreeMap<TransactionOutputIdentifier, TransactionOutput> sortedUnspentTransactionOutputIdentifierMap = new TreeMap<>();
+                for (int i = 0; i < transactionOutputCount; ++i) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = blockUtxoDiff.unspentTransactionOutputIdentifiers.get(i);
+                    final TransactionOutput transactionOutput = blockUtxoDiff.unspentTransactionOutputs.get(i);
+
+                    sortedUnspentTransactionOutputIdentifierMap.put(transactionOutputIdentifier, transactionOutput);
+                }
+
+                final TreeSet<TransactionOutputIdentifier> sortedSpentIdentifiersHashSet = new TreeSet<>();
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : blockUtxoDiff.spentTransactionOutputIdentifiers) {
+                    sortedSpentIdentifiersHashSet.add(transactionOutputIdentifier);
+                }
+
+                // Exclude the creation of block outputs that are also deleted by this block...
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : sortedUnspentTransactionOutputIdentifierMap.keySet()) {
+                    final boolean outputIdentifierWasSpentInThisBlock = sortedSpentIdentifiersHashSet.remove(transactionOutputIdentifier);
+                    if (! outputIdentifierWasSpentInThisBlock) {
+                        sortedUnspentIdentifiers.add(transactionOutputIdentifier);
+                    }
+                }
+
+                for (final TransactionOutputIdentifier transactionOutputIdentifier : sortedSpentIdentifiersHashSet) {
+                    sortedSpentIdentifiers.add(transactionOutputIdentifier);
+                }
+
+                unspentTransactionOutputMap = sortedUnspentTransactionOutputIdentifierMap;
             }
 
-            identifierBatchRunner.run(blockUtxoDiff.spentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
-                @Override
-                public void run(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws Exception {
-                    databaseConnection.executeSql(
-                        new Query("DELETE FROM staged_unspent_transaction_output_commitment WHERE (transaction_hash, `index`) IN (?)")
-                            .setExpandedInClauseParameters(spentTransactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER) // NOTE: DELETE ... WHERE IN <tuple> will not use the table index, so expanded in-clauses are necessary.
-                    );
-                }
-            });
+            TransactionUtil.startTransaction(databaseConnection);
 
             final long blockHeight = stagedUtxoBlockHeight;
-            identifierBatchRunner.run(blockUtxoDiff.unspentTransactionOutputIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+            identifierBatchRunner.run(sortedUnspentIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {
                     final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_unspent_transaction_output_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
                     for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
-                        final TransactionOutput transactionOutput = transactionOutputIdentifierMap.get(transactionOutputIdentifier);
+                        final TransactionOutput transactionOutput = unspentTransactionOutputMap.get(transactionOutputIdentifier);
 
                         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
                         final Integer outputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -354,6 +372,16 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                         batchedInsertQuery.setParameter(lockingScriptBytes);
                     }
                     databaseConnection.executeSql(batchedInsertQuery);
+                }
+            });
+
+            identifierBatchRunner.run(sortedSpentIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
+                @Override
+                public void run(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws Exception {
+                    databaseConnection.executeSql(
+                        new Query("DELETE FROM staged_unspent_transaction_output_commitment WHERE (transaction_hash, `index`) IN (?)")
+                            .setExpandedInClauseParameters(spentTransactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER) // NOTE: DELETE ... WHERE IN <tuple> will not use the table index, so expanded in-clauses are necessary.
+                    );
                 }
             });
 

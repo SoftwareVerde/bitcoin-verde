@@ -3,8 +3,6 @@ package com.softwareverde.bitcoin.chain.utxo;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.logging.LogLevel;
-import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteBuffer;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
@@ -21,7 +19,6 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
     @Before @Override
     public void before() throws Exception {
         super.before();
-        Logger.setLogLevel("com.softwareverde.cryptography.secp256k1", LogLevel.ERROR); // TODO: Remove
     }
 
     @After @Override
@@ -30,7 +27,7 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
     }
 
     @Test
-    public void test() throws Exception {
+    public void should_create_load_file_from_utxos_in_multiple_files() throws Exception {
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
 
         final HashSet<String> expectedResults = new HashSet<>();
