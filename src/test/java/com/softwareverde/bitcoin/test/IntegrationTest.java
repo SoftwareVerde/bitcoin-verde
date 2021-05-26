@@ -24,6 +24,7 @@ import com.softwareverde.bitcoin.server.main.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UtxoCacheStaticState;
 import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -168,7 +169,7 @@ public class IntegrationTest extends UnitTest {
         _blockStore.clear();
 
         // make sure UTXO set appears initialized
-        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UnspentTransactionOutputJvmManager.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
+        final Container<Long> uncommittedUtxoBlockHeight = ReflectionUtil.getStaticValue(UtxoCacheStaticState.class, "UNCOMMITTED_UTXO_BLOCK_HEIGHT");
         uncommittedUtxoBlockHeight.value = 0L;
 
         // Clear the static UTXO cache and the double buffer.

@@ -5,7 +5,7 @@ import com.softwareverde.util.Util;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-class UtxoCacheStaticState {
+public class UtxoCacheStaticState {
     public static final ReentrantReadWriteLock.ReadLock READ_LOCK;
     public static final ReentrantReadWriteLock.WriteLock WRITE_LOCK;
     static {
