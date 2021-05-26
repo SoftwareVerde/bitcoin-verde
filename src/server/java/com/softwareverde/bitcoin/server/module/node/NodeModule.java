@@ -447,6 +447,7 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
                 nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
                 nodeFeatures.enableFeature(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED); // BitcoinVerde 2021-04-27
+                nodeFeatures.enableFeature(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED); // BitcoinVerde 2021-05-26
 
                 if (! pruningModeIsEnabled) {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
