@@ -58,8 +58,15 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class UnspentTransactionOutputJvmManager implements UnspentTransactionOutputDatabaseManager {
+    public static final ReentrantReadWriteLock.WriteLock COMMITTED_UTXO_TABLE_WRITE_LOCK;
+    static {
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        COMMITTED_UTXO_TABLE_WRITE_LOCK = readWriteLock.writeLock();
+    }
+
     protected static final String COMMITTED_UTXO_BLOCK_HEIGHT_KEY = "committed_utxo_block_height";
     protected static final String UTXO_CACHE_LOAD_FILE_NAME = "utxo-cache.dat";
 
@@ -644,7 +651,9 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                         final MilliTimer milliTimer = new MilliTimer();
                         milliTimer.start();
 
+                        COMMITTED_UTXO_TABLE_WRITE_LOCK.lock();
                         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                            Logger.debug("UTXO double buffer lock acquired.");
                             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
                             TransactionUtil.startTransaction(databaseConnection);
                             UnspentTransactionOutputJvmManager.commitDoubleBufferedUnspentTransactionOutputs(newCommittedBlockHeight, databaseManager);
@@ -658,7 +667,10 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                             Logger.warn(exception);
                         }
                         finally {
+                            COMMITTED_UTXO_TABLE_WRITE_LOCK.unlock();
                             DOUBLE_BUFFER_THREAD = null;
+
+                            Logger.debug("UTXO double buffer lock released.");
 
                             synchronized (DOUBLE_BUFFER) {
                                 DOUBLE_BUFFER.notifyAll();
@@ -1402,15 +1414,24 @@ public class UnspentTransactionOutputJvmManager implements UnspentTransactionOut
                 DOUBLE_BUFFER.clear();
             }
 
-            final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-            databaseConnection.executeSql(
-                new Query("DELETE FROM committed_unspent_transaction_outputs")
-            );
-            databaseConnection.executeSql(
-                new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                    .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
-                    .setParameter(0L)
-            );
+            COMMITTED_UTXO_TABLE_WRITE_LOCK.lock();
+            try {
+                Logger.debug("UTXO double buffer lock acquired.");
+
+                final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+                databaseConnection.executeSql(
+                    new Query("DELETE FROM committed_unspent_transaction_outputs")
+                );
+                databaseConnection.executeSql(
+                    new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                        .setParameter(COMMITTED_UTXO_BLOCK_HEIGHT_KEY)
+                        .setParameter(0L)
+                );
+            }
+            finally {
+                COMMITTED_UTXO_TABLE_WRITE_LOCK.unlock();
+                Logger.debug("UTXO double buffer lock released.");
+            }
         }
         finally {
             UTXO_WRITE_MUTEX.unlock();

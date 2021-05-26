@@ -9,11 +9,14 @@ import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -46,6 +49,7 @@ import java.util.TreeSet;
 public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected static final String LAST_STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "last_staged_commitment_block_height";
     protected static final Integer UTXO_COMMITMENT_BLOCK_LAG = UndoLogDatabaseManager.MAX_REORG_DEPTH;
+    protected static final Long MIN_BLOCK_HEIGHT = 650000L;
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Long _maxByteCountPerFile;
@@ -53,7 +57,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected final Integer _maxCommitmentsToKeep = 2;
     protected final String _outputDirectory;
 
-    protected Long _getStagedUtxoCommitmentBlockHeight(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected Long _getStagedUtxoCommitmentBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -66,7 +70,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         return row.getLong("value");
     }
 
-    protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
@@ -122,6 +126,68 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         return newFile;
     }
 
+    protected void _importFromCommittedUtxos(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+
+        final int batchSize = 1048576; // Uses a higher batch size instead of databaseManager.getMaxQueryBatchSize since results are not returned...
+
+        databaseConnection.executeSql(
+            new Query("DELETE FROM staged_unspent_transaction_output_commitment")
+        );
+        _setStagedUtxoCommitmentBlockHeight(0L, databaseManager);
+
+        UnspentTransactionOutputJvmManager.COMMITTED_UTXO_TABLE_WRITE_LOCK.lock();
+        try {
+            Logger.debug("UTXO double buffer lock acquired.");
+
+            final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            if (headBlockId == null) { return; }
+
+            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            final Long committedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight(true);
+            if (committedUtxoBlockHeight > (headBlockHeight - UTXO_COMMITMENT_BLOCK_LAG)) {
+                Logger.debug("Committed UTXO set surpasses UTXO Commitment lag, not importing UTXOs from committed buffer.");
+                return;
+            }
+
+            TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
+            while (true) {
+                final Sha256Hash previousTransactionHash = previousTransactionOutputIdentifier.getTransactionHash();
+                final Integer previousOutputIndex = previousTransactionOutputIdentifier.getOutputIndex();
+
+                databaseConnection.executeSql(
+                    new Query("INSERT INTO staged_unspent_transaction_output_commitment SELECT * FROM committed_unspent_transaction_outputs WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
+                        .setParameter(previousTransactionHash)
+                        .setParameter(previousTransactionHash)
+                        .setParameter(previousOutputIndex)
+                );
+
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT transaction_hash, `index` FROM staged_unspent_transaction_output_commitment ORDER BY transaction_hash DESC, `index` DESC LIMIT 1")
+                );
+                if (rows.isEmpty()) { break; }
+
+                final Row row = rows.get(0);
+                final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
+                final Integer outputIndex = row.getInteger("index");
+
+                if (Util.areEqual(previousTransactionOutputIdentifier.getTransactionHash(), transactionHash) && Util.areEqual(previousTransactionOutputIdentifier.getOutputIndex(), outputIndex)) {
+                    break;
+                }
+
+                previousTransactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+            }
+
+            _setStagedUtxoCommitmentBlockHeight(committedUtxoBlockHeight, databaseManager);
+        }
+        finally {
+            UnspentTransactionOutputJvmManager.COMMITTED_UTXO_TABLE_WRITE_LOCK.unlock();
+            Logger.debug("UTXO double buffer lock released.");
+        }
+    }
+
     protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         Logger.debug("Creating UTXO commitment.");
         final NanoTimer nanoTimer = new NanoTimer();
@@ -150,7 +216,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             int utxoCount = 0;
             long bytesWrittenToStream = 0L;
             outputStream = new BufferedOutputStream(new FileOutputStream(partialFile), pageSize);
-            TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, 0);
+            TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
 
             while (true) {
                 final java.util.List<Row> rows;
@@ -458,6 +524,15 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     @Override
     protected Boolean _run() {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+            final Long committedUtxoBlockHeight = unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
+            if (committedUtxoBlockHeight < MIN_BLOCK_HEIGHT) { return false; } // Don't stage any UTXO commitments until the min block height has been reached by the committed utxo set...
+
+            final Long stagedUtxoCommitBlockHeight = _getStagedUtxoCommitmentBlockHeight(databaseManager);
+            if (stagedUtxoCommitBlockHeight <= 0L) {
+                _importFromCommittedUtxos(databaseManager);
+            }
+
             _updateStagedCommitment(databaseManager);
         }
         catch (final DatabaseException exception) {
