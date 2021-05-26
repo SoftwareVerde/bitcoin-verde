@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -136,11 +137,15 @@ public class SlpTransactionProcessor extends SleepyService {
             // 3. Update those SLP transactions validation statuses via the slpTransactionDatabaseManager.
             // 4. Move on to the next block.
 
-            final BlockId lastValidatedBlockId = slpTransactionDatabaseManager.getLastSlpValidatedBlockId();
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            if (headBlockchainSegmentId == null) { return false; }
+
             BlockId nextBlockId;
             {
-                BlockId lastMainChainBlockId = lastValidatedBlockId;
+                BlockId lastMainChainBlockId = slpTransactionDatabaseManager.getLastSlpValidatedBlockId();
+                if (lastMainChainBlockId.longValue() == 0L) {
+                    lastMainChainBlockId = blockHeaderDatabaseManager.getBlockHeaderId(Sha256Hash.fromHexString(BitcoinConstants.getGenesisBlockHash()));
+                }
                 while (true) {
                     final Boolean blockIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(lastMainChainBlockId, headBlockchainSegmentId, BlockRelationship.ANY);
                     if (blockIsOnMainChain) { break; }
@@ -148,52 +153,52 @@ public class SlpTransactionProcessor extends SleepyService {
                     lastMainChainBlockId = blockHeaderDatabaseManager.getAncestorBlockId(lastMainChainBlockId, 1);
                 }
 
-                final BlockId childBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, lastMainChainBlockId);
-                if (childBlockId == null) { return false; }
-                final Boolean nextBlockHasTransactions = blockDatabaseManager.hasTransactions(childBlockId);
-                if (! nextBlockHasTransactions) { return false; }
-
+                BlockId childBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, lastMainChainBlockId);
+                while (childBlockId != null) {
+                    final Boolean nextBlockHasTransactions = blockDatabaseManager.hasTransactions(childBlockId);
+                    if (nextBlockHasTransactions) { break; }
+                    childBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, childBlockId);
+                }
                 nextBlockId = childBlockId;
             }
 
             final SlpTransactionValidator slpTransactionValidator = new SlpTransactionValidator(transactionAccumulator, slpTransactionValidationCache);
-            final List<TransactionId> pendingSlpTransactionIds = slpTransactionDatabaseManager.getConfirmedPendingValidationSlpTransactions(nextBlockId);
-            final List<TransactionId> unconfirmedPendingSlpTransactionIds;
-            if (pendingSlpTransactionIds.isEmpty()) { // Only validate unconfirmed SLP Transactions if the history is up to date in order to reduce the validation depth.
-                unconfirmedPendingSlpTransactionIds = slpTransactionDatabaseManager.getUnconfirmedPendingValidationSlpTransactions(BATCH_SIZE);
+            if (nextBlockId != null) {
+                // Validate Confirmed SLP Transactions...
+                final List<TransactionId> pendingSlpTransactionIds = slpTransactionDatabaseManager.getConfirmedPendingValidationSlpTransactions(nextBlockId);
+
+                final MilliTimer milliTimer = new MilliTimer();
+
+                for (final TransactionId transactionId : pendingSlpTransactionIds) {
+                    transactionLookupCount.value = 0;
+                    milliTimer.start();
+
+                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                    final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
+                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
+
+                    milliTimer.stop();
+                    Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
+                }
+                slpTransactionDatabaseManager.setLastSlpValidatedBlockId(nextBlockId);
+            }
+            else { // Only validate unconfirmed SLP Transactions if the history is up to date in order to reduce the validation depth.
+                // Validate Unconfirmed SLP Transactions...
+                final List<TransactionId> unconfirmedPendingSlpTransactionIds = slpTransactionDatabaseManager.getUnconfirmedPendingValidationSlpTransactions(BATCH_SIZE);
                 if (unconfirmedPendingSlpTransactionIds.isEmpty()) { return false; }
-            }
-            else {
-                unconfirmedPendingSlpTransactionIds = new MutableList<TransactionId>(0);
-            }
 
-            final MilliTimer milliTimer = new MilliTimer();
+                final MilliTimer milliTimer = new MilliTimer();
+                for (final TransactionId transactionId : unconfirmedPendingSlpTransactionIds) {
+                    transactionLookupCount.value = 0;
+                    milliTimer.start();
 
-            // Validate Confirmed SLP Transactions...
-            for (final TransactionId transactionId : pendingSlpTransactionIds) {
-                transactionLookupCount.value = 0;
-                milliTimer.start();
+                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                    final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
+                    slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
 
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
-
-                milliTimer.stop();
-                Logger.trace("Validated Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
-            }
-            slpTransactionDatabaseManager.setLastSlpValidatedBlockId(nextBlockId);
-
-            // Validate Unconfirmed SLP Transactions...
-            for (final TransactionId transactionId : unconfirmedPendingSlpTransactionIds) {
-                transactionLookupCount.value = 0;
-                milliTimer.start();
-
-                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                final Boolean isValid = slpTransactionValidator.validateTransaction(transaction);
-                slpTransactionDatabaseManager.setSlpTransactionValidationResult(transactionId, isValid);
-
-                milliTimer.stop();
-                Logger.trace("Validated Unconfirmed Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
+                    milliTimer.stop();
+                    Logger.trace("Validated Unconfirmed Slp Tx " + transaction.getHash() + " in " + milliTimer.getMillisecondsElapsed() + "ms. IsValid: " + isValid + " (lookUps=" + transactionLookupCount.value + ")");
+                }
             }
         }
         catch (final Exception exception) {
