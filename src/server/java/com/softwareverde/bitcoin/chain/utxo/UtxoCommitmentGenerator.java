@@ -38,6 +38,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -49,6 +50,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Long _maxByteCountPerFile;
     protected final Long _publishCommitInterval = 10000L;
+    protected final Integer _maxCommitmentsToKeep = 2;
     protected final String _outputDirectory;
 
     protected Long _getStagedUtxoCommitmentBlockHeight(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
@@ -279,6 +281,43 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         }
     }
 
+    protected void _deleteOldUtxoCommitments(final DatabaseConnection databaseConnection) throws DatabaseException {
+        final HashSet<UtxoCommitmentId> commitmentsToKeep = new HashSet<>(_maxCommitmentsToKeep);
+        {
+            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT unspent_transaction_output_commitments.id FROM unspent_transaction_output_commitments INNER JOIN blocks ON blocks.id = unspent_transaction_output_commitments.block_id ORDER BY blocks.block_height DESC LIMIT " + _maxCommitmentsToKeep));
+            for (final Row row : rows) {
+                final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
+                commitmentsToKeep.add(utxoCommitmentId);
+            }
+        }
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash FROM unspent_transaction_output_commitments WHERE id NOT IN (?)")
+                .setInClauseParameters(commitmentsToKeep, ValueExtractor.IDENTIFIER)
+        );
+        for (final Row row : rows) {
+            final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
+            final Sha256Hash commitmentHash = Sha256Hash.wrap(row.getBytes("hash"));
+            final java.util.List<Row> fileRows = databaseConnection.query(
+                new Query("SELECT hash FROM unspent_transaction_output_commitment_files WHERE utxo_commitment_id = ?")
+                    .setParameter(utxoCommitmentId)
+            );
+
+            for (final Row fileRow : fileRows) {
+                final Sha256Hash fileHash = Sha256Hash.wrap(fileRow.getBytes("hash"));
+                final File newFile = new File(_outputDirectory, fileHash.toString());
+                newFile.delete();
+            }
+
+            databaseConnection.executeSql(
+                new Query("DELETE unspent_transaction_output_commitment_files, unspent_transaction_output_commitments FROM unspent_transaction_output_commitments INNER JOIN unspent_transaction_output_commitment_files ON unspent_transaction_output_commitments.id = unspent_transaction_output_commitment_files.utxo_commitment_id WHERE unspent_transaction_output_commitments.id = ?")
+                    .setParameter(utxoCommitmentId)
+            );
+
+            Logger.info("Deleted UTXO commitment: " + commitmentHash);
+        }
+    }
+
     protected void _updateStagedCommitment(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -385,14 +424,25 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 }
             });
 
-            if ((blockHeight % _publishCommitInterval) == 0) {
+            final boolean isCloseToHeadBlockHeight;
+            {
+                final long blockHeightOffset = (_maxCommitmentsToKeep * _publishCommitInterval);
+                isCloseToHeadBlockHeight = (blockHeight >= (headBlockHeight - blockHeightOffset));
+            }
+
+            final boolean shouldCreateCommit = ((blockHeight % _publishCommitInterval) == 0);
+
+            if (shouldCreateCommit && isCloseToHeadBlockHeight) {
                 _publishUtxoCommitment(stagedUtxoBlockId, databaseManager);
-                // TODO: Delete old commitment.
             }
 
             _setStagedUtxoCommitmentBlockHeight(stagedUtxoBlockHeight, databaseManager);
 
             TransactionUtil.commitTransaction(databaseConnection);
+
+            if (shouldCreateCommit) {
+                _deleteOldUtxoCommitments(databaseConnection);
+            }
 
             stagedUtxoBlockId = blockHeaderDatabaseManager.getChildBlockId(blockchainSegmentId, stagedUtxoBlockId);
             stagedUtxoBlockHeight += 1L;
