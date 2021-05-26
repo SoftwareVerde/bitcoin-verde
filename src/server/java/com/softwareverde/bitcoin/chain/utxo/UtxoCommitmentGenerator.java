@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.query.ValueExtractor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -413,7 +412,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             if (block == null) { break; }
 
             final Sha256Hash blockHash = block.getHash();
-            Logger.debug("Applying " + blockHash + " to staged UTXO commitment.");
+            Logger.trace("Applying " + blockHash + " to staged UTXO commitment.");
 
             final UnspentTransactionOutputManager.BlockUtxoDiff blockUtxoDiff = UnspentTransactionOutputManager.getBlockUtxoDiff(block);
 
