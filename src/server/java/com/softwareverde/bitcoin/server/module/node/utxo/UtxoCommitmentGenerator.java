@@ -1,8 +1,10 @@
-package com.softwareverde.bitcoin.chain.utxo;
+package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentId;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;

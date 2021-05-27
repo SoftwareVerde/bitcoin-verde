@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.chain.utxo;
+package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.chain.utxo;
+package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
