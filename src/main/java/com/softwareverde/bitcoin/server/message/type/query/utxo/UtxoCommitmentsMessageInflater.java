@@ -7,8 +7,10 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflater {
@@ -32,21 +34,23 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
 
             final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>(bucketCount.intValue());
             for (int j = 0; j < bucketCount; ++j) {
-                final Sha256Hash bucketHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+                final ByteArray bucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
+                final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketPublicKeyBytes);
                 final Long bucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
                 final Long subBucketCount = byteArrayReader.readVariableLengthInteger();
 
                 final MutableList<MultisetBucket> subBuckets = new MutableList<>(subBucketCount.intValue());
                 for (int k = 0; k < subBucketCount; ++k) {
-                    final Sha256Hash subBucketHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+                    final ByteArray subBucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
+                    final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketPublicKeyBytes);
                     final Long subBucketByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
                     if (bucketCount > UtxoCommitmentsMessage.MAX_SUB_BUCKET_COUNT) { return null; }
 
-                    final MultisetBucket subBucket = new MultisetBucket(subBucketHash, subBucketByteCount);
+                    final MultisetBucket subBucket = new MultisetBucket(subBucketPublicKey, subBucketByteCount);
                     subBuckets.add(subBucket);
                 }
 
-                final UtxoCommitmentBucket utxoCommitmentBucket = new UtxoCommitmentBucket(bucketHash, bucketByteCount, subBuckets);
+                final UtxoCommitmentBucket utxoCommitmentBucket = new UtxoCommitmentBucket(bucketPublicKey, bucketByteCount, subBuckets);
                 utxoCommitmentBuckets.add(utxoCommitmentBucket);
             }
 

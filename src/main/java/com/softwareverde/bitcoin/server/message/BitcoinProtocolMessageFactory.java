@@ -50,6 +50,7 @@ import com.softwareverde.bitcoin.server.message.type.query.response.transaction.
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
@@ -219,6 +220,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<Bit
 
     public RequestDataMessage newRequestDataMessage() {
         return new RequestDataMessage();
+    }
+
+    public QueryUtxoCommitmentsMessage newQueryUtxoCommitmentsMessage() {
+        return new QueryUtxoCommitmentsMessage();
     }
 
     public EnableCompactBlocksMessage newEnableCompactBlocksMessage() {

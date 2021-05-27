@@ -9,8 +9,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.util.Tuple;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -19,7 +18,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_BUCKET_COUNT = (10 * 1024); // Supports up to 320 GB UTXO commitment files...
     public static final Integer MAX_SUB_BUCKET_COUNT = 128;
 
-    protected final MutableList<Tuple<UtxoCommitmentMetadata, List<UtxoCommitmentBucket>>> _commitments = new MutableList<>();
+    protected final MutableList<UtxoCommitmentBreakdown> _commitments = new MutableList<>();
     protected ByteArray _cachedBytes = null;
 
     public UtxoCommitmentsMessage() {
@@ -29,11 +28,11 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     public void addUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentParam, final List<UtxoCommitmentBucket> utxoCommitmentBuckets) {
         if (_commitments.getCount() >= MAX_COMMITMENT_COUNT) { return; }
 
-        _commitments.add(new Tuple<>(utxoCommitmentParam, utxoCommitmentBuckets));
+        _commitments.add(new UtxoCommitmentBreakdown(utxoCommitmentParam, utxoCommitmentBuckets));
         _cachedBytes = null;
     }
 
-    public List<Tuple<UtxoCommitmentMetadata, List<UtxoCommitmentBucket>>> getUtxoCommitments() {
+    public List<UtxoCommitmentBreakdown> getUtxoCommitments() {
         return _commitments;
     }
 
@@ -48,9 +47,9 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
 
         final int commitmentCount = _commitments.getCount();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(commitmentCount));
-        for (final Tuple<UtxoCommitmentMetadata, List<UtxoCommitmentBucket>> utxoCommitment : _commitments) {
-            final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.first;
-            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommitment.second;
+        for (final UtxoCommitmentBreakdown utxoCommitment : _commitments) {
+            final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.commitment;
+            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommitment.buckets;
 
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.blockHash, Endian.LITTLE);
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.multisetHash, Endian.LITTLE);
@@ -58,20 +57,20 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
             final int bucketCount = utxoCommitmentBuckets.getCount();
             byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(bucketCount));
             for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBuckets) {
-                final Sha256Hash utxoCommitmentBucketHash = utxoCommitmentBucket.getHash();
+                final PublicKey utxoCommitmentBucketPublicKey = utxoCommitmentBucket.getPublicKey();
                 final Long byteCount = utxoCommitmentBucket.getByteCount();
 
-                byteArrayBuilder.appendBytes(utxoCommitmentBucketHash, Endian.LITTLE);
+                byteArrayBuilder.appendBytes(utxoCommitmentBucketPublicKey);
                 byteArrayBuilder.appendBytes(ByteUtil.longToBytes(byteCount), Endian.LITTLE);
 
                 final List<MultisetBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
                 final int subBucketCount = subBuckets.getCount();
                 byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(subBucketCount));
                 for (final MultisetBucket subBucket : subBuckets) {
-                    final Sha256Hash subBucketHash = subBucket.getHash();
+                    final PublicKey subBucketPublicKey = subBucket.getPublicKey();
                     final Long subBucketByteCount = subBucket.getByteCount();
 
-                    byteArrayBuilder.appendBytes(subBucketHash, Endian.LITTLE);
+                    byteArrayBuilder.appendBytes(subBucketPublicKey);
                     byteArrayBuilder.appendBytes(ByteUtil.longToBytes(subBucketByteCount), Endian.LITTLE);
                 }
             }
