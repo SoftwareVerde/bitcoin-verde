@@ -116,8 +116,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
-                        .setParameter(blockId)
+            new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
+                .setParameter(blockId)
         );
         return (! rows.isEmpty());
     }

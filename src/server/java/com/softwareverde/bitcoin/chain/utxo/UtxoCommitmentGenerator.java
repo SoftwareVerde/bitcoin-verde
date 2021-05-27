@@ -56,6 +56,8 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected final Integer _maxCommitmentsToKeep = 2;
     protected final String _outputDirectory;
 
+    protected Long _cachedStagedUtxoCommitmentBlockHeight = null;
+
     protected Long _getStagedUtxoCommitmentBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
@@ -66,7 +68,11 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         if (rows.isEmpty()) { return 0L; }
 
         final Row row = rows.get(0);
-        return row.getLong("value");
+        final Long blockHeight = row.getLong("value");
+
+        _cachedStagedUtxoCommitmentBlockHeight = blockHeight;
+
+        return blockHeight;
     }
 
     protected void _setStagedUtxoCommitmentBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
@@ -77,6 +83,8 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 .setParameter(LAST_STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
                 .setParameter(blockHeight)
         );
+
+        _cachedStagedUtxoCommitmentBlockHeight = blockHeight;
     }
 
     protected final UtxoCommitmentId _createUtxoCommit(final BlockId blockId, final DatabaseManager databaseManager) throws DatabaseException {
@@ -409,7 +417,10 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             nanoTimer.start();
 
             final Block block = blockDatabaseManager.getBlock(stagedUtxoBlockId);
-            if (block == null) { break; }
+            if (block == null) {
+                Logger.debug("Unable to load Block#" + stagedUtxoBlockHeight);
+                break;
+            }
 
             final Sha256Hash blockHash = block.getHash();
             Logger.trace("Applying " + blockHash + " to staged UTXO commitment.");
@@ -548,5 +559,28 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         _databaseManagerFactory = databaseManagerFactory;
         _maxByteCountPerFile = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
         _outputDirectory = outputDirectory;
+    }
+
+    public Boolean requiresBlock(final Long blockHeight, final Sha256Hash blockHash) {
+        if (blockHeight < MIN_BLOCK_HEIGHT) { return false; }
+
+        final Long stagedUtxoCommitmentBlockHeight;
+        {
+            final Long cachedStagedUtxoCommitmentBlockHeight = _cachedStagedUtxoCommitmentBlockHeight;
+            if (cachedStagedUtxoCommitmentBlockHeight != null) {
+                stagedUtxoCommitmentBlockHeight = cachedStagedUtxoCommitmentBlockHeight;
+            }
+            else {
+                try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    stagedUtxoCommitmentBlockHeight = _getStagedUtxoCommitmentBlockHeight(databaseManager);
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug(exception);
+                    return true;
+                }
+            }
+        }
+
+        return (blockHeight >= stagedUtxoCommitmentBlockHeight);
     }
 }

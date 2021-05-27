@@ -669,7 +669,17 @@ public class NodeModule {
         }
 
         if (pruningModeIsEnabled) {
-            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore);
+            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore, new BlockPruner.RequiredBlockChecker() {
+                @Override
+                public Boolean isBlockRequired(final Long blockHeight, final Sha256Hash blockHash) {
+                    final boolean utxoCommitmentGeneratorRequiresBlock = _utxoCommitmentGenerator.requiresBlock(blockHeight, blockHash);
+                    if (utxoCommitmentGeneratorRequiresBlock) { return true; }
+
+                    final long pruneBlockHeightLag = UndoLogDatabaseManager.MAX_REORG_DEPTH;
+                    final Long currentBlockHeight = blockProcessor.getCurrentBlockHeight();
+                    return (blockHeight < (currentBlockHeight - pruneBlockHeightLag));
+                }
+            });
         }
         else {
             _blockPruner = null;

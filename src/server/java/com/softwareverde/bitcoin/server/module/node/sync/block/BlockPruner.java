@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -24,11 +23,15 @@ import com.softwareverde.util.Util;
 public class BlockPruner extends SleepyService {
     protected static final String LAST_PRUNED_BLOCK_HEIGHT_KEY = "last_pruned_block_height";
 
-    protected final Long _pruneBlockHeightLag = (UndoLogDatabaseManager.MAX_REORG_DEPTH + 72L);
+    public interface RequiredBlockChecker {
+        Boolean isBlockRequired(Long blockHeight, Sha256Hash blockHash);
+    }
+
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BlockStore _blockStore;
+    protected final RequiredBlockChecker _requiredBlockChecker;
 
-    protected Long _lastPrunedBlockHeight = null;
+    protected Long _lastPrunedBlockHeight = 0L;
 
     protected Long _getLastPrunedBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
@@ -53,9 +56,10 @@ public class BlockPruner extends SleepyService {
         );
     }
 
-    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore) {
+    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final RequiredBlockChecker requiredBlockChecker) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockStore = blockStore;
+        _requiredBlockChecker = requiredBlockChecker;
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
@@ -82,11 +86,14 @@ public class BlockPruner extends SleepyService {
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
             final Long headBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
-            final long maxPruneBlockHeight = Math.min(utxoCommittedBlockHeight, (headBlockHeight - _pruneBlockHeightLag));
+            final long maxPruneBlockHeight = Math.min(utxoCommittedBlockHeight, headBlockHeight);
 
             for (long blockHeight = _lastPrunedBlockHeight; blockHeight < maxPruneBlockHeight; ++blockHeight) {
                 final BlockId prunedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
                 final Sha256Hash prunedBlockHash = blockHeaderDatabaseManager.getBlockHash(prunedBlockId);
+
+                final Boolean blockIsStillRequired = _requiredBlockChecker.isBlockRequired(blockHeight, prunedBlockHash);
+                if (blockIsStillRequired) { break; }
 
                 _blockStore.removeBlock(prunedBlockHash, blockHeight);
 
