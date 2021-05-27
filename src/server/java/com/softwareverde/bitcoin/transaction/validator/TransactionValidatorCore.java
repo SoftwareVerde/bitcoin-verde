@@ -300,8 +300,14 @@ public class TransactionValidatorCore implements TransactionValidator {
             final HashSet<TransactionOutputIdentifier> spentOutputIdentifiers = new HashSet<TransactionOutputIdentifier>(transactionInputCount);
 
             for (int i = 0; i < transactionInputCount; ++i) {
+                transactionContext.setTransactionOutputBeingSpent(null); // Clear the TransactionOutput being spent for sane logging of an error before the utxo has been retrieved.
+
                 final TransactionInput transactionInput = transactionInputs.get(i);
                 final TransactionOutputIdentifier transactionOutputIdentifierBeingSpent = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+
+                transactionContext.setTransactionInputIndex(i);
+                transactionContext.setTransactionInput(transactionInput);
+
                 final boolean previousOutputIsUniqueToTransaction = spentOutputIdentifiers.add(transactionOutputIdentifierBeingSpent);
                 if (! previousOutputIsUniqueToTransaction) { // The transaction attempted to spend the same previous output twice...
                     final Json errorJson = _createInvalidTransactionReport("Transaction spends the same output twice.", transaction, transactionContext);
@@ -319,7 +325,7 @@ public class TransactionValidatorCore implements TransactionValidator {
                         final Long blockHeightOfTransactionOutputBeingSpent = _getTransactionOutputBlockHeight(transactionOutputIdentifierBeingSpent, blockHeight);
                         final long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
                         final Long requiredCoinbaseMaturity = _getCoinbaseMaturity();
-                        if (coinbaseMaturity <= requiredCoinbaseMaturity) {
+                        if (coinbaseMaturity < requiredCoinbaseMaturity) {
                             final Json errorJson = _createInvalidTransactionReport("Attempted to spend coinbase before maturity.", transaction, transactionContext);
                             return TransactionValidationResult.invalid(errorJson);
                         }
@@ -331,15 +337,12 @@ public class TransactionValidatorCore implements TransactionValidator {
                     final Json errorJson = _createInvalidTransactionReport("Transaction output does not exist or has been spent.", transaction, transactionContext);
                     return TransactionValidationResult.invalid(errorJson);
                 }
+                transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
 
                 totalInputValueCounter += transactionOutputBeingSpent.getAmount();
 
                 final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
                 final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
-
-                transactionContext.setTransactionInput(transactionInput);
-                transactionContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
-                transactionContext.setTransactionInputIndex(i);
 
                 final ScriptRunner.ScriptRunnerResult scriptRunnerResult = scriptRunner.runScript(lockingScript, unlockingScript, transactionContext);
                 final boolean inputIsUnlocked = scriptRunnerResult.isValid;
