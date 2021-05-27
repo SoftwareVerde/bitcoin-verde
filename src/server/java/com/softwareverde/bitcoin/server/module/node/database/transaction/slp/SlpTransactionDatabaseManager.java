@@ -17,10 +17,12 @@ public interface SlpTransactionDatabaseManager {
     void setSlpTransactionValidationResult(TransactionId transactionId, Boolean isValid) throws DatabaseException;
 
     /**
-     * Returns a mapping of (SLP) TransactionIds that have not been validated yet, ordered by their respective block's height.
+     * Returns the TransactionIds of SLP transactions in the given block that have not been validated yet.
      *  Unconfirmed transactions are not returned by this function.
      */
-    LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(Integer maxCount) throws DatabaseException;
+    List<TransactionId> getConfirmedPendingValidationSlpTransactions(BlockId blockId) throws DatabaseException;
+
+    BlockId getLastSlpValidatedBlockId() throws DatabaseException;
 
     void setLastSlpValidatedBlockId(BlockId blockId) throws DatabaseException;
 
