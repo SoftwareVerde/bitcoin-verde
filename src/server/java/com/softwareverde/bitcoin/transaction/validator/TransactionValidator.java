@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 public interface TransactionValidator {
     interface Context extends MedianBlockTimeContext, NetworkTimeContext, UnspentTransactionOutputContext, TransactionInflaters, UpgradeScheduleContext { }
 
-    Long COINBASE_MATURITY = 100L; // Number of Blocks before a coinbase transaction may be spent.
+    Long COINBASE_MATURITY = 100L; // Number of Blocks before a coinbase transaction may be spent, inclusive.  The 100th block may spend the coinbase.
 
     SequenceNumber FINAL_SEQUENCE_NUMBER = SequenceNumber.MAX_SEQUENCE_NUMBER; // If all inputs are "FINAL" then ignore lock time
 

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
@@ -19,14 +20,14 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
 
     protected final FullNodeDatabaseManager _databaseManager;
 
-    protected LinkedHashMap<BlockId, List<TransactionId>> _getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
+    protected BlockId _getLastSlpValidatedBlockId() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final BlockId lastIndexedBlockId;
         {
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT value FROM properties WHERE `key` = ?")
-                    .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+                    new Query("SELECT value FROM properties WHERE `key` = ?")
+                            .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
             );
             if (rows.isEmpty()) {
                 lastIndexedBlockId = BlockId.wrap(0L);
@@ -36,53 +37,38 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
                 lastIndexedBlockId = BlockId.wrap(row.getLong("value"));
             }
         }
+        return lastIndexedBlockId;
+    }
+
+    protected List<TransactionId> _getConfirmedPendingValidationSlpTransactions(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
                 "SELECT " +
-                    "blocks.id AS block_id, indexed_transaction_outputs.transaction_id " +
+                    "indexed_transaction_outputs.transaction_id " +
                 "FROM " +
                     "indexed_transaction_outputs " +
                     "INNER JOIN block_transactions " +
                         "ON (block_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
-                    "INNER JOIN blocks " +
-                        "ON (blocks.id = block_transactions.block_id AND blocks.id > ?) " +
                 "WHERE " +
+                    "block_transactions.block_id = ?" +
                     "NOT EXISTS (SELECT * FROM validated_slp_transactions WHERE validated_slp_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
-                    "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL " +
-                "GROUP BY blocks.id, indexed_transaction_outputs.transaction_id " +
-                "ORDER BY blocks.block_height ASC " +
-                "LIMIT "+ maxCount
+                    "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL"
             )
-            .setParameter(lastIndexedBlockId)
+            .setParameter(blockId)
         );
 
-        final LinkedHashMap<BlockId, List<TransactionId>> result = new LinkedHashMap<BlockId, List<TransactionId>>();
-
-        BlockId previousBlockId = null;
-        ImmutableListBuilder<TransactionId> transactionIds = null;
+        ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<>();
 
         for (final Row row : rows) {
-            final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            if ( (blockId == null) || (transactionId == null) ) { continue; }
-
-            if ( (previousBlockId == null) || (! Util.areEqual(previousBlockId, blockId)) ) {
-                if (transactionIds != null) {
-                    result.put(previousBlockId, transactionIds.build());
-                }
-                previousBlockId = blockId;
-                transactionIds = new ImmutableListBuilder<TransactionId>();
-            }
+            if (transactionId == null) { continue; }
 
             transactionIds.add(transactionId);
         }
 
-        if ( (previousBlockId != null) && (transactionIds != null) ) {
-            result.put(previousBlockId, transactionIds.build());
-        }
-
-        return result;
+        return transactionIds.build();
     }
 
     protected List<TransactionId> _getUnconfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
@@ -157,12 +143,17 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
     }
 
     /**
-     * Returns a mapping of (SLP) TransactionIds that have not been validated yet, ordered by their respective block's height.
+     * Returns the TransactionIds of SLP transactions in the given block that have not been validated yet.
      *  Unconfirmed transactions are not returned by this function.
      */
     @Override
-    public LinkedHashMap<BlockId, List<TransactionId>> getConfirmedPendingValidationSlpTransactions(final Integer maxCount) throws DatabaseException {
-        return _getConfirmedPendingValidationSlpTransactions(maxCount);
+    public List<TransactionId> getConfirmedPendingValidationSlpTransactions(final BlockId blockId) throws DatabaseException {
+        return _getConfirmedPendingValidationSlpTransactions(blockId);
+    }
+
+    @Override
+    public BlockId getLastSlpValidatedBlockId() throws DatabaseException {
+        return _getLastSlpValidatedBlockId();
     }
 
     @Override
