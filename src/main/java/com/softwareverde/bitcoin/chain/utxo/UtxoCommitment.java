@@ -7,6 +7,7 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import java.io.File;
 
 public interface UtxoCommitment {
+    String EMPTY_BUCKET_NAME = "000000000000000000000000000000000000000000000000000000000000000000";
     Integer BUCKET_COUNT = 128;
 
     BlockId getBlockId();

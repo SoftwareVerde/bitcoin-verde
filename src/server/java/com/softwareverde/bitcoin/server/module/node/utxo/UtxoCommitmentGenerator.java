@@ -126,14 +126,15 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         );
     }
 
-    protected File _createPartialUtxoCommitmentFile(final UtxoCommitmentId utxoCommitmentId, final MultisetHash multisetHash, final File partialFile, final Integer utxoCount, final Long fileByteCount, final DatabaseManager databaseManager) throws DatabaseException {
+    protected File _createPartialUtxoCommitmentFile(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final MultisetHash multisetHash, final File partialFile, final Integer utxoCount, final Long fileByteCount, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         final PublicKey publicKey = multisetHash.getPublicKey();
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO utxo_commitment_files (utxo_commitment_id, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?)")
+            new Query("INSERT INTO utxo_commitment_files (utxo_commitment_id, bucket_index, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?, ?)")
                 .setParameter(utxoCommitmentId)
+                .setParameter(bucketIndex)
                 .setParameter(publicKey)
                 .setParameter(utxoCount)
                 .setParameter(fileByteCount)
@@ -235,6 +236,13 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
         final MultisetHash utxoCommitMultisetHash = new MultisetHash();
+        final MutableList<File> utxoCommitmentFiles = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
+        {
+            final File emptyBucketFile = new File(outputDirectory, UtxoCommitment.EMPTY_BUCKET_NAME);
+            for (int i = 0; i < UtxoCommitment.BUCKET_COUNT; ++i) {
+                utxoCommitmentFiles.add(emptyBucketFile);
+            }
+        }
 
         final int batchSize = Math.min(1024, databaseManager.getMaxQueryBatchSize());
         final int pageSize = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
@@ -254,7 +262,6 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                         try {
                             final MultisetHash bucketMultisetHash = new MultisetHash();
                             final File protoFile = new File(outputDirectory, "utxo-" + index + ".dat");
-                            final MutableList<File> files = new MutableList<>();
 
                             MultisetHash multisetHash = new MultisetHash();
                             outputStream = new FileOutputStream(protoFile);
@@ -277,8 +284,8 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                                     outputStream.close();
 
                                     synchronized (databaseConnection) {
-                                        final File newFile = _createPartialUtxoCommitmentFile(utxoCommitmentId, multisetHash, protoFile, utxoCount, bytesWritten, databaseManager);
-                                        files.add(newFile);
+                                        final File newFile = _createPartialUtxoCommitmentFile(utxoCommitmentId, index, multisetHash, protoFile, utxoCount, bytesWritten, databaseManager);
+                                        utxoCommitmentFiles.set(index, newFile);
                                     }
 
                                     outputStream = new BufferedOutputStream(new FileOutputStream(protoFile), pageSize);
@@ -289,17 +296,22 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                                 }
 
                                 multisetHash.addItem(byteArray);
+                                for (int i = 0; i < byteCount; ++i) {
+                                    final byte b = byteArray.getByte(i);
+                                    outputStream.write(b);
+                                }
                                 bytesWritten += byteCount;
                                 utxoCount += 1;
                             }
 
                             outputStream.flush();
                             outputStream.close();
+                            outputStream = null;
 
                             if (bytesWritten > 0) {
                                 synchronized (databaseConnection) {
-                                    final File newFile = _createPartialUtxoCommitmentFile(utxoCommitmentId, multisetHash, protoFile, utxoCount, bytesWritten, databaseManager);
-                                    files.add(newFile);
+                                    final File newFile = _createPartialUtxoCommitmentFile(utxoCommitmentId, index, multisetHash, protoFile, utxoCount, bytesWritten, databaseManager);
+                                    utxoCommitmentFiles.set(index, newFile);
                                     bucketMultisetHash.add(multisetHash);
                                 }
                             }
@@ -405,6 +417,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             utxoCommitment._blockId = blockId;
             utxoCommitment._blockHeight = commitBlockHeight;
             utxoCommitment._multisetHash = utxoCommitMultisetHash;
+            utxoCommitment._files.addAll(utxoCommitmentFiles);
 
             nanoTimer.stop();
             Logger.trace("Created UTXO Commitment in " + nanoTimer.getMillisecondsElapsed() + "ms.");

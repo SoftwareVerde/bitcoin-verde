@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.utxo;
 
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayStream;
 import com.softwareverde.util.timer.NanoTimer;
 
@@ -87,6 +89,10 @@ public class UtxoCommitmentLoader {
 
         final String filePath = file.getAbsolutePath();
         if ( (! file.exists()) || (! file.canRead()) ) {
+            if (Util.areEqual(UtxoCommitment.EMPTY_BUCKET_NAME, file.getName())) {
+                return new MultisetHash(); // A non-existent file with the empty-bucket name has the hash at infinity.
+            }
+
             throw new Exception("Unable to access loadFile: " + filePath);
         }
 
