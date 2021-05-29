@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.query.utxo;
 
 import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -15,7 +16,6 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_COMMITMENT_COUNT = 32;
-    public static final Integer MAX_BUCKET_COUNT = (10 * 1024); // Supports up to 320 GB UTXO commitment files...
     public static final Integer MAX_SUB_BUCKET_COUNT = 128;
 
     protected final MutableList<UtxoCommitmentBreakdown> _commitments = new MutableList<>();
@@ -54,9 +54,10 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.blockHash, Endian.LITTLE);
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.multisetHash, Endian.LITTLE);
 
-            final int bucketCount = utxoCommitmentBuckets.getCount();
-            byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(bucketCount));
+            int bucketIndex = 0;
             for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBuckets) {
+                if (bucketIndex > UtxoCommitment.BUCKET_COUNT) { break; }
+
                 final PublicKey utxoCommitmentBucketPublicKey = utxoCommitmentBucket.getPublicKey();
                 final Long byteCount = utxoCommitmentBucket.getByteCount();
 
@@ -73,6 +74,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
                     byteArrayBuilder.appendBytes(subBucketPublicKey);
                     byteArrayBuilder.appendBytes(ByteUtil.longToBytes(subBucketByteCount), Endian.LITTLE);
                 }
+                bucketIndex += 1;
             }
         }
 

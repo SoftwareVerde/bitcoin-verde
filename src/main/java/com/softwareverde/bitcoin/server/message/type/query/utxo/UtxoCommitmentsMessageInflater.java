@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.query.utxo;
 
 import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
@@ -29,10 +30,9 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
             final Sha256Hash blockHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             final Sha256Hash commitmentHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             final Long totalByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
-            final Long bucketCount = byteArrayReader.readVariableLengthInteger();
-            if (bucketCount > UtxoCommitmentsMessage.MAX_BUCKET_COUNT) { return null; }
+            final int bucketCount = UtxoCommitment.BUCKET_COUNT;
 
-            final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>(bucketCount.intValue());
+            final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>(bucketCount);
             for (int j = 0; j < bucketCount; ++j) {
                 final ByteArray bucketPublicKeyBytes = ByteArray.wrap(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
                 final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketPublicKeyBytes);
@@ -52,6 +52,8 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
 
                 final UtxoCommitmentBucket utxoCommitmentBucket = new UtxoCommitmentBucket(bucketPublicKey, bucketByteCount, subBuckets);
                 utxoCommitmentBuckets.add(utxoCommitmentBucket);
+
+                if (byteArrayReader.didOverflow()) { return null; }
             }
 
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, commitmentHash, totalByteCount);

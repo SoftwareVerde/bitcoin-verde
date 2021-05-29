@@ -40,7 +40,7 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
             final MutableList<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT utxo_commitments.id, blocks.hash AS block_hash, utxo_commitments.hash AS commitment_hash, SUM(utxo_commitment_files.byte_count) AS commitment_byte_count FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id INNER JOIN utxo_commitment_buckets ON utxo_commitments.id = utxo_commitment_buckets.utxo_commitment_id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height DESC LIMIT " + UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT)
+                new Query("SELECT utxo_commitments.id, blocks.hash AS block_hash, utxo_commitments.hash AS commitment_hash, SUM(utxo_commitment_files.byte_count) AS commitment_byte_count FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commit_id = utxo_commitments.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height DESC LIMIT " + UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT)
             );
 
             for (final Row row : rows) {
@@ -53,20 +53,21 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
 
                 final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>();
                 final java.util.List<Row> bucketRows = databaseConnection.query(
-                    new Query("SELECT utxo_commitment_buckets.id, utxo_commitment_buckets.public_key, SUM(utxo_commitment_files.byte_count) AS byte_count, COUNT(*) AS file_count FROM utxo_commitment_buckets INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_bucket_id = utxo_commitment_buckets.id WHERE utxo_commitment_buckets.utxo_commitment_id = ? GROUP BY utxo_commitment_buckets.id")
+                    new Query("SELECT utxo_commitment_buckets.public_key, utxo_commitment_buckets.`index`, SUM(utxo_commitment_files.byte_count) AS byte_count, COUNT(*) AS file_count FROM utxo_commitment_buckets INNER JOIN utxo_commitment_files ON (utxo_commitment_files.utxo_commitment_id = utxo_commitment_buckets.utxo_commitment_id AND utxo_commitment_files.bucket_index = utxo_commitment_buckets.`index`) WHERE utxo_commitment_buckets.utxo_commitment_id = ? GROUP BY utxo_commitment_buckets.`index`")
                         .setParameter(utxoCommitmentId)
                 );
                 for (final Row bucketRow : bucketRows) {
-                    final Long bucketId = bucketRow.getLong("id");
                     final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketRow.getBytes("public_key"));
+                    final Integer bucketIndex = bucketRow.getInteger("index");
                     final Long bucketByteCount = bucketRow.getLong("byte_count");
                     final boolean hasSubBuckets = (bucketRow.getInteger("file_count") > 1);
 
                     final MutableList<MultisetBucket> subBuckets = new MutableList<>();
                     if (hasSubBuckets) {
                         final java.util.List<Row> subBucketRows = databaseConnection.query(
-                            new Query("SELECT public_key, byte_count FROM utxo_commitment_files WHERE utxo_bucket_id = ?")
-                                .setParameter(bucketId)
+                            new Query("SELECT public_key, byte_count FROM utxo_commitment_files WHERE utxo_commitment_id = ? AND bucket_index = ?")
+                                .setParameter(utxoCommitmentId)
+                                .setParameter(bucketIndex)
                         );
                         for (final Row subBucketRow : subBucketRows) {
                             final PublicKey subBucketPublicKey = PublicKey.fromBytes(subBucketRow.getBytes("public_key"));

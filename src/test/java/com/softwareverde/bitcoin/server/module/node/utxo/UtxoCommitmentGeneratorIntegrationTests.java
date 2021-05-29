@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.utxo;
 
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
@@ -66,12 +67,16 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         }
 
         final BlockId blockId;
+        final Sha256Hash blockHash;
         final BlockInflater blockInflater = new BlockInflater();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockHeaderDatabaseManager.storeBlockHeader(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.GENESIS_BLOCK)));
-                blockId = blockHeaderDatabaseManager.storeBlockHeader(blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_1)));
+
+                final Block block = blockInflater.fromBytes(ByteArray.fromHexString(BlockData.MainChain.BLOCK_1));
+                blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
+                blockHash = block.getHash();
             }
         }
 
@@ -79,7 +84,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         batchRunner.run(unspentTransactionOutputs, new BatchRunner.Batch<CommittedUnspentTransactionOutput>() {
             @Override
             public void run(final List<CommittedUnspentTransactionOutput> outputsBatch) throws Exception {
-                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_unspent_transaction_output_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
+                final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_utxo_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
                 for (final CommittedUnspentTransactionOutput transactionOutput : outputsBatch) {
                     final Sha256Hash transactionHash = transactionOutput.getTransactionHash();
                     final Integer outputIndex = transactionOutput.getIndex();
@@ -110,7 +115,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         final MutableList<String> fileNames = new MutableList<>();
         final UtxoCommitment utxoCommitment;
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
-            utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, 1L, databaseManager);
+            utxoCommitment = utxoCommitmentGenerator._publishUtxoCommitment(blockId, blockHash, 1L, databaseManager);
 
             Assert.assertTrue(utxoCommitment.getFiles().getCount() > 1);
 
