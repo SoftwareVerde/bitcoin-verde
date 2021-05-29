@@ -12,7 +12,6 @@ public interface CommittedUnspentTransactionOutput extends UnspentTransactionOut
     // Once coordinated, nodes will switch to the first bit for the coinbase flag.
     Integer IS_COINBASE_FLAG_BIT_INDEX = 7; // 0
 
-    Boolean isCoinbaseTransaction();
     Sha256Hash getTransactionHash();
     Integer getByteCount();
 

@@ -11,7 +11,6 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTransactionOutput implements CommittedUnspentTransactionOutput {
     protected Sha256Hash _transactionHash;
-    protected Boolean _transactionIsCoinbase = false;
 
     public MutableCommittedUnspentTransactionOutput() { }
 
@@ -23,20 +22,11 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
     public MutableCommittedUnspentTransactionOutput(final CommittedUnspentTransactionOutput unspentTransactionOutput) {
         super(unspentTransactionOutput);
         _transactionHash = unspentTransactionOutput.getTransactionHash();
-        _transactionIsCoinbase = unspentTransactionOutput.isCoinbaseTransaction();
+        _isCoinbase = unspentTransactionOutput.isCoinbase();
     }
 
     public void setTransactionHash(final Sha256Hash transactionHash) {
         _transactionHash = transactionHash;
-    }
-
-    public void setIsCoinbaseTransaction(final Boolean transactionIsCoinbase) {
-        _transactionIsCoinbase = transactionIsCoinbase;
-    }
-
-    @Override
-    public Boolean isCoinbaseTransaction() {
-        return _transactionIsCoinbase;
     }
 
     @Override
@@ -54,7 +44,7 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(ByteUtil.integerToBytes(_blockHeight));
-        if (_transactionIsCoinbase) {
+        if (_isCoinbase) {
             blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, true);
         }
 

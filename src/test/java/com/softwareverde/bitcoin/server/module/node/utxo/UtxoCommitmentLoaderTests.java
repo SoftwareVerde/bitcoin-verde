@@ -1,6 +1,5 @@
-package com.softwareverde.bitcoin.chain.utxo;
+package com.softwareverde.bitcoin.server.module.node.utxo;
 
-import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentLoader;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;

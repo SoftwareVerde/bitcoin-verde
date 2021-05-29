@@ -36,7 +36,7 @@ public class CommittedUnspentTransactionOutputInflater {
         unspentTransactionOutput.setTransactionHash(transactionHash);
         unspentTransactionOutput.setIndex(outputIndex);
         unspentTransactionOutput.setBlockHeight(blockHeight);
-        unspentTransactionOutput.setIsCoinbaseTransaction(isCoinbase);
+        unspentTransactionOutput.setIsCoinbase(isCoinbase);
         unspentTransactionOutput.setAmount(amount);
         unspentTransactionOutput.setLockingScript(lockingScriptBytes);
 

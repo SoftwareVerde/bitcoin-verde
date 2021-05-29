@@ -115,7 +115,7 @@ CREATE TABLE unspent_transaction_output_commitments (
 CREATE TABLE unspent_transaction_output_commitment_files (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     utxo_commitment_id INT UNSIGNED NOT NULL,
-    hash BINARY(32) NOT NULL,
+    public_key BINARY(33) NOT NULL,
     utxo_count INT NOT NULL,
     byte_count INT NOT NULL,
     PRIMARY KEY (id),
