@@ -102,9 +102,9 @@ CREATE TABLE committed_unspent_transaction_outputs (
     PRIMARY KEY (transaction_hash, `index`)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE staged_unspent_transaction_output_commitment LIKE committed_unspent_transaction_outputs;
+CREATE TABLE staged_utxo_commitment LIKE committed_unspent_transaction_outputs;
 
-CREATE TABLE unspent_transaction_output_commitments (
+CREATE TABLE utxo_commitments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     block_id INT UNSIGNED NOT NULL,
     hash BINARY(32),
@@ -112,14 +112,22 @@ CREATE TABLE unspent_transaction_output_commitments (
     FOREIGN KEY utxo_commitment_block_id_fk (block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
-CREATE TABLE unspent_transaction_output_commitment_files (
+CREATE TABLE utxo_commitment_buckets (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     utxo_commitment_id INT UNSIGNED NOT NULL,
+    public_key BINARY(33) NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY utxo_commitment_bucket_id_fk (utxo_commitment_id) REFERENCES utxo_commitments (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+CREATE TABLE utxo_commitment_files (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    utxo_bucket_id INT UNSIGNED NOT NULL,
     public_key BINARY(33) NOT NULL,
     utxo_count INT NOT NULL,
     byte_count INT NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY utxo_commitment_id_fk (utxo_commitment_id) REFERENCES unspent_transaction_output_commitments (id) ON DELETE CASCADE
+    FOREIGN KEY utxo_bucket_id_fk (utxo_bucket_id) REFERENCES utxo_commitment_buckets (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
 
 CREATE TABLE pruned_previous_transaction_outputs (

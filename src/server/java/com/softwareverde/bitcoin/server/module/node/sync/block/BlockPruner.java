@@ -21,7 +21,7 @@ import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
 
 public class BlockPruner extends SleepyService {
-    protected static final String LAST_PRUNED_BLOCK_HEIGHT_KEY = "last_pruned_block_height";
+    protected static final String PRUNED_BLOCK_HEIGHT_KEY = "pruned_block_height";
 
     public interface RequiredBlockChecker {
         Boolean isBlockRequired(Long blockHeight, Sha256Hash blockHash);
@@ -38,7 +38,7 @@ public class BlockPruner extends SleepyService {
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(LAST_PRUNED_BLOCK_HEIGHT_KEY)
+                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
         );
         if (rows.isEmpty()) { return 0L; }
 
@@ -51,7 +51,7 @@ public class BlockPruner extends SleepyService {
 
         databaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(LAST_PRUNED_BLOCK_HEIGHT_KEY)
+                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
                 .setParameter(blockHeight)
         );
     }

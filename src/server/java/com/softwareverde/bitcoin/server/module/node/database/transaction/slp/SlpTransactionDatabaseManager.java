@@ -5,8 +5,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
-import java.util.LinkedHashMap;
-
 public interface SlpTransactionDatabaseManager {
     /**
      * Returns the cached SLP validity of the TransactionId.

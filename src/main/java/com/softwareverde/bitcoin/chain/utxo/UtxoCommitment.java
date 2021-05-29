@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.chain.utxo;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
 
 import java.io.File;
 

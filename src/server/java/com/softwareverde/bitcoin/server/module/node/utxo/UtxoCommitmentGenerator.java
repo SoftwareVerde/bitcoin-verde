@@ -47,7 +47,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 public class UtxoCommitmentGenerator extends GracefulSleepyService {
-    protected static final String LAST_STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "last_staged_commitment_block_height";
+    protected static final String STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "staged_utxo_commitment_block_height";
     protected static final Integer UTXO_COMMITMENT_BLOCK_LAG = UndoLogDatabaseManager.MAX_REORG_DEPTH;
     protected static final Long MIN_BLOCK_HEIGHT = 650000L;
 
@@ -64,7 +64,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT value FROM properties WHERE `key` = ?")
-                .setParameter(LAST_STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
+                .setParameter(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
         );
         if (rows.isEmpty()) { return 0L; }
 
@@ -81,7 +81,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
         databaseConnection.executeSql(
             new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
-                .setParameter(LAST_STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
+                .setParameter(STAGED_COMMITMENT_BLOCK_HEIGHT_KEY)
                 .setParameter(blockHeight)
         );
 
@@ -92,7 +92,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         final Long utxoCommitId = databaseConnection.executeSql(
-            new Query("INSERT INTO unspent_transaction_output_commitments (block_id) VALUES (?)")
+            new Query("INSERT INTO utxo_commitments (block_id) VALUES (?)")
                 .setParameter(blockId)
         );
 
@@ -103,7 +103,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("UPDATE unspent_transaction_output_commitments SET hash = ? WHERE id = ?")
+            new Query("UPDATE utxo_commitments SET hash = ? WHERE id = ?")
                 .setParameter(hash)
                 .setParameter(utxoCommitmentId)
         );
@@ -115,7 +115,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final PublicKey publicKey = multisetHash.getPublicKey();
 
         databaseConnection.executeSql(
-            new Query("INSERT INTO unspent_transaction_output_commitment_files (utxo_commitment_id, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?)")
+            new Query("INSERT INTO utxo_commitment_files (utxo_commitment_id, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?)")
                 .setParameter(utxoCommitmentId)
                 .setParameter(publicKey)
                 .setParameter(utxoCount)
@@ -141,7 +141,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final int batchSize = 1048576; // Uses a higher batch size instead of databaseManager.getMaxQueryBatchSize since results are not returned...
 
         databaseConnection.executeSql(
-            new Query("DELETE FROM staged_unspent_transaction_output_commitment")
+            new Query("DELETE FROM staged_utxo_commitment")
         );
         _setStagedUtxoCommitmentBlockHeight(0L, databaseManager);
 
@@ -165,14 +165,14 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 final Integer previousOutputIndex = previousTransactionOutputIdentifier.getOutputIndex();
 
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO staged_unspent_transaction_output_commitment SELECT * FROM committed_unspent_transaction_outputs WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
+                    new Query("INSERT INTO staged_utxo_commitment SELECT * FROM committed_unspent_transaction_outputs WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
                         .setParameter(previousTransactionHash)
                         .setParameter(previousTransactionHash)
                         .setParameter(previousOutputIndex)
                 );
 
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT transaction_hash, `index` FROM staged_unspent_transaction_output_commitment ORDER BY transaction_hash DESC, `index` DESC LIMIT 1")
+                    new Query("SELECT transaction_hash, `index` FROM staged_utxo_commitment ORDER BY transaction_hash DESC, `index` DESC LIMIT 1")
                 );
                 if (rows.isEmpty()) { break; }
 
@@ -229,7 +229,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     final Sha256Hash transactionHash = previousTransactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = previousTransactionOutputIdentifier.getOutputIndex();
                     rows = databaseConnection.query(
-                        new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_unspent_transaction_output_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
+                        new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_utxo_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
                             .setParameter(transactionHash)
                             .setParameter(transactionHash)
                             .setParameter(outputIndex)
@@ -325,7 +325,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected void _deleteOldUtxoCommitments(final DatabaseConnection databaseConnection) throws DatabaseException {
         final HashSet<UtxoCommitmentId> commitmentsToKeep = new HashSet<>(_maxCommitmentsToKeep);
         {
-            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT unspent_transaction_output_commitments.id FROM unspent_transaction_output_commitments INNER JOIN blocks ON blocks.id = unspent_transaction_output_commitments.block_id ORDER BY blocks.block_height DESC LIMIT " + _maxCommitmentsToKeep));
+            final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT utxo_commitments.id FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id ORDER BY blocks.block_height DESC LIMIT " + _maxCommitmentsToKeep));
             for (final Row row : rows) {
                 final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
                 commitmentsToKeep.add(utxoCommitmentId);
@@ -333,14 +333,14 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         }
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id, hash FROM unspent_transaction_output_commitments WHERE id NOT IN (?)")
+            new Query("SELECT id, hash FROM utxo_commitments WHERE id NOT IN (?)")
                 .setInClauseParameters(commitmentsToKeep, ValueExtractor.IDENTIFIER)
         );
         for (final Row row : rows) {
             final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
             final Sha256Hash commitmentHash = Sha256Hash.wrap(row.getBytes("hash"));
             final java.util.List<Row> fileRows = databaseConnection.query(
-                new Query("SELECT public_key FROM unspent_transaction_output_commitment_files WHERE utxo_commitment_id = ?")
+                new Query("SELECT public_key FROM utxo_commitment_files WHERE utxo_commitment_id = ?")
                     .setParameter(utxoCommitmentId)
             );
 
@@ -351,7 +351,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             }
 
             databaseConnection.executeSql(
-                new Query("DELETE unspent_transaction_output_commitment_files, unspent_transaction_output_commitments FROM unspent_transaction_output_commitments INNER JOIN unspent_transaction_output_commitment_files ON unspent_transaction_output_commitments.id = unspent_transaction_output_commitment_files.utxo_commitment_id WHERE unspent_transaction_output_commitments.id = ?")
+                new Query("DELETE utxo_commitment_files, utxo_commitments FROM utxo_commitments INNER JOIN utxo_commitment_files ON utxo_commitments.id = utxo_commitment_files.utxo_commitment_id WHERE utxo_commitments.id = ?")
                     .setParameter(utxoCommitmentId)
             );
 
@@ -436,7 +436,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             identifierBatchRunner.run(sortedUnspentIdentifiers, new BatchRunner.Batch<TransactionOutputIdentifier>() {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws Exception {
-                    final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_unspent_transaction_output_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
+                    final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO staged_utxo_commitment (transaction_hash, `index`, block_height, is_coinbase, amount, locking_script) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)");
                     for (final TransactionOutputIdentifier transactionOutputIdentifier : transactionOutputIdentifiers) {
                         final TransactionOutput transactionOutput = unspentTransactionOutputMap.get(transactionOutputIdentifier);
 
@@ -462,7 +462,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 @Override
                 public void run(final List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws Exception {
                     databaseConnection.executeSql(
-                        new Query("DELETE FROM staged_unspent_transaction_output_commitment WHERE (transaction_hash, `index`) IN (?)")
+                        new Query("DELETE FROM staged_utxo_commitment WHERE (transaction_hash, `index`) IN (?)")
                             .setExpandedInClauseParameters(spentTransactionOutputIdentifiers, ValueExtractor.TRANSACTION_OUTPUT_IDENTIFIER) // NOTE: DELETE ... WHERE IN <tuple> will not use the table index, so expanded in-clauses are necessary.
                     );
                 }
