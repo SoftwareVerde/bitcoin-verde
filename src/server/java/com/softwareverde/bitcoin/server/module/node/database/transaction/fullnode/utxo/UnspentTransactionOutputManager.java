@@ -97,7 +97,7 @@ public class UnspentTransactionOutputManager {
     protected final FullNodeDatabaseManager _databaseManager;
     protected final Long _commitFrequency;
 
-    protected void _buildUtxoSetUpToHeadBlock(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+    protected void _buildUtxoSetUpToHeadBlock(final DatabaseManagerFactory databaseManagerFactory, final Long callbackBlockHeightMod, final Runnable callback) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
@@ -121,6 +121,13 @@ public class UnspentTransactionOutputManager {
 
             Logger.trace("Applying block " + blockHeight + " to UTXO set.");
             _updateUtxoSetWithBlock(block, blockHeight, databaseManagerFactory);
+
+            if (callback != null) {
+                if ((blockHeight % callbackBlockHeightMod) == 0L) {
+                    callback.run();
+                }
+            }
+
             blockHeight += 1L;
         }
 
@@ -176,17 +183,21 @@ public class UnspentTransactionOutputManager {
         _commitFrequency = commitFrequency;
     }
 
+    public void rebuildUtxoSetFromGenesisBlock(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+        this.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory, null, null);
+    }
+
     /**
      * Destroys the In-Memory and On-Disk UTXO set and rebuilds it from the Genesis Block.
      */
-    public void rebuildUtxoSetFromGenesisBlock(final DatabaseManagerFactory databaseManagerFactory) throws DatabaseException {
+    public void rebuildUtxoSetFromGenesisBlock(final DatabaseManagerFactory databaseManagerFactory, final Long blockHeightMod, final Runnable callback) throws DatabaseException {
         UnspentTransactionOutputDatabaseManager.lockUtxoSet();
         try {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
             unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
-            _buildUtxoSetUpToHeadBlock(databaseManagerFactory);
+            _buildUtxoSetUpToHeadBlock(databaseManagerFactory, blockHeightMod, callback);
         }
         catch (final Exception exception) {
             UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();
@@ -206,7 +217,7 @@ public class UnspentTransactionOutputManager {
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = _databaseManager.getUnspentTransactionOutputDatabaseManager();
 
             unspentTransactionOutputDatabaseManager.clearUncommittedUtxoSet();
-            _buildUtxoSetUpToHeadBlock(databaseManagerFactory);
+            _buildUtxoSetUpToHeadBlock(databaseManagerFactory, null, null);
         }
         catch (final Exception exception) {
             UnspentTransactionOutputDatabaseManager.invalidateUncommittedUtxoSet();
@@ -302,4 +313,5 @@ public class UnspentTransactionOutputManager {
     public Long getCommitFrequency() {
         return _commitFrequency;
     }
+
 }

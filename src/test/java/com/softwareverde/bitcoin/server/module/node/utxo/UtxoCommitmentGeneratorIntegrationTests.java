@@ -114,7 +114,12 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         UtxoCommitmentGeneratorIntegrationTests.stageUnspentTransactionOutputs(unspentTransactionOutputs, _databaseConnectionFactory);
 
         final String outputDirectory = Files.createTempDirectory("utxo").toFile().getAbsolutePath();
-        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, outputDirectory);
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, outputDirectory) {
+            @Override
+            protected Boolean _shouldAbort() {
+                return false;
+            }
+        };
 
         // Action
         final MutableList<String> fileNames = new MutableList<>();
@@ -141,6 +146,8 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         }
 
         // Assert
+        Assert.assertFalse(utxoCommitment.getFiles().isEmpty());
+        Assert.assertNotEquals(utxoCommitment.getHash(), Sha256Hash.EMPTY_HASH);
         Assert.assertEquals(utxoCommitment.getHash(), commitmentMultisetHash.getHash());
     }
 
@@ -173,7 +180,12 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         UtxoCommitmentGeneratorIntegrationTests.stageUnspentTransactionOutputs(unspentTransactionOutputs, _databaseConnectionFactory);
 
         final String outputDirectory = Files.createTempDirectory("utxo").toFile().getAbsolutePath();
-        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, outputDirectory);
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, outputDirectory) {
+            @Override
+            protected Boolean _shouldAbort() {
+                return false;
+            }
+        };
 
         // Action
         final MutableList<String> fileNames = new MutableList<>();

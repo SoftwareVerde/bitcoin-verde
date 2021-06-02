@@ -179,8 +179,6 @@ public class NodeModule {
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
 
-    protected final String _transactionBloomFilterFilename;
-
     protected final CachedThreadPool _generalThreadPool;
     protected final CachedThreadPool _networkThreadPool;
     protected final CachedThreadPool _blockProcessingThreadPool;
@@ -359,7 +357,7 @@ public class NodeModule {
             }
         }
 
-        { // Initialize the BlockCache...
+        { // Initialize the BlockStore...
             final String dataDirectory = bitcoinProperties.getDataDirectory();
             final BlockHeaderInflaters blockHeaderInflaters = _masterInflater;
             final BlockInflaters blockInflaters = _masterInflater;
@@ -1073,8 +1071,6 @@ public class NodeModule {
             _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, _nodeRpcHandler, shouldRelayInvalidSlpTransactions, 100L);
         }
 
-        _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/transaction-bloom-filter");
-
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -1202,7 +1198,12 @@ public class NodeModule {
 
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");
-                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory);
+                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory, UndoLogDatabaseManager.MAX_REORG_DEPTH.longValue(), new Runnable() {
+                        @Override
+                        public void run() {
+                            _utxoCommitmentGenerator.wakeUp();
+                        }
+                    });
                 }
                 else {
                     unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);

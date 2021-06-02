@@ -35,20 +35,21 @@ import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
+import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class UtxoCommitmentGenerator extends GracefulSleepyService {
     protected static final String STAGED_COMMITMENT_BLOCK_HEIGHT_KEY = "staged_utxo_commitment_block_height";
@@ -113,42 +114,17 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         );
     }
 
-    protected void _createUtxoCommitmentBucket(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final MultisetHash multisetHash, final DatabaseManager databaseManager) throws DatabaseException {
+    protected Long _createUtxoCommitmentBucket(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final MultisetHash multisetHash, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         final PublicKey publicKey = multisetHash.getPublicKey();
 
-        databaseConnection.executeSql(
+        return databaseConnection.executeSql(
             new Query("INSERT INTO utxo_commitment_buckets (utxo_commitment_id, `index`, public_key) VALUES (?, ?, ?)")
                 .setParameter(utxoCommitmentId)
                 .setParameter(bucketIndex)
                 .setParameter(publicKey)
         );
-    }
-
-    protected File _createPartialUtxoCommitmentFile(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final MultisetHash multisetHash, final File partialFile, final Integer utxoCount, final Long fileByteCount, final DatabaseManager databaseManager) throws DatabaseException {
-        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        final PublicKey publicKey = multisetHash.getPublicKey();
-
-        databaseConnection.executeSql(
-            new Query("INSERT INTO utxo_commitment_files (utxo_commitment_id, bucket_index, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?, ?)")
-                .setParameter(utxoCommitmentId)
-                .setParameter(bucketIndex)
-                .setParameter(publicKey)
-                .setParameter(utxoCount)
-                .setParameter(fileByteCount)
-        );
-
-        final File newFile = new File(_outputDirectory, publicKey.toString());
-        final boolean renameWasSuccessful = partialFile.renameTo(newFile);
-        if (! renameWasSuccessful) {
-            throw new DatabaseException("Unable to create partial commit file: " + newFile.getAbsolutePath());
-        }
-
-        Logger.trace("Partial UTXO Commitment file created: " + newFile + ", " + fileByteCount + " bytes, " + utxoCount + " utxos.");
-
-        return newFile;
     }
 
     protected void _importFromCommittedUtxos(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
@@ -223,7 +199,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         return (utxoHash.getByte(0) & 0x7F);
     }
 
-    protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash blockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash blockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
         Logger.debug("Creating UTXO commitment.");
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
@@ -237,130 +213,124 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
         final MultisetHash utxoCommitMultisetHash = new MultisetHash();
         final MutableList<File> utxoCommitmentFiles = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
-        {
-            final File emptyBucketFile = new File(outputDirectory, UtxoCommitment.EMPTY_BUCKET_NAME);
-            for (int i = 0; i < UtxoCommitment.BUCKET_COUNT; ++i) {
-                utxoCommitmentFiles.add(emptyBucketFile);
-            }
-        }
 
         final int batchSize = Math.min(1024, databaseManager.getMaxQueryBatchSize());
-        final int pageSize = (int) (16L * ByteUtil.Unit.Binary.MEBIBYTES);
+        final AtomicInteger objectMemoryCount = new AtomicInteger(0);
 
-        final MutableList<SynchronousQueue<CommittedUnspentTransactionOutput>> bucketQueues = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
-        final MutableList<Thread> threads = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
+        final MutableList<Bucket> bucketQueues = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
+        for (int i = 0; i < UtxoCommitment.BUCKET_COUNT; ++i) {
+            bucketQueues.add(new Bucket(i, _outputDirectory, _maxByteCountPerFile));
+        }
 
-        try {
-            for (int i = 0; i < UtxoCommitment.BUCKET_COUNT; ++i) {
-                final int index = i;
-                final SynchronousQueue<CommittedUnspentTransactionOutput> synchronousQueue = new SynchronousQueue<>();
-                bucketQueues.add(synchronousQueue);
-                final Thread thread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        OutputStream outputStream = null;
-                        try {
-                            final MultisetHash bucketMultisetHash = new MultisetHash();
-                            final File protoFile = new File(outputDirectory, "utxo-" + index + ".dat");
+        final Runtime runtime = Runtime.getRuntime();
+        final int threadCount = Math.max(1, (runtime.availableProcessors() / 2));
+        final Container<Exception> exceptionContainer = new Container<>(null);
+        final MutableList<Tuple<Thread, AtomicBoolean>> threads = new MutableList<>(threadCount);
+        for (int i = 0; i < threadCount; ++i) {
+            final int minIndex = i * (UtxoCommitment.BUCKET_COUNT / threadCount);
+            final int maxIndex;
+            if (i < (threadCount - 1)) {
+                maxIndex = (((i + 1) * (UtxoCommitment.BUCKET_COUNT / threadCount)) - 1);
+            }
+            else { // Account for bucketCount non-divisible by threadCount...
+                maxIndex = (UtxoCommitment.BUCKET_COUNT - 1);
+            }
 
-                            MultisetHash multisetHash = new MultisetHash();
-                            outputStream = new FileOutputStream(protoFile);
-                            long bytesWritten = 0L;
-                            int utxoCount = 0;
-                            while (true) {
-                                final CommittedUnspentTransactionOutput transactionOutput;
-                                try {
-                                    transactionOutput = synchronousQueue.take();
-                                }
-                                catch (final InterruptedException exception) {
+            final AtomicBoolean jobIsComplete = new AtomicBoolean(false);
+            final Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final Thread thread = Thread.currentThread();
+                    try {
+                        while (! thread.isInterrupted()) {
+                            final NanoTimer nanoTimer = new NanoTimer();
+                            nanoTimer.start();
+
+                            int processedCount = 0;
+                            for (int i = minIndex; i <= maxIndex; ++i) {
+                                final Bucket bucket = bucketQueues.get(i);
+                                final CommittedUnspentTransactionOutput transactionOutput = bucket.queue.poll();
+                                if (transactionOutput == null) { continue; }
+
+                                objectMemoryCount.decrementAndGet();
+                                bucket.addOutput(transactionOutput);
+                                processedCount += 1;
+                            }
+
+                            if (processedCount == 0) {
+                                if (jobIsComplete.get()) {
                                     break;
                                 }
 
-                                final ByteArray byteArray = transactionOutput.getBytes();
-                                final int byteCount = byteArray.getByteCount();
-
-                                if (bytesWritten + byteCount > _maxByteCountPerFile) {
-                                    outputStream.flush();
-                                    outputStream.close();
-
-                                    synchronized (databaseConnection) {
-                                        final File newFile = _createPartialUtxoCommitmentFile(utxoCommitmentId, index, multisetHash, protoFile, utxoCount, bytesWritten, databaseManager);
-                                        utxoCommitmentFiles.set(index, newFile);
-                                    }
-
-                                    outputStream = new BufferedOutputStream(new FileOutputStream(protoFile), pageSize);
-                                    bucketMultisetHash.add(multisetHash);
-                                    multisetHash = new MultisetHash();
-                                    bytesWritten = 0L;
-                                    utxoCount = 0;
-                                }
-
-                                multisetHash.addItem(byteArray);
-                                for (int i = 0; i < byteCount; ++i) {
-                                    final byte b = byteArray.getByte(i);
-                                    outputStream.write(b);
-                                }
-                                bytesWritten += byteCount;
-                                utxoCount += 1;
+                                Thread.sleep(100);
                             }
+                            nanoTimer.stop();
 
-                            outputStream.flush();
-                            outputStream.close();
-                            outputStream = null;
-
-                            if (bytesWritten > 0) {
-                                synchronized (databaseConnection) {
-                                    final File newFile = _createPartialUtxoCommitmentFile(utxoCommitmentId, index, multisetHash, protoFile, utxoCount, bytesWritten, databaseManager);
-                                    utxoCommitmentFiles.set(index, newFile);
-                                    bucketMultisetHash.add(multisetHash);
-                                }
-                            }
-
-                            synchronized (databaseConnection) {
-                                _createUtxoCommitmentBucket(utxoCommitmentId, index, bucketMultisetHash, databaseManager);
-                            }
-
-                            utxoCommitMultisetHash.add(bucketMultisetHash);
-                        }
-                        catch (final Exception exception) {
-                            Logger.debug(exception);
-                        }
-                        finally {
-                            if (outputStream != null) {
-                                try { outputStream.close(); }
-                                catch (final Exception ignored) { }
+                            if (Logger.isTraceEnabled()) {
+                                Logger.trace(thread.getName() + " processed " + processedCount + " outputs in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                             }
                         }
                     }
-                });
-                thread.setName("UtxoCommitGenerator Thread - " + index);
-                thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-                    @Override
-                    public void uncaughtException(final Thread thread, final Throwable exception) {
-                        Logger.debug(exception);
+                    catch (final Exception exception) {
+                        exceptionContainer.value = exception;
+                        Logger.trace(exception);
                     }
-                });
+                    finally {
+                        for (int i = minIndex; i <= maxIndex; ++i) {
+                            try {
+                                final Bucket bucket = bucketQueues.get(i);
+                                bucket.close();
+                            }
+                            catch (final Exception exception) {
+                                Logger.debug(exception);
+                            }
+                        }
 
-                threads.add(thread);
-                thread.start();
-            }
+                        Logger.debug(thread.getName() + " exited.");
+                    }
+                }
+            });
+            thread.setName("UtxoCommitGenerator Thread " + minIndex + "-" + maxIndex);
+            thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.debug(exception);
+                }
+            });
 
+            threads.add(new Tuple<>(thread, jobIsComplete));
+            thread.start();
+        }
+
+        try {
             final UtxoCommitmentCore utxoCommitment = new UtxoCommitmentCore();
             TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(Sha256Hash.EMPTY_HASH, -1);
 
             while (true) {
+                if (_shouldAbort()) { throw new DatabaseException("UTXO Commit aborted."); }
+                if (exceptionContainer.value != null) { break; }
+
                 final java.util.List<Row> rows;
                 {
+                    final NanoTimer queryTimer = new NanoTimer();
+                    queryTimer.start();
                     final Sha256Hash transactionHash = previousTransactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = previousTransactionOutputIdentifier.getOutputIndex();
-                    rows = databaseConnection.query(
-                        new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_utxo_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
-                            .setParameter(transactionHash)
-                            .setParameter(transactionHash)
-                            .setParameter(outputIndex)
-                    );
+                    synchronized (databaseManager) {
+                        rows = databaseConnection.query(
+                            new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_utxo_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
+                                .setParameter(transactionHash)
+                                .setParameter(transactionHash)
+                                .setParameter(outputIndex)
+                        );
+                    }
+                    queryTimer.stop();
+                    Logger.trace("queryTimer=" + queryTimer.getMillisecondsElapsed() + "ms.");
                 }
                 if (rows.isEmpty()) { break; }
+
+                final MultiTimer bucketQueueTimer = new MultiTimer();
+                bucketQueueTimer.start();
 
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.wrap(row.getBytes("transaction_hash"));
@@ -370,8 +340,10 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     final Boolean isCoinbase = row.getBoolean("is_coinbase");
                     final Long amount = row.getLong("amount");
                     final ByteArray lockingScriptBytes = ByteArray.wrap(row.getBytes("locking_script"));
+                    bucketQueueTimer.mark("row values");
 
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+
                     final MutableCommittedUnspentTransactionOutput committedUnspentTransactionOutput = new MutableCommittedUnspentTransactionOutput();
                     committedUnspentTransactionOutput.setTransactionHash(transactionHash);
                     committedUnspentTransactionOutput.setIndex(outputIndex);
@@ -379,15 +351,32 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     committedUnspentTransactionOutput.setIsCoinbase(isCoinbase);
                     committedUnspentTransactionOutput.setAmount(amount);
                     committedUnspentTransactionOutput.setLockingScript(lockingScriptBytes);
+                    bucketQueueTimer.mark("committedUnspentTransactionOutput inflation");
 
                     final int bucketIndex = _calculateBucketIndex(blockHash, transactionOutputIdentifier);
-                    final SynchronousQueue<CommittedUnspentTransactionOutput> bucketQueue = bucketQueues.get(bucketIndex);
+                    bucketQueueTimer.mark("calculateBucketIndex");
+                    final Bucket bucket = bucketQueues.get(bucketIndex);
+                    bucketQueueTimer.mark("get bucket");
                     try {
-                        bucketQueue.put(committedUnspentTransactionOutput);
+                        bucketQueueTimer.mark("queue add");
+                        while (objectMemoryCount.get() > 16384) { // NOTE: About 1.25 MB.
+                            Thread.sleep(10); // Throttle to prevent oom...
+                            bucketQueueTimer.mark("sleep");
+                        }
+
+                        bucket.queue.add(committedUnspentTransactionOutput);
+                        objectMemoryCount.incrementAndGet();
+                        bucketQueueTimer.mark("atomic int");
                     }
                     catch (final InterruptedException exception) {
                         throw new DatabaseException(exception);
                     }
+                }
+
+                bucketQueueTimer.stop("end");
+                if (Logger.isTraceEnabled()) {
+                    // Logger.trace("bucketQueueTimer=" + bucketQueueTimer.getMillisecondsElapsed() + "ms, rowCount=" + rows.size() + " queue=" + objectMemoryCount.get());
+                    Logger.trace(bucketQueueTimer);
                 }
 
                 { // Update the previousTransactionOutputIdentifier for the next loop...
@@ -400,8 +389,16 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 }
             }
 
-            for (final Thread thread : threads) {
-                thread.interrupt();
+            if (exceptionContainer.value != null) {
+                throw exceptionContainer.value;
+            }
+
+            for (final Tuple<Thread, AtomicBoolean> tuple : threads) {
+                final Thread thread = tuple.first;
+                final AtomicBoolean jobsIsComplete = tuple.second;
+
+                jobsIsComplete.set(true);
+
                 try {
                     thread.join();
                 }
@@ -409,6 +406,27 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     final Thread currentThread = Thread.currentThread();
                     currentThread.interrupt();
                 }
+            }
+
+            for (final Bucket bucket : bucketQueues) {
+                final Long bucketId = _createUtxoCommitmentBucket(utxoCommitmentId, bucket.index, bucket.multisetHash, databaseManager);
+
+                int subBucketIndex = 0;
+                for (final Bucket.SubBucket subBucket : bucket.subBuckets) {
+                    databaseConnection.executeSql(
+                        new Query("INSERT INTO utxo_commitment_files (utxo_commitment_bucket_id, sub_bucket_index, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?, ?)")
+                            .setParameter(bucketId)
+                            .setParameter(subBucketIndex)
+                            .setParameter(subBucket.publicKey)
+                            .setParameter(subBucket.utxoCount)
+                            .setParameter(subBucket.byteCount)
+                    );
+
+                    utxoCommitmentFiles.add(subBucket.file);
+                    subBucketIndex += 1;
+                }
+
+                utxoCommitMultisetHash.add(bucket.bucketMultisetHash);
             }
 
             final Sha256Hash commitHash = utxoCommitMultisetHash.getHash();
@@ -425,7 +443,8 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             return utxoCommitment;
         }
         finally {
-            for (final Thread thread : threads) {
+            for (final Tuple<Thread, AtomicBoolean> tuple : threads) {
+                final Thread thread = tuple.first;
                 thread.interrupt();
             }
         }
@@ -449,7 +468,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
             final Sha256Hash commitmentHash = Sha256Hash.wrap(row.getBytes("hash"));
             final java.util.List<Row> fileRows = databaseConnection.query(
-                new Query("SELECT public_key FROM utxo_commitment_files WHERE utxo_commitment_id = ?")
+                new Query("SELECT utxo_commitment_files.public_key FROM utxo_commitment_files INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.id = utxo_commitment_files.utxo_commitment_bucket_id WHERE utxo_commitment_buckets.utxo_commitment_id = ?")
                     .setParameter(utxoCommitmentId)
             );
 
@@ -468,7 +487,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         }
     }
 
-    protected void _updateStagedCommitment(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
+    protected void _updateStagedCommitment(final FullNodeDatabaseManager databaseManager) throws Exception {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -622,7 +641,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
             _updateStagedCommitment(databaseManager);
         }
-        catch (final DatabaseException exception) {
+        catch (final Exception exception) {
             Logger.debug(exception);
         }
 
