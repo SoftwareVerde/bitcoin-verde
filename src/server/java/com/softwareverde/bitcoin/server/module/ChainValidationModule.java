@@ -43,10 +43,13 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
+
+import java.io.File;
 
 public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
@@ -54,6 +57,7 @@ public class ChainValidationModule {
     protected final Sha256Hash _startingBlockHash;
     protected final PendingBlockStore _blockStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
+    protected final String _utxoCommitmentOutputDirectory;
 
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
@@ -77,6 +81,11 @@ public class ChainValidationModule {
         }
 
         _checkpointConfiguration = new CheckpointConfiguration();
+
+        _utxoCommitmentOutputDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/utxo");
+        if (! IoUtil.fileExists(_utxoCommitmentOutputDirectory)) {
+            (new File(_utxoCommitmentOutputDirectory)).mkdirs();
+        }
     }
 
     public void run() {
@@ -90,7 +99,7 @@ public class ChainValidationModule {
 
         final BlockchainSegmentId blockchainSegmentId;
         final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionFactory();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater, _checkpointConfiguration);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, masterInflater, _checkpointConfiguration);
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -109,6 +118,7 @@ public class ChainValidationModule {
                 databaseConnection,
                 database.getMaxQueryBatchSize(),
                 _blockStore,
+                _utxoCommitmentOutputDirectory,
                 masterInflater,
                 _checkpointConfiguration,
                 _bitcoinProperties.getMaxCachedUtxoCount(),

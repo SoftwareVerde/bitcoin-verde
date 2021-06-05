@@ -152,6 +152,7 @@ public class NodeModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final PendingBlockStoreCore _blockStore;
+    protected final String _utxoCommitmentOutputDirectory;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final MasterInflater _masterInflater;
     protected final UpgradeSchedule _upgradeSchedule;
@@ -210,7 +211,7 @@ public class NodeModule {
         {
             final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration);
         }
 
         Logger.info("[Stopping Request Handler]");
@@ -386,6 +387,11 @@ public class NodeModule {
 
         _utxoCacheLoadFileIsEnabled = true;
 
+        _utxoCommitmentOutputDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/utxo");
+        if (! IoUtil.fileExists(_utxoCommitmentOutputDirectory)) {
+            (new File(_utxoCommitmentOutputDirectory)).mkdirs();
+        }
+
         final int minPeerCount = (bitcoinProperties.shouldSkipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
 
@@ -401,6 +407,7 @@ public class NodeModule {
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
+            _utxoCommitmentOutputDirectory,
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
@@ -759,11 +766,7 @@ public class NodeModule {
             });
         }
 
-        final String utxoCommitmentOutputDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/utxo");
-        if (! IoUtil.fileExists(utxoCommitmentOutputDirectory)) {
-            (new File(utxoCommitmentOutputDirectory)).mkdir();
-        }
-        _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, utxoCommitmentOutputDirectory);
+        _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentOutputDirectory);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -1176,6 +1179,7 @@ public class NodeModule {
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
+            _utxoCommitmentOutputDirectory,
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),

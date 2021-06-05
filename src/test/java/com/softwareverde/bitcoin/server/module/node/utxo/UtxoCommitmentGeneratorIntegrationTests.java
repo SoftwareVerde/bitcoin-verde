@@ -4,10 +4,13 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -27,7 +30,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.nio.file.Files;
 
 public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
     @Before @Override
@@ -113,8 +115,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
 
         UtxoCommitmentGeneratorIntegrationTests.stageUnspentTransactionOutputs(unspentTransactionOutputs, _databaseConnectionFactory);
 
-        final String outputDirectory = Files.createTempDirectory("utxo").toFile().getAbsolutePath();
-        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, outputDirectory) {
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentOutputDirectory) {
             @Override
             protected Boolean _shouldAbort() {
                 return false;
@@ -134,12 +135,14 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
             }
         }
 
+        final MutableList<PublicKey> utxoBucketPublicKeys = new MutableList<>();
         final MultisetHash commitmentMultisetHash = new MultisetHash();
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
         for (final File inputFile : utxoCommitment.getFiles()) {
             final MultisetHash multisetHash = utxoCommitmentLoader.calculateMultisetHash(inputFile);
             final PublicKey publicKey = multisetHash.getPublicKey();
             commitmentMultisetHash.add(publicKey);
+            utxoBucketPublicKeys.add(publicKey);
 
             // Assert
             Assert.assertTrue(fileNames.contains(publicKey.toString()));
@@ -149,6 +152,29 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         Assert.assertFalse(utxoCommitment.getFiles().isEmpty());
         Assert.assertNotEquals(utxoCommitment.getHash(), Sha256Hash.EMPTY_HASH);
         Assert.assertEquals(utxoCommitment.getHash(), commitmentMultisetHash.getHash());
+
+        final Long maxBucketByteCount = (32L * ByteUtil.Unit.Binary.MEBIBYTES);
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
+            final List<UtxoCommitmentBreakdown> availableUtxoCommitments = utxoCommitmentManager.getAvailableUtxoCommitments();
+            Assert.assertEquals(1L, availableUtxoCommitments.getCount());
+
+            final UtxoCommitmentBreakdown utxoCommitmentBreakdown = availableUtxoCommitments.get(0);
+            Assert.assertEquals(128, utxoCommitmentBreakdown.buckets.getCount());
+
+            for (int i = 0; i < 128; ++i) {
+                final UtxoCommitmentBucket utxoCommitmentBucket = utxoCommitmentBreakdown.buckets.get(i);
+                final PublicKey expectedPublicKey = utxoCommitmentBucket.getPublicKey();
+                final PublicKey bucketPublicKey = utxoBucketPublicKeys.get(i);
+
+                Assert.assertEquals(expectedPublicKey, bucketPublicKey);
+
+                final Long bucketByteCount = utxoCommitmentBucket.getByteCount();
+                final boolean shouldHaveSubBuckets = (bucketByteCount > maxBucketByteCount);
+                final boolean hasSubBuckets = utxoCommitmentBucket.hasSubBuckets();
+                Assert.assertEquals(shouldHaveSubBuckets, hasSubBuckets);
+            }
+        }
     }
 
     @Test
@@ -179,8 +205,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
 
         UtxoCommitmentGeneratorIntegrationTests.stageUnspentTransactionOutputs(unspentTransactionOutputs, _databaseConnectionFactory);
 
-        final String outputDirectory = Files.createTempDirectory("utxo").toFile().getAbsolutePath();
-        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, outputDirectory) {
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentOutputDirectory) {
             @Override
             protected Boolean _shouldAbort() {
                 return false;

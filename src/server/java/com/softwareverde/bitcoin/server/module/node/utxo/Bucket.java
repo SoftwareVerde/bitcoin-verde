@@ -65,6 +65,7 @@ class Bucket {
         else {
             this.outputStream.flush();
             this.outputStream.close();
+            this.outputStream = null;
         }
 
         final PublicKey publicKey = this.multisetHash.getPublicKey();
@@ -78,9 +79,12 @@ class Bucket {
         Logger.trace("Partial UTXO Commitment file created: " + newFile + ", " + this.bytesWritten + " bytes, " + this.utxoCount + " UTXOs.");
 
         this.subBuckets.add(subBucket);
-        this.outputStream = (createNewStream ? new BufferedOutputStream(new FileOutputStream(this.protoFile), PAGE_SIZE) : null);
         this.bucketMultisetHash.add(this.multisetHash);
-        this.multisetHash = new MultisetHash();
+
+        if (createNewStream) {
+            this.outputStream = new BufferedOutputStream(new FileOutputStream(this.protoFile), PAGE_SIZE);
+            this.multisetHash = new MultisetHash();
+        }
         this.bytesWritten = 0L;
         this.utxoCount = 0;
     }

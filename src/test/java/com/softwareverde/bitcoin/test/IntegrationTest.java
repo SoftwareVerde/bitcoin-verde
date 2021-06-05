@@ -47,6 +47,8 @@ import com.softwareverde.test.database.TestDatabase;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.ReflectionUtil;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.util.List;
 
@@ -66,6 +68,7 @@ public class IntegrationTest extends UnitTest {
     protected final FakeSynchronizationStatus _syncingSynchronizationStatus;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
+    protected final String _utxoCommitmentOutputDirectory;
 
     protected Long _requiredCoinbaseMaturity = 0L;
 
@@ -74,6 +77,13 @@ public class IntegrationTest extends UnitTest {
         Logger.setLogLevel("com.zaxxer.hikari.pool", LogLevel.WARN);
         Logger.setLogLevel("ch.vorburger.exec", LogLevel.WARN);
         Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
+
+        try {
+            _utxoCommitmentOutputDirectory = Files.createTempDirectory("utxo").toFile().getAbsolutePath();
+        }
+        catch (final Exception exception) {
+            throw new RuntimeException(exception);
+        }
 
         _masterInflater = new CoreInflater();
         _blockStore = new MockBlockStore();
@@ -90,11 +100,11 @@ public class IntegrationTest extends UnitTest {
         };
 
         _databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration);
         _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _checkpointConfiguration);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
-        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
+        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
@@ -184,6 +194,10 @@ public class IntegrationTest extends UnitTest {
                 UnspentTransactionOutputJvmManager.DOUBLE_BUFFER.clear();
             }
         };
+
+        final File file = new File(_utxoCommitmentOutputDirectory);
+        file.delete();
+        file.mkdir();
     }
 
     @Override
