@@ -500,14 +500,13 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         if (headBlockId == null) { return; }
 
         final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-        if ((stagedUtxoBlockHeight + UTXO_COMMITMENT_BLOCK_LAG) > headBlockHeight) { return; }
-
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
 
         stagedUtxoBlockHeight = (stagedUtxoBlockHeight + 1L);
         BlockId stagedUtxoBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, stagedUtxoBlockHeight);
         while (stagedUtxoBlockId != null) {
             if (_shouldAbort()) { break; }
+            if ((stagedUtxoBlockHeight + UTXO_COMMITMENT_BLOCK_LAG) > headBlockHeight) { return; }
 
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
