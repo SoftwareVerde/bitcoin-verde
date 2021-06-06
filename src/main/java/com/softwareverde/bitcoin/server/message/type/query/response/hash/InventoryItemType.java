@@ -8,9 +8,12 @@ public enum InventoryItemType {
     COMPACT_BLOCK           (0x00000004),
     EXTRA_THIN_BLOCK        (0x00000005),
     DOUBLE_SPEND_PROOF      (0x000094A0),
-    // Custom Bitcoin Verde Types,
+    // Custom Bitcoin Verde Types ("BV")
     VALID_SLP_TRANSACTION   (0x42560001),
-    INVALID_SLP_TRANSACTION (0x42560002);
+    INVALID_SLP_TRANSACTION (0x42560002),
+    // Utxo Commitment Types ("CMT")
+    UTXO_COMMITMENT_ODD     (0x434D5402),
+    UTXO_COMMITMENT_EVEN    (0x434D5403);
 
     public static InventoryItemType fromValue(final int value) {
         for (final InventoryItemType inventoryItemType : InventoryItemType.values()) {

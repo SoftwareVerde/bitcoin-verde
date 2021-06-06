@@ -181,6 +181,10 @@ public class BitcoinNode extends Node {
         Boolean getSlpStatus(Sha256Hash transactionHash);
     }
 
+    public interface QueryUtxoCommitmentsHandler extends BitcoinNodeHandler {
+        void run(BitcoinNode bitcoinNode);
+    }
+
     public interface RequestExtraThinBlockHandler extends BitcoinNodeHandler {
         void run(BitcoinNode bitcoinNode, Sha256Hash blockHash, BloomFilter bloomFilter);
     }
@@ -267,40 +271,41 @@ public class BitcoinNode extends Node {
 
     protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
-    protected RequestBlockHashesHandler _queryBlocksCallback = null;
-    protected RequestBlockHeadersHandler _queryBlockHeadersCallback = null;
-    protected RequestDataHandler _requestDataHandler = null;
-    protected BlockInventoryAnnouncementHandler _blockInventoryMessageHandler = null;
-    protected RequestPeersHandler _requestPeersHandler = null;
-    protected RequestUnconfirmedTransactionsHandler _queryUnconfirmedTransactionsCallback = null;
-    protected RequestSpvBlocksHandler _requestSpvBlocksHandler = null;
-    protected RequestSlpTransactionsHandler _requestSlpTransactionsHandler = null;
+    protected RequestBlockHashesHandler _queryBlocksCallback;
+    protected RequestBlockHeadersHandler _queryBlockHeadersCallback;
+    protected RequestDataHandler _requestDataHandler;
+    protected BlockInventoryAnnouncementHandler _blockInventoryMessageHandler;
+    protected RequestPeersHandler _requestPeersHandler;
+    protected RequestUnconfirmedTransactionsHandler _queryUnconfirmedTransactionsCallback;
+    protected RequestSpvBlocksHandler _requestSpvBlocksHandler;
+    protected RequestSlpTransactionsHandler _requestSlpTransactionsHandler;
+    protected QueryUtxoCommitmentsHandler _queryUtxoCommitmentsHandler;
 
-    protected RequestExtraThinBlockHandler _requestExtraThinBlockCallback = null;
-    protected RequestExtraThinTransactionHandler _requestExtraThinTransactionCallback = null;
+    protected RequestExtraThinBlockHandler _requestExtraThinBlockCallback;
+    protected RequestExtraThinTransactionHandler _requestExtraThinTransactionCallback;
 
-    protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
+    protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage;
 
-    protected TransactionInventoryAnnouncementHandler _transactionsAnnouncementCallback = null;
-    protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementCallback = null;
-    protected DoubleSpendProofAnnouncementHandler _doubleSpendProofAnnouncementCallback = null;
+    protected TransactionInventoryAnnouncementHandler _transactionsAnnouncementCallback;
+    protected SpvBlockInventoryAnnouncementHandler _spvBlockInventoryAnnouncementCallback;
+    protected DoubleSpendProofAnnouncementHandler _doubleSpendProofAnnouncementCallback;
 
-    protected DownloadBlockCallback _unsolicitedBlockReceivedCallback = null;
+    protected DownloadBlockCallback _unsolicitedBlockReceivedCallback;
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
-    protected Integer _compactBlocksVersion = null;
+    protected Integer _compactBlocksVersion;
     protected Boolean _slpTransactionsIsEnabled = false;
 
-    protected NewBloomFilterHandler _onNewBloomFilterCallback = null;
+    protected NewBloomFilterHandler _onNewBloomFilterCallback;
     protected Boolean _transactionRelayIsEnabled = true;
     protected Boolean _slpValidityCheckingIsEnabled = false;
 
-    protected MutableBloomFilter _bloomFilter = null;
-    protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
+    protected MutableBloomFilter _bloomFilter;
+    protected Sha256Hash _batchContinueHash; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
 
-    protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted = null; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
+    protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
 
-    protected Long _blockHeight = null;
+    protected Long _blockHeight;
 
     protected void _removeCallback(final RequestId requestId) {
         BitcoinNodeUtil.removeValueFromMapSet(_downloadBlockRequests, requestId);
@@ -428,6 +433,7 @@ public class BitcoinNode extends Node {
             _requestDataHandler = null;
             _requestSpvBlocksHandler = null;
             _requestSlpTransactionsHandler = null;
+            _queryUtxoCommitmentsHandler = null;
             _blockInventoryMessageHandler = null;
             _requestExtraThinBlockCallback = null;
             _requestExtraThinTransactionCallback = null;
@@ -1388,7 +1394,18 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onQueryUtxoCommitmentsMessageReceived(final QueryUtxoCommitmentsMessage queryUtxoCommitmentsMessage) {
-        // TODO
+        final QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler = _queryUtxoCommitmentsHandler;
+        if (queryUtxoCommitmentsHandler == null) {
+            Logger.debug("No handler set for QueryUtxoCommitments message.");
+            return;
+        }
+
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                queryUtxoCommitmentsHandler.run(BitcoinNode.this);
+            }
+        });
     }
 
     protected void _onUtxoCommitmentsReceived(final UtxoCommitmentsMessage utxoCommitmentsMessage) {
@@ -2032,6 +2049,10 @@ public class BitcoinNode extends Node {
 
     public void setRequestSlpTransactionsHandler(final RequestSlpTransactionsHandler requestSlpTransactionsCallback) {
         _requestSlpTransactionsHandler = requestSlpTransactionsCallback;
+    }
+
+    public void setQueryUtxoCommitmentsHandler(final QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler) {
+        _queryUtxoCommitmentsHandler = queryUtxoCommitmentsHandler;
     }
 
     public void setBlockInventoryMessageHandler(final BlockInventoryAnnouncementHandler blockInventoryMessageHandler) {

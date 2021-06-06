@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
@@ -15,12 +17,15 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashSet;
@@ -36,6 +41,13 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
 
+    protected PublicKey _convertToPublicKey(final InventoryItemType inventoryItemType, final ByteArray inventoryItemPayload) {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendByte(inventoryItemType == InventoryItemType.UTXO_COMMITMENT_EVEN ? PublicKey.COMPRESSED_FIRST_BYTE_0 : PublicKey.COMPRESSED_FIRST_BYTE_1);
+        byteArrayBuilder.appendBytes(inventoryItemPayload);
+        return PublicKey.fromBytes(byteArrayBuilder);
+    }
+
     public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final DoubleSpendProofStore doubleSpendProofStore) {
         _databaseManagerFactory = databaseManagerFactory;
         _doubleSpendProofStore = doubleSpendProofStore;
@@ -50,9 +62,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
-            final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
+            final MutableList<InventoryItem> notFoundInventory = new MutableList<>();
 
-            final HashSet<InventoryItem> processedDataHashes = new HashSet<InventoryItem>(dataHashes.getCount());
+            final HashSet<InventoryItem> processedDataHashes = new HashSet<>(dataHashes.getCount());
 
             for (final InventoryItem inventoryItem : dataHashes) {
                 { // Avoid duplicate inventoryItems... This was encountered during the initial block download of an Android SPV wallet.
@@ -62,7 +74,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                 if (! bitcoinNode.isConnected()) { break; }
 
-                switch (inventoryItem.getItemType()) {
+                final InventoryItemType inventoryItemType = inventoryItem.getItemType();
+                switch (inventoryItemType) {
 
                     case MERKLE_BLOCK:
                     case BLOCK: {
@@ -72,7 +85,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
                         if (blockId == null) {
-                            notFoundDataHashes.add(inventoryItem);
+                            notFoundInventory.add(inventoryItem);
                             continue;
                         }
 
@@ -80,7 +93,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                         if (block == null) {
                             Logger.debug(bitcoinNode.getConnectionString() + " requested unknown block: " + blockHash);
-                            notFoundDataHashes.add(inventoryItem);
+                            notFoundInventory.add(inventoryItem);
                             continue;
                         }
 
@@ -108,14 +121,14 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                         final Sha256Hash transactionHash = inventoryItem.getItemHash();
                         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                         if (transactionId == null) {
-                            notFoundDataHashes.add(inventoryItem);
+                            notFoundInventory.add(inventoryItem);
                             continue;
                         }
 
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                         if (transaction == null) {
                             Logger.debug(bitcoinNode.getConnectionString() + " requested unknown Transaction: " + transactionHash);
-                            notFoundDataHashes.add(inventoryItem);
+                            notFoundInventory.add(inventoryItem);
                             continue;
                         }
 
@@ -136,12 +149,31 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                         if (doubleSpendProof == null) {
                             Logger.debug(bitcoinNode.getConnectionString() + " requested unknown DoubleSpendProof: " + doubleSpendProofHash);
-                            notFoundDataHashes.add(inventoryItem);
+                            notFoundInventory.add(inventoryItem);
                             continue;
                         }
 
                         bitcoinNode.transmitDoubleSpendProof(doubleSpendProof);
                         Logger.info("GetTransactionData: DSProof " + doubleSpendProofHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + ".");
+                    } break;
+
+                    case UTXO_COMMITMENT_EVEN:
+                    case UTXO_COMMITMENT_ODD: {
+                        final ByteArray inventoryItemPayload = inventoryItem.getItemHash();
+                        final PublicKey utxoCommitmentPublicKey = _convertToPublicKey(inventoryItemType, inventoryItemPayload);
+                        final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
+                        final ByteArray byteArray = utxoCommitmentManager.getUtxoCommitment(utxoCommitmentPublicKey);
+                        if (byteArray == null) {
+                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown UTXO Commitment: " + inventoryItemPayload);
+                            notFoundInventory.add(inventoryItem);
+                            continue;
+                        }
+
+                        final UtxoCommitmentMessage utxoCommitmentMessage = new UtxoCommitmentMessage();
+                        utxoCommitmentMessage.setMultisetPublicKey(utxoCommitmentPublicKey);
+                        utxoCommitmentMessage.setUtxoCommitmentBytes(byteArray);
+
+                        bitcoinNode.queueMessage(utxoCommitmentMessage);
                     } break;
 
                     default: {
@@ -150,9 +182,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                 }
             }
 
-            if (! notFoundDataHashes.isEmpty()) {
+            if (! notFoundInventory.isEmpty()) {
                 final NotFoundResponseMessage notFoundResponseMessage = new NotFoundResponseMessage();
-                for (final InventoryItem inventoryItem : notFoundDataHashes) {
+                for (final InventoryItem inventoryItem : notFoundInventory) {
                     notFoundResponseMessage.addItem(inventoryItem);
                 }
                 bitcoinNode.queueMessage(notFoundResponseMessage);

@@ -55,6 +55,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.QueryUtxoCommitmentsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
@@ -524,6 +525,7 @@ public class NodeModule {
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;
             nodeInitializerContext.requestSpvBlocksHandler = new RequestSpvBlocksHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
             nodeInitializerContext.requestSlpTransactionsHandler = new RequestSlpTransactionsHandler(databaseManagerFactory);
+            nodeInitializerContext.queryUtxoCommitmentsHandler = new QueryUtxoCommitmentsHandler(databaseManagerFactory);
             nodeInitializerContext.requestUnconfirmedTransactionsHandler = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
             nodeInitializerContext.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
