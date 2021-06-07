@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
+import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -25,7 +26,6 @@ import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashSet;
@@ -40,13 +40,6 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
     protected final AtomicBoolean _isShuttingDown = new AtomicBoolean(false);
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final DoubleSpendProofStore _doubleSpendProofStore;
-
-    protected PublicKey _convertToPublicKey(final InventoryItemType inventoryItemType, final ByteArray inventoryItemPayload) {
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendByte(inventoryItemType == InventoryItemType.UTXO_COMMITMENT_EVEN ? PublicKey.COMPRESSED_FIRST_BYTE_0 : PublicKey.COMPRESSED_FIRST_BYTE_1);
-        byteArrayBuilder.appendBytes(inventoryItemPayload);
-        return PublicKey.fromBytes(byteArrayBuilder);
-    }
 
     public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final DoubleSpendProofStore doubleSpendProofStore) {
         _databaseManagerFactory = databaseManagerFactory;
@@ -160,7 +153,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                     case UTXO_COMMITMENT_EVEN:
                     case UTXO_COMMITMENT_ODD: {
                         final ByteArray inventoryItemPayload = inventoryItem.getItemHash();
-                        final PublicKey utxoCommitmentPublicKey = _convertToPublicKey(inventoryItemType, inventoryItemPayload);
+                        final PublicKey utxoCommitmentPublicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, inventoryItemPayload);
                         final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
                         final ByteArray byteArray = utxoCommitmentManager.getUtxoCommitment(utxoCommitmentPublicKey);
                         if (byteArray == null) {

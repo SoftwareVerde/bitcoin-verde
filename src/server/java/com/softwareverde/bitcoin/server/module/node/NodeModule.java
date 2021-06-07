@@ -99,6 +99,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockPruner;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
+import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.UtxoCommitmentDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
@@ -710,6 +711,10 @@ public class NodeModule {
 
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
 
+            if (_bitcoinProperties.isFastSyncEnabled()) {
+                _blockDownloader.setPaused(true);
+            }
+
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
             final int maxConcurrentDownloadCountPerNode = 2;
             _blockDownloader.setMaxConcurrentDownloadCount(maxConcurrentDownloadCount);
@@ -887,6 +892,14 @@ public class NodeModule {
                         }
                         catch (final DatabaseException exception) {
                             Logger.warn(exception);
+                        }
+
+                        if (synchronizationStatusHandler.getState() == State.ONLINE) {
+                            if (_bitcoinProperties.isFastSyncEnabled()) {
+                                final UtxoCommitmentDownloader utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager);
+                                utxoCommitmentDownloader.runSynchronously();
+                                _blockDownloader.setPaused(false);
+                            }
                         }
                     }
                 }

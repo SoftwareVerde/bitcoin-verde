@@ -47,6 +47,7 @@ public class BlockDownloader extends GracefulSleepyService {
     protected Integer _maxConcurrentDownloadCountPerNode = 2;
     protected Integer _maxConcurrentDownloadCount = 8;
     protected BlockDownloadCallback _blockDownloadCallback;
+    protected Boolean _isPaused = false;
 
     protected AtomicInteger _getActiveDownloadCount(final BitcoinNode bitcoinNode) {
         final AtomicInteger newActiveDownloadCount = new AtomicInteger(0);
@@ -148,6 +149,7 @@ public class BlockDownloader extends GracefulSleepyService {
 
     @Override
     protected void _onStart() {
+        if (_isPaused) { return; }
         if (! _downloadBlockQueue.isEmpty()) { return; }
 
         final List<PendingBlockInventory> blockInventoryBatch = _blockDownloadPlanner.getNextPendingBlockInventoryBatch();
@@ -160,6 +162,8 @@ public class BlockDownloader extends GracefulSleepyService {
 
     @Override
     protected Boolean _run() {
+        if (_isPaused) { return false; }
+
         if (Logger.isTraceEnabled()) {
             String separator = "";
             int downloadBlockQueueCount = 0; // NOTE: ConcurrentSkipListSet::size is not constant-time...
@@ -185,7 +189,7 @@ public class BlockDownloader extends GracefulSleepyService {
             Logger.trace("BlockDownloader Queue Count: " + downloadBlockQueueCount + " " + stringBuilder);
         }
 
-        while (! _shouldAbort()) {
+        while ( (! _shouldAbort()) && (! _isPaused) ) {
             final PendingBlockInventory pendingBlockInventory = _downloadBlockQueue.pollFirst();
             if (pendingBlockInventory == null) {
                 Logger.debug("BlockDownloader - Nothing to do.");
@@ -377,5 +381,9 @@ public class BlockDownloader extends GracefulSleepyService {
                 }
             });
         }
+    }
+
+    public void setPaused(final Boolean pause) {
+        _isPaused = pause;
     }
 }
