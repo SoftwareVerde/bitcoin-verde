@@ -22,7 +22,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
     protected ByteArray _cachedBytes = null;
 
     public UtxoCommitmentsMessage() {
-        super(MessageType.QUERY_UTXO_COMMITMENTS);
+        super(MessageType.UTXO_COMMITMENTS);
     }
 
     public void addUtxoCommitment(final UtxoCommitmentMetadata utxoCommitmentParam, final List<UtxoCommitmentBucket> utxoCommitmentBuckets) {
