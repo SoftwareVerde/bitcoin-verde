@@ -28,6 +28,7 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
 
         for (int i = 0; i < commitmentCount; ++i) {
             final Sha256Hash blockHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+            final Long blockHeight = byteArrayReader.readLong(8, Endian.LITTLE);
             final Sha256Hash commitmentHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
             final Long totalByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
             final int bucketCount = UtxoCommitment.BUCKET_COUNT;
@@ -56,7 +57,7 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
                 if (byteArrayReader.didOverflow()) { return null; }
             }
 
-            final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, commitmentHash, totalByteCount);
+            final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, blockHeight, commitmentHash, totalByteCount);
             utxoCommitmentsMessage.addUtxoCommitment(utxoCommitmentMetadata, utxoCommitmentBuckets);
         }
 

@@ -95,7 +95,7 @@ public class BitcoinConstants {
         final Integer defaultProtocolVersion = 70015;
         final String defaultUserAgent = "/Bitcoin Verde:2.0.1/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
-        final String utxoCommitmentsString = "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897,3908702538";
+        final String utxoCommitmentsString = "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897,3908702538";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
@@ -115,13 +115,14 @@ public class BitcoinConstants {
             final String loadedProperty = System.getProperty("UTXO_COMMITMENTS", utxoCommitmentsString);
             for (final String commitmentTupleString : loadedProperty.split(";")) {
                 final String[] hashesString = commitmentTupleString.split(",");
-                if (hashesString.length != 3) { continue; }
+                if (hashesString.length != 4) { continue; }
 
                 final Sha256Hash blockHash = Sha256Hash.fromHexString(hashesString[0]);
-                final Sha256Hash multisetHash = Sha256Hash.fromHexString(hashesString[1]);
-                final Long byteCount = Util.parseLong(hashesString[2]);
+                final Long blockHeight = Util.parseLong(hashesString[1]);
+                final Sha256Hash multisetHash = Sha256Hash.fromHexString(hashesString[2]);
+                final Long byteCount = Util.parseLong(hashesString[3]);
 
-                utxoCommitments.add(new UtxoCommitmentMetadata(blockHash, multisetHash, byteCount));
+                utxoCommitments.add(new UtxoCommitmentMetadata(blockHash, blockHeight, multisetHash, byteCount));
             }
             UTXO_COMMITMENTS = utxoCommitments.build();
         }

@@ -5,11 +5,13 @@ import com.softwareverde.util.Util;
 
 public class UtxoCommitmentMetadata {
     public final Sha256Hash blockHash;
+    public final Long blockHeight;
     public final Sha256Hash multisetHash;
     public final Long byteCount;
 
-    public UtxoCommitmentMetadata(final Sha256Hash blockHash, final Sha256Hash multisetHash, final Long byteCount) {
+    public UtxoCommitmentMetadata(final Sha256Hash blockHash, final Long blockHeight, final Sha256Hash multisetHash, final Long byteCount) {
         this.blockHash = blockHash;
+        this.blockHeight = blockHeight;
         this.multisetHash = multisetHash;
         this.byteCount = byteCount;
     }
@@ -22,6 +24,7 @@ public class UtxoCommitmentMetadata {
         final UtxoCommitmentMetadata utxoCommitmentMetadata = (UtxoCommitmentMetadata) object;
         if (! Util.areEqual(this.multisetHash, utxoCommitmentMetadata.multisetHash)) { return false; }
         if (! Util.areEqual(this.blockHash, utxoCommitmentMetadata.blockHash)) { return false; }
+        if (! Util.areEqual(this.blockHeight, utxoCommitmentMetadata.blockHeight)) { return false; }
         if (! Util.areEqual(this.byteCount, utxoCommitmentMetadata.byteCount)) { return false; }
 
         return true;

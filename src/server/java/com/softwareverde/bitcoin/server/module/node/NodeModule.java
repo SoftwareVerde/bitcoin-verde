@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
@@ -32,6 +33,7 @@ import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfigura
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -878,6 +880,8 @@ public class NodeModule {
                     // TODO: If the BlockHeader(s) are on the main chain and the node is (mostly) synced, then prioritize the download
                     //  of the new block via BlockDownloader::requestBlock(blockHash, 0L, bitcoinNode)
 
+                    final Long blockHeaderDownloaderBlockHeight = Util.coalesce(_blockHeaderDownloader.getBlockHeight());
+
                     if (synchronizationStatusHandler.getState() == State.ONLINE) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -886,20 +890,27 @@ public class NodeModule {
                             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                             final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
-                            if (Util.coalesce(_blockHeaderDownloader.getBlockHeight()) > Util.coalesce(headBlockHeight, -1L)) {
+                            if (blockHeaderDownloaderBlockHeight > Util.coalesce(headBlockHeight, -1L)) {
                                 synchronizationStatusHandler.setState(State.SYNCHRONIZING);
                             }
                         }
                         catch (final DatabaseException exception) {
                             Logger.warn(exception);
                         }
+                    }
 
-                        if (synchronizationStatusHandler.getState() == State.ONLINE) {
-                            if (_bitcoinProperties.isFastSyncEnabled()) {
-                                final UtxoCommitmentDownloader utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager);
-                                utxoCommitmentDownloader.runSynchronously();
-                                _blockDownloader.setPaused(false);
+                    if (_bitcoinProperties.isFastSyncEnabled()) {
+                        long maxCommitmentBlockHeight = 0L;
+                        for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
+                            if (utxoCommitments.blockHeight > maxCommitmentBlockHeight) {
+                                maxCommitmentBlockHeight = utxoCommitments.blockHeight;
                             }
+                        }
+
+                        if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
+                            final UtxoCommitmentDownloader utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager);
+                            utxoCommitmentDownloader.runSynchronously();
+                            _blockDownloader.setPaused(false);
                         }
                     }
                 }
