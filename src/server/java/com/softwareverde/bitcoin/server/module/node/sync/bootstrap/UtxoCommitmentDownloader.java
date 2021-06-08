@@ -27,10 +27,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class UtxoCommitmentDownloader {
     public static final Integer MAX_SUPPORTED_BUCKET_BYTE_COUNT = BitcoinConstants.getBlockMaxByteCount();
+    protected static final Long MAX_TIMEOUT_MS = (5L * 60L * 1000L);
 
     protected static class BucketDownload {
         boolean isComplete = false;
@@ -67,6 +69,7 @@ public class UtxoCommitmentDownloader {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final List<UtxoCommitmentMetadata> _trustedUtxoCommitments;
     protected final BitcoinNodeManager _bitcoinNodeManager;
+    protected final AtomicBoolean _isRunning = new AtomicBoolean(false);
 
     protected UtxoCommit _calculateUtxoCommitToDownload() {
         final ConcurrentHashMap<RequestId, Tuple<BitcoinNode, Pin>> requestPins = new ConcurrentHashMap<>();
@@ -273,7 +276,7 @@ public class UtxoCommitmentDownloader {
             }, RequestPriority.NORMAL);
 
             try {
-                wasSuccessful.wait();
+                wasSuccessful.wait(MAX_TIMEOUT_MS);
 
                 nanoTimer.stop();
                 Logger.info("Downloaded " + publicKey + " from " + bitcoinNode + " in " + nanoTimer.getMillisecondsElapsed() + "ms. success=" + wasSuccessful.value);
@@ -294,11 +297,14 @@ public class UtxoCommitmentDownloader {
         _bitcoinNodeManager = bitcoinNodeManager;
     }
 
-    public void runSynchronously() {
+    public Boolean runSynchronously() {
+        final boolean wasNotRunning = _isRunning.compareAndSet(false, true);
+        if (! wasNotRunning) { return false; }
+
         final UtxoCommit utxoCommit = _calculateUtxoCommitToDownload();
         if (utxoCommit == null) {
             Logger.debug("Unable to find applicable UtxoCommitment.");
-            return;
+            return false;
         }
 
         Logger.info("Downloading " + utxoCommit.utxoCommitment.blockHash + " - " + utxoCommit.utxoCommitment.multisetHash + " from " + utxoCommit.utxoCommitmentBreakdowns.size() + " nodes.");
@@ -356,5 +362,8 @@ public class UtxoCommitmentDownloader {
                 break;
             }
         }
+
+        _isRunning.set(false);
+        return true;
     }
 }

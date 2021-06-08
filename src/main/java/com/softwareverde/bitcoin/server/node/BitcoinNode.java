@@ -909,7 +909,9 @@ public class BitcoinNode extends Node {
             return;
         }
 
-        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadUtxoCommitmentRequests, _failableRequests, publicKey, new CallbackExecutor<DownloadUtxoCommitmentCallback>() {
+        final PublicKey compressedPublicKey = publicKey.compress();
+
+        final Boolean wasRequested = BitcoinNodeUtil.executeAndClearCallbacks(_threadPool, _downloadUtxoCommitmentRequests, _failableRequests, compressedPublicKey, new CallbackExecutor<DownloadUtxoCommitmentCallback>() {
             @Override
             public void onResult(final PendingRequest<DownloadUtxoCommitmentCallback> pendingRequest) {
                 final DownloadUtxoCommitmentCallback callback = pendingRequest.callback;
@@ -1727,22 +1729,28 @@ public class BitcoinNode extends Node {
         return requestId;
     }
 
+    public RequestId requestUtxoCommitment(final PublicKey publicKey, final DownloadUtxoCommitmentCallback downloadUtxoCommitmentCallback) {
+        return this.requestUtxoCommitment(publicKey, downloadUtxoCommitmentCallback, RequestPriority.NORMAL);
+    }
+
     public RequestId requestUtxoCommitment(final PublicKey publicKey, final DownloadUtxoCommitmentCallback downloadUtxoCommitmentCallback, final RequestPriority requestPriority) {
+        final PublicKey compressedPublicKey = publicKey.compress();
+
         final InventoryItemType inventoryItemType;
         final Sha256Hash bucketHash;
         {
-            final Tuple<InventoryItemType, Sha256Hash> tuple = RequestDataMessage.convertUtxoCommitmentPublicKeyToInventory(publicKey);
+            final Tuple<InventoryItemType, Sha256Hash> tuple = RequestDataMessage.convertUtxoCommitmentPublicKeyToInventory(compressedPublicKey);
             inventoryItemType = tuple.first;
             bucketHash = tuple.second;
         }
 
         final RequestId requestId = _newRequestId();
-        BitcoinNodeUtil.storeInMapSet(_downloadUtxoCommitmentRequests, publicKey, new PendingRequest<DownloadUtxoCommitmentCallback>(requestId, downloadUtxoCommitmentCallback, requestPriority));
+        BitcoinNodeUtil.storeInMapSet(_downloadUtxoCommitmentRequests, compressedPublicKey, new PendingRequest<DownloadUtxoCommitmentCallback>(requestId, downloadUtxoCommitmentCallback, requestPriority));
         final Long requestStartBytesReceived = _connection.getTotalBytesReceivedCount();
         _failableRequests.put(requestId, new FailableRequest("UTXO COMMITMENT " + bucketHash, requestStartBytesReceived, downloadUtxoCommitmentCallback, new Runnable() {
             @Override
             public void run() {
-                downloadUtxoCommitmentCallback.onFailure(requestId, BitcoinNode.this, publicKey);
+                downloadUtxoCommitmentCallback.onFailure(requestId, BitcoinNode.this, compressedPublicKey);
 
                 for (final BitcoinNodeObserver observer : _observers) {
                     observer.onFailedRequest(BitcoinNode.this, MessageType.BLOCK, requestPriority);
@@ -2070,6 +2078,14 @@ public class BitcoinNode extends Node {
         final BlockMessage blockMessage = _protocolMessageFactory.newBlockMessage();
         blockMessage.setBlock(block);
         _queueMessage(blockMessage);
+    }
+
+    public void transmitUtxoCommitment(final PublicKey publicKey, final ByteArray byteArray) {
+        final UtxoCommitmentMessage utxoCommitmentMessage = _protocolMessageFactory.newUtxoCommitmentMessage();
+        utxoCommitmentMessage.setMultisetPublicKey(publicKey);
+        utxoCommitmentMessage.setUtxoCommitmentBytes(byteArray);
+
+        _queueMessage(utxoCommitmentMessage);
     }
 
     public void transmitMerkleBlock(final Block block) {

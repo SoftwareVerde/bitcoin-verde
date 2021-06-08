@@ -177,6 +177,7 @@ public class NodeModule {
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final BlockPruner _blockPruner;
     protected final UtxoCommitmentGenerator _utxoCommitmentGenerator;
+    protected final UtxoCommitmentDownloader _utxoCommitmentDownloader;
     protected final List<SleepyService> _allServices;
 
     protected final BitcoinNodeFactory _bitcoinNodeFactory;
@@ -776,6 +777,7 @@ public class NodeModule {
         }
 
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentOutputDirectory);
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -908,9 +910,10 @@ public class NodeModule {
                         }
 
                         if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
-                            final UtxoCommitmentDownloader utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager);
-                            utxoCommitmentDownloader.runSynchronously();
-                            _blockDownloader.setPaused(false);
+                            final Boolean didComplete = _utxoCommitmentDownloader.runSynchronously();
+                            if (didComplete) {
+                                _blockDownloader.setPaused(false);
+                            }
                         }
                     }
                 }

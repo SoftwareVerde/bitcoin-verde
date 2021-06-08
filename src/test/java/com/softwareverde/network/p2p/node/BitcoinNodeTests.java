@@ -8,6 +8,8 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatu
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
+import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -15,9 +17,13 @@ import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.concurrent.threadpool.ThreadPool;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.socket.BinarySocket;
@@ -458,6 +464,153 @@ public class BitcoinNodeTests extends UnitTest {
         Assert.assertTrue(timeoutTimer.getMillisecondsElapsed() <= (DISCONNECT_AFTER_MS + 500L));
         Assert.assertFalse(bitcoinNode.isMonitorThreadRunning());
         Assert.assertTrue(bitcoinNode.wasDisconnectCalled());
+
+        Thread.sleep(1000L);
+
+        for (final ExposedBitcoinNode receivedConnectionBitcoinNode : receivedNodeConnections) {
+            if (receivedConnectionBitcoinNode.isMonitorThreadRunning()) {
+                Thread.sleep(10000L); // Allocate an excessive amount of time to ensure the OS noticed the disconnection.
+            }
+
+            Assert.assertFalse(receivedConnectionBitcoinNode.isMonitorThreadRunning());
+            Assert.assertTrue(receivedConnectionBitcoinNode.wasDisconnectCalled());
+        }
+
+        mainThreadPool.stop();
+    }
+
+    @Test
+    public void should_download_utxo_commitment() throws Exception {
+        // Setup
+        final CachedThreadPool mainThreadPool = new CachedThreadPool(32, 1000L);
+        mainThreadPool.start();
+
+        final long REQUEST_TIMEOUT_MS = 3000L;
+
+        final ByteArray byteArray = MutableByteArray.fromHexString("0123456789ABCDEFFEDCBA9876543210");
+        final PublicKey publicKey;
+        {
+            final MultisetHash multisetHash = new MultisetHash();
+            multisetHash.addItem(byteArray);
+            publicKey = multisetHash.getPublicKey();
+        }
+
+        final LocalNodeFeatures nodeFeatures = new LocalNodeFeatures() {
+            @Override
+            public NodeFeatures getNodeFeatures() {
+                final NodeFeatures nodeFeatures = new NodeFeatures();
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                nodeFeatures.enableFeature(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED);
+                return nodeFeatures;
+            }
+        };
+
+        final MutableList<ExposedBitcoinNode> receivedNodeConnections = new MutableList<ExposedBitcoinNode>();
+        final BinarySocketServer socketServer = new BinarySocketServer(FAKE_PORT, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, mainThreadPool);
+        socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
+            @Override
+            public void run(final BinarySocket binarySocket) {
+                final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode(binarySocket, mainThreadPool, nodeFeatures) {
+                    @Override
+                    protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+                        synchronized (LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
+                            LOCAL_SYNCHRONIZATION_NONCES.clear();
+                        }
+
+                        super._onSynchronizeVersion(synchronizeVersionMessage);
+                    }
+
+                    @Override
+                    protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
+                        return REQUEST_TIMEOUT_MS;
+                    }
+                };
+                bitcoinNode.setRequestDataHandler(new BitcoinNode.RequestDataHandler() {
+                    @Override
+                    public void run(final BitcoinNode bitcoinNode, final List<InventoryItem> dataHashes) {
+                        for (final InventoryItem inventoryItem : dataHashes) {
+                            final InventoryItemType inventoryItemType = inventoryItem.getItemType();
+                            switch (inventoryItemType) {
+                                case UTXO_COMMITMENT_EVEN:
+                                case UTXO_COMMITMENT_ODD: {
+                                    final ByteArray inventoryItemPayload = inventoryItem.getItemHash();
+                                    final PublicKey publicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, inventoryItemPayload);
+
+                                    bitcoinNode.transmitUtxoCommitment(publicKey, byteArray);
+                                } break;
+                            }
+                        }
+                    }
+                });
+                bitcoinNode.handshake();
+                bitcoinNode.connect();
+                receivedNodeConnections.add(bitcoinNode);
+            }
+        });
+
+        final AtomicBoolean handshakeCompleted = new AtomicBoolean(false);
+        final AtomicBoolean utxoDownloaded = new AtomicBoolean(false);
+        final AtomicBoolean utxoDownloadFailed = new AtomicBoolean(false);
+        final Container<ByteArray> receivedBytes = new Container<>();
+        final MilliTimer timeoutTimer = new MilliTimer();
+        final Pin pin = new Pin();
+
+        final ExposedBitcoinNode bitcoinNode = new ExposedBitcoinNode("127.0.0.1", FAKE_PORT, mainThreadPool, nodeFeatures) {
+            @Override
+            protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+                synchronized (BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES) { // Disable self-connection detection....
+                    BitcoinNode.LOCAL_SYNCHRONIZATION_NONCES.clear();
+                }
+
+                super._onSynchronizeVersion(synchronizeVersionMessage);
+            }
+
+            @Override
+            protected Long _getMaximumTimeoutMs(final BitcoinNodeCallback callback) {
+                return REQUEST_TIMEOUT_MS;
+            }
+        };
+        bitcoinNode.handshake();
+        bitcoinNode.setHandshakeCompleteCallback(new Node.HandshakeCompleteCallback() {
+            @Override
+            public void onHandshakeComplete() {
+                handshakeCompleted.set(true);
+            }
+        });
+
+        bitcoinNode.requestUtxoCommitment(publicKey, new BitcoinNode.DownloadUtxoCommitmentCallback() {
+            @Override
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray result) {
+                utxoDownloaded.set(true);
+                receivedBytes.value = result;
+                pin.release();
+            }
+
+            @Override
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final PublicKey publicKey) {
+                utxoDownloadFailed.set(true);
+                timeoutTimer.stop();
+                pin.release();
+            }
+        });
+
+        socketServer.start();
+
+        // Action
+        timeoutTimer.start();
+        bitcoinNode.connect();
+        pin.waitForRelease(REQUEST_TIMEOUT_MS * 3L);
+
+        bitcoinNode.disconnect();
+        socketServer.stop();
+
+        // Assert
+        Assert.assertEquals(receivedNodeConnections.getCount(), 1);
+        Assert.assertFalse(utxoDownloadFailed.get());
+        Assert.assertTrue(utxoDownloaded.get());
+        Assert.assertTrue(timeoutTimer.getMillisecondsElapsed() < (REQUEST_TIMEOUT_MS * 2L));
+        Assert.assertEquals(byteArray, receivedBytes.value);
 
         Thread.sleep(1000L);
 

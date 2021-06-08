@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
-import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
@@ -85,7 +84,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                         final Block block = blockDatabaseManager.getBlock(blockId);
 
                         if (block == null) {
-                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown block: " + blockHash);
+                            Logger.debug(bitcoinNode + " requested unknown block: " + blockHash);
                             notFoundInventory.add(inventoryItem);
                             continue;
                         }
@@ -120,7 +119,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                         if (transaction == null) {
-                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown Transaction: " + transactionHash);
+                            Logger.debug(bitcoinNode + " requested unknown Transaction: " + transactionHash);
                             notFoundInventory.add(inventoryItem);
                             continue;
                         }
@@ -141,7 +140,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
                         final DoubleSpendProof doubleSpendProof = _doubleSpendProofStore.getDoubleSpendProof(doubleSpendProofHash);
 
                         if (doubleSpendProof == null) {
-                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown DoubleSpendProof: " + doubleSpendProofHash);
+                            Logger.debug(bitcoinNode + " requested unknown DoubleSpendProof: " + doubleSpendProofHash);
                             notFoundInventory.add(inventoryItem);
                             continue;
                         }
@@ -152,21 +151,25 @@ public class RequestDataHandler implements BitcoinNode.RequestDataHandler {
 
                     case UTXO_COMMITMENT_EVEN:
                     case UTXO_COMMITMENT_ODD: {
+                        final NanoTimer nanoTimer = new NanoTimer();
+                        nanoTimer.start();
+
                         final ByteArray inventoryItemPayload = inventoryItem.getItemHash();
                         final PublicKey utxoCommitmentPublicKey = RequestDataMessage.convertUtxoCommitmentInventoryToPublicKey(inventoryItemType, inventoryItemPayload);
+                        Logger.debug(bitcoinNode + " requested UTXO Commitment: " + utxoCommitmentPublicKey);
+
                         final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
                         final ByteArray byteArray = utxoCommitmentManager.getUtxoCommitment(utxoCommitmentPublicKey);
                         if (byteArray == null) {
-                            Logger.debug(bitcoinNode.getConnectionString() + " requested unknown UTXO Commitment: " + inventoryItemPayload);
+                            Logger.debug(bitcoinNode + " requested unknown UTXO Commitment: " + utxoCommitmentPublicKey);
                             notFoundInventory.add(inventoryItem);
                             continue;
                         }
 
-                        final UtxoCommitmentMessage utxoCommitmentMessage = new UtxoCommitmentMessage();
-                        utxoCommitmentMessage.setMultisetPublicKey(utxoCommitmentPublicKey);
-                        utxoCommitmentMessage.setUtxoCommitmentBytes(byteArray);
+                        bitcoinNode.transmitUtxoCommitment(utxoCommitmentPublicKey, byteArray);
 
-                        bitcoinNode.queueMessage(utxoCommitmentMessage);
+                        nanoTimer.stop();
+                        Logger.info("Served UTXO Commitment " + utxoCommitmentPublicKey + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                     } break;
 
                     default: {

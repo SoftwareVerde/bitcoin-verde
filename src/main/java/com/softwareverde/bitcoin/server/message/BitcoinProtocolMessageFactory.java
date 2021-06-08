@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessage;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessageInflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
@@ -224,6 +225,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<Bit
 
     public QueryUtxoCommitmentsMessage newQueryUtxoCommitmentsMessage() {
         return new QueryUtxoCommitmentsMessage();
+    }
+
+    public UtxoCommitmentMessage newUtxoCommitmentMessage() {
+        return new UtxoCommitmentMessage();
     }
 
     public EnableCompactBlocksMessage newEnableCompactBlocksMessage() {
