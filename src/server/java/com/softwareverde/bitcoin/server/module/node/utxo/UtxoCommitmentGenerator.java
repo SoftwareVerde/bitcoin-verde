@@ -114,10 +114,8 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         );
     }
 
-    protected Long _createUtxoCommitmentBucket(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final MultisetHash multisetHash, final DatabaseManager databaseManager) throws DatabaseException {
+    protected Long _createUtxoCommitmentBucket(final UtxoCommitmentId utxoCommitmentId, final Integer bucketIndex, final PublicKey publicKey, final DatabaseManager databaseManager) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-
-        final PublicKey publicKey = multisetHash.getPublicKey();
 
         return databaseConnection.executeSql(
             new Query("INSERT INTO utxo_commitment_buckets (utxo_commitment_id, `index`, public_key) VALUES (?, ?, ?)")
@@ -249,7 +247,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                             int processedCount = 0;
                             for (int i = minIndex; i <= maxIndex; ++i) {
                                 final Bucket bucket = bucketQueues.get(i);
-                                final CommittedUnspentTransactionOutput transactionOutput = bucket.queue.poll();
+                                final CommittedUnspentTransactionOutput transactionOutput = bucket.pollFromQueue();
                                 if (transactionOutput == null) { continue; }
 
                                 objectMemoryCount.decrementAndGet();
@@ -316,14 +314,12 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     queryTimer.start();
                     final Sha256Hash transactionHash = previousTransactionOutputIdentifier.getTransactionHash();
                     final Integer outputIndex = previousTransactionOutputIdentifier.getOutputIndex();
-                    synchronized (databaseManager) {
-                        rows = databaseConnection.query(
-                            new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_utxo_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
-                                .setParameter(transactionHash)
-                                .setParameter(transactionHash)
-                                .setParameter(outputIndex)
-                        );
-                    }
+                    rows = databaseConnection.query(
+                        new Query("SELECT transaction_hash, `index`, block_height, is_coinbase, amount, locking_script FROM staged_utxo_commitment WHERE (transaction_hash > ?) OR (transaction_hash = ? AND `index` > ?) ORDER BY transaction_hash ASC, `index` ASC LIMIT " + batchSize)
+                            .setParameter(transactionHash)
+                            .setParameter(transactionHash)
+                            .setParameter(outputIndex)
+                    );
                     queryTimer.stop();
                     Logger.trace("queryTimer=" + queryTimer.getMillisecondsElapsed() + "ms.");
                 }
@@ -364,7 +360,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                             bucketQueueTimer.mark("sleep");
                         }
 
-                        bucket.queue.add(committedUnspentTransactionOutput);
+                        bucket.addToQueue(committedUnspentTransactionOutput);
                         objectMemoryCount.incrementAndGet();
                         bucketQueueTimer.mark("atomic int");
                     }
@@ -409,10 +405,12 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             }
 
             for (final Bucket bucket : bucketQueues) {
-                final Long bucketId = _createUtxoCommitmentBucket(utxoCommitmentId, bucket.index, bucket.multisetHash, databaseManager);
+                final Integer bucketIndex = bucket.getIndex();
+                final PublicKey bucketPublicKey = bucket.getPublicKey();
+                final Long bucketId = _createUtxoCommitmentBucket(utxoCommitmentId, bucketIndex, bucketPublicKey, databaseManager);
 
                 int subBucketIndex = 0;
-                for (final Bucket.SubBucket subBucket : bucket.subBuckets) {
+                for (final Bucket.SubBucket subBucket : bucket.getSubBuckets()) {
                     databaseConnection.executeSql(
                         new Query("INSERT INTO utxo_commitment_files (utxo_commitment_bucket_id, sub_bucket_index, public_key, utxo_count, byte_count) VALUES (?, ?, ?, ?, ?)")
                             .setParameter(bucketId)
@@ -426,7 +424,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     subBucketIndex += 1;
                 }
 
-                utxoCommitMultisetHash.add(bucket.bucketMultisetHash);
+                utxoCommitMultisetHash.add(bucketPublicKey);
             }
 
             final Sha256Hash commitHash = utxoCommitMultisetHash.getHash();

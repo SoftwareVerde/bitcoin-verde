@@ -259,6 +259,8 @@ public class UtxoCommitmentDownloader {
             bitcoinNode.requestUtxoCommitment(publicKey, new BitcoinNode.DownloadUtxoCommitmentCallback() {
                 @Override
                 public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray response) {
+
+
                     synchronized (wasSuccessful) {
                         wasSuccessful.value = true;
                         wasSuccessful.notifyAll();
