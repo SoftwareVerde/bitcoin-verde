@@ -63,8 +63,6 @@ public class BitcoinConstants {
         Difficulty.decode(ByteArray.wrap(HexUtil.hexStringToByteArray("1D00FFFF")))
     );
 
-    protected static final String BITCOIN_SIGNATURE_MESSAGE_MAGIC;
-
     public static final Default MainNet = new Default(
         "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F",
         1231006505L, // In seconds.
@@ -102,8 +100,6 @@ public class BitcoinConstants {
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", String.valueOf(defaultProtocolVersion)), defaultProtocolVersion);
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
-
-        BITCOIN_SIGNATURE_MESSAGE_MAGIC = "Bitcoin Signed Message:\n";
     }
 
     public static void configureForNetwork(final NetworkType networkType) {
@@ -339,10 +335,6 @@ public class BitcoinConstants {
         }
 
         COINBASE_MESSAGE = coinbaseMessage;
-    }
-
-    public static String getBitcoinSignatureMessageMagic() {
-        return BITCOIN_SIGNATURE_MESSAGE_MAGIC;
     }
 
     protected BitcoinConstants() { }
