@@ -337,6 +337,9 @@ public class UtxoCommitmentDownloader {
                 Logger.info("Using previously downloaded " + publicKey + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
                 return downloadResult;
             }
+            else {
+                _utxoCommitmentStore.removeUtxoCommitment(publicKey);
+            }
         }
 
         // Download the bucket from the provided peer...

@@ -199,7 +199,8 @@ public class IntegrationTest extends UnitTest {
 
         final File file = new File(_utxoCommitmentStore.getUtxoDataDirectory());
         file.delete();
-        file.mkdir();
+        file.mkdirs();
+        file.deleteOnExit();
     }
 
     @Override
