@@ -33,6 +33,12 @@ public class UtxoCommitmentStoreCore implements UtxoCommitmentStore {
     }
 
     @Override
+    public File getUtxoCommitmentFile(final PublicKey publicKey) {
+        final String publicKeyString = publicKey.toString();
+        return new File(_utxoDataDirectory, publicKeyString);
+    }
+
+    @Override
     public ByteArray getUtxoCommitment(final PublicKey publicKey) {
         final String publicKeyString = publicKey.toString();
         final File file = new File(_utxoDataDirectory, publicKeyString);
@@ -40,7 +46,7 @@ public class UtxoCommitmentStoreCore implements UtxoCommitmentStore {
     }
 
     @Override
-    public Boolean blockExists(final PublicKey publicKey) {
+    public Boolean utxoCommitmentExists(final PublicKey publicKey) {
         final String publicKeyString = publicKey.toString();
         final File file = new File(_utxoDataDirectory, publicKeyString);
         return file.exists();

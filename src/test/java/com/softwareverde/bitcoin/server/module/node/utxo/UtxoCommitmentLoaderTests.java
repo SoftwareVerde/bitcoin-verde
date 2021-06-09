@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 import com.softwareverde.bitcoin.test.UnitTest;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.util.ByteBuffer;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.StringUtil;
 import org.junit.After;
@@ -48,25 +47,14 @@ public class UtxoCommitmentLoaderTests extends UnitTest {
             ByteArray.fromHexString("00000662484B459022B01156D71A584D67654E859C9DA2566E155A887A46C9E10100000070E50200F3719000000000001900000076A914D957C2536C205E2483B635CE17B2E02036788D5488AC")
         };
 
-        final ByteBuffer concatenatedUtxoSets = new ByteBuffer();
         for (final ByteArray byteArray : utxoSets) {
-            concatenatedUtxoSets.appendBytes(byteArray.getBytes(), byteArray.getByteCount());
-        }
-
-        final int totalByteCountToWrite = concatenatedUtxoSets.getByteCount();
-        int bytesPerFile = (totalByteCountToWrite / 2);
-        int readIndex = 0;
-        while (readIndex < totalByteCountToWrite) {
             final File file = File.createTempFile("utxo-in", ".dat");
             file.deleteOnExit();
 
             try (final FileOutputStream fileOutputStream = new FileOutputStream(file)) {
-                fileOutputStream.write(concatenatedUtxoSets.readBytes(bytesPerFile));
+                fileOutputStream.write(byteArray.getBytes());
                 fileOutputStream.flush();
             }
-
-            readIndex += bytesPerFile;
-            bytesPerFile = Math.max(1, (bytesPerFile * 7 / 13));
             inputFiles.add(file);
         }
 

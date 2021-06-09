@@ -87,10 +87,12 @@ public class UtxoCommitmentLoader {
                 final CommittedUnspentTransactionOutput committedUnspentTransactionOutput;
                 {
                     ReadAheadUtxoInflater minReadAheadUtxoInflater = null;
-                    TransactionOutputIdentifier minTransactionOutputIdentifier = TransactionOutputIdentifier.COINBASE;
+                    TransactionOutputIdentifier minTransactionOutputIdentifier = null;
                     for (ReadAheadUtxoInflater readAheadUtxoInflater : utxoInflaters) {
                         final CommittedUnspentTransactionOutput utxo = readAheadUtxoInflater.peakCommittedUnspentTransactionOutput();
-                        final int compareResult = CommittedUnspentTransactionOutput.compare(utxo, minTransactionOutputIdentifier);
+                        if (utxo == null) { continue; }
+
+                        final int compareResult = (minTransactionOutputIdentifier != null ? CommittedUnspentTransactionOutput.compare(utxo, minTransactionOutputIdentifier) : -1);
                         if (compareResult < 0) {
                             minReadAheadUtxoInflater = readAheadUtxoInflater;
                             minTransactionOutputIdentifier = utxo.getTransactionOutputIdentifier();

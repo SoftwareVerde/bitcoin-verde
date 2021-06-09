@@ -20,7 +20,6 @@ import com.softwareverde.bitcoin.server.module.node.utxo.CommittedUnspentTransac
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentLoader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
-import com.softwareverde.bitcoin.server.node.RequestPriority;
 import com.softwareverde.concurrent.Pin;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -255,25 +254,31 @@ public class UtxoCommitmentDownloader {
             final HashMap<UtxoCommitmentBreakdown, MutableList<BitcoinNode>> availableUtxoCommitmentsBreakdowns = availableUtxoCommitmentsMap.get(utxoCommitmentMetadata);
             final UtxoCommitmentBreakdown mostCommonUtxoCommitmentBreakdown = UtxoCommitmentDownloader.getCountOfNodesProvidingMostCommonBreakdown(availableUtxoCommitmentsBreakdowns).first;
 
+            long totalBucketByteCount = 0L;
             boolean breakdownHasBucketsOfUnsupportedSize = false;
             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = mostCommonUtxoCommitmentBreakdown.buckets;
             for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBuckets) {
+                totalBucketByteCount += utxoCommitmentBucket.getByteCount();
+
                 if (utxoCommitmentBucket.getByteCount() > MAX_SUPPORTED_BUCKET_BYTE_COUNT) {
                     int subBucketsBelowMaxByteCount = 0;
 
+                    long totalSubBucketByteCount = 0L;
                     final List<MultisetBucket> subBuckets = utxoCommitmentBucket.getSubBuckets();
                     for (final MultisetBucket subBucket : subBuckets) {
                         if (subBucket.getByteCount() <= MAX_SUPPORTED_BUCKET_BYTE_COUNT) {
                             subBucketsBelowMaxByteCount += 1;
                         }
+                        totalSubBucketByteCount += subBucket.getByteCount();
                     }
-                    if (subBucketsBelowMaxByteCount != subBuckets.getCount()) {
+                    if ( (subBucketsBelowMaxByteCount != subBuckets.getCount()) || (totalSubBucketByteCount != utxoCommitmentBucket.getByteCount()) ) {
                         breakdownHasBucketsOfUnsupportedSize = true;
                         break;
                     }
                 }
             }
             if (breakdownHasBucketsOfUnsupportedSize) { continue; }
+            if (utxoCommitmentMetadata.byteCount != totalBucketByteCount) { continue; }
 
             selectedUtxoCommitment = utxoCommitmentMetadata;
             selectedUtxoCommitmentBreakdown = mostCommonUtxoCommitmentBreakdown;
@@ -315,13 +320,43 @@ public class UtxoCommitmentDownloader {
 
         final PublicKey publicKey = bucket.getPublicKey();
 
+        // Check if the bucket already exists and is valid...
+        if (_utxoCommitmentStore.utxoCommitmentExists(publicKey)) {
+            final DownloadBucketResult downloadResult = new DownloadBucketResult();
+            final File file = _utxoCommitmentStore.getUtxoCommitmentFile(publicKey);
+            final Tuple<MultisetHash, Boolean> calculateMultisetHashResult = _utxoCommitmentLoader.calculateMultisetHash(file);
+            final MultisetHash multisetHash = calculateMultisetHashResult.first;
+
+            downloadResult.file = file;
+            downloadResult.multisetHash = multisetHash;
+            downloadResult.isSorted = calculateMultisetHashResult.second;
+
+            if (Util.areEqual(publicKey, multisetHash.getPublicKey())) {
+                nanoTimer.stop();
+
+                Logger.info("Using previously downloaded " + publicKey + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                return downloadResult;
+            }
+        }
+
+        // Download the bucket from the provided peer...
         Logger.debug("Downloading: " + publicKey + " from " + bitcoinNode + ".");
         final DownloadBucketResult downloadResult = new DownloadBucketResult();
         synchronized (downloadResult) {
             bitcoinNode.requestUtxoCommitment(publicKey, new BitcoinNode.DownloadUtxoCommitmentCallback() {
                 @Override
-                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray response) {
-                    final File file = _utxoCommitmentStore.storeUtxoCommitment(publicKey, response);
+                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray utxoCommitmentBytes) {
+                    final Long expectedByteCount = bucket.getByteCount();
+                    final int byteCount = utxoCommitmentBytes.getByteCount();
+                    if (! Util.areEqual(bucket.getByteCount(), byteCount)) {
+                        Logger.info("Discarding UtxoBucket with incorrect byte count from " + bitcoinNode + ", expected " + expectedByteCount + " bytes, found " + byteCount + ".");
+                        synchronized (downloadResult) {
+                            downloadResult.notifyAll();
+                            return;
+                        }
+                    }
+
+                    final File file = _utxoCommitmentStore.storeUtxoCommitment(publicKey, utxoCommitmentBytes);
                     final Tuple<MultisetHash, Boolean> calculateMultisetHashResult = _utxoCommitmentLoader.calculateMultisetHash(file);
                     final MultisetHash multisetHash = calculateMultisetHashResult.first;
                     final Boolean isSorted = calculateMultisetHashResult.second;
@@ -340,7 +375,7 @@ public class UtxoCommitmentDownloader {
                         downloadResult.notifyAll();
                     }
                 }
-            }, RequestPriority.NORMAL);
+            });
 
             try {
                 downloadResult.wait(MAX_TIMEOUT_MS);
@@ -480,19 +515,22 @@ public class UtxoCommitmentDownloader {
                         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
                         try {
                             unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
+                            multiTimer.mark("clearCommittedUtxoSet");
                             _utxoCommitmentLoader.loadFile(loadFileDestination, databaseConnection);
+                            multiTimer.mark("loadFile");
                             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
                             unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
+                            multiTimer.mark("commitUtxoSet");
                             databaseConnection.executeSql(
                                 new Query("UPDATE blocks SET has_transactions = 1 WHERE block_height <= ?")
                                     .setParameter(blockHeight)
                             );
+                            multiTimer.stop("setHeadBlock");
                         }
                         finally {
                             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
                         }
                     }
-                    multiTimer.mark("loadFile");
                     Logger.debug("Loaded UtxoCommit: " + multiTimer);
                 }
                 catch (final Exception exception) {

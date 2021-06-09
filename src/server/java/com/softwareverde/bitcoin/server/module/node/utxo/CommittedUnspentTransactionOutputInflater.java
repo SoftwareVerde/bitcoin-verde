@@ -18,8 +18,9 @@ public class CommittedUnspentTransactionOutputInflater {
         final ByteArray amountBytes = ByteArray.wrap(byteArrayReader.readBytes(8, Endian.LITTLE));
         final ByteArray lockingScriptByteCountBytes = ByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
 
-        final Integer lockingScriptByteCount = ByteUtil.bytesToInteger(lockingScriptByteCountBytes);
+        final int lockingScriptByteCount = ByteUtil.bytesToInteger(lockingScriptByteCountBytes);
         if (lockingScriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return null; }
+        if (lockingScriptByteCount < 0) { return null; }
 
         final ByteArray lockingScriptBytes = ByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount));
 

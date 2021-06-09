@@ -8,8 +8,9 @@ import java.io.File;
 public interface UtxoCommitmentStore {
     File storeUtxoCommitment(PublicKey publicKey, ByteArray utxoCommitment);
     void removeUtxoCommitment(PublicKey publicKey);
+    File getUtxoCommitmentFile(PublicKey publicKey);
     ByteArray getUtxoCommitment(PublicKey publicKey);
-    Boolean blockExists(PublicKey publicKey);
+    Boolean utxoCommitmentExists(PublicKey publicKey);
     String getDataDirectory();
     String getUtxoDataDirectory();
 }
