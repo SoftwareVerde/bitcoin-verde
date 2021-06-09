@@ -25,6 +25,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.pending
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentManagerCore;
 import com.softwareverde.database.DatabaseException;
 
@@ -36,7 +37,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
     protected final CheckpointConfiguration _checkpointConfiguration;
-    protected final String _utxoCommitmentOutputDirectory;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
 
     protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
     protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
@@ -51,11 +52,11 @@ public class FullNodeDatabaseManager implements DatabaseManager {
     protected UnspentTransactionOutputDatabaseManager _unspentTransactionOutputDatabaseManager;
     protected UtxoCommitmentManager _utxoCommitmentManager;
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final String utxoCommitmentOutputDirectory, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
-        this(databaseConnection, maxQueryBatchSize, blockStore, utxoCommitmentOutputDirectory, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
+        this(databaseConnection, maxQueryBatchSize, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
     }
 
-    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final String utxoCommitmentOutputDirectory, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnection = databaseConnection;
         _maxQueryBatchSize = maxQueryBatchSize;
         _blockStore = blockStore;
@@ -63,7 +64,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
         _maxUtxoCount = maxUtxoCount;
         _utxoPurgePercent = utxoPurgePercent;
         _checkpointConfiguration = checkpointConfiguration;
-        _utxoCommitmentOutputDirectory = utxoCommitmentOutputDirectory;
+        _utxoCommitmentStore = utxoCommitmentStore;
     }
 
     @Override
@@ -172,7 +173,7 @@ public class FullNodeDatabaseManager implements DatabaseManager {
 
     public UtxoCommitmentManager getUtxoCommitmentManager() {
         if (_utxoCommitmentManager == null) {
-            _utxoCommitmentManager = new UtxoCommitmentManagerCore(_databaseConnection, _utxoCommitmentOutputDirectory);
+            _utxoCommitmentManager = new UtxoCommitmentManagerCore(_databaseConnection, _utxoCommitmentStore);
         }
 
         return _utxoCommitmentManager;

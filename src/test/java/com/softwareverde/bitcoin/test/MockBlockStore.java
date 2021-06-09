@@ -92,6 +92,11 @@ public class MockBlockStore implements PendingBlockStore {
         return null;
     }
 
+    @Override
+    public String getBlockDataDirectory() {
+        return null;
+    }
+
     public void clear() {
         _pendingBlocks.clear();
         _blocks.clear();

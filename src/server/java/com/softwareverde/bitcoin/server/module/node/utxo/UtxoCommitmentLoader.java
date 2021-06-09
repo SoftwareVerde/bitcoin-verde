@@ -83,7 +83,7 @@ public class UtxoCommitmentLoader {
         );
     }
 
-    public MultisetHash calculateMultisetHash(final File file) throws Exception {
+    public MultisetHash calculateMultisetHash(final File file) {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
@@ -93,7 +93,8 @@ public class UtxoCommitmentLoader {
                 return new MultisetHash(); // A non-existent file with the empty-bucket name has the hash at infinity.
             }
 
-            throw new Exception("Unable to access loadFile: " + filePath);
+            Logger.debug("Unable to access loadFile: " + filePath);
+            return null;
         }
 
         final CommittedUnspentTransactionOutputInflater utxoInflater = new CommittedUnspentTransactionOutputInflater();
@@ -111,6 +112,10 @@ public class UtxoCommitmentLoader {
                 multisetHash.addItem(unspentTransactionOutput.getBytes());
                 utxoCount += 1;
             }
+        }
+        catch (final Exception exception) {
+            Logger.debug("Unable to access loadFile: " + filePath);
+            return null;
         }
 
         nanoTimer.stop();

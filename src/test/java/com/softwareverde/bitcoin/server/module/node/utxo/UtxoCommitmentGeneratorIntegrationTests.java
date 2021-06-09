@@ -115,7 +115,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
 
         UtxoCommitmentGeneratorIntegrationTests.stageUnspentTransactionOutputs(unspentTransactionOutputs, _databaseConnectionFactory);
 
-        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentOutputDirectory) {
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentStore.getUtxoDataDirectory()) {
             @Override
             protected Boolean _shouldAbort() {
                 return false;
@@ -205,7 +205,7 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
 
         UtxoCommitmentGeneratorIntegrationTests.stageUnspentTransactionOutputs(unspentTransactionOutputs, _databaseConnectionFactory);
 
-        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentOutputDirectory) {
+        final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(null, _utxoCommitmentStore.getUtxoDataDirectory()) {
             @Override
             protected Boolean _shouldAbort() {
                 return false;

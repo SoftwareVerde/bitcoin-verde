@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.wrapper.MysqlDatabaseConnectionWrapper;
 import com.softwareverde.database.DatabaseException;
@@ -18,6 +19,7 @@ import com.softwareverde.database.mysql.SqlScriptRunner;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.properties.EmbeddedDatabaseProperties;
 import com.softwareverde.database.properties.DatabaseCredentials;
+import com.softwareverde.database.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.IoUtil;
@@ -58,7 +60,7 @@ public class BitcoinVerdeDatabase implements Database {
             // v3 -> v4 (Memo Support)
             if ( (upgradedVersion == 3) && (requiredVersion >= 4) ) {
                 Logger.info("[Upgrading DB to v4]");
-                final Boolean wasSuccessful = _upgradeDatabaseMemoSupport(maintenanceDatabaseConnection);
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradeDatabaseMemoSupport(maintenanceDatabaseConnection);
                 if (! wasSuccessful) { return false; }
 
                 upgradedVersion = 4;
@@ -67,7 +69,7 @@ public class BitcoinVerdeDatabase implements Database {
             // v4 -> v5 (Double Spend Proofs Support)
             if ( (upgradedVersion == 4) && (requiredVersion >= 5) ) {
                 Logger.info("[Upgrading DB to v5]");
-                final Boolean wasSuccessful = _upgradeDoubleSpendProofsSupport(maintenanceDatabaseConnection);
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradeDoubleSpendProofsSupport(maintenanceDatabaseConnection);
                 if (! wasSuccessful) { return false; }
 
                 upgradedVersion = 5;
@@ -76,7 +78,7 @@ public class BitcoinVerdeDatabase implements Database {
             // v5 -> v6 (Drop Pending Blocks)
             if ( (upgradedVersion == 5) && (requiredVersion >= 6) ) {
                 Logger.info("[Upgrading DB to v6]");
-                final Boolean wasSuccessful = _dropPendingBlocksTable(maintenanceDatabaseConnection);
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.dropPendingBlocksTable(maintenanceDatabaseConnection);
                 if (! wasSuccessful) { return false; }
 
                 upgradedVersion = 6;
@@ -85,7 +87,7 @@ public class BitcoinVerdeDatabase implements Database {
             // v6 -> v7 (Pruning Mode / UTXO Model)
             if ( (upgradedVersion == 6) && (requiredVersion >= 7) ) {
                 Logger.info("[Upgrading DB to v7]");
-                final Boolean wasSuccessful = _upgradePruningModeSupport(maintenanceDatabaseConnection);
+                final Boolean wasSuccessful = BitcoinVerdeDatabase.upgradePruningModeSupport(maintenanceDatabaseConnection);
                 if (! wasSuccessful) { return false; }
 
                 upgradedVersion = 7;
@@ -103,24 +105,34 @@ public class BitcoinVerdeDatabase implements Database {
         if (maxDatabaseConnectionCount < minDatabaseConnectionCount) {
             throw new RuntimeException("Insufficient memory available to allocate desired settings. Consider reducing the number of allowed peers.");
         }
-        return _newInstance(sqlInitFile, maxDatabaseConnectionCount, bitcoinVerdeDatabaseProperties);
+        return BitcoinVerdeDatabase.newInstance(sqlInitFile, maxDatabaseConnectionCount, bitcoinVerdeDatabaseProperties);
     }
 
     public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final StratumProperties stratumProperties, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
-        return _newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
+        return BitcoinVerdeDatabase.newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
     }
 
     public static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
-        return _newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
+        return BitcoinVerdeDatabase.newInstance(sqlInitFile, TARGET_MAX_DATABASE_CONNECTION_COUNT, bitcoinVerdeDatabaseProperties);
     }
 
-    protected static BitcoinVerdeDatabase _newInstance(final InitFile sqlInitFile, final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties bitcoinVerdeDatabaseProperties) {
-        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER);
+    protected static BitcoinVerdeDatabase newInstance(final InitFile sqlInitFile, final Integer maxDatabaseConnectionCount, final BitcoinVerdeDatabaseProperties databaseProperties) {
+        final DatabaseInitializer<Connection> databaseInitializer = new MysqlDatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, BitcoinVerdeDatabase.DATABASE_UPGRADE_HANDLER) {
+            @Override
+            public void initializeSchema(final com.softwareverde.database.DatabaseConnection<Connection> rootDatabaseConnection, final DatabaseProperties databaseProperties) throws DatabaseException {
+                super.initializeSchema(rootDatabaseConnection, databaseProperties);
+
+                // Enable the LOAD FILE permission for the default user for importing UTXO Commitments.
+                // NOTE: This permission isn't granted to upgraded nodes; however, upgraded nodes don't load UTXO Commitments.
+                final String databaseUsername = databaseProperties.getUsername();
+                BitcoinVerdeDatabase.grantFilePermission(rootDatabaseConnection, databaseUsername);
+            }
+        };
 
         try {
-            if (bitcoinVerdeDatabaseProperties.shouldUseEmbeddedDatabase()) {
+            if (databaseProperties.shouldUseEmbeddedDatabase()) {
                 // Initialize the embedded database...
-                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfigurer.configureDatabase(maxDatabaseConnectionCount, bitcoinVerdeDatabaseProperties);
+                final EmbeddedDatabaseProperties embeddedDatabaseProperties = DatabaseConfigurer.configureDatabase(maxDatabaseConnectionCount, databaseProperties);
 
                 Logger.info("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(embeddedDatabaseProperties, databaseInitializer);
@@ -136,25 +148,25 @@ public class BitcoinVerdeDatabase implements Database {
             }
             else {
                 // Connect to the remote database...
-                final DatabaseCredentials credentials = bitcoinVerdeDatabaseProperties.getCredentials();
-                final DatabaseCredentials rootCredentials = bitcoinVerdeDatabaseProperties.getRootCredentials();
-                final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(bitcoinVerdeDatabaseProperties);
+                final DatabaseCredentials credentials = databaseProperties.getCredentials();
+                final DatabaseCredentials rootCredentials = databaseProperties.getRootCredentials();
+                final DatabaseCredentials maintenanceCredentials = databaseInitializer.getMaintenanceCredentials(databaseProperties);
 
-                final MysqlDatabaseConnectionFactory rootDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(bitcoinVerdeDatabaseProperties.getHostname(), bitcoinVerdeDatabaseProperties.getPort(), "", rootCredentials.username, rootCredentials.password);
-                final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(bitcoinVerdeDatabaseProperties, maintenanceCredentials);
+                final MysqlDatabaseConnectionFactory rootDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties.getHostname(), databaseProperties.getPort(), "", rootCredentials.username, rootCredentials.password);
+                final MysqlDatabaseConnectionFactory maintenanceDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(databaseProperties, maintenanceCredentials);
                 // final MysqlDatabaseConnectionFactory databaseConnectionFactory = new MysqlDatabaseConnectionFactory(connectionUrl, credentials.username, credentials.password);
 
                 try (final MysqlDatabaseConnection maintenanceDatabaseConnection = maintenanceDatabaseConnectionFactory.newConnection()) {
                     final Integer databaseVersion = databaseInitializer.getDatabaseVersionNumber(maintenanceDatabaseConnection);
                     if (databaseVersion < 0) {
                         try (final MysqlDatabaseConnection rootDatabaseConnection = rootDatabaseConnectionFactory.newConnection()) {
-                            databaseInitializer.initializeSchema(rootDatabaseConnection, bitcoinVerdeDatabaseProperties);
+                            databaseInitializer.initializeSchema(rootDatabaseConnection, databaseProperties);
                         }
                     }
                 }
                 catch (final DatabaseException exception) {
                     try (final MysqlDatabaseConnection rootDatabaseConnection = rootDatabaseConnectionFactory.newConnection()) {
-                        databaseInitializer.initializeSchema(rootDatabaseConnection, bitcoinVerdeDatabaseProperties);
+                        databaseInitializer.initializeSchema(rootDatabaseConnection, databaseProperties);
                     }
                 }
 
@@ -162,7 +174,7 @@ public class BitcoinVerdeDatabase implements Database {
                     databaseInitializer.initializeDatabase(maintenanceDatabaseConnection);
                 }
 
-                final MysqlDatabase mysqlDatabase = new MysqlDatabase(bitcoinVerdeDatabaseProperties, credentials);
+                final MysqlDatabase mysqlDatabase = new MysqlDatabase(databaseProperties, credentials);
                 return new BitcoinVerdeDatabase(mysqlDatabase, maintenanceDatabaseConnectionFactory, maxDatabaseConnectionCount);
             }
         }
@@ -180,7 +192,7 @@ public class BitcoinVerdeDatabase implements Database {
         return new MysqlDatabaseConnectionFactoryWrapper(databaseConnectionFactory);
     }
 
-    protected static Boolean _upgradeDatabaseMemoSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+    protected static Boolean upgradeDatabaseMemoSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/memo_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
@@ -198,7 +210,7 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
-    protected static Boolean _upgradeDoubleSpendProofsSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+    protected static Boolean upgradeDoubleSpendProofsSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/double_spend_proofs_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
@@ -216,7 +228,7 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
-    protected static Boolean _dropPendingBlocksTable(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+    protected static Boolean dropPendingBlocksTable(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/drop_pending_blocks.sql");
             if (Util.isBlank(upgradeScript)) { return false; }
@@ -234,7 +246,7 @@ public class BitcoinVerdeDatabase implements Database {
         }
     }
 
-    protected static Boolean _upgradePruningModeSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
+    protected static Boolean upgradePruningModeSupport(final com.softwareverde.database.DatabaseConnection<Connection> databaseConnection) {
         try {
             final String upgradeScript = IoUtil.getResource("/sql/node/mysql/upgrade/pruning_v1.sql"); // TODO: Use mysql/sqlite when appropriate...
             if (Util.isBlank(upgradeScript)) { return false; }
@@ -244,6 +256,20 @@ public class BitcoinVerdeDatabase implements Database {
             scriptRunner.runScript(new StringReader(upgradeScript));
             TransactionUtil.commitTransaction(databaseConnection);
 
+            return true;
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean grantFilePermission(final com.softwareverde.database.DatabaseConnection<Connection> rootDatabaseConnection, final String sqlUsername) {
+        try {
+            rootDatabaseConnection.executeSql(
+                new Query("GRANT FILE ON *.* TO ?")
+                    .setParameter(sqlUsername)
+            );
             return true;
         }
         catch (final Exception exception) {

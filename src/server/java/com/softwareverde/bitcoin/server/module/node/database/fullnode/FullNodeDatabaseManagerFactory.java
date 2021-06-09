@@ -7,27 +7,28 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.database.DatabaseException;
 
 public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final Integer _maxQueryBatchSize;
     protected final PendingBlockStore _blockStore;
-    protected final String _utxoCommitmentOutputDirectory;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
     protected final MasterInflater _masterInflater;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final Long _maxUtxoCount;
     protected final Float _utxoPurgePercent;
 
-    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final String utxoCommitmentOutputDirectory, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
-        this(databaseConnectionFactory, maxQueryBatchSize, blockStore, utxoCommitmentOutputDirectory, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration) {
+        this(databaseConnectionFactory, maxQueryBatchSize, blockStore, utxoCommitmentStore, masterInflater, checkpointConfiguration, UnspentTransactionOutputDatabaseManager.DEFAULT_MAX_UTXO_CACHE_COUNT, UnspentTransactionOutputDatabaseManager.DEFAULT_PURGE_PERCENT);
     }
 
-    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final String utxoCommitmentOutputDirectory, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final Integer maxQueryBatchSize, final PendingBlockStore blockStore, final UtxoCommitmentStore utxoCommitmentStore, final MasterInflater masterInflater, final CheckpointConfiguration checkpointConfiguration, final Long maxUtxoCount, final Float utxoPurgePercent) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _maxQueryBatchSize = maxQueryBatchSize;
         _blockStore = blockStore;
-        _utxoCommitmentOutputDirectory = utxoCommitmentOutputDirectory;
+        _utxoCommitmentStore = utxoCommitmentStore;
         _masterInflater = masterInflater;
         _maxUtxoCount = maxUtxoCount;
         _utxoPurgePercent = utxoPurgePercent;
@@ -37,7 +38,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     @Override
     public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent);
+        return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent);
     }
 
     @Override
@@ -47,7 +48,7 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
 
     @Override
     public FullNodeDatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
-        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _maxQueryBatchSize, _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent);
+        return new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _maxQueryBatchSize, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent);
     }
 
     @Override

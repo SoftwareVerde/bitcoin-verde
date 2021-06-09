@@ -25,6 +25,8 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputJvmManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UtxoCacheStaticState;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
 import com.softwareverde.bitcoin.test.fake.FakeSynchronizationStatus;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -59,6 +61,7 @@ public class IntegrationTest extends UnitTest {
 
     protected final MasterInflater _masterInflater;
     protected final MockBlockStore _blockStore;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
@@ -68,7 +71,6 @@ public class IntegrationTest extends UnitTest {
     protected final FakeSynchronizationStatus _syncingSynchronizationStatus;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
-    protected final String _utxoCommitmentOutputDirectory;
 
     protected Long _requiredCoinbaseMaturity = 0L;
 
@@ -79,7 +81,7 @@ public class IntegrationTest extends UnitTest {
         Logger.setLogLevel("ch.vorburger.mariadb4j", LogLevel.WARN);
 
         try {
-            _utxoCommitmentOutputDirectory = Files.createTempDirectory("utxo").toFile().getAbsolutePath();
+            _utxoCommitmentStore = new UtxoCommitmentStoreCore(Files.createTempDirectory("utxo").toFile().getAbsolutePath());
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);
@@ -100,11 +102,11 @@ public class IntegrationTest extends UnitTest {
         };
 
         _databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration);
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
         _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _checkpointConfiguration);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactoryWrapper(_databaseConnectionFactory);
-        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration);
+        _readUncommittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
 
         // Bypass the Hikari database connection pool...
         _database.setDatabaseConnectionPool(new DatabaseConnectionPool() {
@@ -195,7 +197,7 @@ public class IntegrationTest extends UnitTest {
             }
         };
 
-        final File file = new File(_utxoCommitmentOutputDirectory);
+        final File file = new File(_utxoCommitmentStore.getUtxoDataDirectory());
         file.delete();
         file.mkdir();
     }

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessage;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -16,17 +17,14 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
-import com.softwareverde.util.IoUtil;
-
-import java.io.File;
 
 public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
     protected final DatabaseConnection _databaseConnection;
-    protected final String _utxoCommitmentDirectory;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
 
-    public UtxoCommitmentManagerCore(final DatabaseConnection databaseConnection, final String utxoCommitmentDirectory) {
+    public UtxoCommitmentManagerCore(final DatabaseConnection databaseConnection, final UtxoCommitmentStore utxoCommitmentStore) {
         _databaseConnection = databaseConnection;
-        _utxoCommitmentDirectory = utxoCommitmentDirectory;
+        _utxoCommitmentStore = utxoCommitmentStore;
     }
 
     @Override
@@ -85,9 +83,6 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
 
     @Override
     public ByteArray getUtxoCommitment(final PublicKey publicKey) {
-        final File file = new File(_utxoCommitmentDirectory, publicKey.toString());
-        if ( (! file.exists()) || (! file.canRead()) ) { return null; }
-
-        return ByteArray.wrap(IoUtil.getFileContents(file));
+        return _utxoCommitmentStore.getUtxoCommitment(publicKey);
     }
 }

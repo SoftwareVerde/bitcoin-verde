@@ -91,6 +91,8 @@ import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
@@ -138,7 +140,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -156,7 +157,6 @@ public class NodeModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final PendingBlockStoreCore _blockStore;
-    protected final String _utxoCommitmentOutputDirectory;
     protected final CheckpointConfiguration _checkpointConfiguration;
     protected final MasterInflater _masterInflater;
     protected final UpgradeSchedule _upgradeSchedule;
@@ -176,6 +176,7 @@ public class NodeModule {
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final BlockPruner _blockPruner;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
     protected final UtxoCommitmentGenerator _utxoCommitmentGenerator;
     protected final UtxoCommitmentDownloader _utxoCommitmentDownloader;
     protected final List<SleepyService> _allServices;
@@ -216,7 +217,7 @@ public class NodeModule {
         {
             final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentOutputDirectory, _masterInflater, _checkpointConfiguration);
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
         }
 
         Logger.info("[Stopping Request Handler]");
@@ -377,6 +378,17 @@ public class NodeModule {
             };
         }
 
+        { // Initialize the UtxoCommitmentStore...
+            final String dataDirectory = bitcoinProperties.getDataDirectory();
+            _utxoCommitmentStore = new UtxoCommitmentStoreCore(dataDirectory);
+
+            final String utxoCommitmentOutputDirectory = _utxoCommitmentStore.getUtxoDataDirectory();
+            final File utxoCommitmentOutputDirectoryFile = new File(utxoCommitmentOutputDirectory);
+            if (! utxoCommitmentOutputDirectoryFile.exists()) {
+                utxoCommitmentOutputDirectoryFile.mkdirs();
+            }
+        }
+
         { // Block Checkpoints
             final Boolean isTestNet = bitcoinProperties.isTestNet();
             if (isTestNet) {
@@ -391,11 +403,6 @@ public class NodeModule {
         _environment = environment;
 
         _utxoCacheLoadFileIsEnabled = true;
-
-        _utxoCommitmentOutputDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/utxo");
-        if (! IoUtil.fileExists(_utxoCommitmentOutputDirectory)) {
-            (new File(_utxoCommitmentOutputDirectory)).mkdirs();
-        }
 
         final int minPeerCount = (bitcoinProperties.shouldSkipNetworking() ? 0 : bitcoinProperties.getMinPeerCount());
         final BitcoinBinaryPacketFormat binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
@@ -412,7 +419,7 @@ public class NodeModule {
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
-            _utxoCommitmentOutputDirectory,
+            _utxoCommitmentStore,
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
@@ -776,8 +783,8 @@ public class NodeModule {
             });
         }
 
-        _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentOutputDirectory);
-        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager);
+        _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -1208,7 +1215,7 @@ public class NodeModule {
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
-            _utxoCommitmentOutputDirectory,
+            _utxoCommitmentStore,
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
