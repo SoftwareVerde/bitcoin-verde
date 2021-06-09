@@ -15,6 +15,8 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
+import com.softwareverde.bitcoin.server.module.node.utxo.CommittedUnspentTransactionOutput;
+import com.softwareverde.bitcoin.server.module.node.utxo.CommittedUnspentTransactionOutputInflater;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentLoader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.RequestId;
@@ -27,16 +29,24 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayStream;
 import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,6 +58,12 @@ public class UtxoCommitmentDownloader {
     protected static class BucketDownload {
         boolean isComplete = false;
         final AtomicInteger downloadAttemptCount = new AtomicInteger(0);
+    }
+
+    protected static class DownloadBucketResult {
+        public File file;
+        public MultisetHash multisetHash;
+        public Boolean isSorted;
     }
 
     protected static class UtxoCommit {
@@ -75,6 +91,39 @@ public class UtxoCommitmentDownloader {
             }
         }
         return largestCount;
+    }
+
+    protected static void sortUtxoCommitmentFile(final File file) throws IOException {
+        final CommittedUnspentTransactionOutputInflater utxoInflater = new CommittedUnspentTransactionOutputInflater();
+        final TreeSet<CommittedUnspentTransactionOutput> sortedSet = new TreeSet<>(new Comparator<CommittedUnspentTransactionOutput>() {
+            @Override
+            public int compare(final CommittedUnspentTransactionOutput committedUnspentTransactionOutput0, final CommittedUnspentTransactionOutput committedUnspentTransactionOutput1) {
+                return CommittedUnspentTransactionOutput.compare(committedUnspentTransactionOutput0, committedUnspentTransactionOutput1);
+            }
+        });
+
+        try (final ByteArrayStream byteArrayStream = new ByteArrayStream()) {
+            final FileInputStream inputStream = new FileInputStream(file);
+            byteArrayStream.appendInputStream(inputStream);
+
+            while (true) {
+                final CommittedUnspentTransactionOutput unspentTransactionOutput = utxoInflater.fromByteArrayReader(byteArrayStream);
+                if (unspentTransactionOutput == null) { break; }
+
+                sortedSet.add(unspentTransactionOutput);
+            }
+        }
+
+        final int pageSize = (int) (16L * ByteUtil.Unit.Binary.KIBIBYTES);
+        try (final OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(file), pageSize)) {
+            for (final CommittedUnspentTransactionOutput unspentTransactionOutput : sortedSet) {
+                final ByteArray deflatedUtxo = unspentTransactionOutput.getBytes();
+                for (final byte b : deflatedUtxo) {
+                    outputStream.write(b);
+                }
+            }
+            outputStream.flush();
+        }
     }
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
@@ -260,24 +309,27 @@ public class UtxoCommitmentDownloader {
         return new UtxoCommit(selectedUtxoCommitment, selectedUtxoCommitmentBreakdown, utxoCommitmentBreakdowns);
     }
 
-    protected Tuple<File, MultisetHash> _downloadBucket(final BitcoinNode bitcoinNode, final MultisetBucket bucket) {
+    protected DownloadBucketResult _downloadBucket(final BitcoinNode bitcoinNode, final MultisetBucket bucket) {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
         final PublicKey publicKey = bucket.getPublicKey();
 
         Logger.debug("Downloading: " + publicKey + " from " + bitcoinNode + ".");
-        final Tuple<File, MultisetHash> downloadResult = new Tuple<>(null, null);
+        final DownloadBucketResult downloadResult = new DownloadBucketResult();
         synchronized (downloadResult) {
             bitcoinNode.requestUtxoCommitment(publicKey, new BitcoinNode.DownloadUtxoCommitmentCallback() {
                 @Override
                 public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray response) {
                     final File file = _utxoCommitmentStore.storeUtxoCommitment(publicKey, response);
-                    final MultisetHash multisetHash = _utxoCommitmentLoader.calculateMultisetHash(file);
+                    final Tuple<MultisetHash, Boolean> calculateMultisetHashResult = _utxoCommitmentLoader.calculateMultisetHash(file);
+                    final MultisetHash multisetHash = calculateMultisetHashResult.first;
+                    final Boolean isSorted = calculateMultisetHashResult.second;
 
                     synchronized (downloadResult) {
-                        downloadResult.first = file;
-                        downloadResult.second = multisetHash;
+                        downloadResult.file = file;
+                        downloadResult.multisetHash = multisetHash;
+                        downloadResult.isSorted = isSorted;
                         downloadResult.notifyAll();
                     }
                 }
@@ -285,8 +337,6 @@ public class UtxoCommitmentDownloader {
                 @Override
                 public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final PublicKey response) {
                     synchronized (downloadResult) {
-                        downloadResult.first = null;
-                        downloadResult.second = null;
                         downloadResult.notifyAll();
                     }
                 }
@@ -297,7 +347,7 @@ public class UtxoCommitmentDownloader {
 
                 nanoTimer.stop();
 
-                final boolean wasSuccessful = ( (downloadResult.first != null) && (downloadResult.second != null) );
+                final boolean wasSuccessful = (downloadResult.file != null);
                 Logger.info("Downloaded " + publicKey + " from " + bitcoinNode + " in " + nanoTimer.getMillisecondsElapsed() + "ms. success=" + wasSuccessful);
 
                 if (! wasSuccessful) { return null; }
@@ -337,6 +387,7 @@ public class UtxoCommitmentDownloader {
             bucketDownloads[i] = new BucketDownload();
         }
 
+        final MutableList<File> unsortedCommitmentFiles = new MutableList<>();
         final MutableList<File> utxoCommitmentFiles = new MutableList<>();
 
         while (true) {
@@ -361,29 +412,39 @@ public class UtxoCommitmentDownloader {
                     final MultisetHash calculatedMultisetHash = new MultisetHash();
                     final UtxoCommitmentBucket bitcoinNodeBucket = bitcoinNodeUtxoCommitmentBreakdown.buckets.get(i);
 
+                    final MutableList<File> unsortedSubBucketFiles = new MutableList<>();
                     final MutableList<File> subBucketFiles = new MutableList<>();
                     if (bitcoinNodeBucket.hasSubBuckets()) {
                         for (final MultisetBucket subBucket : bitcoinNodeBucket.getSubBuckets()) {
-                            final Tuple<File, MultisetHash> downloadResult = _downloadBucket(bitcoinNode, subBucket);
-                            if (downloadResult == null) { break; }
+                            final DownloadBucketResult downloadBucketResult = _downloadBucket(bitcoinNode, subBucket);
+                            if (downloadBucketResult == null) { break; }
 
-                            subBucketFiles.add(downloadResult.first);
-                            calculatedMultisetHash.add(downloadResult.second);
+                            subBucketFiles.add(downloadBucketResult.file);
+                            calculatedMultisetHash.add(downloadBucketResult.multisetHash);
+
+                            if (! downloadBucketResult.isSorted) {
+                                unsortedSubBucketFiles.add(downloadBucketResult.file);
+                            }
                         }
 
                     }
                     else {
-                        final Tuple<File, MultisetHash> downloadResult = _downloadBucket(bitcoinNode, bitcoinNodeBucket);
-                        subBucketFiles.add(downloadResult.first);
-                        calculatedMultisetHash.add(downloadResult.second);
+                        final DownloadBucketResult downloadBucketResult = _downloadBucket(bitcoinNode, bitcoinNodeBucket);
+                        subBucketFiles.add(downloadBucketResult.file);
+                        calculatedMultisetHash.add(downloadBucketResult.multisetHash);
+
+                        if (! downloadBucketResult.isSorted) {
+                            unsortedSubBucketFiles.add(downloadBucketResult.file);
+                        }
                     }
 
                     final PublicKey expectedPublicKey = bitcoinNodeBucket.getPublicKey().compress();
                     final PublicKey calculatedPublicKey = calculatedMultisetHash.getPublicKey().compress();
-                    final boolean downloadWasSuccessful = Util.areEqual(expectedPublicKey, calculatedPublicKey);
-                    if (downloadWasSuccessful) {
+                    final boolean bucketPassedIntegrityCheck = Util.areEqual(expectedPublicKey, calculatedPublicKey);
+                    if (bucketPassedIntegrityCheck) {
                         bucketDownload.isComplete = true;
                         utxoCommitmentFiles.addAll(subBucketFiles);
+                        unsortedCommitmentFiles.addAll(unsortedSubBucketFiles);
                     }
                     else {
                         Logger.info("Node served invalid UtxoCommitment: " + bitcoinNode + ", expected " + expectedPublicKey + " received " + calculatedPublicKey + ".");
@@ -397,6 +458,15 @@ public class UtxoCommitmentDownloader {
                 final Sha256Hash multisetHash = utxoCommit.utxoCommitment.multisetHash;
                 final File loadFileDestination = new File(_utxoCommitmentStore.getUtxoDataDirectory(), (multisetHash + ".sql"));
                 try {
+                    // Sort contents of any unsorted file...
+                    for (final File unsortedFile : unsortedCommitmentFiles) {
+                        final NanoTimer nanoTimer = new NanoTimer();
+                        nanoTimer.start();
+                        UtxoCommitmentDownloader.sortUtxoCommitmentFile(unsortedFile);
+                        nanoTimer.stop();
+                        Logger.debug("Sorted UtxoCommitment " + unsortedFile.getName() + " in " + nanoTimer.getMillisecondsElapsed() + "ms.");
+                    }
+
                     final MultiTimer multiTimer = new MultiTimer();
                     multiTimer.start();
                     _utxoCommitmentLoader.createLoadFile(utxoCommitmentFiles, loadFileDestination);

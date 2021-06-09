@@ -3,10 +3,13 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayStream;
 import com.softwareverde.util.timer.NanoTimer;
@@ -14,27 +17,88 @@ import com.softwareverde.util.timer.NanoTimer;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 
 public class UtxoCommitmentLoader {
+    protected static class ReadAheadUtxoInflater implements AutoCloseable {
+        protected final ByteArrayStream _inputStream;
+        protected final CommittedUnspentTransactionOutputInflater _committedUnspentTransactionOutputInflater;
+
+        protected Boolean _isAtEndOfStream = false;
+        protected CommittedUnspentTransactionOutput _nextCommittedUnspentTransactionOutput = null;
+
+        protected CommittedUnspentTransactionOutput _peakCommittedUnspentTransactionOutput() {
+            if (_nextCommittedUnspentTransactionOutput == null) {
+                _nextCommittedUnspentTransactionOutput = _committedUnspentTransactionOutputInflater.fromByteArrayReader(_inputStream);
+                if (_inputStream.didOverflow()) {
+                    _nextCommittedUnspentTransactionOutput = null;
+                    _isAtEndOfStream = true;
+                    return null;
+                }
+
+                if (! _inputStream.hasBytes()) {
+                    _isAtEndOfStream = true;
+                }
+            }
+
+            return _nextCommittedUnspentTransactionOutput;
+        }
+
+        public ReadAheadUtxoInflater(final InputStream inputStream, final CommittedUnspentTransactionOutputInflater committedUnspentTransactionOutputInflater) {
+            _inputStream = new ByteArrayStream(inputStream);
+            _committedUnspentTransactionOutputInflater = committedUnspentTransactionOutputInflater;
+        }
+
+        public CommittedUnspentTransactionOutput peakCommittedUnspentTransactionOutput() {
+            return _peakCommittedUnspentTransactionOutput();
+        }
+
+        public CommittedUnspentTransactionOutput popCommittedUnspentTransactionOutput() {
+            final CommittedUnspentTransactionOutput committedUnspentTransactionOutput = _peakCommittedUnspentTransactionOutput();
+            _nextCommittedUnspentTransactionOutput = null;
+            return committedUnspentTransactionOutput;
+        }
+
+        @Override
+        public void close() {
+            _inputStream.close();
+        }
+    }
+
     public void createLoadFile(final List<File> utxoCommitmentFiles, final File outputLoadFile) throws Exception {
-        final CommittedUnspentTransactionOutputInflater utxoInflater = new CommittedUnspentTransactionOutputInflater();
+        final CommittedUnspentTransactionOutputInflater committedUnspentTransactionOutputInflater = new CommittedUnspentTransactionOutputInflater();
 
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
+        final MutableList<ReadAheadUtxoInflater> utxoInflaters = new MutableList<ReadAheadUtxoInflater>(utxoCommitmentFiles.getCount());
         long bytesWrittenCount = 0L;
         try (
             final FileOutputStream fileOutputStream = new FileOutputStream(outputLoadFile);
-            final ByteArrayStream byteArrayStream = new ByteArrayStream()
         ) {
             for (final File inputFile : utxoCommitmentFiles) {
                 final FileInputStream fileInputStream = new FileInputStream(inputFile);
-                byteArrayStream.appendInputStream(fileInputStream);
+
+                final ReadAheadUtxoInflater readAheadUtxoInflater = new ReadAheadUtxoInflater(fileInputStream, committedUnspentTransactionOutputInflater);
+                utxoInflaters.add(readAheadUtxoInflater);
             }
 
             while (true) {
-                final CommittedUnspentTransactionOutput utxo = utxoInflater.fromByteArrayReader(byteArrayStream);
-                if (utxo == null) { break; }
+                final CommittedUnspentTransactionOutput committedUnspentTransactionOutput;
+                {
+                    ReadAheadUtxoInflater minReadAheadUtxoInflater = null;
+                    TransactionOutputIdentifier minTransactionOutputIdentifier = TransactionOutputIdentifier.COINBASE;
+                    for (ReadAheadUtxoInflater readAheadUtxoInflater : utxoInflaters) {
+                        final CommittedUnspentTransactionOutput utxo = readAheadUtxoInflater.peakCommittedUnspentTransactionOutput();
+                        final int compareResult = CommittedUnspentTransactionOutput.compare(utxo, minTransactionOutputIdentifier);
+                        if (compareResult < 0) {
+                            minReadAheadUtxoInflater = readAheadUtxoInflater;
+                            minTransactionOutputIdentifier = utxo.getTransactionOutputIdentifier();
+                        }
+                    }
+                    committedUnspentTransactionOutput = ((minReadAheadUtxoInflater != null) ? minReadAheadUtxoInflater.popCommittedUnspentTransactionOutput() : null);
+                }
+                if (committedUnspentTransactionOutput == null) { break; }
 
                 // transaction_hash BINARY(32) NOT NULL
                 // `index` INT UNSIGNED NOT NULL
@@ -46,17 +110,17 @@ public class UtxoCommitmentLoader {
                 final String separator = "\t";
 
                 final StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.append(utxo.getTransactionHash());
+                stringBuilder.append(committedUnspentTransactionOutput.getTransactionHash());
                 stringBuilder.append(separator);
-                stringBuilder.append(utxo.getIndex());
+                stringBuilder.append(committedUnspentTransactionOutput.getIndex());
                 stringBuilder.append(separator);
-                stringBuilder.append(utxo.getBlockHeight());
+                stringBuilder.append(committedUnspentTransactionOutput.getBlockHeight());
                 stringBuilder.append(separator);
-                stringBuilder.append(utxo.isCoinbase() ? "1" : "0");
+                stringBuilder.append(committedUnspentTransactionOutput.isCoinbase() ? "1" : "0");
                 stringBuilder.append(separator);
-                stringBuilder.append(utxo.getAmount());
+                stringBuilder.append(committedUnspentTransactionOutput.getAmount());
                 stringBuilder.append(separator);
-                stringBuilder.append(utxo.getLockingScript());
+                stringBuilder.append(committedUnspentTransactionOutput.getLockingScript());
                 stringBuilder.append(System.lineSeparator());
 
                 final byte[] bytes = StringUtil.stringToBytes(stringBuilder.toString());
@@ -65,6 +129,11 @@ public class UtxoCommitmentLoader {
             }
 
             fileOutputStream.flush();
+        }
+        finally {
+            for (final ReadAheadUtxoInflater readAheadUtxoInflater : utxoInflaters) {
+                readAheadUtxoInflater.close();
+            }
         }
 
         nanoTimer.stop();
@@ -83,14 +152,14 @@ public class UtxoCommitmentLoader {
         );
     }
 
-    public MultisetHash calculateMultisetHash(final File file) {
+    public Tuple<MultisetHash, Boolean> calculateMultisetHash(final File file) {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
         final String filePath = file.getAbsolutePath();
         if ( (! file.exists()) || (! file.canRead()) ) {
             if (Util.areEqual(UtxoCommitment.EMPTY_BUCKET_NAME, file.getName())) {
-                return new MultisetHash(); // A non-existent file with the empty-bucket name has the hash at infinity.
+                return new Tuple<>(new MultisetHash(), true); // A non-existent file with the empty-bucket name has the hash at infinity.
             }
 
             Logger.debug("Unable to access loadFile: " + filePath);
@@ -98,6 +167,8 @@ public class UtxoCommitmentLoader {
         }
 
         final CommittedUnspentTransactionOutputInflater utxoInflater = new CommittedUnspentTransactionOutputInflater();
+
+        TransactionOutputIdentifier minOutputIdentifier = TransactionOutputIdentifier.COINBASE;
 
         int utxoCount = 0;
         final MultisetHash multisetHash = new MultisetHash();
@@ -108,6 +179,14 @@ public class UtxoCommitmentLoader {
             while (true) {
                 final CommittedUnspentTransactionOutput unspentTransactionOutput = utxoInflater.fromByteArrayReader(byteArrayStream);
                 if (unspentTransactionOutput == null) { break; }
+
+                // Check if the set is sorted.
+                if (minOutputIdentifier != null) { // NOTE: Once/if the set is determined to be NOT sorted, this check is disabled.
+                    final boolean isInSortedOrder = (CommittedUnspentTransactionOutput.compare(minOutputIdentifier, unspentTransactionOutput) <= 0);
+                    if (! isInSortedOrder) {
+                        minOutputIdentifier = null;
+                    }
+                }
 
                 multisetHash.addItem(unspentTransactionOutput.getBytes());
                 utxoCount += 1;
@@ -121,6 +200,7 @@ public class UtxoCommitmentLoader {
         nanoTimer.stop();
         Logger.trace("Calculated MultisetHash of " + file + ", containing " + utxoCount + " UTXOs, in " + nanoTimer.getMillisecondsElapsed() + "ms. " + multisetHash.getHash());
 
-        return multisetHash;
+        final boolean isSorted = (minOutputIdentifier != null);
+        return new Tuple<>(multisetHash, isSorted);
     }
 }
