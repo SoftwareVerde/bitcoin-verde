@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
+import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
@@ -155,6 +157,15 @@ public class UtxoCommitmentLoader {
     }
 
     public Tuple<MultisetHash, Boolean> calculateMultisetHash(final File file) {
+        return this.calculateMultisetHash(file, true);
+    }
+
+    /**
+     * Calculates the MultisetHash of the file containing Committed UTXOs.
+     *  If enableMultiThread is true then the calculation will be ran in parallel across all available processors, but
+     *  the entire file will be read into memory, and is therefore not well-suited for very large files.
+     */
+    public Tuple<MultisetHash, Boolean> calculateMultisetHash(final File file, final Boolean enableMultiThread) {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
@@ -178,10 +189,10 @@ public class UtxoCommitmentLoader {
             final FileInputStream inputStream = new FileInputStream(file);
             byteArrayStream.appendInputStream(inputStream);
 
+            final MutableList<ByteArray> byteArrays = new MutableList<>();
             while (true) {
                 final CommittedUnspentTransactionOutput unspentTransactionOutput = utxoInflater.fromByteArrayReader(byteArrayStream);
                 if (unspentTransactionOutput == null) { break; }
-
                 // Check if the set is sorted.
                 if (minOutputIdentifier != null) { // NOTE: Once/if the set is determined to be NOT sorted, this check is disabled.
                     final boolean isInSortedOrder = (CommittedUnspentTransactionOutput.compare(minOutputIdentifier, unspentTransactionOutput) <= 0);
@@ -190,8 +201,30 @@ public class UtxoCommitmentLoader {
                     }
                 }
 
-                multisetHash.addItem(unspentTransactionOutput.getBytes());
+                final ByteArray unspentTransactionOutputBytes = unspentTransactionOutput.getBytes();
+                if (enableMultiThread) {
+                    byteArrays.add(unspentTransactionOutputBytes);
+                }
+                else {
+                    multisetHash.addItem(unspentTransactionOutputBytes);
+                }
+
                 utxoCount += 1;
+            }
+
+            if (enableMultiThread) {
+                final Runtime runtime = Runtime.getRuntime();
+                final int threadCount = Math.max(1, (runtime.availableProcessors() / 2));
+                final int batchSize = (int) Math.ceil(((double) byteArrays.getCount()) / threadCount);
+                final BatchRunner<ByteArray> batchRunner = new BatchRunner<>(batchSize, true);
+                batchRunner.run(byteArrays, new BatchRunner.Batch<ByteArray>() {
+                    @Override
+                    public void run(final List<ByteArray> batchItems) {
+                        for (final ByteArray byteArray : batchItems) {
+                            multisetHash.addItem(byteArray);
+                        }
+                    }
+                });
             }
         }
         catch (final Exception exception) {
