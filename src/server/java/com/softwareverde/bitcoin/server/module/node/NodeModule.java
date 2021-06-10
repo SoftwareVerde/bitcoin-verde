@@ -140,6 +140,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -784,7 +785,7 @@ public class NodeModule {
         }
 
         _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
-        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore);
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _blockPruner);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -872,6 +873,38 @@ public class NodeModule {
                 }
             });
 
+            final long maxCommitmentBlockHeight;
+            final long minCommitmentBlockHeight;
+            final Container<Boolean> wasFastSyncCompleted = new Container<>(false);
+            {
+                long maxBlockHeight = 0L;
+                long minBlockHeight = Long.MAX_VALUE;
+                for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
+                    if (utxoCommitments.blockHeight > maxBlockHeight) {
+                        maxBlockHeight = utxoCommitments.blockHeight;
+                    }
+                    if (utxoCommitments.blockHeight < minBlockHeight) {
+                        minBlockHeight = utxoCommitments.blockHeight;
+                    }
+                }
+                maxCommitmentBlockHeight = maxBlockHeight;
+                minCommitmentBlockHeight = minBlockHeight;
+
+                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                    final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+                    if (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight) {
+                        wasFastSyncCompleted.value = true;
+                    }
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug(exception);
+                }
+            }
+
             _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
                 @Override
                 public void onNewHeadersReceived(final BitcoinNode bitcoinNode, final List<BlockHeader> blockHeaders) {
@@ -908,18 +941,13 @@ public class NodeModule {
                         }
                     }
 
-                    if (_bitcoinProperties.isFastSyncEnabled()) {
-                        long maxCommitmentBlockHeight = 0L;
-                        for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
-                            if (utxoCommitments.blockHeight > maxCommitmentBlockHeight) {
-                                maxCommitmentBlockHeight = utxoCommitments.blockHeight;
-                            }
-                        }
-
+                    if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
                         if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
-                            final Boolean didComplete = _utxoCommitmentDownloader.runSynchronously();
+                            final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
                             if (didComplete) {
+                                wasFastSyncCompleted.value = true;
                                 _blockDownloader.setPaused(false);
+                                _blockDownloader.wakeUp();
                             }
                         }
                     }

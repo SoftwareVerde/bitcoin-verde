@@ -4,10 +4,10 @@ import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentBreakdown;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.CommitAsyncMode;
@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeFilter;
 import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockPruner;
 import com.softwareverde.bitcoin.server.module.node.utxo.CommittedUnspentTransactionOutput;
 import com.softwareverde.bitcoin.server.module.node.utxo.CommittedUnspentTransactionOutputInflater;
 import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentLoader;
@@ -131,6 +132,8 @@ public class UtxoCommitmentDownloader {
     protected final UtxoCommitmentStore _utxoCommitmentStore;
     protected final UtxoCommitmentLoader _utxoCommitmentLoader = new UtxoCommitmentLoader();
     protected final AtomicBoolean _isRunning = new AtomicBoolean(false);
+    protected final AtomicBoolean _hasCompleted = new AtomicBoolean(false);
+    protected final BlockPruner _blockPruner;
 
     protected UtxoCommit _calculateUtxoCommitToDownload() {
         final ConcurrentHashMap<RequestId, Tuple<BitcoinNode, Pin>> requestPins = new ConcurrentHashMap<>();
@@ -399,16 +402,18 @@ public class UtxoCommitmentDownloader {
         }
     }
 
-    public UtxoCommitmentDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final UtxoCommitmentStore utxoCommitmentStore) {
+    public UtxoCommitmentDownloader(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager, final UtxoCommitmentStore utxoCommitmentStore, final BlockPruner blockPruner) {
         _databaseManagerFactory = databaseManagerFactory;
         _trustedUtxoCommitments = BitcoinConstants.getUtxoCommitments();
         _bitcoinNodeManager = bitcoinNodeManager;
         _utxoCommitmentStore = utxoCommitmentStore;
+        _blockPruner = blockPruner;
     }
 
-    public Boolean runSynchronously() {
+    public Boolean runOnceSynchronously() {
         final boolean wasNotRunning = _isRunning.compareAndSet(false, true);
         if (! wasNotRunning) { return false; }
+        if (_hasCompleted.get()) { return false; }
 
         final UtxoCommit utxoCommit = _calculateUtxoCommitToDownload();
         if (utxoCommit == null) {
@@ -512,6 +517,7 @@ public class UtxoCommitmentDownloader {
                     try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
                         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
+                        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
                         final Long blockHeight = utxoCommit.utxoCommitment.blockHeight;
 
@@ -519,16 +525,21 @@ public class UtxoCommitmentDownloader {
                         try {
                             unspentTransactionOutputDatabaseManager.clearCommittedUtxoSet();
                             multiTimer.mark("clearCommittedUtxoSet");
+
                             _utxoCommitmentLoader.loadFile(loadFileDestination, databaseConnection);
                             multiTimer.mark("loadFile");
+
                             unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(blockHeight);
                             unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(_databaseManagerFactory, CommitAsyncMode.BLOCK_UNTIL_COMPLETE);
                             multiTimer.mark("commitUtxoSet");
-                            databaseConnection.executeSql(
-                                new Query("UPDATE blocks SET has_transactions = 1 WHERE block_height <= ?")
-                                    .setParameter(blockHeight)
-                            );
-                            multiTimer.stop("setHeadBlock");
+
+                            blockDatabaseManager.setBlockHeight(blockHeight);
+                            multiTimer.mark("setBlockHeight");
+
+                            if (_blockPruner != null) {
+                                _blockPruner.setLastPrunedBlockHeight(blockHeight, databaseManager);
+                            }
+                            multiTimer.stop("setPrunedHeight");
                         }
                         finally {
                             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -543,6 +554,7 @@ public class UtxoCommitmentDownloader {
             }
         }
 
+        _hasCompleted.set(true);
         _isRunning.set(false);
         return true;
     }

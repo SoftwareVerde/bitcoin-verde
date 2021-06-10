@@ -281,6 +281,18 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     /**
+     * Sets all blocks below the provided blockHeight as processed.
+     *  This function is only intended to be used only for post-Utxo Commitment import.
+     */
+    public void setBlockHeight(final Long blockHeight) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        databaseConnection.executeSql(
+            new Query("UPDATE blocks SET has_transactions = 1 WHERE block_height <= ?")
+                .setParameter(blockHeight)
+        );
+    }
+
+    /**
      * Returns the Sha256Hash of the block that has the tallest block-height that has been validated (i.e. has transactions).
      */
     @Override

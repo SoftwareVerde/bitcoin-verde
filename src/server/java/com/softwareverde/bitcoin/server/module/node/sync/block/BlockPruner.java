@@ -69,6 +69,10 @@ public class BlockPruner extends SleepyService {
         }
     }
 
+    public void setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
+        _setLastPrunedBlockHeight(blockHeight, databaseManager);
+    }
+
     @Override
     protected void _onStart() { }
 
