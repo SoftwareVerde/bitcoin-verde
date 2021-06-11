@@ -388,7 +388,7 @@ public class DifficultyCalculatorUnitTests extends UnitTest {
     @Test
     public void should_activate_testnet_headers() {
         // Setup
-        final Json headersObjectJson = Json.parse(IoUtil.getResource("/aserti3-2d/test-net-headers.json"));
+        final Json headersObjectJson = Json.parse(IoUtil.getResource("/aserti3-2d/test_net_headers.json"));
 
         final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
         final UpgradeSchedule upgradeSchedule = new TestNetUpgradeSchedule() {

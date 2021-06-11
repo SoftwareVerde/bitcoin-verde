@@ -521,18 +521,26 @@ public class BlockProcessor {
         multiTimer.mark("mempool");
 
         if (_undoLogIsEnabled) {
-            // NOTE: UndoLog generation creates records within the pruned_previous_transaction_outputs table within a DB transaction, which causes a DB lock
-            //  until the transaction is committed.  Applying a block to the UTXO can trigger a UTXO commit, which will require a scan of the same table,
-            //  causing a deadlock.  Therefore, while UndoLog creation is now a background task, that task will be blocked until this transaction is committed,
-            //  so it is best that the UndoLog is created after the UTXO update.
-            final NanoTimer undoLogTimer = new NanoTimer();
-            undoLogTimer.start();
+            // Disable UndoLog if 288+ blocks behind head.
+            final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
+            final long currentBlockHeightLag = (headBlockHeight - blockHeight);
+            final boolean skipUndoLog = (currentBlockHeightLag > UndoLogDatabaseManager.MAX_REORG_DEPTH);
 
-            final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
-            undoLogDatabaseManager.createUndoLog(blockHeight, block, unspentTransactionOutputContext);
+            if (! skipUndoLog) {
+                // NOTE: UndoLog generation creates records within the pruned_previous_transaction_outputs table within a DB transaction, which causes a DB lock
+                //  until the transaction is committed.  Applying a block to the UTXO can trigger a UTXO commit, which will require a scan of the same table,
+                //  causing a deadlock.  Therefore, while UndoLog creation is now a background task, that task will be blocked until this transaction is committed,
+                //  so it is best that the UndoLog is created after the UTXO update.
+                final NanoTimer undoLogTimer = new NanoTimer();
+                undoLogTimer.start();
 
-            undoLogTimer.stop();
-            Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");
+                final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
+                undoLogDatabaseManager.createUndoLog(blockHeight, block, unspentTransactionOutputContext);
+
+                undoLogTimer.stop();
+                Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");
+            }
         }
         multiTimer.mark("undoLog");
 

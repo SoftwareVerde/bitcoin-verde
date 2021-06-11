@@ -15,20 +15,20 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-class Bucket implements AutoCloseable {
+class BucketFile implements AutoCloseable {
     protected static final int PAGE_SIZE = (int) (16L * ByteUtil.Unit.Binary.KIBIBYTES);
 
-    public static class SubBucket {
+    public static class SubBucketFile {
         public final PublicKey publicKey;
-        public final File file;
-        public final Long byteCount;
         public final Integer utxoCount;
+        public final Long byteCount;
+        public final File file;
 
-        public SubBucket(final PublicKey publicKey, final File file, final Long byteCount, final Integer utxoCount) {
+        public SubBucketFile(final PublicKey publicKey, final Integer utxoCount, final Long byteCount, final File file) {
             this.publicKey = publicKey;
-            this.file = file;
-            this.byteCount = byteCount;
             this.utxoCount = utxoCount;
+            this.byteCount = byteCount;
+            this.file = file;
         }
     }
 
@@ -42,7 +42,7 @@ class Bucket implements AutoCloseable {
     protected final File _protoFile;
     protected final Integer _index;
     protected final MultisetHash _bucketMultisetHash = new MultisetHash();
-    protected final MutableList<SubBucket> _subBuckets = new MutableList<>();
+    protected final MutableList<SubBucketFile> _subBuckets = new MutableList<>();
     protected final ConcurrentLinkedQueue<CommittedUnspentTransactionOutput> _queue;
 
     protected MultisetHash _multisetHash = new MultisetHash();
@@ -50,7 +50,7 @@ class Bucket implements AutoCloseable {
     protected Integer _utxoCount = 0;
     protected OutputStream _outputStream;
 
-    public Bucket(final Integer index, final String outputDirectory, final Long maxByteCountPerFile) {
+    public BucketFile(final Integer index, final String outputDirectory, final Long maxByteCountPerFile) {
         _outputDirectory = outputDirectory;
         _maxByteCountPerFile = maxByteCountPerFile;
 
@@ -68,7 +68,7 @@ class Bucket implements AutoCloseable {
         return _bucketMultisetHash.getPublicKey();
     }
 
-    public List<SubBucket> getSubBuckets() {
+    public List<SubBucketFile> getSubBuckets() {
         return _subBuckets;
     }
 
@@ -88,7 +88,7 @@ class Bucket implements AutoCloseable {
         if (! renameWasSuccessful) {
             throw new DatabaseException("Unable to create partial commit file: " + newFile.getAbsolutePath());
         }
-        final SubBucket subBucket = new SubBucket(publicKey, newFile, _bytesWritten, _utxoCount);
+        final SubBucketFile subBucket = new SubBucketFile(publicKey, _utxoCount, _bytesWritten, newFile);
 
         Logger.trace("Partial UTXO Commitment file created: " + newFile + ", " + _bytesWritten + " bytes, " + _utxoCount + " UTXOs.");
 
@@ -148,9 +148,9 @@ class Bucket implements AutoCloseable {
         if (_subBuckets.isEmpty()) {
             final MultisetHash emptyMultisetHash = new MultisetHash();
             final PublicKey publicKey = emptyMultisetHash.getPublicKey();
-            final File emptyFile = Bucket.getEmptyFile(_outputDirectory);
+            final File emptyFile = BucketFile.getEmptyFile(_outputDirectory);
 
-            final SubBucket emptyBucket = new SubBucket(publicKey, emptyFile, 0L, 0);
+            final SubBucketFile emptyBucket = new SubBucketFile(publicKey, 0, 0L, emptyFile);
             _subBuckets.add(emptyBucket);
         }
     }

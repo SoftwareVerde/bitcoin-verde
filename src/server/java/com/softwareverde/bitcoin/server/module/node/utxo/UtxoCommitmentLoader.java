@@ -11,7 +11,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayStream;
 import com.softwareverde.util.timer.NanoTimer;
@@ -156,7 +155,19 @@ public class UtxoCommitmentLoader {
         );
     }
 
-    public Tuple<MultisetHash, Boolean> calculateMultisetHash(final File file) {
+    public static class CalculateMultisetHashResult {
+        public final MultisetHash multisetHash;
+        public final Integer utxoCount;
+        public final Boolean isSorted;
+
+        public CalculateMultisetHashResult(final MultisetHash multisetHash, final Integer utxoCount, final Boolean isSorted) {
+            this.multisetHash = multisetHash;
+            this.utxoCount = utxoCount;
+            this.isSorted = isSorted;
+        }
+    }
+
+    public CalculateMultisetHashResult calculateMultisetHash(final File file) {
         return this.calculateMultisetHash(file, true);
     }
 
@@ -165,14 +176,14 @@ public class UtxoCommitmentLoader {
      *  If enableMultiThread is true then the calculation will be ran in parallel across all available processors, but
      *  the entire file will be read into memory, and is therefore not well-suited for very large files.
      */
-    public Tuple<MultisetHash, Boolean> calculateMultisetHash(final File file, final Boolean enableMultiThread) {
+    public CalculateMultisetHashResult calculateMultisetHash(final File file, final Boolean enableMultiThread) {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
         final String filePath = file.getAbsolutePath();
         if ( (! file.exists()) || (! file.canRead()) ) {
             if (Util.areEqual(UtxoCommitment.EMPTY_BUCKET_NAME, file.getName())) {
-                return new Tuple<>(new MultisetHash(), true); // A non-existent file with the empty-bucket name has the hash at infinity.
+                return new CalculateMultisetHashResult(new MultisetHash(), 0, true); // A non-existent file with the empty-bucket name has the hash at infinity.
             }
 
             Logger.debug("Unable to access loadFile: " + filePath);
@@ -236,6 +247,6 @@ public class UtxoCommitmentLoader {
         Logger.trace("Calculated MultisetHash of " + file + ", containing " + utxoCount + " UTXOs, in " + nanoTimer.getMillisecondsElapsed() + "ms. " + multisetHash.getHash());
 
         final boolean isSorted = (minOutputIdentifier != null);
-        return new Tuple<>(multisetHash, isSorted);
+        return new CalculateMultisetHashResult(multisetHash, utxoCount, isSorted);
     }
 }

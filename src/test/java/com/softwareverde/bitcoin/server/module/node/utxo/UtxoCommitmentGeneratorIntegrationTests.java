@@ -24,7 +24,6 @@ import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.MultisetHash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
-import com.softwareverde.util.Tuple;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -140,8 +139,8 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         final MultisetHash commitmentMultisetHash = new MultisetHash();
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
         for (final File inputFile : utxoCommitment.getFiles()) {
-            final Tuple<MultisetHash, Boolean> calculateMultisetHashResult = utxoCommitmentLoader.calculateMultisetHash(inputFile);
-            final MultisetHash multisetHash = calculateMultisetHashResult.first;
+            final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = utxoCommitmentLoader.calculateMultisetHash(inputFile);
+            final MultisetHash multisetHash = calculateMultisetHashResult.multisetHash;
             final PublicKey publicKey = multisetHash.getPublicKey();
             commitmentMultisetHash.add(publicKey);
             utxoBucketPublicKeys.add(publicKey);
@@ -230,8 +229,8 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         final MultisetHash commitmentMultisetHash = new MultisetHash();
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
         for (final File inputFile : utxoCommitment.getFiles()) {
-            final Tuple<MultisetHash, Boolean> calculateMultisetHashResult = utxoCommitmentLoader.calculateMultisetHash(inputFile);
-            final MultisetHash multisetHash = calculateMultisetHashResult.first;
+            final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = utxoCommitmentLoader.calculateMultisetHash(inputFile);
+            final MultisetHash multisetHash = calculateMultisetHashResult.multisetHash;
             final PublicKey publicKey = multisetHash.getPublicKey();
             commitmentMultisetHash.add(publicKey);
 
