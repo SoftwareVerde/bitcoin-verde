@@ -17,7 +17,7 @@ public class TransactionInputInflater {
         transactionInput._previousOutputTransactionHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
         transactionInput._previousOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
-        final Integer scriptByteCount = byteArrayReader.readVariableLengthInteger().intValue();
+        final int scriptByteCount = byteArrayReader.readVariableLengthInteger().intValue();
         if ( (scriptByteCount > Script.MAX_BYTE_COUNT) || (scriptByteCount < 0)) { return null; }
         transactionInput._unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG)));
         transactionInput._sequenceNumber = new ImmutableSequenceNumber(byteArrayReader.readLong(4, Endian.LITTLE));

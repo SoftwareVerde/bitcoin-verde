@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessage;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessageInflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
@@ -49,6 +51,9 @@ import com.softwareverde.bitcoin.server.message.type.query.response.transaction.
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
@@ -74,7 +79,7 @@ import com.softwareverde.util.HexUtil;
 import java.util.HashMap;
 import java.util.Map;
 
-public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
+public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory<BitcoinProtocolMessage> {
     protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
     protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
 
@@ -113,6 +118,9 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.ENABLE_SLP_TRANSACTIONS, new EnableSlpTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_SLP_STATUS, new QuerySlpStatusMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_UTXO_COMMITMENTS, new QueryUtxoCommitmentsMessageInflater());
+        _commandInflaterMap.put(MessageType.UTXO_COMMITMENTS, new UtxoCommitmentsMessageInflater());
+        _commandInflaterMap.put(MessageType.UTXO_COMMITMENT, new UtxoCommitmentMessageInflater());
     }
 
     @Override
@@ -213,6 +221,14 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
 
     public RequestDataMessage newRequestDataMessage() {
         return new RequestDataMessage();
+    }
+
+    public QueryUtxoCommitmentsMessage newQueryUtxoCommitmentsMessage() {
+        return new QueryUtxoCommitmentsMessage();
+    }
+
+    public UtxoCommitmentMessage newUtxoCommitmentMessage() {
+        return new UtxoCommitmentMessage();
     }
 
     public EnableCompactBlocksMessage newEnableCompactBlocksMessage() {

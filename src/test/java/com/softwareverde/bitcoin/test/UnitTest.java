@@ -9,6 +9,7 @@ public class UnitTest {
         Logger.setLog(LineNumberAnnotatedLog.getInstance());
         Logger.setLogLevel(LogLevel.ON);
         Logger.setLogLevel("com.softwareverde.concurrent.lock.IndexLock", LogLevel.ERROR);
+        Logger.setLogLevel("com.softwareverde.cryptography.secp256k1", LogLevel.ERROR);
     }
 
     public void before() throws Exception { }

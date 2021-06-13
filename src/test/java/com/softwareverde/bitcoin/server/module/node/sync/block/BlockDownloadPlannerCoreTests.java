@@ -312,4 +312,9 @@ class MockBlockStore implements FakeBlockStore {
     public String getDataDirectory() {
         return null;
     }
+
+    @Override
+    public String getBlockDataDirectory() {
+        return null;
+    }
 }

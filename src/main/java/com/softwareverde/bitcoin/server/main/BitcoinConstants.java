@@ -2,7 +2,11 @@ package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.AsertReferenceBlock;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -51,6 +55,8 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
+    protected static List<UtxoCommitmentMetadata> UTXO_COMMITMENTS;
+
     protected static AsertReferenceBlock ASERT_REFERENCE_BLOCK = new AsertReferenceBlock(
         661647L,
         1605447844L,
@@ -87,6 +93,9 @@ public class BitcoinConstants {
         final Integer defaultProtocolVersion = 70015;
         final String defaultUserAgent = "/Bitcoin Verde:2.0.1/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
+        final String utxoCommitmentsString =
+            "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897,3908702538;" +
+            "000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535,690000,21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F,4456621219";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
@@ -100,6 +109,23 @@ public class BitcoinConstants {
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", String.valueOf(defaultProtocolVersion)), defaultProtocolVersion);
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
+
+        { // Parse UTXO commitments...
+            final ImmutableListBuilder<UtxoCommitmentMetadata> utxoCommitments = new ImmutableListBuilder<>();
+            final String loadedProperty = System.getProperty("UTXO_COMMITMENTS", utxoCommitmentsString);
+            for (final String commitmentTupleString : loadedProperty.split(";")) {
+                final String[] hashesString = commitmentTupleString.split(",");
+                if (hashesString.length != 4) { continue; }
+
+                final Sha256Hash blockHash = Sha256Hash.fromHexString(hashesString[0]);
+                final Long blockHeight = Util.parseLong(hashesString[1]);
+                final Sha256Hash multisetHash = Sha256Hash.fromHexString(hashesString[2]);
+                final Long byteCount = Util.parseLong(hashesString[3]);
+
+                utxoCommitments.add(new UtxoCommitmentMetadata(blockHash, blockHeight, multisetHash, byteCount));
+            }
+            UTXO_COMMITMENTS = utxoCommitments.build();
+        }
     }
 
     public static void configureForNetwork(final NetworkType networkType) {
@@ -335,6 +361,10 @@ public class BitcoinConstants {
         }
 
         COINBASE_MESSAGE = coinbaseMessage;
+    }
+
+    public static List<UtxoCommitmentMetadata> getUtxoCommitments() {
+        return UTXO_COMMITMENTS;
     }
 
     protected BitcoinConstants() { }

@@ -61,7 +61,12 @@ public class TestUtil {
             final HashMap<String, Object> debugValues = new HashMap<String, Object>();
             for (final String columnName : row.getColumnNames()) {
                 final TypedParameter typedParameter = values.get(columnName);
-                debugValues.put(columnName, typedParameter.value);
+                if (typedParameter.value instanceof byte[]) {
+                    debugValues.put(columnName, HexUtil.toHexString((byte[]) typedParameter.value));
+                }
+                else {
+                    debugValues.put(columnName, typedParameter.value);
+                }
             }
             debugRows[i] = debugValues;
             i += 1;

@@ -1,11 +1,12 @@
 package com.softwareverde.util.timer;
 
-import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 
-import java.util.LinkedList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MultiTimer {
-    protected final LinkedList<Tuple<String, NanoTimer>> _laps = new LinkedList<>();
+    protected final HashMap<String, Double> _laps = new HashMap<>();
     protected NanoTimer _currentTimer = null;
 
     public void start() {
@@ -16,7 +17,9 @@ public class MultiTimer {
     public void mark(final String label) {
         if (_currentTimer != null) {
             _currentTimer.stop();
-            _laps.add(new Tuple<>(label, _currentTimer));
+            final Double oldMsElapsed = Util.coalesce(_laps.get(label), 0D);
+            final Double msElapsed = (oldMsElapsed + _currentTimer.getMillisecondsElapsed());
+            _laps.put(label, msElapsed);
         }
 
         _currentTimer = new NanoTimer();
@@ -26,7 +29,9 @@ public class MultiTimer {
     public void stop(final String label) {
         if (_currentTimer != null) {
             _currentTimer.stop();
-            _laps.add(new Tuple<>(label, _currentTimer));
+            final Double oldMsElapsed = Util.coalesce(_laps.get(label), 0D);
+            final Double msElapsed = (oldMsElapsed + _currentTimer.getMillisecondsElapsed());
+            _laps.put(label, msElapsed);
         }
     }
 
@@ -35,14 +40,14 @@ public class MultiTimer {
         final StringBuilder stringBuilder = new StringBuilder();
 
         String delimiter = "";
-        for (final Tuple<String, NanoTimer> tuple : _laps) {
-            final String label = tuple.first;
-            final NanoTimer nanoTimer = tuple.second;
+        for (final Map.Entry<String, Double> tuple : _laps.entrySet()) {
+            final String label = tuple.getKey();
+            final Double msElapsed = tuple.getValue();
 
             stringBuilder.append(delimiter);
             stringBuilder.append(label);
             stringBuilder.append("=");
-            stringBuilder.append(nanoTimer.getMillisecondsElapsed());
+            stringBuilder.append(msElapsed);
             stringBuilder.append("ms");
 
             delimiter = ", ";

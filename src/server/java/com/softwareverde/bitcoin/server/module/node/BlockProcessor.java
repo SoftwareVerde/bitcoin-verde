@@ -24,7 +24,6 @@ import com.softwareverde.bitcoin.context.lazy.CachingMedianBlockTimeContext;
 import com.softwareverde.bitcoin.context.lazy.LazyBlockValidatorContext;
 import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.inflater.TransactionInflaters;
-import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
@@ -73,6 +72,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
     protected Boolean _undoLogIsEnabled = false;
+    protected Long _headBlockHeight = 0L;
 
     protected Long _utxoCommitFrequency = 2016L;
     protected Integer _maxThreadCount = 4;
@@ -521,18 +521,26 @@ public class BlockProcessor {
         multiTimer.mark("mempool");
 
         if (_undoLogIsEnabled) {
-            // NOTE: UndoLog generation creates records within the pruned_previous_transaction_outputs table within a DB transaction, which causes a DB lock
-            //  until the transaction is committed.  Applying a block to the UTXO can trigger a UTXO commit, which will require a scan of the same table,
-            //  causing a deadlock.  Therefore, while UndoLog creation is now a background task, that task will be blocked until this transaction is committed,
-            //  so it is best that the UndoLog is created after the UTXO update.
-            final NanoTimer undoLogTimer = new NanoTimer();
-            undoLogTimer.start();
+            // Disable UndoLog if 288+ blocks behind head.
+            final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
+            final long currentBlockHeightLag = (headBlockHeight - blockHeight);
+            final boolean skipUndoLog = (currentBlockHeightLag > UndoLogDatabaseManager.MAX_REORG_DEPTH);
 
-            final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
-            undoLogDatabaseManager.createUndoLog(blockHeight, block, unspentTransactionOutputContext);
+            if (! skipUndoLog) {
+                // NOTE: UndoLog generation creates records within the pruned_previous_transaction_outputs table within a DB transaction, which causes a DB lock
+                //  until the transaction is committed.  Applying a block to the UTXO can trigger a UTXO commit, which will require a scan of the same table,
+                //  causing a deadlock.  Therefore, while UndoLog creation is now a background task, that task will be blocked until this transaction is committed,
+                //  so it is best that the UndoLog is created after the UTXO update.
+                final NanoTimer undoLogTimer = new NanoTimer();
+                undoLogTimer.start();
 
-            undoLogTimer.stop();
-            Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");
+                final UndoLogDatabaseManager undoLogDatabaseManager = new UndoLogDatabaseManager(databaseManager);
+                undoLogDatabaseManager.createUndoLog(blockHeight, block, unspentTransactionOutputContext);
+
+                undoLogTimer.stop();
+                Logger.debug("Created UndoLog in " + (String.format("%.2f", undoLogTimer.getMillisecondsElapsed())) + "ms.");
+            }
         }
         multiTimer.mark("undoLog");
 
@@ -575,6 +583,11 @@ public class BlockProcessor {
         Logger.debug("Block Height: " + blockHeight);
         Logger.info("Processed Block with " + transactionCount + " transactions in " + (String.format("%.2f", processBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / processBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
 
+        final boolean blockIsOnMainChain = blockIsConnectedToUtxoSet;
+        if (blockIsOnMainChain) {
+            _headBlockHeight = Math.max(_headBlockHeight, blockHeight);
+        }
+
         return ProcessBlockResult.valid(block, blockHeight, bestBlockchainHasChanged, false);
     }
 
@@ -586,7 +599,6 @@ public class BlockProcessor {
      */
     public ProcessBlockResult processBlock(final Block block) { return this.processBlock(block, null); }
     public ProcessBlockResult processBlock(final Block block, final UnspentTransactionOutputContext preLoadedUnspentTransactionOutputContext) {
-        final SynchronizationStatus synchronizationStatus = _context.getSynchronizationStatus();
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -629,5 +641,9 @@ public class BlockProcessor {
 
     public void enableUndoLog(final Boolean undoLogIsEnabled) {
         _undoLogIsEnabled = undoLogIsEnabled;
+    }
+
+    public Long getCurrentBlockHeight() {
+        return _headBlockHeight;
     }
 }

@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.block.validator.difficulty.TestNetDifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorContext;
 import com.softwareverde.bitcoin.context.DifficultyCalculatorFactory;
 import com.softwareverde.bitcoin.context.TransactionOutputIndexerContext;
@@ -32,6 +33,7 @@ import com.softwareverde.bitcoin.server.configuration.TestNetCheckpointConfigura
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.DatabaseMaintainer;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.memory.LowMemoryMonitor;
 import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -55,6 +57,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.QueryUtxoCommitmentsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SpvUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
@@ -88,6 +91,8 @@ import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.UtxoCacheHandler;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainIndexer;
@@ -98,10 +103,12 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockPruner;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.FullNodeHeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
+import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.UtxoCommitmentDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeBlockInventoryTracker;
 import com.softwareverde.bitcoin.server.module.node.sync.inventory.BitcoinNodeHeadBlockFinder;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
+import com.softwareverde.bitcoin.server.module.node.utxo.UtxoCommitmentGenerator;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.node.RequestId;
@@ -133,6 +140,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -169,14 +177,15 @@ public class NodeModule {
     protected final RequestDataHandler _requestDataHandler;
     protected final RequestDataHandlerMonitor _transactionWhitelist;
     protected final BlockPruner _blockPruner;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
+    protected final UtxoCommitmentGenerator _utxoCommitmentGenerator;
+    protected final UtxoCommitmentDownloader _utxoCommitmentDownloader;
     protected final List<SleepyService> _allServices;
 
     protected final BitcoinNodeFactory _bitcoinNodeFactory;
     protected final DifficultyCalculatorFactory _difficultyCalculatorFactory;
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
-
-    protected final String _transactionBloomFilterFilename;
 
     protected final CachedThreadPool _generalThreadPool;
     protected final CachedThreadPool _networkThreadPool;
@@ -209,7 +218,7 @@ public class NodeModule {
         {
             final Database database = _environment.getDatabase();
             final DatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabaseConnectionFactory();
-            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration);
+            databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration);
         }
 
         Logger.info("[Stopping Request Handler]");
@@ -227,6 +236,9 @@ public class NodeModule {
             Logger.info("[Stopping Blockchain Indexer]");
             _blockchainIndexer.stop();
         }
+
+        Logger.info("[Stopping UTXO Commitment Generator]");
+        _utxoCommitmentGenerator.stop();
 
         Logger.info("[Stopping Transaction Processor]");
         _transactionProcessor.stop();
@@ -353,7 +365,7 @@ public class NodeModule {
             }
         }
 
-        { // Initialize the BlockCache...
+        { // Initialize the BlockStore...
             final String dataDirectory = bitcoinProperties.getDataDirectory();
             final BlockHeaderInflaters blockHeaderInflaters = _masterInflater;
             final BlockInflaters blockInflaters = _masterInflater;
@@ -365,6 +377,17 @@ public class NodeModule {
                     }
                 }
             };
+        }
+
+        { // Initialize the UtxoCommitmentStore...
+            final String dataDirectory = bitcoinProperties.getDataDirectory();
+            _utxoCommitmentStore = new UtxoCommitmentStoreCore(dataDirectory);
+
+            final String utxoCommitmentOutputDirectory = _utxoCommitmentStore.getUtxoDataDirectory();
+            final File utxoCommitmentOutputDirectoryFile = new File(utxoCommitmentOutputDirectory);
+            if (! utxoCommitmentOutputDirectoryFile.exists()) {
+                utxoCommitmentOutputDirectoryFile.mkdirs();
+            }
         }
 
         { // Block Checkpoints
@@ -397,6 +420,7 @@ public class NodeModule {
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
+            _utxoCommitmentStore,
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
@@ -441,6 +465,7 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
                 nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
                 nodeFeatures.enableFeature(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED); // BitcoinVerde 2021-04-27
+                nodeFeatures.enableFeature(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED); // BitcoinVerde 2021-05-26
 
                 if (! pruningModeIsEnabled) {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
@@ -512,6 +537,7 @@ public class NodeModule {
             nodeInitializerContext.requestDataHandler = _transactionWhitelist;
             nodeInitializerContext.requestSpvBlocksHandler = new RequestSpvBlocksHandler(databaseManagerFactory, spvUnconfirmedTransactionsHandler);
             nodeInitializerContext.requestSlpTransactionsHandler = new RequestSlpTransactionsHandler(databaseManagerFactory);
+            nodeInitializerContext.queryUtxoCommitmentsHandler = new QueryUtxoCommitmentsHandler(databaseManagerFactory);
             nodeInitializerContext.requestUnconfirmedTransactionsHandler = new QueryUnconfirmedTransactionsHandler(databaseManagerFactory);
 
             nodeInitializerContext.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
@@ -662,7 +688,17 @@ public class NodeModule {
         }
 
         if (pruningModeIsEnabled) {
-            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore);
+            _blockPruner = new BlockPruner(databaseManagerFactory, _blockStore, new BlockPruner.RequiredBlockChecker() {
+                @Override
+                public Boolean isBlockRequired(final Long blockHeight, final Sha256Hash blockHash) {
+                    final boolean utxoCommitmentGeneratorRequiresBlock = _utxoCommitmentGenerator.requiresBlock(blockHeight, blockHash);
+                    if (utxoCommitmentGeneratorRequiresBlock) { return true; }
+
+                    final long pruneBlockHeightLag = UndoLogDatabaseManager.MAX_REORG_DEPTH;
+                    final Long currentBlockHeight = blockProcessor.getCurrentBlockHeight();
+                    return (blockHeight < (currentBlockHeight - pruneBlockHeightLag));
+                }
+            });
         }
         else {
             _blockPruner = null;
@@ -685,6 +721,10 @@ public class NodeModule {
             }
 
             _blockDownloader = new BlockDownloader(_blockStore, bitcoinNodeCollector, blockInventoryTracker, blockDownloadPlanner, _generalThreadPool);
+
+            if (_bitcoinProperties.isFastSyncEnabled()) {
+                _blockDownloader.setPaused(true);
+            }
 
             final int maxConcurrentDownloadCount = bitcoinProperties.getMinPeerCount();
             final int maxConcurrentDownloadCountPerNode = 2;
@@ -743,6 +783,9 @@ public class NodeModule {
                 }
             });
         }
+
+        _utxoCommitmentGenerator = new UtxoCommitmentGenerator(databaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
+        _utxoCommitmentDownloader = new UtxoCommitmentDownloader(databaseManagerFactory, _bitcoinNodeManager, _utxoCommitmentStore, _utxoCommitmentGenerator, _blockPruner);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setAsynchronousNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -820,8 +863,47 @@ public class NodeModule {
                     if (pruningModeIsEnabled) { // Handle Block Pruning...
                         _blockPruner.wakeUp();
                     }
+
+                    _generalThreadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            _utxoCommitmentGenerator.wakeUp();
+                        }
+                    });
                 }
             });
+
+            final long maxCommitmentBlockHeight;
+            final long minCommitmentBlockHeight;
+            final Container<Boolean> wasFastSyncCompleted = new Container<>(false);
+            {
+                long maxBlockHeight = 0L;
+                long minBlockHeight = Long.MAX_VALUE;
+                for (final UtxoCommitmentMetadata utxoCommitments : BitcoinConstants.getUtxoCommitments()) {
+                    if (utxoCommitments.blockHeight > maxBlockHeight) {
+                        maxBlockHeight = utxoCommitments.blockHeight;
+                    }
+                    if (utxoCommitments.blockHeight < minBlockHeight) {
+                        minBlockHeight = utxoCommitments.blockHeight;
+                    }
+                }
+                maxCommitmentBlockHeight = maxBlockHeight;
+                minCommitmentBlockHeight = minBlockHeight;
+
+                try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
+                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                    final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+                    if (Util.coalesce(headBlockHeight) >= minCommitmentBlockHeight) {
+                        wasFastSyncCompleted.value = true;
+                    }
+                }
+                catch (final DatabaseException exception) {
+                    Logger.debug(exception);
+                }
+            }
 
             _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new BlockHeaderDownloader.NewBlockHeadersAvailableCallback() {
                 @Override
@@ -840,6 +922,8 @@ public class NodeModule {
                     // TODO: If the BlockHeader(s) are on the main chain and the node is (mostly) synced, then prioritize the download
                     //  of the new block via BlockDownloader::requestBlock(blockHash, 0L, bitcoinNode)
 
+                    final Long blockHeaderDownloaderBlockHeight = Util.coalesce(_blockHeaderDownloader.getBlockHeight());
+
                     if (synchronizationStatusHandler.getState() == State.ONLINE) {
                         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
                             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -848,12 +932,23 @@ public class NodeModule {
                             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                             final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
-                            if (Util.coalesce(_blockHeaderDownloader.getBlockHeight()) > Util.coalesce(headBlockHeight, -1L)) {
+                            if (blockHeaderDownloaderBlockHeight > Util.coalesce(headBlockHeight, -1L)) {
                                 synchronizationStatusHandler.setState(State.SYNCHRONIZING);
                             }
                         }
                         catch (final DatabaseException exception) {
                             Logger.warn(exception);
+                        }
+                    }
+
+                    if ( _bitcoinProperties.isFastSyncEnabled() && (! wasFastSyncCompleted.value) ) {
+                        if (blockHeaderDownloaderBlockHeight >= maxCommitmentBlockHeight) {
+                            final Boolean didComplete = _utxoCommitmentDownloader.runOnceSynchronously();
+                            if (didComplete) {
+                                wasFastSyncCompleted.value = true;
+                                _blockDownloader.setPaused(false);
+                                _blockDownloader.wakeUp();
+                            }
                         }
                     }
                 }
@@ -963,6 +1058,7 @@ public class NodeModule {
             listBuilder.add(_blockchainBuilder);
             listBuilder.add(_blockDownloader);
             listBuilder.add(_blockHeaderDownloader);
+            listBuilder.add(_utxoCommitmentGenerator);
             if (_blockPruner != null) {
                 listBuilder.add(_blockPruner);
             }
@@ -1041,8 +1137,6 @@ public class NodeModule {
             final Boolean shouldRelayInvalidSlpTransactions = _bitcoinProperties.isInvalidSlpTransactionRelayEnabled();
             _transactionRelay = new TransactionRelay(databaseManagerFactory, _bitcoinNodeManager, _nodeRpcHandler, shouldRelayInvalidSlpTransactions, 100L);
         }
-
-        _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_DIRECTORY_NAME + "/transaction-bloom-filter");
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -1149,6 +1243,7 @@ public class NodeModule {
             databaseConnectionFactory,
             database.getMaxQueryBatchSize(),
             _blockStore,
+            _utxoCommitmentStore,
             _masterInflater,
             _checkpointConfiguration,
             _bitcoinProperties.getMaxCachedUtxoCount(),
@@ -1171,7 +1266,12 @@ public class NodeModule {
 
                 if (_rebuildUtxoSet) {
                     Logger.info("Rebuilding UTXO set from genesis.");
-                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory);
+                    unspentTransactionOutputManager.rebuildUtxoSetFromGenesisBlock(databaseManagerFactory, UndoLogDatabaseManager.MAX_REORG_DEPTH.longValue(), new Runnable() {
+                        @Override
+                        public void run() {
+                            _utxoCommitmentGenerator.wakeUp();
+                        }
+                    });
                 }
                 else {
                     unspentTransactionOutputManager.buildUtxoSet(databaseManagerFactory);
@@ -1309,6 +1409,9 @@ public class NodeModule {
 
         Logger.info("[Starting Transaction Relay]");
         _transactionRelay.start();
+
+        Logger.info("[Starting UTXO Commitment Generator]");
+        _utxoCommitmentGenerator.start();
 
         if (! (_blockchainIndexer instanceof DisabledBlockchainIndexer)) {
             Logger.info("[Starting Blockchain Indexer]");

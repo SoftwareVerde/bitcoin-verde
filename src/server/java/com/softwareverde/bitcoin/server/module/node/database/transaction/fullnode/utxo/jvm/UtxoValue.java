@@ -8,19 +8,22 @@ public class UtxoValue {
     public final int spentStateCode;
     public final long blockHeight;
     public final long amount;
+    public final boolean isCoinbase;
     public final byte[] lockingScript;
 
-    public UtxoValue(final JvmSpentState jvmSpentState, final long blockHeight, final Object dummy) {
-        this(jvmSpentState.intValue(), blockHeight, SPENT_AMOUNT, null);
+    // Spent Output Constructor
+    public UtxoValue(final JvmSpentState jvmSpentState, final long blockHeight, final boolean isCoinbase, final Object dummy) {
+        this(jvmSpentState.intValue(), blockHeight, isCoinbase, SPENT_AMOUNT, null);
     }
 
-    public UtxoValue(final JvmSpentState jvmSpentState, final long blockHeight, final long amount, final byte[] lockingScript) {
-        this(jvmSpentState.intValue(), blockHeight, amount, lockingScript);
+    public UtxoValue(final JvmSpentState jvmSpentState, final long blockHeight, final boolean isCoinbase, final long amount, final byte[] lockingScript) {
+        this(jvmSpentState.intValue(), blockHeight, isCoinbase, amount, lockingScript);
     }
 
-    public UtxoValue(final int spentStateCode, final long blockHeight, final long amount, final byte[] lockingScript) {
+    public UtxoValue(final int spentStateCode, final long blockHeight, final boolean isCoinbase, final long amount, final byte[] lockingScript) {
         this.spentStateCode = spentStateCode;
         this.blockHeight = blockHeight;
+        this.isCoinbase = isCoinbase;
         this.amount = amount;
         this.lockingScript = lockingScript;
     }

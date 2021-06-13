@@ -14,4 +14,5 @@ public interface BlockStore {
     Boolean blockExists(Sha256Hash blockHash, Long blockHeight);
     ByteArray readFromBlock(Sha256Hash blockHash, Long blockHeight, Long diskOffset, Integer byteCount);
     String getDataDirectory();
+    String getBlockDataDirectory();
 }

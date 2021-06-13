@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.context.UnspentTransactionOutputContext;
-import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -14,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnod
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.ImmutableUnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -32,10 +32,9 @@ import java.util.HashSet;
 import java.util.Map;
 
 public class MutableUnspentTransactionOutputSet implements UnspentTransactionOutputContext {
-    protected final HashMap<TransactionOutputIdentifier, TransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, TransactionOutput>();
-    protected final HashMap<Sha256Hash, Long> _transactionBlockHeights = new HashMap<Sha256Hash, Long>();
-    protected final HashMap<Long, Sha256Hash> _coinbaseTransactionHashesByBlockHeight = new HashMap<Long, Sha256Hash>();
-    protected final HashMap<Long, Sha256Hash> _blockHashesByBlockHeight = new HashMap<Long, Sha256Hash>();
+    protected final HashMap<TransactionOutputIdentifier, UnspentTransactionOutput> _transactionOutputs = new HashMap<>();
+    protected final HashMap<Sha256Hash, Long> _transactionBlockHeights = new HashMap<>();
+    protected final HashMap<Long, Sha256Hash> _blockHashesByBlockHeight = new HashMap<>();
 
     public MutableUnspentTransactionOutputSet() { }
 
@@ -89,10 +88,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             final Boolean isBlockLoaded = blockDatabaseManager.hasTransactions(blockId);
             if (! isBlockLoaded) { break; }
 
-            final Block block = blockDatabaseManager.getBlock(blockId);
-            utxoUndoLog.redoBlock(block);
-
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            final Block block = blockDatabaseManager.getBlock(blockId);
+            utxoUndoLog.applyBlock(block, blockHeight);
+
             final List<Transaction> blockTransactions = block.getTransactions();
             for (final Transaction transaction : blockTransactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
@@ -104,7 +103,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         boolean allOutputsWereFound = true;
         for (final TransactionOutputIdentifier transactionOutputIdentifier : requiredTransactionOutputs) {
-            final TransactionOutput transactionOutput = utxoUndoLog.getUnspentTransactionOutput(transactionOutputIdentifier);
+            final UnspentTransactionOutput transactionOutput = utxoUndoLog.getUnspentTransactionOutput(transactionOutputIdentifier);
             if (transactionOutput == null) {
                 if (allOutputsWereFound) {
                     Logger.debug("Missing UTXO: " + transactionOutputIdentifier);
@@ -130,7 +129,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
 
@@ -189,11 +188,6 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
             }
         }
         multiTimer.mark("blockTxns");
-
-        if (coinbaseTransaction != null) {
-            final Sha256Hash coinbaseTransactionHash = coinbaseTransaction.getHash();
-            _coinbaseTransactionHashesByBlockHeight.put(blockHeight, coinbaseTransactionHash);
-        }
 
         requiredTransactionOutputs.removeAll(newOutputs); // New outputs created by this block are not added to this UTXO set.
         multiTimer.mark("excludeOutputs");
@@ -277,14 +271,10 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
 
     @Override
     public Boolean isCoinbaseTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-        final Long blockHeight = _transactionBlockHeights.get(transactionHash);
-        if (blockHeight == null) { return null; }
+        final UnspentTransactionOutput transactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+        if (transactionOutput == null) { return null; }
 
-        final Sha256Hash blockCoinbaseTransactionHash = _coinbaseTransactionHashesByBlockHeight.get(blockHeight);
-        if (blockCoinbaseTransactionHash == null) { return null; }
-
-        return Util.areEqual(blockCoinbaseTransactionHash, transactionHash);
+        return transactionOutput.isCoinbase();
     }
 
     /**
@@ -299,10 +289,6 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
         Transaction coinbaseTransaction = null;
         { // Add the new outputs created by the block...
             for (final Transaction transaction : transactions) {
-                if (coinbaseTransaction == null) {
-                    coinbaseTransaction = transaction;
-                }
-
                 final Sha256Hash transactionHash = transaction.getHash();
                 _transactionBlockHeights.put(transactionHash, blockHeight);
 
@@ -310,15 +296,16 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
                 final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
                 for (final TransactionOutput transactionOutput : transactionOutputs) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                    _transactionOutputs.put(transactionOutputIdentifier, transactionOutput);
+                    final Boolean isCoinbase = (coinbaseTransaction == null);
+                    final UnspentTransactionOutput unspentTransactionOutput = new ImmutableUnspentTransactionOutput(transactionOutput, blockHeight, isCoinbase);
+                    _transactionOutputs.put(transactionOutputIdentifier, unspentTransactionOutput);
                     outputIndex += 1;
                 }
-            }
-        }
 
-        if (coinbaseTransaction != null) {
-            final Sha256Hash coinbaseTransactionHash = coinbaseTransaction.getHash();
-            _coinbaseTransactionHashesByBlockHeight.put(blockHeight, coinbaseTransactionHash);
+                if (coinbaseTransaction == null) {
+                    coinbaseTransaction = transaction;
+                }
+            }
         }
 
         { // Remove the spent PreviousTransactionOutputs from the list of outputs to retrieve...
@@ -335,6 +322,5 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     public synchronized void clear() {
         _transactionOutputs.clear();
         _transactionBlockHeights.clear();
-        _coinbaseTransactionHashesByBlockHeight.clear();
     }
 }

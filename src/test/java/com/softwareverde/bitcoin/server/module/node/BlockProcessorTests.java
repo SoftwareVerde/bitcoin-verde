@@ -680,7 +680,7 @@ public class BlockProcessorTests extends IntegrationTest {
         final TransactionInflaters transactionInflaters = _masterInflater;
         final FakeBlockInflaters blockInflaters = new FakeBlockInflaters();
 
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _masterInflater, _checkpointConfiguration) {
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(_databaseConnectionFactory, _database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration) {
             protected final HashMap<Sha256Hash, TransactionId> _transactionIds = new HashMap<>();
             protected final HashMap<TransactionId, Transaction> _transactions = new HashMap<>();
 
@@ -706,7 +706,7 @@ public class BlockProcessorTests extends IntegrationTest {
             @Override
             public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
                 final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent) {{
+                return new FullNodeDatabaseManager(databaseConnection, _maxQueryBatchSize, _blockStore, _utxoCommitmentStore, _masterInflater, _checkpointConfiguration, _maxUtxoCount, _utxoPurgePercent) {{
                     _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this, _blockStore, _masterInflater) {
                         @Override
                         public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
@@ -889,7 +889,7 @@ public class BlockProcessorTests extends IntegrationTest {
                 _addRequiredUtxos(block663750_B, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, true);
                 _addRequiredUtxos(block663750_A, requiredTransactionOutputIdentifiers, requiredTransactionOutputs, false);
 
-                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L);
+                unspentTransactionOutputDatabaseManager.insertUnspentTransactionOutputs(requiredTransactionOutputIdentifiers, requiredTransactionOutputs, 663749L, null);
                 unspentTransactionOutputDatabaseManager.setUncommittedUnspentTransactionOutputBlockHeight(663749L);
                 unspentTransactionOutputDatabaseManager.commitUnspentTransactionOutputs(databaseManagerFactory, CommitAsyncMode.BLOCK_IF_BUSY);
             }

@@ -48,6 +48,7 @@ public class MutableTransactionOutput implements TransactionOutput {
 
     public void setLockingScript(final ByteArray bytes) {
         _lockingScript = new ImmutableLockingScript(bytes);
+        _cachedHashCode = null;
     }
 
     @Override

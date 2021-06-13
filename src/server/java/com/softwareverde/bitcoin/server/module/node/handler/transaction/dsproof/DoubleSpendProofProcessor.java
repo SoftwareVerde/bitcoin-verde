@@ -48,6 +48,7 @@ public class DoubleSpendProofProcessor {
         { // Acquire chain state data for validation...
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
             headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            if (headBlockHeight == null) { return null; } // Can happen during during fast-sync...
 
             final Long previousBlockHeight = (headBlockHeight - 1L);
             medianTimePast = _context.getMedianBlockTime(previousBlockHeight);

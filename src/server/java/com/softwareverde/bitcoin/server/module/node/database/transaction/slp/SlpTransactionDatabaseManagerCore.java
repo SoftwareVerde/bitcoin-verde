@@ -7,13 +7,9 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
-import com.softwareverde.util.Util;
-
-import java.util.LinkedHashMap;
 
 public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabaseManager {
     protected static final String LAST_SLP_VALIDATED_BLOCK_ID_KEY = "last_slp_validated_block_id";

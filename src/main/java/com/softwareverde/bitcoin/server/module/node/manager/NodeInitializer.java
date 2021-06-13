@@ -25,6 +25,7 @@ public class NodeInitializer {
         public BitcoinNode.RequestDataHandler requestDataHandler;
         public BitcoinNode.RequestSpvBlocksHandler requestSpvBlocksHandler;
         public BitcoinNode.RequestSlpTransactionsHandler requestSlpTransactionsHandler;
+        public BitcoinNode.QueryUtxoCommitmentsHandler queryUtxoCommitmentsHandler;
         public ThreadPoolFactory threadPoolFactory;
         public LocalNodeFeatures localNodeFeatures;
         public BitcoinNode.RequestPeersHandler requestPeersHandler;
@@ -44,6 +45,7 @@ public class NodeInitializer {
     protected final BitcoinNode.RequestDataHandler _requestDataHandler;
     protected final BitcoinNode.RequestSpvBlocksHandler _requestSpvBlocksHandler;
     protected final BitcoinNode.RequestSlpTransactionsHandler _requestSlpTransactionsHandler;
+    protected final BitcoinNode.QueryUtxoCommitmentsHandler _queryUtxoCommitmentsHandler;
     protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
     protected final BitcoinNode.RequestPeersHandler _requestPeersHandler;
@@ -62,6 +64,7 @@ public class NodeInitializer {
         bitcoinNode.setRequestSpvBlocksHandler(_requestSpvBlocksHandler);
         bitcoinNode.setRequestSlpTransactionsHandler(_requestSlpTransactionsHandler);
         bitcoinNode.setSpvBlockInventoryAnnouncementCallback(_spvBlockInventoryAnnouncementHandler);
+        bitcoinNode.setQueryUtxoCommitmentsHandler(_queryUtxoCommitmentsHandler);
 
         bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryAnnouncementHandler);
         bitcoinNode.setRequestUnconfirmedTransactionsHandler(_requestUnconfirmedTransactionsHandler);
@@ -94,6 +97,7 @@ public class NodeInitializer {
         _requestDataHandler = properties.requestDataHandler;
         _requestSpvBlocksHandler = properties.requestSpvBlocksHandler;
         _requestSlpTransactionsHandler = properties.requestSlpTransactionsHandler;
+        _queryUtxoCommitmentsHandler = properties.queryUtxoCommitmentsHandler;
         _threadPoolFactory = properties.threadPoolFactory;
         _localNodeFeatures = properties.localNodeFeatures;
         _requestPeersHandler = properties.requestPeersHandler;

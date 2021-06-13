@@ -30,6 +30,10 @@ public class Utxo {
         return _utxoValue.blockHeight;
     }
 
+    public boolean isCoinbase() {
+        return _utxoValue.isCoinbase;
+    }
+
     public long getAmount() {
         return _utxoValue.amount;
     }

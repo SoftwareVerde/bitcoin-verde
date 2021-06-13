@@ -42,6 +42,9 @@ public class MessageTypeInflater {
         messageTypes.add(MessageType.QUERY_ADDRESS_BLOCKS);
         messageTypes.add(MessageType.ENABLE_SLP_TRANSACTIONS);
         messageTypes.add(MessageType.QUERY_SLP_STATUS);
+        messageTypes.add(MessageType.QUERY_UTXO_COMMITMENTS);
+        messageTypes.add(MessageType.UTXO_COMMITMENTS);
+        messageTypes.add(MessageType.UTXO_COMMITMENT);
 
         MESSAGE_TYPES = messageTypes.build();
     }

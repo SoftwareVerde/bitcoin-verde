@@ -10,41 +10,68 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UndoLogDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.utxo.UnspentTransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.store.BlockStore;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
+import com.softwareverde.util.Util;
 
 public class BlockPruner extends SleepyService {
+    protected static final String PRUNED_BLOCK_HEIGHT_KEY = "pruned_block_height";
+
+    public interface RequiredBlockChecker {
+        Boolean isBlockRequired(Long blockHeight, Sha256Hash blockHash);
+    }
+
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BlockStore _blockStore;
+    protected final RequiredBlockChecker _requiredBlockChecker;
 
-    protected Long _lastPrunedBlockHeight = null;
+    protected Long _lastPrunedBlockHeight = 0L;
 
-    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore) {
+    protected Long _getLastPrunedBlockHeight(final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT value FROM properties WHERE `key` = ?")
+                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
+        );
+        if (rows.isEmpty()) { return 0L; }
+
+        final Row row = rows.get(0);
+        return row.getLong("value");
+    }
+
+    protected void _setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES (value)")
+                .setParameter(PRUNED_BLOCK_HEIGHT_KEY)
+                .setParameter(blockHeight)
+        );
+    }
+
+    public BlockPruner(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockStore blockStore, final RequiredBlockChecker requiredBlockChecker) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockStore = blockStore;
+        _requiredBlockChecker = requiredBlockChecker;
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            if (headBlockId != null) {
-                final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
-                _lastPrunedBlockHeight = Math.max(0L, (headBlockHeight - UndoLogDatabaseManager.MAX_REORG_DEPTH));
-            }
-            else {
-                _lastPrunedBlockHeight = 0L;
-            }
+            _lastPrunedBlockHeight = _getLastPrunedBlockHeight(databaseManager);
         }
         catch (final DatabaseException exception) {
             Logger.debug(exception);
         }
+    }
+
+    public void setLastPrunedBlockHeight(final Long blockHeight, final DatabaseManager databaseManager) throws DatabaseException {
+        _setLastPrunedBlockHeight(blockHeight, databaseManager);
+        _lastPrunedBlockHeight = blockHeight;
     }
 
     @Override
@@ -56,15 +83,22 @@ public class BlockPruner extends SleepyService {
             // TODO: delete all blocks at the old height, regardless of blockchain segment.
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
             final Long utxoCommittedBlockHeight = unspentTransactionOutputDatabaseManager.getCommittedUnspentTransactionOutputBlockHeight();
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            final Long headBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId), 0L);
+            final long maxPruneBlockHeight = Math.min(utxoCommittedBlockHeight, headBlockHeight);
 
-            for (long blockHeight = _lastPrunedBlockHeight; blockHeight < utxoCommittedBlockHeight; ++blockHeight) {
+            for (long blockHeight = _lastPrunedBlockHeight; blockHeight < maxPruneBlockHeight; ++blockHeight) {
                 final BlockId prunedBlockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, blockHeight);
                 final Sha256Hash prunedBlockHash = blockHeaderDatabaseManager.getBlockHash(prunedBlockId);
+
+                final Boolean blockIsStillRequired = _requiredBlockChecker.isBlockRequired(blockHeight, prunedBlockHash);
+                if (blockIsStillRequired) { break; }
 
                 _blockStore.removeBlock(prunedBlockHash, blockHeight);
 
@@ -73,6 +107,7 @@ public class BlockPruner extends SleepyService {
                     new Query("DELETE block_transactions, transactions FROM block_transactions INNER JOIN transactions ON transactions.id = block_transactions.transaction_id WHERE block_id = ?")
                         .setParameter(prunedBlockId)
                 );
+                _setLastPrunedBlockHeight(blockHeight, databaseManager);
                 TransactionUtil.commitTransaction(databaseConnection);
 
                 Logger.info("Pruned Block: " + prunedBlockHash);

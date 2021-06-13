@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.UnspentTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -54,7 +55,7 @@ public interface UnspentTransactionOutputDatabaseManager {
     }
 
     void markTransactionOutputsAsSpent(List<TransactionOutputIdentifier> spentTransactionOutputIdentifiers) throws DatabaseException;
-    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, List<TransactionOutput> transactionOutputs, Long blockHeight) throws DatabaseException;
+    void insertUnspentTransactionOutputs(List<TransactionOutputIdentifier> unspentTransactionOutputIdentifiers, List<TransactionOutput> transactionOutputs, Long blockHeight, Sha256Hash coinbaseTransactionHash) throws DatabaseException;
 
     /**
      * Marks the provided UTXOs as spent, logically removing them from the UTXO set, and forces the outputs to be synchronized to disk on the next UTXO commit.
@@ -99,4 +100,6 @@ public interface UnspentTransactionOutputDatabaseManager {
     void clearUncommittedUtxoSet() throws DatabaseException;
 
     Long getMaxUtxoCount();
+
+    UnspentTransactionOutput findOutputData(TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException;
 }

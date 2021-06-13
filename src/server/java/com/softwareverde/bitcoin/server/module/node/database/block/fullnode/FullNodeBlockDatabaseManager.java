@@ -116,8 +116,8 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
-                        .setParameter(blockId)
+            new Query("SELECT id FROM blocks WHERE id = ? AND has_transactions = 1")
+                .setParameter(blockId)
         );
         return (! rows.isEmpty());
     }
@@ -278,6 +278,18 @@ public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
         }
 
         return blockId;
+    }
+
+    /**
+     * Sets all blocks below the provided blockHeight as processed.
+     *  This function is only intended to be used only for post-Utxo Commitment import.
+     */
+    public void setBlockHeight(final Long blockHeight) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        databaseConnection.executeSql(
+            new Query("UPDATE blocks SET has_transactions = 1 WHERE block_height <= ?")
+                .setParameter(blockHeight)
+        );
     }
 
     /**

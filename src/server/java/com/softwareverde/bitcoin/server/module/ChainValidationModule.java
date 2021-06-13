@@ -34,6 +34,8 @@ import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDa
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStore;
 import com.softwareverde.bitcoin.server.module.node.store.PendingBlockStoreCore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStore;
+import com.softwareverde.bitcoin.server.module.node.store.UtxoCommitmentStoreCore;
 import com.softwareverde.bitcoin.transaction.validator.BlockOutputs;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
@@ -53,6 +55,7 @@ public class ChainValidationModule {
     protected final Environment _environment;
     protected final Sha256Hash _startingBlockHash;
     protected final PendingBlockStore _blockStore;
+    protected final UtxoCommitmentStore _utxoCommitmentStore;
     protected final CheckpointConfiguration _checkpointConfiguration;
 
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
@@ -76,6 +79,11 @@ public class ChainValidationModule {
             };
         }
 
+        { // Initialize the UtxoCommitmentStore...
+            final String dataDirectory = bitcoinProperties.getDataDirectory();
+            _utxoCommitmentStore = new UtxoCommitmentStoreCore(dataDirectory);
+        }
+
         _checkpointConfiguration = new CheckpointConfiguration();
     }
 
@@ -90,7 +98,7 @@ public class ChainValidationModule {
 
         final BlockchainSegmentId blockchainSegmentId;
         final DatabaseConnectionFactory databaseConnectionPool = _environment.getDatabaseConnectionFactory();
-        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, masterInflater, _checkpointConfiguration);
+        final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionPool, database.getMaxQueryBatchSize(), _blockStore, _utxoCommitmentStore, masterInflater, _checkpointConfiguration);
         try (final DatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
@@ -109,6 +117,7 @@ public class ChainValidationModule {
                 databaseConnection,
                 database.getMaxQueryBatchSize(),
                 _blockStore,
+                _utxoCommitmentStore,
                 masterInflater,
                 _checkpointConfiguration,
                 _bitcoinProperties.getMaxCachedUtxoCount(),
