@@ -489,6 +489,8 @@ public class UtxoCommitmentDownloader {
                     }
                     else {
                         final DownloadBucketResult downloadBucketResult = _downloadBucket(bitcoinNode, bitcoinNodeBucket);
+                        if (downloadBucketResult == null) { continue; }
+
                         subBucketFiles.add(downloadBucketResult.file);
                         databaseSubBuckets.add(new UtxoDatabaseSubBucket(bucketIndex, 0, bitcoinNodeBucket.getPublicKey(), downloadBucketResult.utxoCount, bitcoinNodeBucket.getByteCount()));
                         calculatedMultisetHash.add(downloadBucketResult.multisetHash);
