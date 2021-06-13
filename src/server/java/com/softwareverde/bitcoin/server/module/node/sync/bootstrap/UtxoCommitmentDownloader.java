@@ -29,7 +29,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.ByteUtil;
@@ -64,7 +64,7 @@ public class UtxoCommitmentDownloader {
 
     protected static class DownloadBucketResult {
         public File file;
-        public MultisetHash multisetHash;
+        public EcMultiset multisetHash;
         public Integer utxoCount;
         public Boolean isSorted;
     }
@@ -335,7 +335,7 @@ public class UtxoCommitmentDownloader {
             final DownloadBucketResult downloadResult = new DownloadBucketResult();
             final File file = _utxoCommitmentStore.getUtxoCommitmentFile(publicKey);
             final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = _utxoCommitmentLoader.calculateMultisetHash(file);
-            final MultisetHash multisetHash = calculateMultisetHashResult.multisetHash;
+            final EcMultiset multisetHash = calculateMultisetHashResult.multisetHash;
 
             downloadResult.file = file;
             downloadResult.multisetHash = multisetHash;
@@ -372,7 +372,7 @@ public class UtxoCommitmentDownloader {
 
                     final File file = _utxoCommitmentStore.storeUtxoCommitment(publicKey, utxoCommitmentBytes);
                     final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = _utxoCommitmentLoader.calculateMultisetHash(file);
-                    final MultisetHash multisetHash = calculateMultisetHashResult.multisetHash;
+                    final EcMultiset multisetHash = calculateMultisetHashResult.multisetHash;
                     final Boolean isSorted = calculateMultisetHashResult.isSorted;
                     final Integer utxoCount = calculateMultisetHashResult.utxoCount;
 
@@ -464,7 +464,7 @@ public class UtxoCommitmentDownloader {
                     final BitcoinNode bitcoinNode = entry.getKey();
                     final UtxoCommitmentBreakdown bitcoinNodeUtxoCommitmentBreakdown = entry.getValue();
 
-                    final MultisetHash calculatedMultisetHash = new MultisetHash();
+                    final EcMultiset calculatedMultisetHash = new EcMultiset();
                     final UtxoCommitmentBucket bitcoinNodeBucket = bitcoinNodeUtxoCommitmentBreakdown.buckets.get(bucketIndex);
 
                     final MutableList<File> unsortedSubBucketFiles = new MutableList<>();

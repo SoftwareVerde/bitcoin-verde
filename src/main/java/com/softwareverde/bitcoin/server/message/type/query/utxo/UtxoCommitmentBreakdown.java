@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.Util;
 
@@ -18,14 +18,14 @@ public class UtxoCommitmentBreakdown {
     }
 
     public Boolean isValid() {
-        final MultisetHash multisetHash = new MultisetHash();
+        final EcMultiset ecMultiset = new EcMultiset();
         for (final UtxoCommitmentBucket utxoCommitmentBucket : this.buckets) {
             final PublicKey publicKey = utxoCommitmentBucket.getPublicKey();
-            multisetHash.add(publicKey);
+            ecMultiset.add(publicKey);
         }
 
-        final Sha256Hash multisetHashHash = multisetHash.getHash();
-        return Util.areEqual(this.commitment.multisetHash, multisetHashHash);
+        final Sha256Hash multisetHash = ecMultiset.getHash();
+        return Util.areEqual(this.commitment.multisetHash, multisetHash);
     }
 
     @Override

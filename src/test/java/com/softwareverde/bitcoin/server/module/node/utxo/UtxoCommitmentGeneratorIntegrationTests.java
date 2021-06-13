@@ -21,7 +21,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
 import org.junit.After;
@@ -136,11 +136,11 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
         }
 
         final MutableList<PublicKey> utxoBucketPublicKeys = new MutableList<>();
-        final MultisetHash commitmentMultisetHash = new MultisetHash();
+        final EcMultiset commitmentMultisetHash = new EcMultiset();
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
         for (final File inputFile : utxoCommitment.getFiles()) {
             final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = utxoCommitmentLoader.calculateMultisetHash(inputFile);
-            final MultisetHash multisetHash = calculateMultisetHashResult.multisetHash;
+            final EcMultiset multisetHash = calculateMultisetHashResult.multisetHash;
             final PublicKey publicKey = multisetHash.getPublicKey();
             commitmentMultisetHash.add(publicKey);
             utxoBucketPublicKeys.add(publicKey);
@@ -226,11 +226,11 @@ public class UtxoCommitmentGeneratorIntegrationTests extends IntegrationTest {
             }
         }
 
-        final MultisetHash commitmentMultisetHash = new MultisetHash();
+        final EcMultiset commitmentMultisetHash = new EcMultiset();
         final UtxoCommitmentLoader utxoCommitmentLoader = new UtxoCommitmentLoader();
         for (final File inputFile : utxoCommitment.getFiles()) {
             final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = utxoCommitmentLoader.calculateMultisetHash(inputFile);
-            final MultisetHash multisetHash = calculateMultisetHashResult.multisetHash;
+            final EcMultiset multisetHash = calculateMultisetHashResult.multisetHash;
             final PublicKey publicKey = multisetHash.getPublicKey();
             commitmentMultisetHash.add(publicKey);
 

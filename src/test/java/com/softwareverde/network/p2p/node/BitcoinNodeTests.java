@@ -22,7 +22,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
@@ -490,7 +490,7 @@ public class BitcoinNodeTests extends UnitTest {
         final ByteArray byteArray = MutableByteArray.fromHexString("0123456789ABCDEFFEDCBA9876543210");
         final PublicKey publicKey;
         {
-            final MultisetHash multisetHash = new MultisetHash();
+            final EcMultiset multisetHash = new EcMultiset();
             multisetHash.addItem(byteArray);
             publicKey = multisetHash.getPublicKey();
         }

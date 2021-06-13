@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
@@ -156,11 +156,11 @@ public class UtxoCommitmentLoader {
     }
 
     public static class CalculateMultisetHashResult {
-        public final MultisetHash multisetHash;
+        public final EcMultiset multisetHash;
         public final Integer utxoCount;
         public final Boolean isSorted;
 
-        public CalculateMultisetHashResult(final MultisetHash multisetHash, final Integer utxoCount, final Boolean isSorted) {
+        public CalculateMultisetHashResult(final EcMultiset multisetHash, final Integer utxoCount, final Boolean isSorted) {
             this.multisetHash = multisetHash;
             this.utxoCount = utxoCount;
             this.isSorted = isSorted;
@@ -183,7 +183,7 @@ public class UtxoCommitmentLoader {
         final String filePath = file.getAbsolutePath();
         if ( (! file.exists()) || (! file.canRead()) ) {
             if (Util.areEqual(UtxoCommitment.EMPTY_BUCKET_NAME, file.getName())) {
-                return new CalculateMultisetHashResult(new MultisetHash(), 0, true); // A non-existent file with the empty-bucket name has the hash at infinity.
+                return new CalculateMultisetHashResult(new EcMultiset(), 0, true); // A non-existent file with the empty-bucket name has the hash at infinity.
             }
 
             Logger.debug("Unable to access loadFile: " + filePath);
@@ -195,7 +195,7 @@ public class UtxoCommitmentLoader {
         TransactionOutputIdentifier minOutputIdentifier = TransactionOutputIdentifier.COINBASE;
 
         int utxoCount = 0;
-        final MultisetHash multisetHash = new MultisetHash();
+        final EcMultiset multisetHash = new EcMultiset();
         try (final ByteArrayStream byteArrayStream = new ByteArrayStream()) {
             final FileInputStream inputStream = new FileInputStream(file);
             byteArrayStream.appendInputStream(inputStream);

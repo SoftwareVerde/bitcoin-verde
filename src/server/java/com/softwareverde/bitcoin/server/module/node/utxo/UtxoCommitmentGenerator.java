@@ -28,7 +28,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.cryptography.util.HashUtil;
 import com.softwareverde.database.DatabaseException;
@@ -224,7 +224,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
-        final MultisetHash utxoCommitMultisetHash = new MultisetHash();
+        final EcMultiset utxoCommitMultiset = new EcMultiset();
         final MutableList<File> utxoCommitmentFiles = new MutableList<>(UtxoCommitment.BUCKET_COUNT);
 
         final int batchSize = Math.min(1024, databaseManager.getMaxQueryBatchSize());
@@ -432,15 +432,15 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     subBucketIndex += 1;
                 }
 
-                utxoCommitMultisetHash.add(bucketPublicKey);
+                utxoCommitMultiset.add(bucketPublicKey);
             }
 
-            final Sha256Hash commitHash = utxoCommitMultisetHash.getHash();
+            final Sha256Hash commitHash = utxoCommitMultiset.getHash();
             _setUtxoCommitmentHash(utxoCommitmentId, commitHash, databaseManager);
 
             utxoCommitment._blockId = blockId;
             utxoCommitment._blockHeight = commitBlockHeight;
-            utxoCommitment._multisetHash = utxoCommitMultisetHash;
+            utxoCommitment._multisetHash = utxoCommitMultiset;
             utxoCommitment._files.addAll(utxoCommitmentFiles);
 
             nanoTimer.stop();
@@ -671,16 +671,16 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
             _setUtxoCommitmentHash(utxoCommitmentId, utxoCommitmentMetadata.multisetHash, databaseManager);
 
-            final HashMap<Integer, MultisetHash> bucketHashes = new HashMap<>();
+            final HashMap<Integer, EcMultiset> bucketHashes = new HashMap<>();
             final HashMap<Integer, MutableList<UtxoDatabaseSubBucket>> bucketFiles = new HashMap<>();
             for (final UtxoDatabaseSubBucket subBucket : utxoCommitmentFiles) {
                 bucketFiles.putIfAbsent(subBucket.bucketIndex, new MutableList<>());
-                bucketHashes.putIfAbsent(subBucket.bucketIndex, new MultisetHash());
+                bucketHashes.putIfAbsent(subBucket.bucketIndex, new EcMultiset());
 
                 final MutableList<UtxoDatabaseSubBucket> subBuckets = bucketFiles.get(subBucket.bucketIndex);
                 subBuckets.add(subBucket);
 
-                final MultisetHash bucketHash = bucketHashes.get(subBucket.bucketIndex);
+                final EcMultiset bucketHash = bucketHashes.get(subBucket.bucketIndex);
                 bucketHash.add(subBucket.subBucketPublicKey);
             }
             for (final MutableList<UtxoDatabaseSubBucket> subBuckets : bucketFiles.values()) {
@@ -693,7 +693,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             }
 
             for (final Integer bucketIndex : bucketHashes.keySet()) {
-                final MultisetHash bucketHash = bucketHashes.get(bucketIndex);
+                final EcMultiset bucketHash = bucketHashes.get(bucketIndex);
                 final List<UtxoDatabaseSubBucket> subBuckets = bucketFiles.get(bucketIndex);
 
                 final PublicKey bucketPublicKey = bucketHash.getPublicKey();

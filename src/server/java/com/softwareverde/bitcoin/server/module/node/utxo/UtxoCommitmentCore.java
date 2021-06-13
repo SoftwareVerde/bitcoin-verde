@@ -5,14 +5,14 @@ import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.cryptography.secp256k1.MultisetHash;
+import com.softwareverde.cryptography.secp256k1.EcMultiset;
 
 import java.io.File;
 
 public class UtxoCommitmentCore implements UtxoCommitment {
     protected BlockId _blockId;
     protected Long _blockHeight = 0L;
-    protected MultisetHash _multisetHash;
+    protected EcMultiset _multisetHash;
     protected final MutableList<File> _files = new MutableList<>();
 
     @Override
