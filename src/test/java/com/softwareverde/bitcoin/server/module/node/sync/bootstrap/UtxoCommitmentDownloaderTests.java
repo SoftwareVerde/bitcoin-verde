@@ -34,7 +34,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
         super.after();
     }
 
-    protected List<UtxoCommitmentBucket> _inflateUtxoCommitmentBuckets(final String bucketResource, final String subBucketsResource) {
+    public static List<UtxoCommitmentBucket> inflateUtxoCommitmentBuckets(final String bucketResource, final String subBucketsResource) {
         final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>();
 
         final String bucketsCsv = IoUtil.getResource(bucketResource);
@@ -90,7 +90,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                                 3908702538L
                             );
 
-                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = _inflateUtxoCommitmentBuckets("/utxo/0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897_buckets.csv", null);
+                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897_buckets.csv", null);
                             utxoCommitmentBreakdowns.add(
                                 new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
                             );
@@ -104,8 +104,7 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                                 4456621219L
                             );
 
-                            // TODO: The generated subBuckets used MiB, not MB. SubBuckets needs to be regenerated with 32MB max size.
-                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = _inflateUtxoCommitmentBuckets("/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_buckets.csv", "/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_sub_buckets.csv");
+                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_buckets.csv", "/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_sub_buckets.csv");
                             utxoCommitmentBreakdowns.add(
                                 new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
                             );

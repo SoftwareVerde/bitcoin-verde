@@ -50,7 +50,7 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
                     .setParameter(utxoCommitmentId)
             );
             for (final Row bucketRow : bucketRows) {
-                final Long bucketId = row.getLong("id");
+                final Long bucketId = bucketRow.getLong("id");
                 final PublicKey bucketPublicKey = PublicKey.fromBytes(bucketRow.getBytes("public_key"));
                 // final Integer bucketIndex = bucketRow.getInteger("index");
                 final Long bucketByteCount = bucketRow.getLong("byte_count");
