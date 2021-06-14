@@ -1,10 +1,11 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.v1.get;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
-import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.TransactionsApi;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.AddressesApi;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.server.servlet.request.Request;
 import com.softwareverde.http.server.servlet.response.JsonResponse;
@@ -15,58 +16,50 @@ import com.softwareverde.util.Util;
 
 import java.util.Map;
 
-public class GetTransactionHandler implements RequestHandler<Environment> {
+public class GetAddressBalanceHandler implements RequestHandler<Environment> {
+
+    protected final AddressInflater _addressInflater = new AddressInflater();
 
     /**
-     * GET TRANSACTION
-     * Requires GET:    hash, <rawFormat>
+     * GET ADDRESS TRANSACTION
+     * Requires GET:    address
      * Requires POST:
      */
     @Override
     public Response handleRequest(final Request request, final Environment environment, final Map<String, String> urlParameters) throws Exception {
-        final String transactionHashString;
-        final Sha256Hash transactionHash;
+        final String addressString;
+        final Address address;
         {
             final GetParameters getParameters = request.getGetParameters();
-            transactionHashString = Util.coalesce(urlParameters.get("hash"), getParameters.get("hash"));
-            if (! Util.isBlank(transactionHashString)) {
-                transactionHash = Sha256Hash.fromHexString(transactionHashString);
+            addressString = Util.coalesce(urlParameters.get("address"), getParameters.get("address"));
+            if (! Util.isBlank(addressString)) {
+                final Address base58Address = _addressInflater.fromBase58Check(addressString);
+                final Address base32Address = _addressInflater.fromBase32Check(addressString);
+                address = Util.coalesce(base58Address, base32Address);
             }
             else {
-                transactionHash = null;
+                address = null;
             }
         }
 
-        final Boolean rawFormat;
-        {
-            final GetParameters getParameters = request.getGetParameters();
-            final String rawFormatString = Util.coalesce(urlParameters.get("rawFormat"), getParameters.get("rawFormat"));
-            if (! Util.isBlank(rawFormatString)) {
-                rawFormat = Util.parseBool(rawFormatString);
-            }
-            else {
-                rawFormat = false;
-            }
-        }
-
-        if (transactionHash == null) {
-            final TransactionsApi.GetTransactionResult result = new TransactionsApi.GetTransactionResult();
+        if (address == null) {
+            final AddressesApi.GetTransactionsResult result = new AddressesApi.GetTransactionsResult();
             result.setWasSuccess(false);
-            result.setErrorMessage("Invalid hash parameter: " + transactionHashString);
+            result.setErrorMessage("Invalid address parameter: " + addressString);
             return new JsonResponse(Response.Codes.BAD_REQUEST, result);
         }
 
         try (final NodeJsonRpcConnection nodeJsonRpcConnection = environment.getNodeJsonRpcConnection()) {
             if (nodeJsonRpcConnection == null) {
-                final TransactionsApi.GetTransactionResult result = new TransactionsApi.GetTransactionResult();
+                final AddressesApi.GetBalanceResult result = new AddressesApi.GetBalanceResult();
                 result.setWasSuccess(false);
                 result.setErrorMessage("Unable to connect to node.");
                 return new JsonResponse(Response.Codes.SERVER_ERROR, result);
             }
 
-            final Json transactionJson;
+            final Long balance;
             {
-                final Json rpcResponseJson = nodeJsonRpcConnection.getTransaction(transactionHash, rawFormat);
+                final Json rpcResponseJson = nodeJsonRpcConnection.getAddressBalance(address);
                 if (rpcResponseJson == null) {
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                 }
@@ -76,12 +69,12 @@ public class GetTransactionHandler implements RequestHandler<Environment> {
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                 }
 
-                transactionJson = rpcResponseJson.get("transaction");
+                balance = Util.coalesce(rpcResponseJson.getLong("balance"));
             }
 
-            final TransactionsApi.GetTransactionResult getTransactionResult = new TransactionsApi.GetTransactionResult();
+            final AddressesApi.GetBalanceResult getTransactionResult = new AddressesApi.GetBalanceResult();
             getTransactionResult.setWasSuccess(true);
-            getTransactionResult.setTransactionJson(transactionJson);
+            getTransactionResult.setBalance(balance);
             return new JsonResponse(Response.Codes.OK, getTransactionResult);
         }
     }

@@ -986,9 +986,16 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
+        final boolean rawFormat = (parameters.hasKey("rawFormat") ? parameters.getBoolean("rawFormat") : false);
+
         final String addressString = parameters.getString("address");
         final AddressInflater addressInflater = _masterInflater.getAddressInflater();
-        final Address address = addressInflater.fromBase58Check(addressString);
+        final Address address;
+        {
+            final Address base58Address = addressInflater.fromBase58Check(addressString);
+            final Address base32Address = addressInflater.fromBase32Check(addressString);
+            address = Util.coalesce(base58Address, base32Address);
+        }
 
         if (address == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid address: " + addressString);
@@ -1005,22 +1012,35 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final Json addressJson = new Json();
         addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
         addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
-        addressJson.put("balance", queryAddressHandler.getBalance(address));
+
+        final Long balance = queryAddressHandler.getBalance(address);
+        addressJson.put("balance", balance);
 
         { // Address Transactions
             final Json transactionsJson = new Json(true);
 
-            final MetadataHandler metadataHandler = _metadataHandler;
-            for (final Transaction transaction : addressTransactions) {
-                if (transaction == null) { continue; }
+            if (rawFormat) {
+                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
+                for (final Transaction transaction : addressTransactions) {
+                    if (transaction == null) { continue; }
 
-                final Json transactionJson = transaction.toJson();
-
-                if (metadataHandler != null) {
-                    metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+                    final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+                    transactionsJson.add(transactionBytes);
                 }
+            }
+            else {
+                final MetadataHandler metadataHandler = _metadataHandler;
+                for (final Transaction transaction : addressTransactions) {
+                    if (transaction == null) { continue; }
 
-                transactionsJson.add(transactionJson);
+                    final Json transactionJson = transaction.toJson();
+
+                    if (metadataHandler != null) {
+                        metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+                    }
+
+                    transactionsJson.add(transactionJson);
+                }
             }
 
             addressJson.put("transactions", transactionsJson);

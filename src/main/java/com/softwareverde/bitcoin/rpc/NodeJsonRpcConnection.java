@@ -383,6 +383,27 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getAddressTransactions(final Address address) {
+        return this.getAddressTransactions(address, null); // NOTE: null omits parameter (uses server defaults)
+    }
+
+    public Json getAddressTransactions(final Address address, final Boolean hexFormat) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("address", address.toBase58CheckEncoded());
+        if (hexFormat != null) {
+            rpcParametersJson.put("rawFormat", (hexFormat ? 1 : 0));
+        }
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "ADDRESS");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getAddressBalance(final Address address) {
         if (_jsonSocket == null) { return null; } // Socket was unable to connect.
 
         final Json rpcParametersJson = new Json();
@@ -390,7 +411,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "ADDRESS");
+        rpcRequestJson.put("query", "BALANCE");
         rpcRequestJson.put("parameters", rpcParametersJson);
 
         return _executeJsonRequest(rpcRequestJson);

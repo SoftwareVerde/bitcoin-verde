@@ -58,11 +58,11 @@ public class GetSlpValidityHandler implements RequestHandler<Environment> {
                 isSlpValid = rpcResponseJson.getBoolean("isValidSlpTransaction");
             }
 
-            final SlpApi.SlpValidityResult SlpValidityResult = new SlpApi.SlpValidityResult();
-            SlpValidityResult.setWasSuccess(true);
-            SlpValidityResult.setIsValid(isSlpValid);
-            SlpValidityResult.setTransactionHash(transactionHash);
-            return new JsonResponse(Response.Codes.OK, SlpValidityResult);
+            final SlpApi.SlpValidityResult slpValidityResult = new SlpApi.SlpValidityResult();
+            slpValidityResult.setWasSuccess(true);
+            slpValidityResult.setIsValid(isSlpValid);
+            slpValidityResult.setTransactionHash(transactionHash);
+            return new JsonResponse(Response.Codes.OK, slpValidityResult);
         }
     }
 }

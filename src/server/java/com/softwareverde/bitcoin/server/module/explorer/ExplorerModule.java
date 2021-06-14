@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.explorer;
 
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.explorer.api.Environment;
+import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.AddressesApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.AnnouncementsApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.BlockchainApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.BlocksApi;
@@ -66,6 +67,7 @@ public class ExplorerModule {
                 _assignEndpoint((v1ApiPrePath + "/nodes"), new NodesApi(v1ApiPrePath, environment));
                 _assignEndpoint((v1ApiPrePath + "/blockchain"), new BlockchainApi(v1ApiPrePath, environment));
                 _assignEndpoint((v1ApiPrePath + "/slp"), new SlpApi(v1ApiPrePath, environment));
+                _assignEndpoint((v1ApiPrePath + "/addresses"), new AddressesApi(v1ApiPrePath, environment));
 
                 { // WebSocket
                     final WebSocketEndpoint endpoint = new WebSocketEndpoint(_announcementsApi);
