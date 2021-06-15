@@ -572,13 +572,18 @@ public class NodeJsonRpcConnection implements AutoCloseable {
      *  The underlying JsonSocket remains connected and must be closed when announcements are no longer desired.
      */
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback) {
-        return this.upgradeToAnnouncementHook(announcementHookCallback, null);
+        return this.upgradeToAnnouncementHook(announcementHookCallback, null, false);
     }
+
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter) {
+        return this.upgradeToAnnouncementHook(announcementHookCallback, addressesFilter, false);
+    }
+
+    public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback, final List<Address> addressesFilter, final Boolean returnRawData) {
         if (announcementHookCallback == null) { throw new NullPointerException("Attempted to create AnnouncementHook without a callback."); }
         if (_jsonSocket == null) { return false; } // Socket was unable to connect.
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true, addressesFilter);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(returnRawData, true, addressesFilter);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
