@@ -58,6 +58,7 @@ public class GetAddressBalanceHandler implements RequestHandler<Environment> {
             }
 
             final Long balance;
+            final Json addressJson;
             {
                 final Json rpcResponseJson = nodeJsonRpcConnection.getAddressBalance(address);
                 if (rpcResponseJson == null) {
@@ -69,11 +70,13 @@ public class GetAddressBalanceHandler implements RequestHandler<Environment> {
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                 }
 
-                balance = Util.coalesce(rpcResponseJson.getLong("balance"));
+                addressJson = rpcResponseJson.get("address");
+                balance = rpcResponseJson.getLong("balance");
             }
 
             final AddressesApi.GetBalanceResult getTransactionResult = new AddressesApi.GetBalanceResult();
             getTransactionResult.setWasSuccess(true);
+            getTransactionResult.setAddressJson(addressJson);
             getTransactionResult.setBalance(balance);
             return new JsonResponse(Response.Codes.OK, getTransactionResult);
         }

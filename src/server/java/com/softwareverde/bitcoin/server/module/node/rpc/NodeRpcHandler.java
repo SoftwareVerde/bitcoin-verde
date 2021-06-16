@@ -969,7 +969,13 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
+        final Json addressJson = new Json();
+        addressJson.put("base32CheckEncoded", address.toBase32CheckEncoded(true));
+        addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
+
+        response.put("address", addressJson);
         response.put("balance", balance);
+
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -1014,39 +1020,36 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
 
         final Long balance = queryAddressHandler.getBalance(address);
-        addressJson.put("balance", balance);
 
-        { // Address Transactions
-            final Json transactionsJson = new Json(true);
+        final Json transactionsJson = new Json(true);
+        if (rawFormat) {
+            final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
+            for (final Transaction transaction : addressTransactions) {
+                if (transaction == null) { continue; }
 
-            if (rawFormat) {
-                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
-                for (final Transaction transaction : addressTransactions) {
-                    if (transaction == null) { continue; }
-
-                    final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
-                    transactionsJson.add(transactionBytes);
-                }
+                final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+                transactionsJson.add(transactionBytes);
             }
-            else {
-                final MetadataHandler metadataHandler = _metadataHandler;
-                for (final Transaction transaction : addressTransactions) {
-                    if (transaction == null) { continue; }
+        }
+        else {
+            final MetadataHandler metadataHandler = _metadataHandler;
+            for (final Transaction transaction : addressTransactions) {
+                if (transaction == null) { continue; }
 
-                    final Json transactionJson = transaction.toJson();
+                final Json transactionJson = transaction.toJson();
 
-                    if (metadataHandler != null) {
-                        metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
-                    }
-
-                    transactionsJson.add(transactionJson);
+                if (metadataHandler != null) {
+                    metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
                 }
-            }
 
-            addressJson.put("transactions", transactionsJson);
+                transactionsJson.add(transactionJson);
+            }
         }
 
         response.put("address", addressJson);
+        response.put("balance", balance);
+        response.put("transactions", transactionsJson);
+
         response.put(WAS_SUCCESS_KEY, 1);
     }
 

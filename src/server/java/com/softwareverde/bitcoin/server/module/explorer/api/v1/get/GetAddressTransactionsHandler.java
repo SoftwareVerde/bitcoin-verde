@@ -69,6 +69,8 @@ public class GetAddressTransactionsHandler implements RequestHandler<Environment
                 return new JsonResponse(Response.Codes.SERVER_ERROR, result);
             }
 
+            final Long balance;
+            final Json addressJson;
             final Json transactionsJson;
             {
                 final Json rpcResponseJson = nodeJsonRpcConnection.getAddressTransactions(address, rawFormat);
@@ -81,12 +83,16 @@ public class GetAddressTransactionsHandler implements RequestHandler<Environment
                     return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                 }
 
+                addressJson = rpcResponseJson.get("address");
                 transactionsJson = rpcResponseJson.get("transactions");
+                balance = rpcResponseJson.getLong("balance");
             }
 
             final AddressesApi.GetTransactionsResult getTransactionResult = new AddressesApi.GetTransactionsResult();
             getTransactionResult.setWasSuccess(true);
+            getTransactionResult.setAddressJson(addressJson);
             getTransactionResult.setTransactionsJson(transactionsJson);
+            getTransactionResult.setBalance(balance);
             return new JsonResponse(Response.Codes.OK, getTransactionResult);
         }
     }
