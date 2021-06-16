@@ -28,3 +28,13 @@ CREATE TABLE utxo_commitment_files (
     PRIMARY KEY (id),
     FOREIGN KEY utxo_commitment_file_fk (utxo_commitment_bucket_id) REFERENCES utxo_commitment_buckets (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;
+
+DELETE FROM committed_unspent_transaction_outputs;
+INSERT INTO properties (`key`, value) VALUES ('committed_utxo_block_height', 0) ON DUPLICATE KEY UPDATE value = VALUES (value);
+ALTER TABLE committed_unspent_transaction_outputs ADD COLUMN is_coinbase TINYINT(1) NOT NULL DEFAULT 0 AFTER block_height;
+
+DELETE FROM pruned_previous_transaction_outputs;
+ALTER TABLE pruned_previous_transaction_outputs ADD COLUMN is_coinbase TINYINT(1) NOT NULL DEFAULT 0 AFTER block_height;
+
+DROP TABLE pruned_previous_transaction_outputs_buffer;
+CREATE TABLE pruned_previous_transaction_outputs_buffer LIKE pruned_previous_transaction_outputs;
