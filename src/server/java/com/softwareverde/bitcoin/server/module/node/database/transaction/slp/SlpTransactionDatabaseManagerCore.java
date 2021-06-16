@@ -48,7 +48,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
                     "INNER JOIN block_transactions " +
                         "ON (block_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                 "WHERE " +
-                    "block_transactions.block_id = ?" +
+                    "block_transactions.block_id = ? " +
                     "NOT EXISTS (SELECT * FROM validated_slp_transactions WHERE validated_slp_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
                     "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL"
             )
