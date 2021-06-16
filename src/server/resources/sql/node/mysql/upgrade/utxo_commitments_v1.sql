@@ -1,5 +1,3 @@
-CREATE TABLE staged_utxo_commitment LIKE committed_unspent_transaction_outputs;
-
 CREATE TABLE utxo_commitments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     block_id INT UNSIGNED NOT NULL,
@@ -32,6 +30,8 @@ CREATE TABLE utxo_commitment_files (
 DELETE FROM committed_unspent_transaction_outputs;
 INSERT INTO properties (`key`, value) VALUES ('committed_utxo_block_height', 0) ON DUPLICATE KEY UPDATE value = VALUES (value);
 ALTER TABLE committed_unspent_transaction_outputs ADD COLUMN is_coinbase TINYINT(1) NOT NULL DEFAULT 0 AFTER block_height;
+
+CREATE TABLE staged_utxo_commitment LIKE committed_unspent_transaction_outputs;
 
 DELETE FROM pruned_previous_transaction_outputs;
 ALTER TABLE pruned_previous_transaction_outputs ADD COLUMN is_coinbase TINYINT(1) NOT NULL DEFAULT 0 AFTER block_height;
