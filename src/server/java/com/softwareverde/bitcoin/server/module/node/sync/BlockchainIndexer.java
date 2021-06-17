@@ -30,6 +30,8 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.DisabledMultiTimer;
+import com.softwareverde.util.timer.MultiTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.math.BigInteger;
@@ -116,8 +118,8 @@ public class BlockchainIndexer extends SleepyService {
             }
 
             final TransactionId previousTransactionId = context.getTransactionId(previousTransactionHash);
-            final Transaction previousTransaction = context.getTransaction(previousTransactionId);
-            if (previousTransaction == null) {
+            // final Transaction previousTransaction = context.getTransaction(previousTransactionId);
+            if (previousTransactionId == null) {
                 Logger.debug("Cannot index input; Transaction does not exist: " + previousTransactionHash);
                 continue;
             }
@@ -292,7 +294,7 @@ public class BlockchainIndexer extends SleepyService {
         _threadCount = threadCount;
     }
 
-    protected TransactionId _indexTransaction(final TransactionId nullableTransactionId, final Transaction nullableTransaction, final AtomicTransactionOutputIndexerContext context) throws ContextException {
+    protected TransactionId _indexTransaction(final TransactionId nullableTransactionId, final Transaction nullableTransaction, final AtomicTransactionOutputIndexerContext context, final MultiTimer timer) throws ContextException {
         final TransactionId transactionId;
         final Transaction transaction;
         {
@@ -310,6 +312,7 @@ public class BlockchainIndexer extends SleepyService {
             else if (nullableTransactionId != null) {
                 transactionId = nullableTransactionId;
                 transaction = context.getTransaction(transactionId);
+                timer.mark("getTransaction");
             }
             else { return null; }
         }
@@ -320,14 +323,18 @@ public class BlockchainIndexer extends SleepyService {
         }
 
         final Map<TransactionOutputIdentifier, OutputIndexData> outputIndexData = _indexTransactionOutputs(transactionId, transaction);
+        timer.mark("_indexTransactionOutputs");
         for (final OutputIndexData indexData : outputIndexData.values()) {
             context.indexTransactionOutput(indexData.transactionId, indexData.outputIndex, indexData.amount, indexData.scriptType, indexData.address, indexData.slpTransactionId, indexData.memoActionType, indexData.memoActionIdentifier);
         }
+        timer.mark("indexTransactionOutput");
 
         final List<InputIndexData> inputIndexDataList = _indexTransactionInputs(context, transactionId, transaction);
+        timer.mark("_indexTransactionInputs");
         for (final InputIndexData inputIndexData : inputIndexDataList) {
             context.indexTransactionInput(inputIndexData.transactionId, inputIndexData.inputIndex, inputIndexData.transactionOutputId);
         }
+        timer.mark("indexTransactionInput");
 
         return transactionId;
     }
@@ -364,16 +371,24 @@ public class BlockchainIndexer extends SleepyService {
             batchRunner.run(transactionIdQueue, new BatchRunner.Batch<TransactionId>() {
                 @Override
                 public void run(final List<TransactionId> transactionIds) throws Exception {
+                    final MultiTimer multiTimer = (Logger.isTraceEnabled() ? new MultiTimer() : new DisabledMultiTimer());
+                    multiTimer.start();
+
                     try (final AtomicTransactionOutputIndexerContext context = _context.newTransactionOutputIndexerContext()) {
                         context.startDatabaseTransaction();
 
                         for (final TransactionId transactionId : transactionIds) {
-                            _indexTransaction(transactionId, null, context);
+                            _indexTransaction(transactionId, null, context, multiTimer);
                         }
 
                         context.dequeueTransactionsForProcessing(transactionIds);
+                        multiTimer.mark("dequeueTransactionsForProcessing");
                         context.commitDatabaseTransaction();
+                        multiTimer.mark("commitDatabaseTransaction");
                     }
+
+                    multiTimer.stop("done");
+                    Logger.trace(multiTimer);
                 }
             });
         }
