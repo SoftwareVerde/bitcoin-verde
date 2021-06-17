@@ -72,9 +72,7 @@ public class SearchHandler implements RequestHandler<Environment> {
                     }
 
                     if (responseJson.getBoolean("wasSuccess")) {
-                        final Json transactionsJson = responseJson.get("address");
-
-                        object = transactionsJson;
+                        object = responseJson;
                         objectType = SearchApi.SearchResult.ObjectType.ADDRESS;
                     }
                 }
