@@ -93,6 +93,7 @@ public class UndoLogDatabaseManager {
 
         final Long expiresAfterBlockHeight = (blockHeight + UndoLogDatabaseManager.MAX_REORG_DEPTH);
 
+        // TODO: Confirm "GREATEST(VALUES(value), value)" is not affected by MariaDB bug as of v10.5.9-p1.
         final BatchedInsertQuery query = new BatchedInsertQuery("INSERT INTO pruned_previous_transaction_outputs (transaction_hash, `index`, block_height, amount, locking_script, expires_after_block_height) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE block_height = VALUES(block_height), expires_after_block_height = GREATEST(VALUES(expires_after_block_height), expires_after_block_height)");
         for (Map.Entry<TransactionOutputIdentifier, TransactionOutput> transactionOutputEntry : transactionOutputs.entrySet()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = transactionOutputEntry.getKey();

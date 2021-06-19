@@ -41,16 +41,7 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
 
         final java.util.List<Row> rows = databaseConnection.query(
             new Query(
-                "SELECT " +
-                    "indexed_transaction_outputs.transaction_id " +
-                "FROM " +
-                    "indexed_transaction_outputs " +
-                    "INNER JOIN block_transactions " +
-                        "ON (block_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
-                "WHERE " +
-                    "block_transactions.block_id = ? " +
-                    "AND NOT EXISTS (SELECT * FROM validated_slp_transactions WHERE validated_slp_transactions.transaction_id = indexed_transaction_outputs.transaction_id) " +
-                    "AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL"
+                "SELECT indexed_transaction_outputs.transaction_id FROM indexed_transaction_outputs INNER JOIN block_transactions ON (block_transactions.transaction_id = indexed_transaction_outputs.transaction_id) WHERE block_transactions.block_id = ? AND NOT EXISTS (SELECT * FROM validated_slp_transactions WHERE validated_slp_transactions.transaction_id = indexed_transaction_outputs.transaction_id) AND indexed_transaction_outputs.slp_transaction_id IS NOT NULL"
             )
             .setParameter(blockId)
         );
@@ -156,9 +147,11 @@ public class SlpTransactionDatabaseManagerCore implements SlpTransactionDatabase
     public void setLastSlpValidatedBlockId(final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
+        // NOTE: "GREATEST(VALUES(value), value)" is apparently bugged as of 2020-06-19, v10.5.9-p1.  MariaDB bug report not submitted.
         databaseConnection.executeSql(
-            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(VALUES(value), value)")
+            new Query("INSERT INTO properties (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = GREATEST(value, ?)")
                 .setParameter(LAST_SLP_VALIDATED_BLOCK_ID_KEY)
+                .setParameter(blockId)
                 .setParameter(blockId)
         );
     }
