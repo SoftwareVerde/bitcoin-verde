@@ -451,4 +451,21 @@ public class BlockchainIndexerDatabaseManagerCore implements BlockchainIndexerDa
 
         TransactionUtil.commitTransaction(databaseConnection);
     }
+
+    @Override
+    public TransactionId getMostRecentTransactionId() throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM transactions ORDER BY id DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return TransactionId.wrap(row.getLong("id"));
+    }
+
+    @Override
+    public TransactionId getLastIndexedTransactionId() throws DatabaseException {
+        return TransactionId.wrap(_getLastIndexedTransactionId());
+    }
 }

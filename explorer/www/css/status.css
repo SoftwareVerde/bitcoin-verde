@@ -42,30 +42,32 @@
     margin-top: -0.25em;
 }
 
-.sync-progress-container {
+.progress-container {
     position: relative;
     padding: 1em;
     margin-bottom: 1em;
 }
 
-.sync-progress-container .blocks {
+.progress-container .indexing-labels,
+.progress-container .blocks {
     position: absolute;
     top: 0;
     left: 1em;
 }
 
-.sync-progress-container .block-headers {
+.progress-container .indexing-values,
+.progress-container .block-headers {
     position: absolute;
     right: 1em;
     top: 0;
     text-align: right;
 }
 
-.sync-progress-container div div {
+.progress-container div div {
     font-size: 75%;
 }
 
-.sync-progress-container .percent-done-text {
+.progress-container .percent-done-text {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -78,14 +80,15 @@
     font-weight: bold;
 }
 
-.sync-progress-container .progress-bar {
+.progress-container .progress-bar {
     height: 1em;
     border: solid 1px #202020;
     overflow: hidden;
     background-color: #BBBBBB;
+    position: relative;
 }
 
-.sync-progress-container .progress-bar div.progress-done {
+.progress-container .progress-bar div.progress-done {
     height: 100%;
     display: inline-block;
     box-sizing: border-box;
@@ -93,9 +96,32 @@
     border-right: solid 1px #009900;
     width: 0%;
 }
+.progress-container .progress-bar div.progress-done:nth-child(2) {
+    background-color: #F7941C;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 50%;
+    border-right: 0px;
+}
+.sync-progress-container > .label,
+.indexing-progress-container > .label {
+    font-weight: bold;
+    font-size: 0.75em;
+    margin: 0.5em;
+}
 
-.sync-progress-container .blocks div:nth-child(2),
-.sync-progress-container .block-headers div:nth-child(2) {
+.progress-container > label {
+    display: block;
+    margin: 0.5em;
+    font-weight: bold;
+}
+
+.progress-container .blocks div:nth-child(2),
+.progress-container .indexing-labels div:nth-child(2),
+.progress-container .indexing-values div:nth-child(2),
+.progress-container .block-headers div:nth-child(2) {
     margin-top: 1.75em;
 }
 

@@ -33,6 +33,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.indexer.BlockchainIndexerDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.slp.SlpTransactionDatabaseManager;
@@ -64,6 +65,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -683,6 +685,47 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
         catch (final Exception exception) {
             Logger.debug(exception);
             return ValidationResult.invalid("An internal error occurred.");
+        }
+    }
+
+    @Override
+    public Float getIndexingPercentComplete() {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockchainIndexerDatabaseManager blockchainIndexerDatabaseManager = databaseManager.getBlockchainIndexerDatabaseManager();
+            final TransactionId mostRecentTransactionId = blockchainIndexerDatabaseManager.getMostRecentTransactionId();
+            final TransactionId lastIndexedTransactionId = blockchainIndexerDatabaseManager.getLastIndexedTransactionId();
+
+            if ( (mostRecentTransactionId == null) || (lastIndexedTransactionId == null) ) { return null; }
+            if (Util.areEqual(mostRecentTransactionId, lastIndexedTransactionId)) { return 1F; }
+
+            final double denominator = mostRecentTransactionId.longValue();
+            final long numerator = mostRecentTransactionId.longValue();
+            return (float) (numerator / denominator);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public Float getSlpIndexingPercentComplete() {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final SlpTransactionDatabaseManager slpTransactionDatabaseManager = databaseManager.getSlpTransactionDatabaseManager();
+            final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            final BlockId lastSlpValidatedBlockId = slpTransactionDatabaseManager.getLastSlpValidatedBlockId();
+
+            if ( (headBlockId == null) || (lastSlpValidatedBlockId == null) ) { return null; }
+            if (Util.areEqual(headBlockId, lastSlpValidatedBlockId)) { return 1F; }
+
+            final double denominator = headBlockId.longValue();
+            final long numerator = lastSlpValidatedBlockId.longValue();
+            return (float) (numerator / denominator);
+        }
+        catch (final Exception exception) {
+            Logger.debug(exception);
+            return null;
         }
     }
 

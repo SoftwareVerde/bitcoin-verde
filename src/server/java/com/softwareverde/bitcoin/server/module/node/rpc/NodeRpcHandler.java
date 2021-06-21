@@ -141,6 +141,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         BlockValidationResult validatePrototypeBlock(Block block);
         ValidationResult validateTransaction(Transaction transaction, Boolean enableSlpValidation);
 
+        Float getIndexingPercentComplete();
+        Float getSlpIndexingPercentComplete();
+
         void submitTransaction(Transaction transaction);
         void submitBlock(Block block);
         void reconsiderBlock(Sha256Hash blockHash);
@@ -898,6 +901,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
             statisticsJson.put("blockDate", DateUtil.Utc.timestampToDatetimeString(blockTimestampInSeconds * 1000));
             statisticsJson.put("blockTimestamp", blockTimestampInSeconds);
+
+            final Float indexingPercentComplete = (dataHandler != null ? dataHandler.getIndexingPercentComplete() : null);
+            statisticsJson.put("indexingPercentComplete", indexingPercentComplete);
+
+            final Float slpIndexingPercentComplete = (dataHandler != null ? dataHandler.getSlpIndexingPercentComplete() : null);
+            statisticsJson.put("slpIndexingPercentComplete", slpIndexingPercentComplete);
 
             statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
             response.put("statistics", statisticsJson);

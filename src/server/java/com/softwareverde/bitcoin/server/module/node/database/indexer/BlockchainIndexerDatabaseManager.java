@@ -24,4 +24,7 @@ public interface BlockchainIndexerDatabaseManager {
     void indexTransactionInputs(List<TransactionId> transactionIds, List<Integer> inputIndexes, List<TransactionOutputId> transactionOutputIds) throws DatabaseException;
 
     void deleteTransactionIndexes() throws DatabaseException;
+
+    TransactionId getMostRecentTransactionId() throws DatabaseException;
+    TransactionId getLastIndexedTransactionId() throws DatabaseException;
 }

@@ -42,6 +42,16 @@ class StatusUi {
                 $(".blocks-per-second").text(statistics.blocksPerSecond);
                 $(".transactions-per-second").text(statistics.transactionsPerSecond);
 
+                if (statistics.indexingPercentComplete && statistics.slpIndexingPercentComplete) {
+                    $(".transaction-indexing-value").text((100.0 * statistics.indexingPercentComplete).toFixed(2) + "%");
+                    $(".slp-indexing-value").text((100.0 * statistics.slpIndexingPercentComplete).toFixed(2) + "%");
+
+                    $(".indexing-progress-container").toggle(true);
+                }
+                else {
+                    $(".indexing-progress-container").toggle(false);
+                }
+
                 { // Server Load
                     const threadPoolActiveThreadCount = window.parseFloat(serverLoad.threadPoolActiveThreadCount);
                     const threadPoolMaxThreadCount = window.parseFloat(serverLoad.threadPoolMaxThreadCount);
@@ -69,11 +79,28 @@ class StatusUi {
                 }
 
                 { // Sync Progress
+                    const container = $(".sync-progress-container");
                     const blockHeaderHeight = window.parseFloat(statistics.blockHeaderHeight);
                     const blockHeight = window.parseFloat(statistics.blockHeight);
                     const percentComplete = (100.0 * (blockHeight / blockHeaderHeight)).toFixed(2);
-                    $(".progress-done").css("width", percentComplete + "%");
-                    $(".percent-done-text").text(percentComplete + "%");
+                    $(".progress-done", container).css("width", percentComplete + "%");
+                    $(".percent-done-text", container).text(percentComplete + "%");
+                }
+
+                { // Indexing Progress
+                    const container = $(".indexing-progress-container");
+                    const indexingPercentComplete = window.parseFloat(statistics.indexingPercentComplete);
+                    const percentComplete = (100.0 * indexingPercentComplete).toFixed(2);
+                    $(".progress-done:first", container).css("width", percentComplete + "%");
+                    $(".percent-done-text", container).text(percentComplete + "%");
+                }
+
+                { // Slp Indexing Progress
+                    const container = $(".indexing-progress-container");
+                    const slpIndexingPercentComplete = window.parseFloat(statistics.slpIndexingPercentComplete);
+                    const percentComplete = (100.0 * slpIndexingPercentComplete).toFixed(2);
+                    $(".progress-done:nth-child(2)", container).css("width", percentComplete + "%");
+                    $(".percent-done-text", container).text(percentComplete + "%");
                 }
 
                 { // Service Statuses
