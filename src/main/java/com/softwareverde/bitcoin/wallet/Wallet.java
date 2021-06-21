@@ -27,6 +27,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableTransactionContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.slp.send.MutableSlpSendScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -895,9 +896,16 @@ public class Wallet {
             totalPaymentAmount += paymentAmount.amount;
         }
 
-        final int newOutputCount = (paymentAmounts.getCount() + (changeAddress != null ? 1 : 0));
+        final int newOutputCountEstimate;
+        if (changeAddress == null) {
+            newOutputCountEstimate = paymentAmounts.getCount();
+        }
+        else {
+            final boolean mayRequireSlpChangeOutput = (opReturnScript != null);
+            newOutputCountEstimate = paymentAmounts.getCount() + (mayRequireSlpChangeOutput ? 2 : 1);
+        }
 
-        final Container<Long> feesContainer = _createNewFeeContainer(newOutputCount, opReturnScript);
+        final Container<Long> feesContainer = _createNewFeeContainer(newOutputCountEstimate, opReturnScript);
         final List<SpendableTransactionOutput> transactionOutputsToSpend = _getOutputsToSpend(totalPaymentAmount, feesContainer, mandatoryOutputs);
         if (transactionOutputsToSpend == null) { return null; }
 
@@ -908,7 +916,7 @@ public class Wallet {
         }
 
         final boolean shouldIncludeChangeOutput;
-        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getCount() + 1);
+        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getCount() + newOutputCountEstimate);
         {
             paymentAmountsWithChange.addAll(paymentAmounts);
 
@@ -937,17 +945,19 @@ public class Wallet {
                     paymentAmountsWithChange.add(new PaymentAmount(changeAddress, changeAmount));
                 }
                 else {
-                    // The changeAddress already existed as a PaymentAmount; copy it with the additional change, and maintain the SLP Amount if provided...
+                    // The changeAddress already existed as a PaymentAmount; copy it with the additional change, unless it was an SLP output...
                     final PaymentAmount paymentAmount = paymentAmountsWithChange.get(changePaymentAmountIndex);
 
                     final PaymentAmount newPaymentAmount;
                     if (paymentAmount instanceof SlpPaymentAmount) {
-                        newPaymentAmount = new SlpPaymentAmount(paymentAmount.address, (paymentAmount.amount + changeAmount), ((SlpPaymentAmount) paymentAmount).tokenAmount);
+                        // don't want to add BCH to SLP output, create new output
+                        paymentAmountsWithChange.add(new PaymentAmount(changeAddress, changeAmount));
                     }
                     else {
+                        // pure BCH output, add additional change
                         newPaymentAmount = new PaymentAmount(paymentAmount.address, (paymentAmount.amount + changeAmount));
+                        paymentAmountsWithChange.set(changePaymentAmountIndex, newPaymentAmount);
                     }
-                    paymentAmountsWithChange.set(changePaymentAmountIndex, newPaymentAmount);
                 }
             }
         }
