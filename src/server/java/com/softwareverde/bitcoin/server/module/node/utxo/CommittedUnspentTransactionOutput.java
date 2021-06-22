@@ -49,8 +49,7 @@ public interface CommittedUnspentTransactionOutput extends UnspentTransactionOut
     //  set when flagging the UTXO's isCoinbase flag: https://github.com/tomasvdw/bips/blob/master/ecmh-utxo-commitment-0.mediawiki#specification
     //  This is contradictory to allowing 31 bits for the blockHeight.  Unfortunately, other implementations followed
     //  the specification (which only allows for 24 bits for the blockHeight).
-    // Once coordinated, nodes will switch to the first bit for the coinbase flag.
-    Integer IS_COINBASE_FLAG_BIT_INDEX = 7; // 0
+    Integer IS_COINBASE_FLAG_BIT_INDEX = 0; // (7 is "incorrect" but is what BCHD uses)
 
     Sha256Hash getTransactionHash();
     Integer getByteCount();

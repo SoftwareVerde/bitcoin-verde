@@ -93,6 +93,8 @@ public class BitcoinConstants {
         final Integer defaultProtocolVersion = 70015;
         final String defaultUserAgent = "/Bitcoin Verde:2.0.1/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
+
+        // NOTE: This UTXO Commitments were generated with storing the blockHeight in the 7th bit, not 0th bit.
         final String utxoCommitmentsString =
             "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897,3908702538;" +
             "000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535,690000,21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F,4456621219";

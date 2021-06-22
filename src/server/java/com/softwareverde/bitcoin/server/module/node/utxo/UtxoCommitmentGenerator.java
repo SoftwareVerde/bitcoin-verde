@@ -514,6 +514,21 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             if (_shouldAbort()) { break; }
             if ((stagedUtxoBlockHeight + UTXO_COMMITMENT_BLOCK_LAG) > headBlockHeight) { return; }
 
+            final boolean isCloseToHeadBlockHeight;
+            {
+                final long blockHeightOffset = (_maxCommitmentsToKeep * _publishCommitInterval);
+                isCloseToHeadBlockHeight = (stagedUtxoBlockHeight >= (headBlockHeight - blockHeightOffset));
+            }
+
+            final boolean shouldCreateCommit = ((stagedUtxoBlockHeight % _publishCommitInterval) == 0);
+
+            if (shouldCreateCommit && isCloseToHeadBlockHeight) {
+                // NOTE: a Utxo Commitment for Block N is the Utxo set required to process Block N; i.e. UTXO Commitment N excludes Block N's coinbase.
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, stagedUtxoBlockHeight);
+                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+                _publishUtxoCommitment(stagedUtxoBlockId, blockHash, stagedUtxoBlockHeight, databaseManager);
+            }
+
             final NanoTimer nanoTimer = new NanoTimer();
             nanoTimer.start();
 
@@ -600,18 +615,6 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                     );
                 }
             });
-
-            final boolean isCloseToHeadBlockHeight;
-            {
-                final long blockHeightOffset = (_maxCommitmentsToKeep * _publishCommitInterval);
-                isCloseToHeadBlockHeight = (blockHeight >= (headBlockHeight - blockHeightOffset));
-            }
-
-            final boolean shouldCreateCommit = ((blockHeight % _publishCommitInterval) == 0);
-
-            if (shouldCreateCommit && isCloseToHeadBlockHeight) {
-                _publishUtxoCommitment(stagedUtxoBlockId, blockHash, blockHeight, databaseManager);
-            }
 
             _setStagedUtxoCommitmentBlockHeight(stagedUtxoBlockHeight, databaseManager);
 

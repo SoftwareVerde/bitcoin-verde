@@ -539,7 +539,7 @@ public class UtxoCommitmentDownloader {
                         final UnspentTransactionOutputDatabaseManager unspentTransactionOutputDatabaseManager = databaseManager.getUnspentTransactionOutputDatabaseManager();
                         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-                        final Long blockHeight = utxoCommit.utxoCommitment.blockHeight;
+                        final Long blockHeight = (utxoCommit.utxoCommitment.blockHeight - 1L); // Utxo Commitments do not include the outputs of that block/blockHeight.
 
                         UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.lock();
                         try {
