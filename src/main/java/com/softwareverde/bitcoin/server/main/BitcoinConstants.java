@@ -7,6 +7,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -94,10 +95,10 @@ public class BitcoinConstants {
         final String defaultUserAgent = "/Bitcoin Verde:2.0.1/";
         final String coinbaseMessage = "/pool.bitcoinverde.org/VERDE/";
 
-        // NOTE: This UTXO Commitments were generated with storing the blockHeight in the 7th bit, not 0th bit.
+        // NOTE: This UTXO Commitments were generated with storing the blockHeight in the 7th bit, not 0th bit; were calculated with off-by-one blockHeight.
         final String utxoCommitmentsString =
-            "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897,3908702538;" +
-            "000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535,690000,21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F,4456621219";
+            "00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E,680000,035E30B654C7C6D921CBEC03FD8BB76191032785326CB8B5BA74D1EE48927AB682,3908702538;" +
+            "000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535,690000,02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65,4456621219";
 
         GENESIS_BLOCK_HASH = System.getProperty("GENESIS_BLOCK_HASH", MainNet.genesisBlockHash);
         GENESIS_BLOCK_TIMESTAMP = Util.parseLong(System.getProperty("GENESIS_BLOCK_TIMESTAMP", String.valueOf(MainNet.genesisBlockTimestamp)));
@@ -121,10 +122,10 @@ public class BitcoinConstants {
 
                 final Sha256Hash blockHash = Sha256Hash.fromHexString(hashesString[0]);
                 final Long blockHeight = Util.parseLong(hashesString[1]);
-                final Sha256Hash multisetHash = Sha256Hash.fromHexString(hashesString[2]);
+                final PublicKey multisetPublicKey = PublicKey.fromHexString(hashesString[2]);
                 final Long byteCount = Util.parseLong(hashesString[3]);
 
-                utxoCommitments.add(new UtxoCommitmentMetadata(blockHash, blockHeight, multisetHash, byteCount));
+                utxoCommitments.add(new UtxoCommitmentMetadata(blockHash, blockHeight, multisetPublicKey, byteCount));
             }
             UTXO_COMMITMENTS = utxoCommitments.build();
         }

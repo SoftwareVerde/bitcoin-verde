@@ -28,7 +28,6 @@ import com.softwareverde.concurrent.Pin;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.EcMultiset;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.logging.Logger;
@@ -432,7 +431,7 @@ public class UtxoCommitmentDownloader {
             return false;
         }
 
-        Logger.info("Downloading " + utxoCommit.utxoCommitment.blockHash + " - " + utxoCommit.utxoCommitment.multisetHash + " from " + utxoCommit.utxoCommitmentBreakdowns.size() + " nodes.");
+        Logger.info("Downloading " + utxoCommit.utxoCommitment.blockHash + " - " + utxoCommit.utxoCommitment.publicKey + " from " + utxoCommit.utxoCommitmentBreakdowns.size() + " nodes.");
 
         final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommit.utxoCommitmentBreakdown.buckets;
         final int utcoCommitmentBucketCount = utxoCommitmentBuckets.getCount();
@@ -518,8 +517,8 @@ public class UtxoCommitmentDownloader {
             }
 
             if (completeCount >= utcoCommitmentBucketCount) {
-                final Sha256Hash multisetHash = utxoCommit.utxoCommitment.multisetHash;
-                final File loadFileDestination = new File(_utxoCommitmentStore.getUtxoDataDirectory(), (multisetHash + ".sql"));
+                final PublicKey multisetPublicKey = utxoCommit.utxoCommitment.publicKey;
+                final File loadFileDestination = new File(_utxoCommitmentStore.getUtxoDataDirectory(), (multisetPublicKey + ".sql"));
                 try {
                     // Sort contents of any unsorted file...
                     for (final File unsortedFile : unsortedCommitmentFiles) {

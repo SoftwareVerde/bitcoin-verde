@@ -106,12 +106,14 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         return UtxoCommitmentId.wrap(utxoCommitId);
     }
 
-    protected final void _setUtxoCommitmentHash(final UtxoCommitmentId utxoCommitmentId, final Sha256Hash hash, final DatabaseManager databaseManager) throws DatabaseException {
+    protected final void _setUtxoCommitmentHash(final UtxoCommitmentId utxoCommitmentId, final Sha256Hash hash, final PublicKey publicKey, final DatabaseManager databaseManager) throws DatabaseException {
+        final PublicKey compressedPublicKey = publicKey.compress();
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
-            new Query("UPDATE utxo_commitments SET hash = ? WHERE id = ?")
+            new Query("UPDATE utxo_commitments SET hash = ?, public_key = ? WHERE id = ?")
                 .setParameter(hash)
+                .setParameter(compressedPublicKey)
                 .setParameter(utxoCommitmentId)
         );
     }
@@ -435,8 +437,9 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 utxoCommitMultiset.add(bucketPublicKey);
             }
 
+            final PublicKey publicKey = utxoCommitMultiset.getPublicKey();
             final Sha256Hash commitHash = utxoCommitMultiset.getHash();
-            _setUtxoCommitmentHash(utxoCommitmentId, commitHash, databaseManager);
+            _setUtxoCommitmentHash(utxoCommitmentId, commitHash, publicKey, databaseManager);
 
             utxoCommitment._blockId = blockId;
             utxoCommitment._blockHeight = commitBlockHeight;
@@ -656,6 +659,11 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         return false;
     }
 
+    protected Sha256Hash _calculateEcMultisetHash(final PublicKey publicKey) {
+        final EcMultiset ecMultiset = new EcMultiset(publicKey);
+        return ecMultiset.getHash();
+    }
+
     @Override
     protected void _onSleep() { }
 
@@ -672,7 +680,8 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(utxoCommitmentMetadata.blockHash);
             final UtxoCommitmentId utxoCommitmentId = _createUtxoCommitment(blockId, databaseManager);
-            _setUtxoCommitmentHash(utxoCommitmentId, utxoCommitmentMetadata.multisetHash, databaseManager);
+            final Sha256Hash ecMultisetHash = _calculateEcMultisetHash(utxoCommitmentMetadata.publicKey);
+            _setUtxoCommitmentHash(utxoCommitmentId, ecMultisetHash, utxoCommitmentMetadata.publicKey, databaseManager);
 
             final HashMap<Integer, EcMultiset> bucketHashes = new HashMap<>();
             final HashMap<Integer, MutableList<UtxoDatabaseSubBucket>> bucketFiles = new HashMap<>();

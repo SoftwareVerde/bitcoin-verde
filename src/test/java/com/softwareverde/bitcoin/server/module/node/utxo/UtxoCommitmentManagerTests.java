@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
+import com.softwareverde.cryptography.secp256k1.key.PublicKey;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
 import org.junit.Assert;
@@ -47,11 +48,11 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                 block1.getHash(),
                 1L,
-                Sha256Hash.fromHexString("0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897"),
+                PublicKey.fromHexString("035E30B654C7C6D921CBEC03FD8BB76191032785326CB8B5BA74D1EE48927AB682"),
                 3908702538L
             );
 
-            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897_buckets.csv", null);
+            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/035E30B654C7C6D921CBEC03FD8BB76191032785326CB8B5BA74D1EE48927AB682_buckets.csv", null);
             utxoCommitmentBreakdowns.add(
                 new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
             );
@@ -61,11 +62,11 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                 block2.getHash(),
                 2L,
-                Sha256Hash.fromHexString("21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F"),
+                PublicKey.fromHexString("02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65"),
                 4456621219L
             );
 
-            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_buckets.csv", "/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_sub_buckets.csv");
+            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65_buckets.csv", "/utxo/02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65_sub_buckets.csv");
             utxoCommitmentBreakdowns.add(
                 new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
             );
@@ -84,7 +85,8 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
 
                 final UtxoCommitmentGenerator utxoCommitmentGenerator = new UtxoCommitmentGenerator(_fullNodeDatabaseManagerFactory, _utxoCommitmentStore.getUtxoDataDirectory());
                 final UtxoCommitmentId utxoCommitmentId = utxoCommitmentGenerator._createUtxoCommitment(blockId, databaseManager);
-                utxoCommitmentGenerator._setUtxoCommitmentHash(utxoCommitmentId, utxoCommitmentBreakdown.commitment.multisetHash, databaseManager);
+                final Sha256Hash multisetHash = utxoCommitmentGenerator._calculateEcMultisetHash(utxoCommitmentBreakdown.commitment.publicKey);
+                utxoCommitmentGenerator._setUtxoCommitmentHash(utxoCommitmentId, multisetHash, utxoCommitmentBreakdown.commitment.publicKey, databaseManager);
 
                 int bucketIndex = 0;
                 for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBreakdown.buckets) {

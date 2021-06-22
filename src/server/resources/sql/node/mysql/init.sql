@@ -108,6 +108,7 @@ CREATE TABLE utxo_commitments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     block_id INT UNSIGNED NOT NULL,
     hash BINARY(32),
+    public_key BINARY(33),
     PRIMARY KEY (id),
     FOREIGN KEY utxo_commitment_block_id_fk (block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=LATIN1;

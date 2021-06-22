@@ -32,17 +32,17 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
         final MutableList<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
 
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT utxo_commitments.id, blocks.hash AS block_hash, blocks.block_height, utxo_commitments.hash AS commitment_hash, SUM(utxo_commitment_files.byte_count) AS commitment_byte_count FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height DESC LIMIT " + UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT)
+            new Query("SELECT utxo_commitments.id, blocks.hash AS block_hash, blocks.block_height, utxo_commitments.public_key AS public_key, SUM(utxo_commitment_files.byte_count) AS commitment_byte_count FROM utxo_commitments INNER JOIN blocks ON blocks.id = utxo_commitments.block_id INNER JOIN utxo_commitment_buckets ON utxo_commitment_buckets.utxo_commitment_id = utxo_commitments.id INNER JOIN utxo_commitment_files ON utxo_commitment_files.utxo_commitment_bucket_id = utxo_commitment_buckets.id GROUP BY utxo_commitments.id ORDER BY blocks.block_height DESC LIMIT " + UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT)
         );
 
         for (final Row row : rows) {
             final UtxoCommitmentId utxoCommitmentId = UtxoCommitmentId.wrap(row.getLong("id"));
             final Sha256Hash blockHash = Sha256Hash.wrap(row.getBytes("block_hash"));
             final Long blockHeight = row.getLong("block_height");
-            final Sha256Hash multisetHash = Sha256Hash.wrap(row.getBytes("commitment_hash"));
+            final PublicKey multisetPublicKey = PublicKey.fromBytes(row.getBytes("public_key"));
             final Long byteCount = row.getLong("commitment_byte_count");
 
-            final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, blockHeight, multisetHash, byteCount);
+            final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(blockHash, blockHeight, multisetPublicKey, byteCount);
 
             final MutableList<UtxoCommitmentBucket> utxoCommitmentBuckets = new MutableList<>();
             final java.util.List<Row> bucketRows = _databaseConnection.query(

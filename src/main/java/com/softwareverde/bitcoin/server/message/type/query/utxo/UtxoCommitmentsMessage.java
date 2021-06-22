@@ -50,10 +50,11 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
         for (final UtxoCommitmentBreakdown utxoCommitment : _commitments) {
             final UtxoCommitmentMetadata utxoCommitmentMetadata = utxoCommitment.commitment;
             final List<UtxoCommitmentBucket> utxoCommitmentBuckets = utxoCommitment.buckets;
+            final PublicKey compressedPublicKey = utxoCommitmentMetadata.publicKey.compress();
 
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.blockHash, Endian.LITTLE);
             byteArrayBuilder.appendBytes(ByteUtil.longToBytes(utxoCommitmentMetadata.blockHeight), Endian.LITTLE);
-            byteArrayBuilder.appendBytes(utxoCommitmentMetadata.multisetHash, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(compressedPublicKey, Endian.LITTLE);
             byteArrayBuilder.appendBytes(ByteUtil.longToBytes(utxoCommitmentMetadata.byteCount), Endian.LITTLE);
 
             int bucketIndex = 0;

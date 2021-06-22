@@ -86,11 +86,11 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                                 Sha256Hash.fromHexString("00000000000000000040B37F904A9CBBA25A6D37AA313D4AE8C4C46589CF4C6E"),
                                 680000L,
-                                Sha256Hash.fromHexString("0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897"),
+                                PublicKey.fromHexString("035E30B654C7C6D921CBEC03FD8BB76191032785326CB8B5BA74D1EE48927AB682"),
                                 3908702538L
                             );
 
-                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/0D758E064E9B249257FDA7D270F01F9EA3A15110E5467FA174FB2F409C8BD897_buckets.csv", null);
+                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/035E30B654C7C6D921CBEC03FD8BB76191032785326CB8B5BA74D1EE48927AB682_buckets.csv", null);
                             utxoCommitmentBreakdowns.add(
                                 new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
                             );
@@ -100,11 +100,11 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
                             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                                 Sha256Hash.fromHexString("000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535"),
                                 690000L,
-                                Sha256Hash.fromHexString("21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F"),
+                                PublicKey.fromHexString("02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65"),
                                 4456621219L
                             );
 
-                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_buckets.csv", "/utxo/21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F_sub_buckets.csv");
+                            final List<UtxoCommitmentBucket> utxoCommitmentBuckets = UtxoCommitmentDownloaderTests.inflateUtxoCommitmentBuckets("/utxo/02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65_buckets.csv", "/utxo/02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65_sub_buckets.csv");
                             utxoCommitmentBreakdowns.add(
                                 new UtxoCommitmentBreakdown(utxoCommitmentMetadata, utxoCommitmentBuckets)
                             );
@@ -138,6 +138,6 @@ public class UtxoCommitmentDownloaderTests extends UnitTest {
         Assert.assertEquals(Long.valueOf(690000L), utxoCommit.utxoCommitment.blockHeight);
         Assert.assertEquals(Long.valueOf(4456621219L), utxoCommit.utxoCommitment.byteCount);
         Assert.assertEquals(Sha256Hash.fromHexString("000000000000000001993116A3D4D6431759CCECCE0E4F4C47E907E20D2BC535"), utxoCommit.utxoCommitment.blockHash);
-        Assert.assertEquals(Sha256Hash.fromHexString("21515C522FC36D50D0EF0097210AD171CFBBCF83F65DAB1AE2F706B2F250440F"), utxoCommit.utxoCommitment.multisetHash);
+        Assert.assertEquals(PublicKey.fromHexString("02D748F35D53F4C029149F3EBACF7AB70693F5148B3857D4EBD4DF71A2C27CBF65"), utxoCommit.utxoCommitment.publicKey);
     }
 }
