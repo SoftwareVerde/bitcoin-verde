@@ -66,6 +66,7 @@ public class Wallet {
     protected static final Long BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT = 180L;
     protected static final Long BYTES_PER_TRANSACTION_OUTPUT = 34L;
     protected static final Long BYTES_PER_TRANSACTION_HEADER = 10L; // This value becomes inaccurate if either the number of inputs or the number out outputs exceeds 252 (The max value of a 1-byte variable length integer)...
+    protected static final Long MAX_ALLOWED_FEE_SATOSHIS_PER_BYTE = 10L;
 
     public static Long getDefaultDustThreshold() {
         return (long) ((BYTES_PER_TRANSACTION_OUTPUT + BYTES_PER_TRANSACTION_INPUT) * 3D);
@@ -792,6 +793,11 @@ public class Wallet {
 
         if (transactionBundle.expectedFees < (transactionByteCount * _satoshisPerByteFee)) {
             Logger.info("Failed to create a transaction with sufficient fee...");
+            return null;
+        }
+
+        if (transactionBundle.expectedFees > (transactionByteCount * MAX_ALLOWED_FEE_SATOSHIS_PER_BYTE)) {
+            Logger.info("Created transaction pays excessive fees: " + transactionBundle.expectedFees + " sats (" + (transactionBundle.expectedFees / transactionByteCount.floatValue()) + " sats/byte)");
             return null;
         }
 
