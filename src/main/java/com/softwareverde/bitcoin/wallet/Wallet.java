@@ -942,6 +942,7 @@ public class Wallet {
         paymentAmountsWithChange.addAll(paymentAmounts);
         BigInteger totalSlpInput = BigInteger.ZERO;
         BigInteger totalSlpOutput = BigInteger.ZERO;
+        BigInteger slpChangeAmount = null;
         if (slpTokenId != null) {
             // ensure no SLP will be burned with selected outputs (which may have been added for funding purposes but were not included in SLP configuration)
             final Integer slpChangeOutputIndex;
@@ -970,7 +971,7 @@ public class Wallet {
                 slpChangeOutputIndex = index;
             }
             if (totalSlpOutput.compareTo(totalSlpInput) != 0) {
-                final BigInteger slpChangeAmount = totalSlpInput.subtract(totalSlpOutput);
+                slpChangeAmount = totalSlpInput.subtract(totalSlpOutput);
                 if (slpChangeAmount.compareTo(BigInteger.ZERO) < 0) {
                     Logger.warn("Transaction spends more SLP than it provides");
                     return null;
@@ -1048,17 +1049,20 @@ public class Wallet {
             stringBuilder.append(" UTXOs. Sending ");
             stringBuilder.append(totalPaymentAmount);
             if (slpTokenId != null) {
-                stringBuilder.append(" (");
+                stringBuilder.append(" (SLP tokens: ");
+                stringBuilder.append(totalSlpInput);
+                stringBuilder.append(" in, ");
                 stringBuilder.append(totalSlpOutput);
-                stringBuilder.append(" SLP tokens)");
+                stringBuilder.append(" out");
+                if (slpChangeAmount != null) {
+                    stringBuilder.append(", ");
+                    stringBuilder.append(slpChangeAmount);
+                    stringBuilder.append(" change");
+                }
+                stringBuilder.append(")");
             }
             stringBuilder.append(". Spending ");
             stringBuilder.append(feesContainer.value);
-            if (slpTokenId != null) {
-                stringBuilder.append(" (");
-                stringBuilder.append(totalSlpInput);
-                stringBuilder.append(" SLP tokens)");
-            }
             stringBuilder.append(" in fees. ");
             if (shouldIncludeChangeOutput) {
                 stringBuilder.append(totalAmountSelected - totalPaymentAmount - feesContainer.value);
@@ -1104,6 +1108,7 @@ public class Wallet {
         }
         if (shouldUpdateSlpTokenConfiguration) {
             // recurse, using information from transaction bundle
+            Logger.info("Discarding TransactionBundle, SLP script must be rebuilt.");
             final MutableList<SlpPaymentAmount> newSlpPaymentAmounts = new MutableList<>(bundlePaymentAmounts.getCount());
             for (final PaymentAmount bundlePaymentAmount : bundlePaymentAmounts) {
                 if (bundlePaymentAmount instanceof SlpPaymentAmount) {
