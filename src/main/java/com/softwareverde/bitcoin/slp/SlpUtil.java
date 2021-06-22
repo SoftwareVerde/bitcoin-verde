@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.slp;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
@@ -154,6 +155,12 @@ public class SlpUtil {
         return false;
     }
 
+    /**
+     * Returns the SLP token ID for the provided transaction.
+     *  For genesis transactions, this assumes the transaction is already full formed; if it is not, this could return
+     *  invalid results.  Otherwise, the token ID is extracted from the script and returned.
+     *  Returns null if the transaction is not an SLP transaction, or the script is not correctly formed.
+     */
     public static SlpTokenId getTokenId(final Transaction transaction) {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
