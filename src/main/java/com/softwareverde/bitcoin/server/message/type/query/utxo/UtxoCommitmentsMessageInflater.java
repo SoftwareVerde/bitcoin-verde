@@ -12,6 +12,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
 import com.softwareverde.cryptography.secp256k1.key.PublicKey;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflater {
@@ -22,6 +23,9 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.UTXO_COMMITMENTS);
         if (protocolMessageHeader == null) { return null; }
+
+        final Long messageVersion = byteArrayReader.readVariableLengthInteger();
+        if (! Util.areEqual(UtxoCommitmentsMessage.VERSION, messageVersion)) { return null; }
 
         final Long commitmentCount = byteArrayReader.readVariableLengthInteger();
         if (commitmentCount > UtxoCommitmentsMessage.MAX_COMMITMENT_COUNT) { return null; }

@@ -15,6 +15,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
+    public static Integer VERSION = 1;
     public static final Integer MAX_COMMITMENT_COUNT = 32;
     public static final Integer MAX_SUB_BUCKET_COUNT = 128;
 
@@ -44,6 +45,7 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
         }
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(UtxoCommitmentsMessage.VERSION));
 
         final int commitmentCount = _commitments.getCount();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(commitmentCount));

@@ -73,7 +73,7 @@ dependencies {
     serverImplementation group: 'org.jocl',                     name: 'jocl',                   version: '2.0.1'
 
     // Testing
-    testImplementation group: 'junit',                     name: 'junit',                  version: '4.11'
+    testImplementation group: 'junit',                     name: 'junit',               version: '4.11'
 }
 
 // configurations.all {
