@@ -40,7 +40,7 @@ repositories {
 }
 
 dependencies {
-    //implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // SPV Library
     api             group: 'com.github.softwareverde',  name: 'java-util',              version: 'v2.7.3'
@@ -53,7 +53,7 @@ dependencies {
     implementation  group: 'com.github.softwareverde',  name: 'java-logging-slf4j',     version: 'v1.0.1'
 
     // Bitcoin Core RPC compatibility
-    api            (group: 'com.github.softwareverde',  name: 'java-http-client',       version: 'v2.1.0', force: true)
+    api            (group: 'com.github.softwareverde',  name: 'java-http-client',       version: 'v2.2.3', force: true)
     api             group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.2.0'
     implementation  group: 'org.zeromq',                name: 'jeromq',                 version: '0.5.2'
 

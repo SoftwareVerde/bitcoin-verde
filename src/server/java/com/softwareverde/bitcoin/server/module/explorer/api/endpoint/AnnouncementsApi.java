@@ -1,24 +1,103 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
+import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.server.servlet.WebSocketServlet;
 import com.softwareverde.http.server.servlet.request.WebSocketRequest;
 import com.softwareverde.http.server.servlet.response.WebSocketResponse;
 import com.softwareverde.http.websocket.WebSocket;
 import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 import com.softwareverde.logging.Logger;
-import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.Tuple;
+import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class AnnouncementsApi implements WebSocketServlet {
+    public static class WebSocketApiResult extends ApiResult {
+        public static WebSocketApiResult createSuccessResult(final Long requestId) {
+            final WebSocketApiResult webSocketApiResult = new WebSocketApiResult();
+            webSocketApiResult.setWasSuccess(true);
+            webSocketApiResult.addData("requestId", requestId);
+            return webSocketApiResult;
+        }
+
+        public static WebSocketApiResult createFailureResult(final Long requestId, final String errorMessage) {
+            final WebSocketApiResult webSocketApiResult = new WebSocketApiResult();
+            webSocketApiResult.setWasSuccess(false);
+            webSocketApiResult.setErrorMessage(errorMessage);
+            webSocketApiResult.addData("requestId", requestId);
+            return webSocketApiResult;
+        }
+
+        protected final HashMap<String, String> _payload = new HashMap<>();
+
+        public void addData(final String key, final String value) {
+            _payload.put(key, value);
+        }
+
+        public void addData(final String key, final Object value) {
+            _payload.put(key, (value != null ? value.toString() : null));
+        }
+
+        public void addData(final String key, final Jsonable jsonable) {
+            final String value = (jsonable != null ? jsonable.toString() : null);
+            _payload.put(key, value);
+        }
+
+        @Override
+        public Json toJson() {
+            final Json json = super.toJson();
+
+            for (final String key : _payload.keySet()) {
+                final String value = _payload.get(key);
+
+                json.put(key, value);
+            }
+
+            return json;
+        }
+
+        @Override
+        public String toString() {
+            final Json json = this.toJson();
+            return json.toString();
+        }
+    }
+
+    protected final AddressInflater _addressInflater = new AddressInflater();
+
     protected static final Object MUTEX = new Object();
-    protected static final HashMap<Long, WebSocket> WEB_SOCKETS = new HashMap<Long, WebSocket>();
+    protected static final HashMap<Long, AnnouncementWebSocketConfiguration> WEB_SOCKETS = new HashMap<>();
+
+    protected static List<AnnouncementWebSocketConfiguration> getWebSockets() {
+        synchronized (MUTEX) {
+            final MutableList<AnnouncementWebSocketConfiguration> webSockets = new MutableList<>();
+            for (final AnnouncementWebSocketConfiguration webSocketConfiguration : WEB_SOCKETS.values()) {
+                webSockets.add(webSocketConfiguration);
+            }
+            return webSockets;
+        }
+    }
 
     protected static final ReentrantReadWriteLock.ReadLock QUEUE_READ_LOCK;
     protected static final ReentrantReadWriteLock.WriteLock QUEUE_WRITE_LOCK;
@@ -30,6 +109,26 @@ public class AnnouncementsApi implements WebSocketServlet {
 
     protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<Json>(10);
     protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<Json>(32);
+
+    protected static Tuple<List<Json>, List<Json>> getCachedObjects() {
+        QUEUE_READ_LOCK.lock();
+        try {
+            final MutableList<Json> blockHeaders = new MutableList<>();
+            for (final Json json : BLOCK_HEADERS) {
+                blockHeaders.add(json);
+            }
+
+            final MutableList<Json> transactions = new MutableList<>();
+            for (final Json json : TRANSACTIONS) {
+                transactions.add(json);
+            }
+
+            return new Tuple<>(blockHeaders, transactions);
+        }
+        finally {
+            QUEUE_READ_LOCK.unlock();
+        }
+    }
 
     protected static final AtomicLong _nextSocketId = new AtomicLong(1L);
 
@@ -43,7 +142,7 @@ public class AnnouncementsApi implements WebSocketServlet {
                 while ( (! thread.isInterrupted()) && (! _isShuttingDown) ) {
                     Thread.sleep(500L);
 
-                    _checkRpcConnection();
+                    _checkRpcConnections();
                 }
             }
             catch (final Exception exception) {
@@ -62,7 +161,8 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected final ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
     protected volatile Boolean _isShuttingDown = false;
-    protected JsonSocket _socketConnection = null; // TODO: Maintain reference to NodeJsonRpcConnection instead.
+    protected NodeJsonRpcConnection _nodeJsonRpcConnection = null;
+    protected NodeJsonRpcConnection _rawDataNodeJsonRpcConnection = null;
 
     protected final NodeJsonRpcConnection.AnnouncementHookCallback _announcementHookCallback = new NodeJsonRpcConnection.AnnouncementHookCallback() {
         @Override
@@ -76,10 +176,29 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
     };
 
+    protected final NodeJsonRpcConnection.RawAnnouncementHookCallback _rawAnnouncementHookCallback = new NodeJsonRpcConnection.RawAnnouncementHookCallback() {
+        @Override
+        public void onNewBlockHeader(final BlockHeader blockHeader) {
+            _onNewBlock(blockHeader);
+        }
+
+        @Override
+        public void onNewTransaction(final Transaction transaction, final Long transactionFee) {
+            _onNewTransaction(transaction);
+        }
+    };
+
     protected Json _wrapObject(final String objectType, final Json object) {
         final Json json = new Json();
         json.put("objectType", objectType);
         json.put("object", object);
+        return json;
+    }
+
+    protected Json _wrapObject(final String objectType, final Object data) {
+        final Json json = new Json();
+        json.put("objectType", objectType);
+        json.put("object", data);
         return json;
     }
 
@@ -90,23 +209,28 @@ public class AnnouncementsApi implements WebSocketServlet {
         return transactionHashJson;
     }
 
+    protected void _checkRpcConnections() {
+        _checkRpcConnection();
+        _checkRawRpcConnection();
+    }
+
     protected void _checkRpcConnection() {
         { // Lock-less check...
-            final JsonSocket jsonSocket = _socketConnection;
-            if ((jsonSocket != null) && (jsonSocket.isConnected())) {
+            final NodeJsonRpcConnection rpcConnection = _nodeJsonRpcConnection;
+            if ((rpcConnection != null) && (rpcConnection.isConnected())) {
                 return;
             }
         }
 
         synchronized (_socketConnectionMutex) {
             { // Locked, 2nd check...
-                final JsonSocket jsonSocket = _socketConnection;
-                if ((jsonSocket != null) && (jsonSocket.isConnected())) {
+                final NodeJsonRpcConnection rpcConnection = _nodeJsonRpcConnection;
+                if ((rpcConnection != null) && (rpcConnection.isConnected())) {
                     return;
                 }
 
-                if (jsonSocket != null) {
-                    jsonSocket.close();
+                if (rpcConnection != null) {
+                    rpcConnection.close();
                 }
             }
 
@@ -114,13 +238,52 @@ public class AnnouncementsApi implements WebSocketServlet {
 
             final String bitcoinRpcUrl = _explorerProperties.getBitcoinRpcUrl();
             final Integer bitcoinRpcPort = _explorerProperties.getBitcoinRpcPort();
-            _socketConnection = null;
+            _nodeJsonRpcConnection = null;
 
             try {
                 final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(bitcoinRpcUrl, bitcoinRpcPort, _threadPool);
                 final Boolean wasSuccessful = nodeJsonRpcConnection.upgradeToAnnouncementHook(_announcementHookCallback);
                 if (wasSuccessful) {
-                    _socketConnection = nodeJsonRpcConnection.getJsonSocket();
+                    _nodeJsonRpcConnection = nodeJsonRpcConnection;
+                }
+            }
+            catch (final Exception exception) {
+                Logger.warn(exception);
+            }
+        }
+    }
+
+    protected void _checkRawRpcConnection() {
+        { // Lock-less check...
+            final NodeJsonRpcConnection rpcConnection = _rawDataNodeJsonRpcConnection;
+            if ((rpcConnection != null) && (rpcConnection.isConnected())) {
+                return;
+            }
+        }
+
+        synchronized (_socketConnectionMutex) {
+            { // Locked, 2nd check...
+                final NodeJsonRpcConnection rpcConnection = _rawDataNodeJsonRpcConnection;
+                if ((rpcConnection != null) && (rpcConnection.isConnected())) {
+                    return;
+                }
+
+                if (rpcConnection != null) {
+                    rpcConnection.close();
+                }
+            }
+
+            if (_isShuttingDown) { return; }
+
+            final String bitcoinRpcUrl = _explorerProperties.getBitcoinRpcUrl();
+            final Integer bitcoinRpcPort = _explorerProperties.getBitcoinRpcPort();
+            _rawDataNodeJsonRpcConnection = null;
+
+            try {
+                final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(bitcoinRpcUrl, bitcoinRpcPort, _threadPool);
+                final Boolean wasSuccessful = nodeJsonRpcConnection.upgradeToAnnouncementHook(_rawAnnouncementHookCallback);
+                if (wasSuccessful) {
+                    _rawDataNodeJsonRpcConnection = nodeJsonRpcConnection;
                 }
             }
             catch (final Exception exception) {
@@ -142,10 +305,13 @@ public class AnnouncementsApi implements WebSocketServlet {
             message = messageJson.toString();
         }
 
-        synchronized (MUTEX) {
-            for (final WebSocket webSocket : WEB_SOCKETS.values()) {
-                webSocket.sendMessage(message);
-            }
+        final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
+        for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
+            if (! webSocketConfiguration.blockHeadersAreEnabled) { continue; }
+            if (webSocketConfiguration.fullBlockHeaderDataIsEnabled) { continue; }
+
+            final WebSocket webSocket = webSocketConfiguration.webSocket;
+            webSocket.sendMessage(message);
         }
     }
 
@@ -157,8 +323,62 @@ public class AnnouncementsApi implements WebSocketServlet {
             message = messageJson.toString();
         }
 
-        synchronized (MUTEX) {
-            for (final WebSocket webSocket : WEB_SOCKETS.values()) {
+        final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
+        for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
+            if (! webSocketConfiguration.transactionsAreEnabled) { continue; }
+            if (webSocketConfiguration.fullTransactionDataIsEnabled) { continue; }
+
+            final WebSocket webSocket = webSocketConfiguration.webSocket;
+            webSocket.sendMessage(message);
+        }
+    }
+
+    protected void _broadcastNewBlockHeader(final BlockHeader blockHeader) {
+        final String message;
+        {
+            final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+            final ByteArray blockHeaderBytes = blockHeaderDeflater.toBytes(blockHeader);
+            final Json messageJson = _wrapObject("RAW_BLOCK", blockHeaderBytes);
+            message = messageJson.toString();
+        }
+
+        final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
+        for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
+            if (! webSocketConfiguration.blockHeadersAreEnabled) { continue; }
+            if (! webSocketConfiguration.fullBlockHeaderDataIsEnabled) { continue; }
+
+            final WebSocket webSocket = webSocketConfiguration.webSocket;
+            webSocket.sendMessage(message);
+        }
+    }
+
+    protected void _broadcastNewTransaction(final Transaction transaction) {
+        final String message;
+        {
+            final TransactionDeflater transactionDeflater = new TransactionDeflater();
+            final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+            final Json messageJson = _wrapObject("RAW_TRANSACTION", transactionBytes);
+            message = messageJson.toString();
+        }
+
+        final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
+        for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
+            if (! webSocketConfiguration.transactionsAreEnabled) { continue; }
+            if (! webSocketConfiguration.fullTransactionDataIsEnabled) { continue; }
+
+            final boolean shouldBroadcastTransaction;
+            final MutableBloomFilter bloomFilter = webSocketConfiguration.bloomFilter;
+            if (bloomFilter != null) {
+                final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
+                final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode, _addressInflater);
+                shouldBroadcastTransaction = transactionBloomFilterMatcher.shouldInclude(transaction);
+            }
+            else {
+                shouldBroadcastTransaction = true;
+            }
+
+            if (shouldBroadcastTransaction) {
+                final WebSocket webSocket = webSocketConfiguration.webSocket;
                 webSocket.sendMessage(message);
             }
         }
@@ -190,6 +410,103 @@ public class AnnouncementsApi implements WebSocketServlet {
         _broadcastNewTransaction(transactionJson);
     }
 
+    protected void _onNewBlock(final BlockHeader blockHeader) {
+        _broadcastNewBlockHeader(blockHeader);
+    }
+
+    protected void _onNewTransaction(final Transaction transaction) {
+        _broadcastNewTransaction(transaction);
+    }
+
+    protected void _handleWebSocketGet(final AnnouncementWebSocketConfiguration webSocketConfiguration, final Long requestId, final String query, final Json parameters) {
+        final WebSocket webSocket = webSocketConfiguration.webSocket;
+        final Long webSocketId = webSocket.getId();
+
+        final WebSocketApiResult apiResult = WebSocketApiResult.createFailureResult(requestId, "Unsupported query: " + query);
+        Logger.debug("Unknown WebSocket Query: " + query + " (id=" + webSocketId + ")");
+
+        webSocket.sendMessage(apiResult.toString());
+    }
+
+    protected void _handleWebSocketPost(final AnnouncementWebSocketConfiguration webSocketConfiguration, final Long requestId, final String query, final Json parameters) {
+        final WebSocket webSocket = webSocketConfiguration.webSocket;
+        final Long webSocketId = webSocket.getId();
+
+        final WebSocketApiResult apiResult;
+
+        switch (query.toUpperCase()) {
+            case "ENABLE_RAW_TRANSACTIONS": {
+                webSocketConfiguration.transactionsAreEnabled = true;
+                webSocketConfiguration.fullTransactionDataIsEnabled = true;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "DISABLE_RAW_TRANSACTIONS": {
+                webSocketConfiguration.fullTransactionDataIsEnabled = false;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "ENABLE_TRANSACTIONS": {
+                webSocketConfiguration.transactionsAreEnabled = true;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "DISABLE_TRANSACTIONS": {
+                webSocketConfiguration.transactionsAreEnabled = false;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "ENABLE_RAW_BLOCKS": {
+                webSocketConfiguration.blockHeadersAreEnabled = true;
+                webSocketConfiguration.fullBlockHeaderDataIsEnabled = true;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "DISABLE_RAW_BLOCKS": {
+                webSocketConfiguration.fullBlockHeaderDataIsEnabled = false;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "ENABLE_BLOCKS": {
+                webSocketConfiguration.blockHeadersAreEnabled = true;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "DISABLE_BLOCKS": {
+                webSocketConfiguration.blockHeadersAreEnabled = false;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            case "SET_BLOOM_FILTER": {
+                final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
+                final String bloomFilterHexString = parameters.getString("bloomFilter");
+                final ByteArray bloomFilterBytes = ByteArray.fromHexString(bloomFilterHexString);
+                if (bloomFilterBytes == null) {
+                    Logger.debug("Invalid Bloom Filter: " + bloomFilterHexString + " (id=" + webSocketId + ")");
+                    apiResult = WebSocketApiResult.createFailureResult(requestId, "Invalid bloom filter.");
+                    break;
+                }
+
+                final MutableBloomFilter bloomFilter = bloomFilterInflater.fromBytes(bloomFilterBytes);
+                if (bloomFilter == null) {
+                    Logger.debug("Invalid Bloom Filter: " + bloomFilterHexString + " (id=" + webSocketId + ")");
+                    apiResult = WebSocketApiResult.createFailureResult(requestId, "Invalid bloom filter.");
+                    break;
+                }
+
+                webSocketConfiguration.bloomFilter = bloomFilter;
+                apiResult = WebSocketApiResult.createSuccessResult(requestId);
+            } break;
+
+            default: {
+                apiResult = WebSocketApiResult.createFailureResult(requestId, "Unsupported query: " + query);
+                Logger.debug("Unknown WebSocket Query: " + query + " (id=" + webSocketId + ")");
+            } break;
+        }
+
+        webSocket.sendMessage(apiResult.toString());
+    }
+
     @Override
     public WebSocketResponse onRequest(final WebSocketRequest webSocketRequest) {
         final WebSocketResponse webSocketResponse = new WebSocketResponse();
@@ -208,20 +525,41 @@ public class AnnouncementsApi implements WebSocketServlet {
             return;
         }
 
-        _checkRpcConnection();
+        _checkRpcConnections();
+
+        final AnnouncementWebSocketConfiguration webSocketConfiguration = new AnnouncementWebSocketConfiguration(webSocket);
 
         final Long webSocketId = webSocket.getId();
-        synchronized (MUTEX) {
-            Logger.debug("Adding WebSocket: " + webSocketId + " (count=" + (WEB_SOCKETS.size() + 1) + ")");
-            WEB_SOCKETS.put(webSocketId, webSocket);
-        }
 
-        // webSocket.setMessageReceivedCallback(new WebSocket.MessageReceivedCallback() {
-        //     @Override
-        //     public void onMessage(final String message) {
-        //         // Nothing.
-        //     }
-        // });
+        webSocket.setMessageReceivedCallback(new WebSocket.MessageReceivedCallback() {
+            @Override
+            public void onMessage(final String message) {
+                final Json json = Json.parse(message);
+                final String methodString = (json.hasKey("method") ? json.getString("method") : "");
+                final HttpMethod method = HttpMethod.fromString(methodString);
+                final String query = json.getString("query");
+                final Json parameters = json.get("parameters");
+                final Long requestId = json.getLong("requestId");
+
+                if (method != null) {
+                    switch (method) {
+                        case GET: {
+                            _handleWebSocketGet(webSocketConfiguration, requestId, query, parameters);
+                            return;
+                        }
+
+                        case POST: {
+                            _handleWebSocketPost(webSocketConfiguration, requestId, query, parameters);
+                            return;
+                        }
+                    }
+                }
+
+                Logger.debug("Unknown WebSocket Method: " + methodString + " (id=" + webSocketId + ")");
+                final WebSocketApiResult apiResult = WebSocketApiResult.createFailureResult(requestId, "Unknown Method: " + methodString);
+                webSocket.sendMessage(apiResult.toString());
+            }
+        });
 
         webSocket.setConnectionClosedCallback(new WebSocket.ConnectionClosedCallback() {
             @Override
@@ -233,26 +571,26 @@ public class AnnouncementsApi implements WebSocketServlet {
             }
         });
 
-        // webSocket.startListening();
+        webSocket.startListening();
 
-        try {
-            QUEUE_READ_LOCK.lock();
-
-            for (final Json blockHeaderJson : BLOCK_HEADERS) {
-                final Json messageJson = _wrapObject("BLOCK", blockHeaderJson);
-                final String message = messageJson.toString();
-                webSocket.sendMessage(message);
-            }
-
-            for (final Json transactionJson : TRANSACTIONS) {
-                final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
-                final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
-                final String message = messageJson.toString();
-                webSocket.sendMessage(message);
-            }
+        synchronized (MUTEX) {
+            Logger.debug("Adding WebSocket: " + webSocketId + " (count=" + (WEB_SOCKETS.size() + 1) + ")");
+            WEB_SOCKETS.put(webSocketId, webSocketConfiguration);
         }
-        finally {
-            QUEUE_READ_LOCK.unlock();
+
+        final Tuple<List<Json>, List<Json>> objects = AnnouncementsApi.getCachedObjects();
+
+        for (final Json blockHeaderJson : objects.first) {
+            final Json messageJson = _wrapObject("BLOCK", blockHeaderJson);
+            final String message = messageJson.toString();
+            webSocket.sendMessage(message);
+        }
+
+        for (final Json transactionJson : objects.second) {
+            final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
+            final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
+            final String message = messageJson.toString();
+            webSocket.sendMessage(message);
         }
     }
 
@@ -293,13 +631,15 @@ public class AnnouncementsApi implements WebSocketServlet {
         _threadPool.stop();
 
         synchronized (_socketConnectionMutex) {
-            if (_socketConnection != null) {
-                _socketConnection.close();
+            final NodeJsonRpcConnection rpcConnection = _nodeJsonRpcConnection;
+            if (rpcConnection != null) {
+                rpcConnection.close();
             }
         }
 
         synchronized (MUTEX) {
-            for (final WebSocket webSocket : WEB_SOCKETS.values()) {
+            for (final AnnouncementWebSocketConfiguration webSocketConfiguration : WEB_SOCKETS.values()) {
+                final WebSocket webSocket = webSocketConfiguration.webSocket;
                 webSocket.close();
             }
             WEB_SOCKETS.clear();
