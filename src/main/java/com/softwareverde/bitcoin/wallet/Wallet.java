@@ -66,6 +66,7 @@ public class Wallet {
     protected static final Long BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT = 180L;
     protected static final Long BYTES_PER_TRANSACTION_OUTPUT = 34L;
     protected static final Long BYTES_PER_TRANSACTION_HEADER = 10L; // This value becomes inaccurate if either the number of inputs or the number out outputs exceeds 252 (The max value of a 1-byte variable length integer)...
+    protected static final Long MAX_ALLOWED_FEE_SATOSHIS_PER_BYTE = 10L;
 
     public static Long getDefaultDustThreshold() {
         return (long) ((BYTES_PER_TRANSACTION_OUTPUT + BYTES_PER_TRANSACTION_INPUT) * 3D);
@@ -511,7 +512,7 @@ public class Wallet {
         return feesContainer;
     }
 
-    protected List<SpendableTransactionOutput> _getOutputsToSpend(final Long minimumUtxoAmount, final Container<Long> feesToSpendOutputs, final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend) {
+    protected List<SpendableTransactionOutput> _getOutputsToSpend(final Long minimumUtxoAmount, final Container<Long> feesToSpendOutputs, final SlpTokenId slpTokenId, final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend) {
         final Long originalFeesToSpendOutputs = feesToSpendOutputs.value;
 
         final long feeToSpendOneOutput = (long) (BYTES_PER_TRANSACTION_INPUT * _satoshisPerByteFee);
@@ -541,8 +542,11 @@ public class Wallet {
                 continue;
             }
 
-            // Avoid spending tokens as regular BCH...
-            if (_isSlpTokenOutput(transactionOutputIdentifier)) { continue; }
+            // Avoid spending tokens as regular BCH, unless it is an SLP transaction for the same token.
+            if (_isSlpTokenOutput(transactionOutputIdentifier)) {
+                final SlpTokenId outputTokenId = _getSlpTokenId(transactionOutputIdentifier);
+                if (! Util.areEqual(outputTokenId, slpTokenId)) { continue; }
+            }
 
             if (! spendableTransactionOutput.isSpent()) {
                 unspentTransactionOutputs.add(spendableTransactionOutput);
@@ -624,12 +628,12 @@ public class Wallet {
         final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
         final LockingScript slpTokenScript = slpScriptBuilder.createSendScript(slpTokenTransactionConfiguration.slpSendScript);
 
-        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenScript, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, slpTokenId, slpTokenScript, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend);
     }
 
-    protected List<TransactionOutputIdentifier> _getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final LockingScript opReturnScript, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
+    protected List<TransactionOutputIdentifier> _getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final LockingScript opReturnScript, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend) {
         final Container<Long> feesContainer = _createNewFeeContainer(newTransactionOutputCount, opReturnScript);
-        final List<SpendableTransactionOutput> spendableTransactionOutputs = _getOutputsToSpend(desiredSpendAmount, feesContainer, requiredTransactionOutputIdentifiersToSpend);
+        final List<SpendableTransactionOutput> spendableTransactionOutputs = _getOutputsToSpend(desiredSpendAmount, feesContainer, slpTokenId, requiredTransactionOutputIdentifiersToSpend);
         if (spendableTransactionOutputs == null) { return null; }
 
         final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<TransactionOutputIdentifier>(spendableTransactionOutputs.getCount());
@@ -776,6 +780,32 @@ public class Wallet {
         return configuration;
     }
 
+    protected Transaction _createSignedTransaction(final TransactionBundle transactionBundle) {
+        if (transactionBundle == null) { return null; }
+        final Transaction signedTransaction = _createSignedTransaction(transactionBundle.paymentAmountsWithChange, transactionBundle.transactionOutputsToSpend, transactionBundle.opReturnScript);
+        if (signedTransaction == null) { return null; }
+
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        Logger.debug(signedTransaction.getHash());
+        Logger.debug(transactionDeflater.toBytes(signedTransaction));
+
+        final Integer transactionByteCount = signedTransaction.getByteCount();
+
+        if (transactionBundle.expectedFees < (transactionByteCount * _satoshisPerByteFee)) {
+            Logger.info("Failed to create a transaction with sufficient fee...");
+            return null;
+        }
+
+        if (transactionBundle.expectedFees > (transactionByteCount * MAX_ALLOWED_FEE_SATOSHIS_PER_BYTE)) {
+            Logger.info("Created transaction pays excessive fees: " + transactionBundle.expectedFees + " sats (" + (transactionBundle.expectedFees / transactionByteCount.floatValue()) + " sats/byte)");
+            return null;
+        }
+
+        Logger.debug("Transaction Bytes Count: " + transactionByteCount + " (" + (transactionBundle.expectedFees / transactionByteCount.floatValue()) + " sats/byte)");
+
+        return signedTransaction;
+    }
+
     protected Transaction _createSignedTransaction(final List<PaymentAmount> paymentAmounts, final List<SpendableTransactionOutput> transactionOutputsToSpend, final LockingScript opReturnScript) {
         if ( paymentAmounts.isEmpty() && (opReturnScript == null) ) { return null; }
         if (transactionOutputsToSpend == null) { return null; }
@@ -889,17 +919,76 @@ public class Wallet {
         return signedTransaction;
     }
 
-    protected Transaction _createSignedTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> mandatoryOutputs, final LockingScript opReturnScript) {
+    protected TransactionBundle _createTransactionBundle(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> mandatoryOutputs, final LockingScript opReturnScript, final SlpTokenId slpTokenId) {
         long totalPaymentAmount = 0L;
         for (final PaymentAmount paymentAmount : paymentAmounts) {
             totalPaymentAmount += paymentAmount.amount;
         }
 
-        final int newOutputCount = (paymentAmounts.getCount() + (changeAddress != null ? 1 : 0));
+        final int newOutputCountEstimate;
+        if (changeAddress == null) {
+            newOutputCountEstimate = paymentAmounts.getCount();
+        }
+        else {
+            final boolean mayRequireSlpChangeOutput = slpTokenId != null;
+            newOutputCountEstimate = paymentAmounts.getCount() + (mayRequireSlpChangeOutput ? 2 : 1);
+        }
 
-        final Container<Long> feesContainer = _createNewFeeContainer(newOutputCount, opReturnScript);
-        final List<SpendableTransactionOutput> transactionOutputsToSpend = _getOutputsToSpend(totalPaymentAmount, feesContainer, mandatoryOutputs);
+        final Container<Long> feesContainer = _createNewFeeContainer(newOutputCountEstimate, opReturnScript);
+        final List<SpendableTransactionOutput> transactionOutputsToSpend = _getOutputsToSpend(totalPaymentAmount, feesContainer, slpTokenId, mandatoryOutputs);
         if (transactionOutputsToSpend == null) { return null; }
+
+        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getCount() + newOutputCountEstimate);
+        paymentAmountsWithChange.addAll(paymentAmounts);
+        BigInteger totalSlpInput = BigInteger.ZERO;
+        BigInteger totalSlpOutput = BigInteger.ZERO;
+        BigInteger slpChangeAmount = null;
+        if (slpTokenId != null) {
+            // ensure no SLP will be burned with selected outputs (which may have been added for funding purposes but were not included in SLP configuration)
+            final Integer slpChangeOutputIndex;
+            {
+                for (final SpendableTransactionOutput spentOutput : transactionOutputsToSpend) {
+                    final TransactionOutputIdentifier spentOutputIdentifier = spentOutput.getIdentifier();
+                    if (_isSlpTokenOutput(spentOutputIdentifier)) {
+                        final BigInteger slpAmount = _getSlpTokenAmount(spentOutputIdentifier);
+                        totalSlpInput = totalSlpInput.add(slpAmount);
+                    }
+                }
+            }
+            {
+                Integer index = null;
+                // If the changeAddress is already specified, reuse its output's index...
+                for (int i = 0; i < paymentAmounts.getCount(); ++i) {
+                    final PaymentAmount paymentAmount = paymentAmounts.get(i);
+                    if (paymentAmount instanceof SlpPaymentAmount) {
+                        final BigInteger slpAmount = ((SlpPaymentAmount) paymentAmount).tokenAmount;
+                        totalSlpOutput = totalSlpOutput.add(slpAmount);
+                        if (Util.areEqual(changeAddress, paymentAmount.address)) {
+                            index = i;
+                        }
+                    }
+                }
+                slpChangeOutputIndex = index;
+            }
+            if (totalSlpOutput.compareTo(totalSlpInput) != 0) {
+                slpChangeAmount = totalSlpInput.subtract(totalSlpOutput);
+                if (slpChangeAmount.compareTo(BigInteger.ZERO) < 0) {
+                    Logger.warn("Transaction spends more SLP than it provides");
+                    return null;
+                }
+                if (slpChangeOutputIndex != null) {
+                    final SlpPaymentAmount slpChangeOutput = (SlpPaymentAmount) paymentAmountsWithChange.get(slpChangeOutputIndex);
+                    final BigInteger newTokenAmount = slpChangeOutput.tokenAmount.add(slpChangeAmount);
+                    paymentAmountsWithChange.set(slpChangeOutputIndex, new SlpPaymentAmount(slpChangeOutput.address, slpChangeOutput.amount, newTokenAmount));
+                }
+                else {
+                    // Add the change address as an output...
+                    final Long bchAmount = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
+                    final SlpPaymentAmount slpChangePaymentAmount = new SlpPaymentAmount(changeAddress, bchAmount, slpChangeAmount);
+                    paymentAmountsWithChange.add(slpChangePaymentAmount);
+                }
+            }
+        }
 
         long totalAmountSelected = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : transactionOutputsToSpend) {
@@ -908,10 +997,7 @@ public class Wallet {
         }
 
         final boolean shouldIncludeChangeOutput;
-        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getCount() + 1);
         {
-            paymentAmountsWithChange.addAll(paymentAmounts);
-
             final Long changeAmount = (totalAmountSelected - totalPaymentAmount - feesContainer.value);
             if (changeAddress != null) {
                 final Long dustThreshold = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
@@ -937,49 +1023,113 @@ public class Wallet {
                     paymentAmountsWithChange.add(new PaymentAmount(changeAddress, changeAmount));
                 }
                 else {
-                    // The changeAddress already existed as a PaymentAmount; copy it with the additional change, and maintain the SLP Amount if provided...
+                    // The changeAddress already existed as a PaymentAmount; copy it with the additional change, unless it was an SLP output...
                     final PaymentAmount paymentAmount = paymentAmountsWithChange.get(changePaymentAmountIndex);
 
                     final PaymentAmount newPaymentAmount;
                     if (paymentAmount instanceof SlpPaymentAmount) {
-                        newPaymentAmount = new SlpPaymentAmount(paymentAmount.address, (paymentAmount.amount + changeAmount), ((SlpPaymentAmount) paymentAmount).tokenAmount);
+                        // don't want to add BCH to SLP output, create new output
+                        paymentAmountsWithChange.add(new PaymentAmount(changeAddress, changeAmount));
                     }
                     else {
+                        // pure BCH output, add additional change
                         newPaymentAmount = new PaymentAmount(paymentAmount.address, (paymentAmount.amount + changeAmount));
+                        paymentAmountsWithChange.set(changePaymentAmountIndex, newPaymentAmount);
                     }
-                    paymentAmountsWithChange.set(changePaymentAmountIndex, newPaymentAmount);
                 }
             }
         }
 
-        Logger.info("Creating Transaction. Spending " + transactionOutputsToSpend.getCount() + " UTXOs. Creating " + paymentAmountsWithChange.getCount() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (shouldIncludeChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
-
-        final Transaction signedTransaction = _createSignedTransaction(paymentAmountsWithChange, transactionOutputsToSpend, opReturnScript);
-        if (signedTransaction == null) { return null; }
-
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        Logger.debug(signedTransaction.getHash());
-        Logger.debug(transactionDeflater.toBytes(signedTransaction));
-
-        final Integer transactionByteCount = signedTransaction.getByteCount();
-
-        if (feesContainer.value < (transactionByteCount * _satoshisPerByteFee)) {
-            Logger.info("Failed to create a transaction with sufficient fee...");
-            return null;
+        if (Logger.isInfoEnabled()) {
+            final StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Creating TransactionBundle. Spending ");
+            stringBuilder.append(transactionOutputsToSpend.getCount());
+            stringBuilder.append(" UTXOs. Creating ");
+            stringBuilder.append(paymentAmountsWithChange.getCount());
+            stringBuilder.append(" UTXOs. Sending ");
+            stringBuilder.append(totalPaymentAmount);
+            if (slpTokenId != null) {
+                stringBuilder.append(" (SLP tokens: ");
+                stringBuilder.append(totalSlpInput);
+                stringBuilder.append(" in, ");
+                stringBuilder.append(totalSlpOutput);
+                stringBuilder.append(" out");
+                if (slpChangeAmount != null) {
+                    stringBuilder.append(", ");
+                    stringBuilder.append(slpChangeAmount);
+                    stringBuilder.append(" change");
+                }
+                stringBuilder.append(")");
+            }
+            stringBuilder.append(". Spending ");
+            stringBuilder.append(feesContainer.value);
+            stringBuilder.append(" in fees. ");
+            if (shouldIncludeChangeOutput) {
+                stringBuilder.append(totalAmountSelected - totalPaymentAmount - feesContainer.value);
+                stringBuilder.append(" in change.");
+            }
+            Logger.info(stringBuilder);
         }
-
-        Logger.debug("Transaction Bytes Count: " + transactionByteCount + " (" + (feesContainer.value / transactionByteCount.floatValue()) + " sats/byte)");
-
-        return signedTransaction;
+        final TransactionBundle transactionBundle = new TransactionBundle();
+        transactionBundle.paymentAmountsWithChange = paymentAmountsWithChange;
+        transactionBundle.transactionOutputsToSpend = transactionOutputsToSpend;
+        transactionBundle.opReturnScript = opReturnScript;
+        transactionBundle.expectedFees = feesContainer.value;
+        return transactionBundle;
     }
 
     protected Transaction _createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> requiredTransactionOutputIdentifiersToSpend, final Boolean shouldIncludeNotYetValidatedTransactions) {
         final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration = _createSlpTokenTransactionConfiguration(slpTokenId, paymentAmounts, changeAddress, requiredTransactionOutputIdentifiersToSpend, shouldIncludeNotYetValidatedTransactions);
         if (slpTokenTransactionConfiguration == null) { return null; }
 
+        final TransactionBundle transactionBundle = _createSlpTokenTransactionBundle(slpTokenTransactionConfiguration, slpTokenId, changeAddress);
+        if (transactionBundle == null) { return null; }
+
+        // confirm that returned SLP outputs still match SLP configuration (otherwise we need to re-generate the op return script)
+        final List<PaymentAmount> expectedPaymentAmounts = slpTokenTransactionConfiguration.mutablePaymentAmounts;
+        final List<PaymentAmount> bundlePaymentAmounts = transactionBundle.paymentAmountsWithChange;
+        boolean shouldUpdateSlpTokenConfiguration = false;
+        for (int i=0; i<bundlePaymentAmounts.getCount(); i++) {
+            final PaymentAmount bundlePaymentAmount = bundlePaymentAmounts.get(i);
+            if (bundlePaymentAmount instanceof SlpPaymentAmount) {
+                if (expectedPaymentAmounts.getCount() <= i) {
+                    // bundle has a new SLP payment
+                    shouldUpdateSlpTokenConfiguration = true;
+                    break;
+                }
+                final BigInteger expectedSlpAmount = ((SlpPaymentAmount) expectedPaymentAmounts.get(i)).tokenAmount;
+                final BigInteger bundleSlpAmount = ((SlpPaymentAmount) bundlePaymentAmount).tokenAmount;
+                if (bundleSlpAmount.compareTo(expectedSlpAmount) != 0) {
+                    // token amount was changed
+                    shouldUpdateSlpTokenConfiguration = true;
+                    break;
+                }
+            }
+        }
+        if (shouldUpdateSlpTokenConfiguration) {
+            // recurse, using information from transaction bundle
+            Logger.info("Discarding TransactionBundle, SLP script must be rebuilt.");
+            final MutableList<SlpPaymentAmount> newSlpPaymentAmounts = new MutableList<>(bundlePaymentAmounts.getCount());
+            for (final PaymentAmount bundlePaymentAmount : bundlePaymentAmounts) {
+                if (bundlePaymentAmount instanceof SlpPaymentAmount) {
+                    newSlpPaymentAmounts.add((SlpPaymentAmount) bundlePaymentAmount);
+                }
+            }
+            final MutableList<TransactionOutputIdentifier> newTransactionOutputsToSpend = new MutableList<>(transactionBundle.transactionOutputsToSpend.getCount());
+            for (final SpendableTransactionOutput transactionOutput : transactionBundle.transactionOutputsToSpend) {
+                newTransactionOutputsToSpend.add(transactionOutput.getIdentifier());
+            }
+            return _createSlpTokenTransaction(slpTokenId, newSlpPaymentAmounts, changeAddress, newTransactionOutputsToSpend, shouldIncludeNotYetValidatedTransactions);
+        }
+        else {
+            return _createSignedTransaction(transactionBundle);
+        }
+    }
+
+    protected TransactionBundle _createSlpTokenTransactionBundle(final SlpTokenTransactionConfiguration slpTokenTransactionConfiguration, final SlpTokenId slpTokenId, final Address changeAddress) {
         final SlpScriptBuilder slpScriptBuilder = new SlpScriptBuilder();
         final LockingScript slpTokenScript = slpScriptBuilder.createSendScript(slpTokenTransactionConfiguration.slpSendScript);
-        return _createSignedTransaction(slpTokenTransactionConfiguration.mutablePaymentAmounts, changeAddress, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend, slpTokenScript);
+        return _createTransactionBundle(slpTokenTransactionConfiguration.mutablePaymentAmounts, changeAddress, slpTokenTransactionConfiguration.transactionOutputIdentifiersToSpend, slpTokenScript, slpTokenId);
     }
 
     protected MutableBloomFilter _generateBloomFilter() {
@@ -1105,16 +1255,16 @@ public class Wallet {
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount) {
         final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
-        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, requiredTransactionOutputsToSpend);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, null, requiredTransactionOutputsToSpend);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend) {
-        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, requiredTransactionOutputsToSpend);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, null, requiredTransactionOutputsToSpend);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final LockingScript opReturnScript) {
         final List<TransactionOutputIdentifier> requiredTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
-        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, opReturnScript, requiredTransactionOutputsToSpend);
+        return _getOutputsToSpend(newTransactionOutputCount, desiredSpendAmount, null, opReturnScript, requiredTransactionOutputsToSpend);
     }
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount, final SlpTokenId slpTokenId, final BigInteger desiredSlpSpendAmount) {
@@ -1149,20 +1299,24 @@ public class Wallet {
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress) {
         final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
-        return _createSignedTransaction(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, null);
+        final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, null, null);
+        return _createSignedTransaction(transactionBundle);
     }
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final LockingScript opReturnScript) {
         final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
-        return _createSignedTransaction(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, opReturnScript);
+        final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend, opReturnScript, null);
+        return _createSignedTransaction(transactionBundle);
     }
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend) {
-        return _createSignedTransaction(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, null);
+        final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, null, null);
+        return _createSignedTransaction(transactionBundle);
     }
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend, final LockingScript opReturnScript) {
-        return _createSignedTransaction(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, opReturnScript);
+        final TransactionBundle transactionBundle = _createTransactionBundle(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend, opReturnScript, null);
+        return _createSignedTransaction(transactionBundle);
     }
 
     public synchronized Transaction createSlpTokenTransaction(final SlpTokenId slpTokenId, final List<SlpPaymentAmount> paymentAmounts, final Address changeAddress) {
