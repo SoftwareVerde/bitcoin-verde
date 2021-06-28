@@ -15,25 +15,36 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
         }
     }
 
-    protected CompactVariableLengthInteger _peakVariableLengthInteger(final int index) {
-        final int prefix = ByteUtil.byteToInteger(_getByte(index));
+    public static CompactVariableLengthInteger peakVariableLengthInteger(final com.softwareverde.util.bytearray.ByteArrayReader byteArrayReader) {
+        final int prefix = ByteUtil.byteToInteger(byteArrayReader.peakByte());
 
         if (prefix < 0xFD) {
             return new CompactVariableLengthInteger(prefix, 1);
         }
 
-        if (prefix < 0xFE) {
-            final long value = ByteUtil.bytesToLong(_getBytes(index+1, 2, Endian.LITTLE));
-            return new CompactVariableLengthInteger(value, 3);
+        final int intByteCount;
+        {
+            if (prefix < 0xFE) {
+                intByteCount = 2;
+            }
+            else if (prefix < 0xFF) {
+                intByteCount = 4;
+            }
+            else {
+                intByteCount = 8;
+            }
+        }
+        final int byteCountWithPrefix = (intByteCount + 1);
+
+        final long value;
+        {
+            final byte[] rawBytesWithPrefix = byteArrayReader.peakBytes(byteCountWithPrefix);
+            final byte[] intBytes = ByteUtil.getTailBytes(rawBytesWithPrefix, intByteCount);
+            final byte[] intBytesLittleEndian = ByteUtil.reverseEndian(intBytes);
+            value = ByteUtil.bytesToLong(intBytesLittleEndian);
         }
 
-        if (prefix < 0xFF) {
-            final long value = ByteUtil.bytesToLong(_getBytes(index+1, 4, Endian.LITTLE));
-            return new CompactVariableLengthInteger(value, 5);
-        }
-
-        final long value = ByteUtil.bytesToLong(_getBytes(index+1, 8, Endian.LITTLE));
-        return new CompactVariableLengthInteger(value, 9);
+        return new CompactVariableLengthInteger(value, byteCountWithPrefix);
     }
 
     public ByteArrayReader(final byte[] bytes) {
@@ -45,17 +56,17 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
     }
 
     public Long readVariableLengthInteger() {
-        final CompactVariableLengthInteger variableLengthInteger = _peakVariableLengthInteger(_index);
+        final CompactVariableLengthInteger variableLengthInteger = ByteArrayReader.peakVariableLengthInteger(this);
         _index += variableLengthInteger.bytesConsumedCount;
         return variableLengthInteger.value;
     }
 
     public CompactVariableLengthInteger peakVariableLengthInteger() {
-        return _peakVariableLengthInteger(_index);
+        return ByteArrayReader.peakVariableLengthInteger(this);
     }
 
     public String readVariableLengthString() {
-        final CompactVariableLengthInteger stringByteCount = _peakVariableLengthInteger(_index);
+        final CompactVariableLengthInteger stringByteCount = ByteArrayReader.peakVariableLengthInteger(this);
         _index += stringByteCount.bytesConsumedCount;
 
         if (stringByteCount.value > Integer.MAX_VALUE) { return ""; }
