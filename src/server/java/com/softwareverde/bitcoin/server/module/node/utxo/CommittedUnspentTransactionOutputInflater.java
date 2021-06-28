@@ -2,10 +2,10 @@ package com.softwareverde.bitcoin.server.module.node.utxo;
 
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.cryptography.hash.sha256.Sha256Hash;
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class CommittedUnspentTransactionOutputInflater {
@@ -16,13 +16,12 @@ public class CommittedUnspentTransactionOutputInflater {
         final ByteArray outputIndexBytes = ByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
         final MutableByteArray blockHeightAndIsCoinbaseBytes = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
         final ByteArray amountBytes = ByteArray.wrap(byteArrayReader.readBytes(8, Endian.LITTLE));
-        final ByteArray lockingScriptByteCountBytes = ByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
+        final Long lockingScriptByteCount = byteArrayReader.readVariableLengthInteger();
 
-        final int lockingScriptByteCount = ByteUtil.bytesToInteger(lockingScriptByteCountBytes);
         if (lockingScriptByteCount > LockingScript.MAX_SPENDABLE_SCRIPT_BYTE_COUNT) { return null; }
-        if (lockingScriptByteCount < 0) { return null; }
+        if (lockingScriptByteCount < 0L) { return null; }
 
-        final ByteArray lockingScriptBytes = ByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount));
+        final ByteArray lockingScriptBytes = ByteArray.wrap(byteArrayReader.readBytes(lockingScriptByteCount.intValue()));
 
         if (byteArrayReader.didOverflow()) { return null; }
 

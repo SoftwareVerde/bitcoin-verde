@@ -52,7 +52,11 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_index), Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeightAndIsCoinbaseBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.longToBytes(_amount), Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_lockingScript.getByteCount()), Endian.LITTLE);
+
+        // NOTE: Due to ambiguity in the original specification, BCHD defined the LockingScript byte count as a 4-byte integer instead of a variable-length integer.
+        // byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_lockingScript.getByteCount()), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_lockingScript.getByteCount()), Endian.LITTLE);
+
         byteArrayBuilder.appendBytes(_lockingScript.getBytes());
 
         return byteArrayBuilder;

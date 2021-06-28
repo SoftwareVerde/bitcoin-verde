@@ -103,12 +103,12 @@ class BucketFile implements AutoCloseable {
         _utxoCount = 0;
     }
 
-    public void addOutput(final CommittedUnspentTransactionOutput transactionOutput) throws Exception {
+    public void addOutput(final CommittedUnspentTransactionOutput committedUnspentTransactionOutput) throws Exception {
         if (_outputStream == null) {
             _outputStream = new BufferedOutputStream(new FileOutputStream(_protoFile), PAGE_SIZE);
         }
 
-        final ByteArray byteArray = transactionOutput.getBytes();
+        final ByteArray byteArray = committedUnspentTransactionOutput.getBytes();
         final int byteCount = byteArray.getByteCount();
 
         if (_bytesWritten + byteCount > _maxByteCountPerFile) {

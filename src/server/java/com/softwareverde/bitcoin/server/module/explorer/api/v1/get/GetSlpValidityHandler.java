@@ -52,7 +52,7 @@ public class GetSlpValidityHandler implements RequestHandler<Environment> {
 
                 if (! rpcResponseJson.getBoolean("wasSuccess")) {
                     final String errorMessage = rpcResponseJson.getString("errorMessage");
-                    return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                    return new JsonResponse(Response.Codes.OK, new ApiResult(false, errorMessage));
                 }
 
                 isSlpValid = rpcResponseJson.getBoolean("isValidSlpTransaction");
