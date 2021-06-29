@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.chain.utxo;
+package com.softwareverde.bitcoin.server.message.type.query.response.utxo;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;

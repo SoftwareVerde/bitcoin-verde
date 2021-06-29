@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.CoreInflater;
-import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessage;
-import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMessageInflater;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
@@ -49,6 +47,8 @@ import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFou
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.utxo.UtxoCommitmentMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessage;
 import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
