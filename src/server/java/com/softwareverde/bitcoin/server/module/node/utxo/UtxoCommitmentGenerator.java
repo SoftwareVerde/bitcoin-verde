@@ -443,7 +443,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
 
             utxoCommitment._blockId = blockId;
             utxoCommitment._blockHeight = commitBlockHeight;
-            utxoCommitment._multisetHash = utxoCommitMultiset;
+            utxoCommitment._multiset = utxoCommitMultiset;
             utxoCommitment._files.addAll(utxoCommitmentFiles);
 
             nanoTimer.stop();
@@ -529,7 +529,9 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 // NOTE: a Utxo Commitment for Block N is the Utxo set required to process Block N; i.e. UTXO Commitment N excludes Block N's coinbase.
                 final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, stagedUtxoBlockHeight);
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-                _publishUtxoCommitment(stagedUtxoBlockId, blockHash, stagedUtxoBlockHeight, databaseManager);
+                final UtxoCommitment utxoCommitment = _publishUtxoCommitment(stagedUtxoBlockId, blockHash, stagedUtxoBlockHeight, databaseManager);
+                Logger.debug("Created UTXO Commitment: " + utxoCommitment.getPublicKey() + " @ " + utxoCommitment.getBlockHeight());
+
             }
 
             final NanoTimer nanoTimer = new NanoTimer();
