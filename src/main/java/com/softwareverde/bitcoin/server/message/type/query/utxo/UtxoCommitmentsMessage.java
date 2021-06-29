@@ -55,14 +55,14 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
             final PublicKey compressedPublicKey = utxoCommitmentMetadata.publicKey.compress();
 
             byteArrayBuilder.appendBytes(utxoCommitmentMetadata.blockHash, Endian.LITTLE);
-            byteArrayBuilder.appendBytes(ByteUtil.longToBytes(utxoCommitmentMetadata.blockHeight), Endian.LITTLE);
-            byteArrayBuilder.appendBytes(compressedPublicKey, Endian.LITTLE);
+            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(utxoCommitmentMetadata.blockHeight), Endian.LITTLE);
+            byteArrayBuilder.appendBytes(compressedPublicKey);
             byteArrayBuilder.appendBytes(ByteUtil.longToBytes(utxoCommitmentMetadata.byteCount), Endian.LITTLE);
 
-            int bucketIndex = 0;
-            for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBuckets) {
-                if (bucketIndex > UtxoCommitment.BUCKET_COUNT) { break; }
+            final int utxoCommitmentBucketCount = utxoCommitmentBuckets.getCount();
+            if (utxoCommitmentBucketCount != UtxoCommitment.BUCKET_COUNT) { return null; }
 
+            for (final UtxoCommitmentBucket utxoCommitmentBucket : utxoCommitmentBuckets) {
                 final PublicKey utxoCommitmentBucketPublicKey = utxoCommitmentBucket.getPublicKey();
                 final Long byteCount = utxoCommitmentBucket.getByteCount();
 
@@ -79,7 +79,6 @@ public class UtxoCommitmentsMessage extends BitcoinProtocolMessage {
                     byteArrayBuilder.appendBytes(subBucketPublicKey);
                     byteArrayBuilder.appendBytes(ByteUtil.longToBytes(subBucketByteCount), Endian.LITTLE);
                 }
-                bucketIndex += 1;
             }
         }
 

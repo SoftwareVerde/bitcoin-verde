@@ -23,7 +23,7 @@ public class UtxoCommitmentMessageInflater extends BitcoinProtocolMessageInflate
         final PublicKey multisetPublicKey = PublicKey.fromBytes(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT, Endian.LITTLE));
         utxoCommitmentMessage.setMultisetPublicKey(multisetPublicKey);
 
-        final Long byteCount = byteArrayReader.readVariableLengthInteger();
+        final Long byteCount = byteArrayReader.readLong(8);
         if (byteCount > UtxoCommitmentMessage.MAX_BUCKET_BYTE_COUNT) { return null; }
 
         final ByteArray utxoCommitmentBytes = ByteArray.wrap(byteArrayReader.readBytes(byteCount.intValue()));

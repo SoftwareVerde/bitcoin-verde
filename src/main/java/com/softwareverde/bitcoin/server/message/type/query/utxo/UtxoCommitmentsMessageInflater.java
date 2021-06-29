@@ -32,8 +32,8 @@ public class UtxoCommitmentsMessageInflater extends BitcoinProtocolMessageInflat
 
         for (int i = 0; i < commitmentCount; ++i) {
             final Sha256Hash blockHash = Sha256Hash.wrap(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
-            final Long blockHeight = byteArrayReader.readLong(8, Endian.LITTLE);
-            final PublicKey commitmentPublicKey = PublicKey.fromBytes(byteArrayReader.readBytes(Sha256Hash.BYTE_COUNT, Endian.LITTLE));
+            final Long blockHeight = byteArrayReader.readLong(4, Endian.LITTLE);
+            final PublicKey commitmentPublicKey = PublicKey.fromBytes(byteArrayReader.readBytes(PublicKey.COMPRESSED_BYTE_COUNT));
             final Long totalByteCount = byteArrayReader.readLong(8, Endian.LITTLE);
             final int bucketCount = UtxoCommitment.BUCKET_COUNT;
             if (! commitmentPublicKey.isValid()) { return null; }

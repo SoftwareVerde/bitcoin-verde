@@ -41,7 +41,7 @@ public class UtxoCommitmentMessage extends BitcoinProtocolMessage {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(_multisetPublicKey, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(byteCount));
+        byteArrayBuilder.appendBytes(ByteUtil.longToBytes(byteCount));
         byteArrayBuilder.appendBytes(_utxoCommitmentBytes);
 
         return byteArrayBuilder;
