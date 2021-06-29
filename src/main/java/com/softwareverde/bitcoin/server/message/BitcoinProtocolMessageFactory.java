@@ -29,10 +29,14 @@ import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessag
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessage;
+import com.softwareverde.bitcoin.server.message.type.query.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -54,10 +58,6 @@ import com.softwareverde.bitcoin.server.message.type.query.slp.QuerySlpStatusMes
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessage;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.QueryUtxoCommitmentsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.utxo.UtxoCommitmentsMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
-import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.slp.EnableSlpTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessage;
 import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessageInflater;

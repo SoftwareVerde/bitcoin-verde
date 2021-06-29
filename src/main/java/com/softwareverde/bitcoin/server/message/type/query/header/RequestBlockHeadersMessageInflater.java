@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.message.type.request.header;
+package com.softwareverde.bitcoin.server.message.type.query.header;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;

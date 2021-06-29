@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.message.type.request;
+package com.softwareverde.bitcoin.server.message.type.query;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;

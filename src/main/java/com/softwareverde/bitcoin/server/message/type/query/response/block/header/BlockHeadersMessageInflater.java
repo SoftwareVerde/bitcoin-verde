@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.inflater.ExtendedBlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.logging.Logger;
 

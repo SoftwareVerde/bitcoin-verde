@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;

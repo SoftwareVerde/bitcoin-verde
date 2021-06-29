@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
