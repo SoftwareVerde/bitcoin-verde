@@ -343,7 +343,69 @@ The correct UTXO block height for `D5D27987D2A3DFC724E359870C6644B40E497BDC0589A
 
 ## Current Implementations
 
-// TODO: Verde. BCHD.
+### Bitcoin Verde / Java
+
+Bitcoin Verde has an implementation of this proposal written in java.
+
+UTXO Snapshot Hashes:
+* https://github.com/SoftwareVerde/bitcoin-verde/blob/development/src/main/java/com/softwareverde/bitcoin/server/main/BitcoinConstants.java
+
+EC Multiset:
+* https://github.com/softwareverde/java-cryptography/blob/master/src/main/java/com/softwareverde/cryptography/secp256k1/EcMultiset.java
+* https://github.com/softwareverde/java-cryptography/blob/master/src/test/java/com/softwareverde/cryptography/secp256k1/EcMultisetTests.java
+
+P2P - Get UTXO Commitments Message:
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/main/java/com/softwareverde/bitcoin/server/message/type/query/utxo/QueryUtxoCommitmentsMessage.java
+
+P2P - UTXO Commitments Message:
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/main/java/com/softwareverde/bitcoin/server/message/type/query/utxo/UtxoCommitmentsMessage.java
+
+P2P - UTXO Commitment Message:
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/main/java/com/softwareverde/bitcoin/server/message/type/query/response/utxo/UtxoCommitmentMessage.java
+
+UTXO Snapshot Generation:
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/server/java/com/softwareverde/bitcoin/server/module/node/utxo/UtxoCommitmentGenerator.java
+  * Output bucket index calculation:
+
+    `int UtxoCommitmentGenerator::_calculateBucketIndex(Sha256Hash, TransactionOutputIdentifier)`
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/server/java/com/softwareverde/bitcoin/server/module/node/utxo/BucketFile.java
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/server/java/com/softwareverde/bitcoin/server/module/node/utxo/MutableCommittedUnspentTransactionOutput.java
+  * UTXO Serialization:
+
+    `ByteArray getBytes()`
+
+UTXO Commitment Consumption:
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/server/java/com/softwareverde/bitcoin/server/module/node/sync/bootstrap/UtxoCommitmentDownloader.java
+* https://github.com/softwareverde/bitcoin-verde/blob/development/src/server/java/com/softwareverde/bitcoin/server/module/node/utxo/UtxoCommitmentLoader.java
+
+### BCHD / Go
+
+NOTE: BCHD's original implementation (prior to this publishing) is not completely compatible with the details listed in this proposal.
+There are pending PRs to remedy the incompatibilities, and existing BCHD UTXO snapshots/hashes are not compatible with this proposal.
+
+(Incompatible) Snapshot Hashes:
+* https://github.com/gcash/bchd/blob/master/chaincfg/params.go
+
+(Incompatible) UTXO Snapshot Generation:
+* https://github.com/gcash/bchd/tree/master/cmd/utxotool
+
+(Incompatible) UTXO Snapshot Consumption:
+* https://github.com/gcash/bchd/blob/master/blockchain/fastsync.go
+
+### C++
+This repository was provided by Van der Wansem; its correctness has not been verified by the authors of this proposal.
+
+EC Multiset:
+* https://github.com/tomasvdw/secp256k1/tree/multiset/src/modules/multiset
+
+**IMPORTANT**: the code listed below does not match the details of this proposal, but may serve as a useful foundation for other C++ implementations.
+Furthermore, PR D1474 (listed on Van der Wansem's original proposal) includes publishing UTXO commitments within `getblocktemplate`; this functionality should NOT be included in implementations of this proposal.
+
+Bitcoin ABC PR:
+* https://reviews.bitcoinabc.org/D1072 ("Add ECMH multiset module to libsecp256k1")
+* https://reviews.bitcoinabc.org/D1074 ("Add Utxo Commitment wrapper around libsecp256k1")
+* https://reviews.bitcoinabc.org/D1117 ("Integrate UtxoCommitment in CCoinView")
+
 
 ## Implementation costs and risks
 
@@ -381,20 +443,18 @@ Other, less notable, changes include minor differences (and disambiguation) to t
 
 ## Test Cases
 
-// TODO: Generate node-implementation-agnostic test cases.
-
-Edge-Cases:
-* Duplicate UTXO scenario
+* Generation/consumption of two UTXO sets that have the same contents/public-key but are associated with different blocks
 * UTXO P2P messages with invalid byte-count breakdowns are considered invalid
 * UTXO P2P messages with invalid public key breakdowns are considered invalid
 * UTXO P2P messages with more/less than 128 buckets are considered invalid
 * UTXO P2P messages containing invalid data (data not matching the advertised public key) are considered invalid
 * UTXO P2P messages surpassing the configured max- bucket/sub-bucket size are not considered for download
-* UTXO Snapshots for block N should not include block N's coinbase (or other generated outputs)
+* Given two peers having distinct (but valid) sub-bucket breakdowns, ensure all sub-buckets are downloaded from the same peer
+* UTXO Snapshots for block N should not include block N's coinbase (or other generated/spent outputs)
 * Empty EC Multiset public key should be `000000000000000000000000000000000000000000000000000000000000000000` (32 bytes)
-* UTXO P2P messages with even/odd public key mismatch
-* Ensure consensus on block 690k UTXO set hash/public key.
-
+* UTXO P2P messages with even/odd public key mismatch (i.e., inventory item `0x434D5402` having a public key beginning with `0x03`)
+* Duplicate UTXOs in the UTXO snapshot should have the lower-block height unless previous transaction has been fully spent
+* Ensure mainnet block 690k UTXO set matches public key: `000000000000000000000000000000000000000000000000000000000000000000`
 
 ## Security Considerations
 
