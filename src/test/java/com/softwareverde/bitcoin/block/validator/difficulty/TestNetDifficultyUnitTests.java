@@ -492,7 +492,7 @@ public class TestNetDifficultyUnitTests extends UnitTest {
      * transaction is the coinbase, though that shouldn't be a problem for these tests.
      */
     //@Test
-    public void _jsonToSimplifiedBlockData() {
+    protected void _jsonToSimplifiedBlockData() {
         final String blockJsonString = ""; // <-- paste block JSON here and run test
         final Json json = Json.parse(blockJsonString);
 

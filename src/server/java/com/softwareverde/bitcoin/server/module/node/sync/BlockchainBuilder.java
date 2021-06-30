@@ -345,7 +345,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected void _onStart() { }
 
     @Override
-    public Boolean _run() {
+    protected Boolean _run() {
         if (_shouldAbort()) { return false; }
 
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();

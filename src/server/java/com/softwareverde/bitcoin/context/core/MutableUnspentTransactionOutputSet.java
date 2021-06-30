@@ -41,7 +41,7 @@ public class MutableUnspentTransactionOutputSet implements UnspentTransactionOut
     /**
      * Populates _transactionBlockHeights and _transactionOutputs for a block on the provided blockchainSegmentId...
      */
-    public Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId blockIdToProcess, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs) throws DatabaseException {
+    protected Boolean _loadOutputsForAlternateBlock(final FullNodeDatabaseManager databaseManager, final BlockId blockIdToProcess, final Iterable<TransactionOutputIdentifier> requiredTransactionOutputs) throws DatabaseException {
         final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();

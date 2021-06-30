@@ -29,7 +29,7 @@ public class BitcoinNodeDatabaseManagerTests extends IntegrationTest {
         super.after();
     }
 
-    public void _storeAndAssertNodeFeatures(final DatabaseManagerFactory databaseManagerFactory) throws Exception {
+    protected void _storeAndAssertNodeFeatures(final DatabaseManagerFactory databaseManagerFactory) throws Exception {
         // Setup
         final CachedThreadPool mainThreadPool = new CachedThreadPool(0, 1000L);
         mainThreadPool.start();

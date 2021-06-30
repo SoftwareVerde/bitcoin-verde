@@ -91,7 +91,7 @@ public class TransactionProcessor extends SleepyService {
     protected void _onStart() { }
 
     @Override
-    public Boolean _run() {
+    protected Boolean _run() {
         final FullNodeDatabaseManagerFactory databaseManagerFactory = _context.getDatabaseManagerFactory();
         final VolatileNetworkTime networkTime = _context.getNetworkTime();
         final SystemTime systemTime = _context.getSystemTime();

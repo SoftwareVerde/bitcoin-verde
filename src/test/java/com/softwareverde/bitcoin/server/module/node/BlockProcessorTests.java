@@ -172,9 +172,9 @@ public class BlockProcessorTests extends IntegrationTest {
         public final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         public final MutableNetworkTime networkTime = new MutableNetworkTime();
         public final FakeUnspentTransactionOutputContext unspentTransactionOutputSet = new FakeUnspentTransactionOutputContext();
-        public final UpgradeSchedule _upgradeSchedule = new CoreUpgradeSchedule();
+        public final UpgradeSchedule upgradeSchedule = new CoreUpgradeSchedule();
 
-        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, _upgradeSchedule) {
+        public final BlockProcessorContext blockProcessorContext = new BlockProcessorContext(_masterInflater, _masterInflater, _blockStore, _fullNodeDatabaseManagerFactory, this.networkTime, _synchronizationStatus, _difficultyCalculatorFactory, _transactionValidatorFactory, this.upgradeSchedule) {
             @Override
             public TransactionValidator getTransactionValidator(final BlockOutputs blockOutputs, final TransactionValidator.Context transactionValidatorContext) {
                 return new TransactionValidatorCore(blockOutputs, transactionValidatorContext) {

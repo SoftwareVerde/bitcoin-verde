@@ -204,7 +204,7 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         }
     }
 
-    public int _calculateBucketIndex(final Sha256Hash blockHash, final TransactionOutputIdentifier transactionOutputIdentifier) {
+    protected int _calculateBucketIndex(final Sha256Hash blockHash, final TransactionOutputIdentifier transactionOutputIdentifier) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(blockHash, Endian.LITTLE);
         byteArrayBuilder.appendBytes(transactionOutputIdentifier.getTransactionHash(), Endian.LITTLE);
