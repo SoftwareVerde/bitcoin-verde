@@ -475,6 +475,7 @@ Other, less notable, changes include minor differences (and disambiguation) to t
 * UTXO P2P messages with even/odd public key mismatch (i.e., inventory item `0x434D5402` having a public key beginning with `0x03`)
 * Duplicate UTXOs in the UTXO snapshot should have the lower-block height unless previous transaction has been fully spent
 * Ensure mainnet block 690k UTXO set matches public key: `000000000000000000000000000000000000000000000000000000000000000000`
+* Gracefully handle a reorg (if applicable) of a UTXO snapshot
 
 ## Security Considerations
 
