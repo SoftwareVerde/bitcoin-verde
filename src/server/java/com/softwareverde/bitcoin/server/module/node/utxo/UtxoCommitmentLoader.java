@@ -72,11 +72,9 @@ public class UtxoCommitmentLoader {
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
 
-        final MutableList<ReadAheadUtxoInflater> utxoInflaters = new MutableList<ReadAheadUtxoInflater>(utxoCommitmentFiles.getCount());
+        final MutableList<ReadAheadUtxoInflater> utxoInflaters = new MutableList<>(utxoCommitmentFiles.getCount());
         long bytesWrittenCount = 0L;
-        try (
-            final FileOutputStream fileOutputStream = new FileOutputStream(outputLoadFile);
-        ) {
+        try (final FileOutputStream fileOutputStream = new FileOutputStream(outputLoadFile)) {
             for (final File inputFile : utxoCommitmentFiles) {
                 final FileInputStream fileInputStream = new FileInputStream(inputFile);
 

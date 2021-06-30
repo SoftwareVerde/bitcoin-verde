@@ -48,16 +48,16 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
             blockHeightAndIsCoinbaseBytes.setBit(CommittedUnspentTransactionOutput.IS_COINBASE_FLAG_BIT_INDEX, true);
         }
 
-        byteArrayBuilder.appendBytes(_transactionHash, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_index), Endian.LITTLE);
-        byteArrayBuilder.appendBytes(blockHeightAndIsCoinbaseBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.longToBytes(_amount), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_transactionHash, Endian.LITTLE); // 32 bytes
+        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_index), Endian.LITTLE); // 4 bytes
+        byteArrayBuilder.appendBytes(blockHeightAndIsCoinbaseBytes, Endian.LITTLE); // 4 bytes
+        byteArrayBuilder.appendBytes(ByteUtil.longToBytes(_amount), Endian.LITTLE); // 8 bytes
 
         // NOTE: Due to ambiguity in the original specification, BCHD defined the LockingScript byte count as a 4-byte integer instead of a variable-length integer.
-        // byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_lockingScript.getByteCount()), Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_lockingScript.getByteCount()), Endian.LITTLE);
+        //  Verde's implementation uses the compact variable-length integer format, which is incompatible with BCHD's previous format (but is compatible with BCHD's new format).
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_lockingScript.getByteCount()), Endian.LITTLE); // 1-4 bytes
 
-        byteArrayBuilder.appendBytes(_lockingScript.getBytes());
+        byteArrayBuilder.appendBytes(_lockingScript.getBytes()); // ? bytes
 
         return byteArrayBuilder;
     }

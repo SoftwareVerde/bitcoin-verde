@@ -505,9 +505,11 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
         final BatchRunner<TransactionOutputIdentifier> identifierBatchRunner = new BatchRunner<>(batchSize);
 
         long stagedUtxoBlockHeight = _getStagedUtxoCommitmentBlockHeight(databaseManager);
+        final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-        if (headBlockId == null) { return; }
+        if ( (headBlockId == null) || (headBlockHeaderId == null) ) { return; }
 
+        final Long headBlockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
         final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
 
@@ -518,9 +520,9 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
             if ((stagedUtxoBlockHeight + UTXO_COMMITMENT_BLOCK_LAG) > headBlockHeight) { return; }
 
             final boolean isCloseToHeadBlockHeight;
-            {
+            { // Ensure _maxCommitmentsToKeep commits will be generated during IBD...
                 final long blockHeightOffset = (_maxCommitmentsToKeep * _publishCommitInterval);
-                isCloseToHeadBlockHeight = (stagedUtxoBlockHeight >= (headBlockHeight - blockHeightOffset));
+                isCloseToHeadBlockHeight = (stagedUtxoBlockHeight > (headBlockHeaderHeight - blockHeightOffset));
             }
 
             final boolean shouldCreateCommit = ((stagedUtxoBlockHeight % _publishCommitInterval) == 0);
