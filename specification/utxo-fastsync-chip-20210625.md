@@ -9,7 +9,7 @@ Version: 0.0.1
 Owner: Josh Green
 ```
 
-##Summary
+## Summary
 
 ### Introduction
 
@@ -202,19 +202,30 @@ These extra fields help the syncing nodes identify peers attempting to serve inv
 Syncing nodes can verify that the buckets sum to the correct commitment public key, and that the bucket sizes sum to the correct overall commitment size.
 Furthermore, syncing nodes may decide their own policy regarding maximum bucket size with sub-buckets, which allows more efficient failover for failed downloads.
 
+#### UTXO Buckets
+
 Instead of downloading and serving the entire UTXO commitment snapshot as a single multi-gigabyte-sized file, each commitment is distributed into multiple buckets.
 The generation of these buckets is canonical and parallelizable.
 Each bucket's EC multiset public key is defined by its contents.
 The sum of the bucket's EC multiset public key sums to the overall commitment's public key.
 The rules specifying the buckets is convention only, and is not enforced by mining nodes.
 Peers with incompatible bucket definitions ignore the commitment breakdown after recognizing its incompatibility.
-The current convention recommends 128 buckets.
-Each UTXO is placed in its canonical bucket by taking the first 7 bits of the first byte of a single Sha256 hash of the following preimage:
-1. the commitment's block hash, as little endian
+The current convention recommends 128 buckets; using a different convention could render snapshots incompatible between implementations.
+
+Each UTXO is placed in its canonical bucket by taking the first 7 bits of the first byte of a single Sha256 hash of the following preimage, and interpreting the resulting bits as an integer index:
+1. the commitment's block hash**, as little endian
 2. the UTXO's transaction hash, as little endian
 3. the UTXO's output index, as a 4-byte integer, little endian
 
-The commitment's block hash is included in the bucket-index calculation in order to mitigate malicious crafting of outputs that could render buckets disproportionately sized.
+** The commitment's block hash is included in the bucket-index calculation in order to mitigate malicious crafting of outputs that could render buckets disproportionately sized.
+
+Pseudocode implementation, where `|` indicates concatenation and `Sha256` returns a single SHA-256 hash as big-endian:
+```
+Func calculate_bucket_index(byte[32] block_hash_le, byte[32] transaction_hash_le, byte[4] output_index_le): int
+  byte[32] hash_big_endian = Sha256(block_hash_le | transaction_hash_le | output_index_le)
+  Return (int) hash_big_endian[0] & 0x7F
+End
+```
 
 If buckets surpass the node's configuration for the maximum bucket size (in bytes), then the node may further break up the bucket into sub-buckets.
 The boundaries that these sub-buckets are delimited is up to the node, and therefore while downloading-nodes may download different buckets of the same commitment from various peers, all sub-buckets for a single bucket must be downloaded from the same peer and then concatenated together.
@@ -241,6 +252,15 @@ UTXO Bucket to Snapshot reconstruction/validation:
  -------------       -------------               --------------- 
 ```
 
+#### Duplicate UTXO Snapshots
+
+It is possible that two blocks on the same blockchain will result in the same UTXO snapshot;
+this duplicate snapshot will have the same public key and the same contents as its other.
+
+In this scenario, while the combined contents will be the same, the sub-buckets themselves will be different and have different public keys.
+The buckets will have different public keys since the block hash is included in the bucket-index calculation for each UTXO;
+therefore, despite having the same overall set of UTXOs, the UTXOs will reside in different buckets.
+Since files are requested by bucket public key, there is no ambiguity between them when requesting files.
 
 ## Specification
 
