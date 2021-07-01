@@ -69,7 +69,7 @@ The time it takes to initially sync the blockchain also plays a factor in determ
 Once synchronized, some of the work to validate a block is distributed across the period it took to mine the block (~10 minutes).
 However, during initial synchronization ("initial block download", IBD), all work needed to validate a block is performed up-front.
 If block validation times during IBD average 1 minute per block (a real possibility for large blocks), then traditional synchronization time becomes 1/10th of the total age of the blockchain.
-For example, if BCH had generated large (and full) blocks since its creation in 2009, and each of which took 1 minute to validate, then syncing a node without fast-syncing would require just under 1.3 years.
+For example, if Bitcoin had generated large (and full) blocks since its creation in 2009, and each of which took 1 minute to validate, then syncing a node without fast-syncing would require just under 1.3 years.
 Therefore, fast-syncing and UTXO commitments are essential to the long-term sustainability of Bitcoin Cash.
 
 ## Description
