@@ -54,7 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class UtxoCommitmentDownloader {
-    protected static final Long MAX_TIMEOUT_MS = (5L * 60L * 1000L);
+    protected static final Long MAX_TIMEOUT_MS = ((UtxoCommitment.MAX_BUCKET_BYTE_COUNT * 1000L ) / BitcoinNode.MIN_BYTES_PER_SECOND);
 
     protected static class BucketDownload {
         boolean isComplete = false;
@@ -66,6 +66,7 @@ public class UtxoCommitmentDownloader {
         public EcMultiset multisetHash;
         public Integer utxoCount;
         public Boolean isSorted;
+        public Boolean wasDownloaded = false;
     }
 
     protected static class UtxoCommit {
@@ -352,6 +353,9 @@ public class UtxoCommitmentDownloader {
             }
         }
 
+        final NanoTimer downloadTimer = new NanoTimer();
+        downloadTimer.start();
+
         // Download the bucket from the provided peer...
         Logger.debug("Downloading: " + publicKey + " from " + bitcoinNode + ".");
         final DownloadBucketResult downloadResult = new DownloadBucketResult();
@@ -368,6 +372,13 @@ public class UtxoCommitmentDownloader {
                             return;
                         }
                     }
+
+                    synchronized (downloadResult) { // Mark the bucket as downloaded so that the max-timeout may exclude checksum validation time.
+                        downloadResult.wasDownloaded = true;
+                    }
+
+                    downloadTimer.stop();
+                    Logger.trace("Downloaded " + publicKey + " (" + byteCount + " bytes) in " + downloadTimer.getMillisecondsElapsed() + "ms.");
 
                     final File file = _utxoCommitmentStore.storeUtxoCommitment(publicKey, utxoCommitmentBytes);
                     final UtxoCommitmentLoader.CalculateMultisetHashResult calculateMultisetHashResult = _utxoCommitmentLoader.calculateMultisetHash(file);
@@ -393,7 +404,11 @@ public class UtxoCommitmentDownloader {
             });
 
             try {
-                downloadResult.wait(MAX_TIMEOUT_MS);
+                int sanityCheck = 0;
+                do {
+                    downloadResult.wait(MAX_TIMEOUT_MS);
+                    sanityCheck += 1;
+                } while ( downloadResult.wasDownloaded && (sanityCheck < 128) ); // If the file was successfully downloaded, then wait indefinitely until checksum calculation completes.
 
                 nanoTimer.stop();
 
