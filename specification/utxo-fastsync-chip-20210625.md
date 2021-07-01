@@ -474,7 +474,7 @@ Other, less notable, changes include minor differences (and disambiguation) to t
 * Empty EC Multiset public key should be `000000000000000000000000000000000000000000000000000000000000000000` (32 bytes)
 * UTXO P2P messages with even/odd public key mismatch (i.e., inventory item `0x434D5402` having a public key beginning with `0x03`)
 * Duplicate UTXOs in the UTXO snapshot should have the lower-block height unless previous transaction has been fully spent
-* Ensure mainnet block 690k UTXO set matches public key: `000000000000000000000000000000000000000000000000000000000000000000`
+* Ensure mainnet block 690k UTXO set matches public key: `03BDA900D5CC631CD22BA7D0F0AECC983E04E6B9CD26041FC1FFB4528D2CCE46A3`, and a size of 4,283,387,782 bytes.
 * Gracefully handle a reorg (if applicable) of a UTXO snapshot
 
 ## Security Considerations
@@ -504,6 +504,22 @@ Similar to seeding on bittorrent, the decision to serve snapshots is left to bot
 Businesses running full nodes that have synced via fast-sync and have available upload-bandwidth can choose to serve UTXO snapshots they've generated as well as the snapshot they've synchronized from.
 
 Those incentivized to run a node that serves UTXO snapshots should include anyone supporting this methodology of long-term scaling for BCH.
+
+## Q &amp; A
+
+**Q**: Why is the bucket index tied to the block hash?
+Couldn't this cause problems if two blocks have the same UTXO set?
+
+**A**: The bucket index is only used for breaking down the commitments into smaller P2P buckets for download, so it has no connection to future UTXO commitments or the snapshot's identifier/hash/public-key and has no connection to future consensus;
+in fact, the design could be completely changed in the future without forking.
+If other implementations decided to use a different bucket-indexing formula then the only consequence would be that the two implementation's wouldn't be able to download the other's snapshot (but the commitment public key would be the same).
+The reason the block hash is included is because it eliminates the ability for an attacker to force one bucket to contain a disproportionate number of utxos by grinding their transaction hash.
+
+**Q**: What happens if the node switches chains right on a UTXO snapshot block?
+
+**A**: That is up to the node implementation, but is also why this proposal recommends generating the UTXO snapshot once the block is far enough in the past that it is unlikely to be reorged.
+If the implementation has already created the snapshot and a reorg across it happens then the snapshot would become invalid and a new one would need to be generated.
+Since generation should be a background process, this regeneration should have no impact on the node's normal processes.
 
 ## Statements
 
