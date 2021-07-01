@@ -97,7 +97,7 @@ The serialized UTXO set is the set of byte sequences constructed by serializing 
 | 4 | outputIndex | The index of the output within the transaction. | Little |
 | 4 | height, isCoinbase | The most significant bit is set if the UTXO is a coinbase output.  The remaining 31 bits** represent the block height. | Little |
 | 8 | value | The amount, in satoshis. | Little |
-| 1-4 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Little |
+| 1-4 | lockingScriptByteCount | The number of bytes in the locking script (as a compact variable length integer**). | Big |
 | ? | lockingScript | The locking script ("scriptPubKey", "pk_script"). | Big |
 
 ** The Van der Wansem proposal was ambiguous in regard to its definition of the locking script byte count and UTXO height.

@@ -55,7 +55,7 @@ public class MutableCommittedUnspentTransactionOutput extends MutableUnspentTran
 
         // NOTE: Due to ambiguity in the original specification, BCHD defined the LockingScript byte count as a 4-byte integer instead of a variable-length integer.
         //  Verde's implementation uses the compact variable-length integer format, which is incompatible with BCHD's previous format (but is compatible with BCHD's new format).
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_lockingScript.getByteCount()), Endian.LITTLE); // 1-4 bytes
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_lockingScript.getByteCount())); // 1-4 bytes
 
         byteArrayBuilder.appendBytes(_lockingScript.getBytes()); // ? bytes
 
