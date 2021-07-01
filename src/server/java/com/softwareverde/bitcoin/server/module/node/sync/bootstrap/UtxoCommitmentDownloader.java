@@ -408,9 +408,19 @@ public class UtxoCommitmentDownloader {
             }
         });
 
+        if (! bitcoinNode.isConnected()) {
+            Logger.debug("Node " + bitcoinNode + " disconnected before bucket " + publicKey + " could download.");
+            return null;
+        }
+
         try {
             do {
                 synchronized (downloadResult) {
+                    if (! bitcoinNode.isConnected()) {
+                        Logger.debug("Node " + bitcoinNode + " disconnected before bucket " + publicKey + " was downloaded.");
+                        return null;
+                    }
+
                     if (! downloadResult.hasFinished) {
                         downloadResult.wait(MAX_TIMEOUT_MS);
                     }
