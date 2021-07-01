@@ -66,7 +66,12 @@ public class UtxoCommitmentDownloader {
         public EcMultiset multisetHash;
         public Integer utxoCount;
         public Boolean isSorted;
-        public Boolean wasDownloaded = false;
+        public volatile Boolean wasDownloaded = false;
+        public volatile Boolean hasFinished = false;
+
+        public Boolean wasSuccessful() {
+            return (this.file != null);
+        }
     }
 
     protected static class UtxoCommit {
@@ -359,23 +364,18 @@ public class UtxoCommitmentDownloader {
         // Download the bucket from the provided peer...
         Logger.debug("Downloading: " + publicKey + " from " + bitcoinNode + ".");
         final DownloadBucketResult downloadResult = new DownloadBucketResult();
-        synchronized (downloadResult) {
-            bitcoinNode.requestUtxoCommitment(publicKey, new BitcoinNode.DownloadUtxoCommitmentCallback() {
-                @Override
-                public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray utxoCommitmentBytes) {
+        bitcoinNode.requestUtxoCommitment(publicKey, new BitcoinNode.DownloadUtxoCommitmentCallback() {
+            @Override
+            public void onResult(final RequestId requestId, final BitcoinNode bitcoinNode, final ByteArray utxoCommitmentBytes) {
+                try {
                     final Long expectedByteCount = bucket.getByteCount();
                     final int byteCount = utxoCommitmentBytes.getByteCount();
                     if (! Util.areEqual(bucket.getByteCount(), byteCount)) {
                         Logger.info("Discarding UtxoBucket with incorrect byte count from " + bitcoinNode + ", expected " + expectedByteCount + " bytes, found " + byteCount + ".");
-                        synchronized (downloadResult) {
-                            downloadResult.notifyAll();
-                            return;
-                        }
+                        return;
                     }
 
-                    synchronized (downloadResult) { // Mark the bucket as downloaded so that the max-timeout may exclude checksum validation time.
-                        downloadResult.wasDownloaded = true;
-                    }
+                    downloadResult.wasDownloaded = true; // Mark the bucket as downloaded so that the max-timeout may exclude checksum validation time.
 
                     downloadTimer.stop();
                     Logger.trace("Downloaded " + publicKey + " (" + byteCount + " bytes) in " + downloadTimer.getMillisecondsElapsed() + "ms.");
@@ -386,43 +386,50 @@ public class UtxoCommitmentDownloader {
                     final Boolean isSorted = calculateMultisetHashResult.isSorted;
                     final Integer utxoCount = calculateMultisetHashResult.utxoCount;
 
+                    downloadResult.file = file;
+                    downloadResult.multisetHash = multisetHash;
+                    downloadResult.isSorted = isSorted;
+                    downloadResult.utxoCount = utxoCount;
+                }
+                finally {
                     synchronized (downloadResult) {
-                        downloadResult.file = file;
-                        downloadResult.multisetHash = multisetHash;
-                        downloadResult.isSorted = isSorted;
-                        downloadResult.utxoCount = utxoCount;
+                        downloadResult.hasFinished = true;
                         downloadResult.notifyAll();
                     }
                 }
+            }
 
-                @Override
-                public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final PublicKey response) {
-                    synchronized (downloadResult) {
-                        downloadResult.notifyAll();
-                    }
+            @Override
+            public void onFailure(final RequestId requestId, final BitcoinNode bitcoinNode, final PublicKey response) {
+                synchronized (downloadResult) {
+                    downloadResult.hasFinished = true;
+                    downloadResult.notifyAll();
                 }
-            });
-
-            try {
-                int sanityCheck = 0;
-                do {
-                    downloadResult.wait(MAX_TIMEOUT_MS);
-                    sanityCheck += 1;
-                } while ( downloadResult.wasDownloaded && (sanityCheck < 128) ); // If the file was successfully downloaded, then wait indefinitely until checksum calculation completes.
-
-                nanoTimer.stop();
-
-                final boolean wasSuccessful = (downloadResult.file != null);
-                Logger.info("Downloaded " + publicKey + " from " + bitcoinNode + " in " + nanoTimer.getMillisecondsElapsed() + "ms. success=" + wasSuccessful);
-
-                if (! wasSuccessful) { return null; }
-                return downloadResult;
             }
-            catch (final InterruptedException exception) {
-                final Thread thread = Thread.currentThread();
-                thread.interrupt();
-                return null;
-            }
+        });
+
+        try {
+            do {
+                synchronized (downloadResult) {
+                    if (! downloadResult.hasFinished) {
+                        downloadResult.wait(MAX_TIMEOUT_MS);
+                    }
+                    if (downloadResult.hasFinished) { break; }
+                }
+            } while (downloadResult.wasDownloaded); // If the file was successfully downloaded, then wait indefinitely until checksum calculation has completed.
+
+            nanoTimer.stop();
+
+            final boolean wasSuccessful = (downloadResult.file != null);
+            Logger.info("Downloaded " + publicKey + " from " + bitcoinNode + " in " + nanoTimer.getMillisecondsElapsed() + "ms. success=" + wasSuccessful);
+
+            if (! wasSuccessful) { return null; }
+            return downloadResult;
+        }
+        catch (final InterruptedException exception) {
+            final Thread thread = Thread.currentThread();
+            thread.interrupt();
+            return null;
         }
     }
 
