@@ -474,7 +474,7 @@ Other, less notable, changes include minor differences (and disambiguation) to t
 * Empty EC Multiset public key should be `000000000000000000000000000000000000000000000000000000000000000000` (32 bytes)
 * UTXO P2P messages with even/odd public key mismatch (i.e., inventory item `0x434D5402` having a public key beginning with `0x03`)
 * Duplicate UTXOs in the UTXO snapshot should have the lower-block height unless previous transaction has been fully spent
-* Ensure mainnet block 690k UTXO set matches public key: `03BDA900D5CC631CD22BA7D0F0AECC983E04E6B9CD26041FC1FFB4528D2CCE46A3`, and a size of 4,283,387,782 bytes.
+* Ensure mainnet block 690k UTXO set matches public key: `03F9B516ED2FEC0D9C8440918994989D8B8C62C800C40B721EC006D592517E9E82`, and a size of 4,283,387,782 bytes.
 * Gracefully handle a reorg (if applicable) of a UTXO snapshot
 
 ## Security Considerations
