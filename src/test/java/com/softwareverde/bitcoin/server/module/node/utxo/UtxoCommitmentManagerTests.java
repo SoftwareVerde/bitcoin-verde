@@ -44,7 +44,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
         final BlockHeader block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
 
         final MutableList<UtxoCommitmentBreakdown> utxoCommitmentBreakdowns = new MutableList<>();
-        { // UTXO Commit 680000
+        { // (Fake) UTXO Commit 1...
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                 block1.getHash(),
                 1L,
@@ -58,7 +58,7 @@ public class UtxoCommitmentManagerTests extends IntegrationTest {
             );
         }
 
-        { // UTXO Commit 690000
+        { // (Fake) UTXO Commit 2, with sub buckets...
             final UtxoCommitmentMetadata utxoCommitmentMetadata = new UtxoCommitmentMetadata(
                 block2.getHash(),
                 2L,

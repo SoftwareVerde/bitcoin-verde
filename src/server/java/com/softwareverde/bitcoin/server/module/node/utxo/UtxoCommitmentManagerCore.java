@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.utxo;
 
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.utxo.MultisetBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentBucket;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentId;
@@ -84,5 +85,17 @@ public class UtxoCommitmentManagerCore implements UtxoCommitmentManager {
     @Override
     public ByteArray getUtxoCommitment(final PublicKey publicKey) {
         return _utxoCommitmentStore.getUtxoCommitment(publicKey);
+    }
+
+    @Override
+    public UtxoCommitmentId getUtxoCommitmentId(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM utxo_commitments WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return UtxoCommitmentId.wrap(row.getLong("id"));
     }
 }

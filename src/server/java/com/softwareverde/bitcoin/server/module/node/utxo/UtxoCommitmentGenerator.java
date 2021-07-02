@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitment;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentId;
+import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentManager;
 import com.softwareverde.bitcoin.chain.utxo.UtxoCommitmentMetadata;
 import com.softwareverde.bitcoin.server.database.BatchRunner;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -215,6 +216,16 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
     }
 
     protected UtxoCommitment _publishUtxoCommitment(final BlockId blockId, final Sha256Hash blockHash, final Long commitBlockHeight, final FullNodeDatabaseManager databaseManager) throws Exception {
+        { // Check if a UTXO commitment already exists for this blockId...
+            // NOTE: This can happen if the node has imported a UTXO set and/or if UTXO sets are being manually regenerated.
+            final UtxoCommitmentManager utxoCommitmentManager = databaseManager.getUtxoCommitmentManager();
+            final UtxoCommitmentId utxoCommitmentId = utxoCommitmentManager.getUtxoCommitmentId(blockId);
+            if (utxoCommitmentId != null) {
+                Logger.debug("UTXO commitment already exists for block " + blockHash + ".");
+                return null;
+            }
+        }
+
         Logger.debug("Creating UTXO commitment.");
         final NanoTimer nanoTimer = new NanoTimer();
         nanoTimer.start();
@@ -532,7 +543,9 @@ public class UtxoCommitmentGenerator extends GracefulSleepyService {
                 final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, stagedUtxoBlockHeight);
                 final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                 final UtxoCommitment utxoCommitment = _publishUtxoCommitment(stagedUtxoBlockId, blockHash, stagedUtxoBlockHeight, databaseManager);
-                Logger.debug("Created UTXO Commitment: " + utxoCommitment.getPublicKey() + " @ " + utxoCommitment.getBlockHeight());
+                if (utxoCommitment != null) {
+                    Logger.debug("Created UTXO Commitment: " + utxoCommitment.getPublicKey() + " @ " + utxoCommitment.getBlockHeight());
+                }
 
             }
 
