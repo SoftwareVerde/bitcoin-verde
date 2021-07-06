@@ -55,6 +55,12 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
         super(byteArray);
     }
 
+    // For compatibility with libraries built against older versions of bitcoin-verde
+    @Deprecated
+    public Long readVariableSizedInteger() {
+        return readVariableLengthInteger();
+    }
+
     public Long readVariableLengthInteger() {
         final CompactVariableLengthInteger variableLengthInteger = ByteArrayReader.peakVariableLengthInteger(this);
         _index += variableLengthInteger.bytesConsumedCount;
@@ -63,6 +69,12 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
 
     public CompactVariableLengthInteger peakVariableLengthInteger() {
         return ByteArrayReader.peakVariableLengthInteger(this);
+    }
+
+    // For compatibility with projects libraries built against older versions of bitcoin-verde
+    @Deprecated
+    public String readVariableSizedString() {
+        return readVariableLengthString();
     }
 
     public String readVariableLengthString() {
