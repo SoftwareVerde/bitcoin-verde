@@ -158,6 +158,35 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
     };
 
+    protected Thread _webSocketPingThread;
+    protected final Runnable _webSocketPingThreadRunnable = new Runnable() {
+        @Override
+        public void run() {
+            while(true) {
+                final Long pingNonce = (long) (Math.random() * Integer.MAX_VALUE);
+                final String pingMessage;
+                {
+                    final Json pingJson = new Json(false);
+                    pingJson.put("ping", pingNonce);
+                    pingMessage = pingJson.toString();
+                }
+
+                final List<AnnouncementWebSocketConfiguration> webSockets = AnnouncementsApi.getWebSockets();
+                for (final AnnouncementWebSocketConfiguration webSocketConfiguration : webSockets) {
+                    final WebSocket webSocket = webSocketConfiguration.webSocket;
+                    webSocket.sendMessage(pingMessage);
+                }
+
+                try {
+                    Thread.sleep(15000L);
+                }
+                catch (final InterruptedException exception) {
+                    break;
+                }
+            }
+        }
+    };
+
     protected final ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
     protected volatile Boolean _isShuttingDown = false;
@@ -535,6 +564,26 @@ public class AnnouncementsApi implements WebSocketServlet {
             @Override
             public void onMessage(final String message) {
                 final Json json = Json.parse(message);
+                if (json.hasKey("pong")) {
+                    final Long pingNonce = json.getLong("pong");
+                    Logger.trace("Received pong (" + pingNonce + ") from: " + webSocket.getId());
+                    return;
+                }
+                else if (json.hasKey("ping")) {
+                    final Long pingNonce = json.getLong("ping");
+                    Logger.trace("Received ping (" + pingNonce + ") from: " + webSocket.getId());
+
+                    final String pongMessage;
+                    {
+                        final Json pongJson = new Json(false);
+                        pongJson.put("pong", pingNonce);
+                        pongMessage = pongJson.toString();
+                    }
+
+                    webSocket.sendMessage(pongMessage);
+                    return;
+                }
+
                 final String methodString = (json.hasKey("method") ? json.getString("method") : "");
                 final HttpMethod method = HttpMethod.fromString(methodString);
                 final String query = json.getString("query");
@@ -615,6 +664,25 @@ public class AnnouncementsApi implements WebSocketServlet {
             _rpcConnectionThread = rpcConnectionThread;
             rpcConnectionThread.start();
         }
+
+        synchronized (_webSocketPingThreadRunnable) {
+            final Thread existingWebSocketPingThread = _webSocketPingThread;
+            if (existingWebSocketPingThread != null) {
+                existingWebSocketPingThread.interrupt();
+            }
+
+            final Thread webSocketPingThread = new Thread(_webSocketPingThreadRunnable);
+            webSocketPingThread.setName("WebSocket Ping");
+            webSocketPingThread.setDaemon(true);
+            webSocketPingThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(final Thread thread, final Throwable exception) {
+                    Logger.warn(exception);
+                }
+            });
+            _webSocketPingThread = webSocketPingThread;
+            _webSocketPingThread.start();
+        }
     }
 
     public void stop() {
@@ -625,6 +693,14 @@ public class AnnouncementsApi implements WebSocketServlet {
             if (rpcConnectionThread != null) {
                 rpcConnectionThread.interrupt();
                 try { rpcConnectionThread.join(5000L); } catch (final Exception exception) { }
+            }
+        }
+
+        synchronized (_webSocketPingThreadRunnable) {
+            final Thread webSocketPingThread = _webSocketPingThread;
+            if (webSocketPingThread != null) {
+                webSocketPingThread.interrupt();
+                try { webSocketPingThread.join(5000L); } catch (final Exception exception) { }
             }
         }
 
