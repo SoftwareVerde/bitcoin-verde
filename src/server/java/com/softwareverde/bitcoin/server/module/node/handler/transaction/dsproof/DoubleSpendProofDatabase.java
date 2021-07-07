@@ -40,7 +40,7 @@ public class DoubleSpendProofDatabase extends DoubleSpendProofStore {
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId != null) {
                 databaseConnection.executeSql(
-                    new Query("INSERT INTO double_spend_proofs (hash, transaction_id, output_index, data) VALUES (?, ?, ?, ?)")
+                    new Query("INSERT IGNORE INTO double_spend_proofs (hash, transaction_id, output_index, data) VALUES (?, ?, ?, ?)")
                         .setParameter(doubleSpendProofHash)
                         .setParameter(transactionId)
                         .setParameter(outputIndex)
