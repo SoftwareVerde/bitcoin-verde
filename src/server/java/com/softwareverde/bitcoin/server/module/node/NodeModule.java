@@ -454,6 +454,7 @@ public class NodeModule {
             }
         };
 
+        final boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
         final boolean pruningModeIsEnabled = bitcoinProperties.isPruningModeEnabled();
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
@@ -462,14 +463,19 @@ public class NodeModule {
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
-                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
-                nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
+
+                if (indexModeIsEnabled) {
+                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
+                    nodeFeatures.enableFeature(NodeFeatures.Feature.SLP_INDEX_ENABLED); // BitcoinVerde 2019-10-24
+                }
+
                 nodeFeatures.enableFeature(NodeFeatures.Feature.EXTENDED_DOUBLE_SPEND_PROOFS_ENABLED); // BitcoinVerde 2021-04-27
                 nodeFeatures.enableFeature(NodeFeatures.Feature.UTXO_COMMITMENTS_ENABLED); // BitcoinVerde 2021-05-26
 
                 if (! pruningModeIsEnabled) {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 }
+
                 nodeFeatures.enableFeature(NodeFeatures.Feature.MINIMUM_OF_TWO_DAYS_BLOCKCHAIN_ENABLED);
 
                 return nodeFeatures;
@@ -765,7 +771,6 @@ public class NodeModule {
             });
         }
 
-        final Boolean indexModeIsEnabled = bitcoinProperties.isIndexingModeEnabled();
         if (! indexModeIsEnabled) {
             _slpTransactionProcessor = null;
             _blockchainIndexer = new DisabledBlockchainIndexer();
