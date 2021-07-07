@@ -1,11 +1,11 @@
 ```
 Title: UTXO Fastsync
 Created: 2021-07-01
-Last Edited: 2021-07-01
+Last Edited: 2021-07-07
 Type: Technical
 Layer: Peer Services
 Status: Draft  
-Version: 0.1.0
+Version: 0.1.1
 Owner: Josh Green
 ```
 
