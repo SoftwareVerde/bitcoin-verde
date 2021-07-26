@@ -476,7 +476,10 @@ public class UtxoCommitmentDownloader {
         final MutableList<File> utxoCommitmentFiles = new MutableList<>();
         final MutableList<UtxoDatabaseSubBucket> localUtxoCommitFiles = new MutableList<>(); // Used to store the Utxo Commitment metadata in the database for serving to new peers.
 
+        boolean didComplete = false;
+
         while (true) {
+            boolean shouldAbort = false;
             int completeCount = 0;
             for (int bucketIndex = 0; bucketIndex < utcoCommitmentBucketCount; ++bucketIndex) {
                 final BucketDownload bucketDownload = bucketDownloads[bucketIndex];
@@ -488,6 +491,7 @@ public class UtxoCommitmentDownloader {
                 final int downloadAttemptCount = bucketDownload.downloadAttemptCount.getAndIncrement();
                 if (downloadAttemptCount > 8) {
                     Logger.info("Attempted to download bucket too many times. Aborting.");
+                    shouldAbort = true;
                     break;
                 }
 
@@ -548,6 +552,8 @@ public class UtxoCommitmentDownloader {
                 }
             }
 
+            if (shouldAbort) { break; }
+
             if (completeCount >= utcoCommitmentBucketCount) {
                 final PublicKey multisetPublicKey = utxoCommit.utxoCommitment.publicKey;
                 final File loadFileDestination = new File(_utxoCommitmentStore.getUtxoDataDirectory(), (multisetPublicKey + ".sql"));
@@ -594,6 +600,8 @@ public class UtxoCommitmentDownloader {
 
                             _utxoCommitmentGenerator.storeUtxoCommitment(utxoCommit.utxoCommitment, localUtxoCommitFiles);
                             multiTimer.stop("storeDb");
+
+                            didComplete = true;
                         }
                         finally {
                             UnspentTransactionOutputDatabaseManager.UTXO_WRITE_MUTEX.unlock();
@@ -608,7 +616,10 @@ public class UtxoCommitmentDownloader {
             }
         }
 
-        _hasCompleted.set(true);
+        if (didComplete) {
+            _hasCompleted.set(true);
+        }
+
         _isRunning.set(false);
         return true;
     }
