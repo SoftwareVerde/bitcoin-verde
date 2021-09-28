@@ -12,5 +12,5 @@ fi
 echo -n "Address: "
 read ADDRESS
 
-(echo "{\"method\":\"GET\",\"query\":\"ADDRESS\",\"parameters\":{\"address\":\"${ADDRESS}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | curl -s --data-binary @- localhost:8334
+(echo "{\"method\":\"GET\",\"query\":\"ADDRESS\",\"parameters\":{\"address\":\"${ADDRESS}\",\"rawFormat\":\"${RAW_FORMAT}\"}}") | curl -s --http0.9 --data-binary @- localhost:8334
 

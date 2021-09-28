@@ -10,12 +10,12 @@ echo -n "HASH: "
 read HASH
 
 if [[ ! -z "${HASH}" ]]; then
-    (echo "{\"method\":\"GET\",\"query\":\"BLOCK_TRANSACTIONS\",\"parameters\":{\"hash\":\"${HASH}\",\"pageSize\":\"${PAGE_SIZE}\",\"pageNumber\":\"${PAGE_NUMBER}\"}}") | curl -s --data-binary @- localhost:8334
+    (echo "{\"method\":\"GET\",\"query\":\"BLOCK_TRANSACTIONS\",\"parameters\":{\"hash\":\"${HASH}\",\"pageSize\":\"${PAGE_SIZE}\",\"pageNumber\":\"${PAGE_NUMBER}\"}}") | curl -s --http0.9 --data-binary @- localhost:8334
     exit
 fi
 
 echo -n "HEIGHT: "
 read HEIGHT
 
-(echo "{\"method\":\"GET\",\"query\":\"BLOCK_TRANSACTIONS\",\"parameters\":{\"blockHeight\":\"${HEIGHT}\",\"pageSize\":\"${PAGE_SIZE}\"},\"pageNumber\":\"${PAGE_NUMBER}\"}}") | curl -s --data-binary @- localhost:8334
+(echo "{\"method\":\"GET\",\"query\":\"BLOCK_TRANSACTIONS\",\"parameters\":{\"blockHeight\":\"${HEIGHT}\",\"pageSize\":\"${PAGE_SIZE}\"},\"pageNumber\":\"${PAGE_NUMBER}\"}}") | curl -s --http0.9 --data-binary @- localhost:8334
 

@@ -9,5 +9,5 @@ else
     RAW_FORMAT=0
 fi
 
-(echo "{\"method\":\"GET\",\"query\":\"PROTOTYPE_BLOCK\",\"parameters\":{\"rawFormat\":\"${RAW_FORMAT}\"}}" && sleep 5) | curl -s --data-binary @- localhost:8334
+(echo "{\"method\":\"GET\",\"query\":\"PROTOTYPE_BLOCK\",\"parameters\":{\"rawFormat\":\"${RAW_FORMAT}\"}}" && sleep 5) | curl -s --http0.9 --data-binary @- localhost:8334
 
