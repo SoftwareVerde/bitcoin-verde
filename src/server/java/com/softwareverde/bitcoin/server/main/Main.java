@@ -195,6 +195,38 @@ public class Main {
 
     protected final String[] _arguments;
 
+    protected Thread _createLoggerFlusher() {
+        final Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                long sleepTime = 1000L;
+
+                while (true) {
+                    Logger.flush();
+
+                    try {
+                        Thread.sleep(sleepTime);
+                    }
+                    catch (final InterruptedException exception) {
+                        break;
+                    }
+
+                    if (sleepTime < 10000L) {
+                        sleepTime += 1000L;
+                    }
+                }
+            }
+        });
+        thread.setName("Logger Flush Thread");
+        thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable exception) {
+                Logger.warn(exception);
+            }
+        });
+        return thread;
+    }
+
     public Main(final String[] arguments) {
         _arguments = arguments;
 
@@ -251,6 +283,9 @@ public class Main {
                     }
                 }
 
+                final Thread loggerFlushThread = _createLoggerFlusher();
+                loggerFlushThread.start();
+
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
                 final BitcoinVerdeDatabase database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, bitcoinProperties, databaseProperties);
                 if (database == null) {
@@ -267,7 +302,14 @@ public class Main {
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
-                Logger.flush();
+
+                loggerFlushThread.interrupt();
+                try {
+                    loggerFlushThread.join(5000L);
+                }
+                catch (final Exception exception) { }
+
+                BitcoinUtil.exitSuccess();
             } break;
 
             case "SPV": {

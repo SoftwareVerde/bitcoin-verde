@@ -194,7 +194,6 @@ public class NodeModule {
 
     protected final MilliTimer _uptimeTimer = new MilliTimer();
     protected final Thread _databaseMaintenanceThread;
-    protected final Thread _loggerFlushThread;
 
     protected final LowMemoryMonitor _lowMemoryMonitor;
 
@@ -1206,29 +1205,6 @@ public class NodeModule {
                 _bitcoinNodeManager.setMaxNodeCount(Math.max(4, (bitcoinNodeCount / 2)));
             }
         });
-
-        _loggerFlushThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    Logger.flush();
-
-                    try {
-                        Thread.sleep(10000L);
-                    }
-                    catch (final Exception exception) {
-                        break;
-                    }
-                }
-            }
-        });
-        _loggerFlushThread.setName("Logger Flush Thread");
-        _loggerFlushThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            @Override
-            public void uncaughtException(final Thread thread, final Throwable exception) {
-                Logger.warn(exception);
-            }
-        });
     }
 
     public void loop() {
@@ -1236,8 +1212,6 @@ public class NodeModule {
         _blockProcessingThreadPool.start();
         _generalThreadPool.start();
         _rpcThreadPool.start();
-
-        _loggerFlushThread.start();
 
         final MilliTimer timer = new MilliTimer();
         timer.start();
@@ -1458,14 +1432,6 @@ public class NodeModule {
         }
 
         _shutdown();
-
-        _loggerFlushThread.interrupt();
-        try {
-            _loggerFlushThread.join(5000L);
-        }
-        catch (final Exception exception) { }
-
-        System.exit(0);
     }
 
     public void shutdown() {
