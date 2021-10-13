@@ -751,14 +751,15 @@ class Ui {
         return transactionUi;
     }
 
-    static inflateAddress(addressObject) {
+    static inflateAddress(addressMetaObject) {
         const templates = $("#templates");
         const addressTemplate = $("> .address", templates);
         const addressUi = addressTemplate.clone();
 
+        const addressObject = addressMetaObject.address;
         const addressString = ((Ui.displayCashAddressFormat ? addressObject.base32CheckEncoded : addressObject.base58CheckEncoded) || addressObject.base58CheckEncoded || "");
-        const addressBalance = (addressObject.balance || 0);
-        const addressTransactions = addressObject.transactions;
+        const addressBalance = (addressMetaObject.balance || 0);
+        const addressTransactions = addressMetaObject.transactions;
 
         const qrCodeElement = window.ninja.qrCode.createCanvas(addressString, 4);
 
