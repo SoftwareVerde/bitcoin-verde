@@ -39,7 +39,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.row.Row;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.util.CircleBuffer;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
@@ -65,7 +64,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
     protected UnavailableBlockCallback _unavailableBlockCallback;
 
     protected final CircleBuffer<Long> _blockProcessingTimes = new CircleBuffer<Long>(100);
-    protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
+    protected Float _averageBlocksPerSecond = 0F;
 
     protected void _checkUtxoSet(final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         if (! UnspentTransactionOutputDatabaseManager.isUtxoCacheReady()) {
@@ -160,11 +159,11 @@ public class BlockchainBuilder extends GracefulSleepyService {
         }
 
         if (blockCount == 0) {
-            _averageBlocksPerSecond.value = 0F;
+            _averageBlocksPerSecond = 0F;
             return;
         }
 
-        _averageBlocksPerSecond.value = (blockCount / (totalTimeInMilliseconds / 1000F));
+        _averageBlocksPerSecond = (blockCount / (totalTimeInMilliseconds / 1000F));
     }
 
     protected List<BlockchainSegmentId> _getLeafBlockchainSegmentsByChainWork(final DatabaseManager databaseManager) throws DatabaseException {
@@ -412,7 +411,7 @@ public class BlockchainBuilder extends GracefulSleepyService {
         _synchronousNewBlockProcessedCallback = newBlockProcessedCallback;
     }
 
-    public Container<Float> getAverageBlocksPerSecondContainer() {
+    public Float getAverageBlocksPerSecond() {
         return _averageBlocksPerSecond;
     }
 

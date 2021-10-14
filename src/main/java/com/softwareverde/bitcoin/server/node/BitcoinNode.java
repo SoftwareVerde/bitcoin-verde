@@ -58,6 +58,8 @@ import com.softwareverde.bitcoin.server.message.type.thin.request.transaction.Re
 import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashRequest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.dsproof.DoubleSpendProof;
@@ -339,6 +341,44 @@ public class BitcoinNode extends Node {
         for (final BitcoinNodeObserver observer : _observers) {
             observer.onDataSent(BitcoinNode.this, messageType, byteCount);
         }
+    }
+
+    /**
+     * Returns a list of active (and unfilled) UnfulfilledRequest from the provided request map.
+     */
+    protected <CallbackType extends BitcoinNodeCallback> List<UnfulfilledSha256HashRequest> _getPendingSha256HashRequests(final Map<Sha256Hash, Set<PendingRequest<CallbackType>>> requestMap) {
+        final MutableList<UnfulfilledSha256HashRequest> unfulfilledRequests;
+
+        synchronized (requestMap) {
+            unfulfilledRequests = new MutableList<>(requestMap.size());
+            for (final Map.Entry<Sha256Hash, Set<PendingRequest<CallbackType>>> entry : requestMap.entrySet()) {
+                final Sha256Hash itemHash = entry.getKey();
+                for (final PendingRequest<?> pendingRequest : entry.getValue()) {
+                    unfulfilledRequests.add(new UnfulfilledSha256HashRequest(BitcoinNode.this, pendingRequest.requestId, pendingRequest.requestPriority, itemHash));
+                }
+            }
+        }
+
+        return unfulfilledRequests;
+    }
+
+    /**
+     * Returns a list of active (and unfilled) UnfulfilledRequest from the provided request map.
+     */
+    protected <CallbackType extends BitcoinNodeCallback> List<UnfulfilledPublicKeyRequest> _getPendingPublicKeyRequests(final Map<PublicKey, Set<PendingRequest<CallbackType>>> requestMap) {
+        final MutableList<UnfulfilledPublicKeyRequest> unfulfilledRequests;
+
+        synchronized (requestMap) {
+            unfulfilledRequests = new MutableList<>(requestMap.size());
+            for (final Map.Entry<PublicKey, Set<PendingRequest<CallbackType>>> entry : requestMap.entrySet()) {
+                final PublicKey publicKey = entry.getKey();
+                for (final PendingRequest<?> pendingRequest : entry.getValue()) {
+                    unfulfilledRequests.add(new UnfulfilledPublicKeyRequest(BitcoinNode.this, pendingRequest.requestId, pendingRequest.requestPriority, publicKey));
+                }
+            }
+        }
+
+        return unfulfilledRequests;
     }
 
     @Override
@@ -2400,5 +2440,25 @@ public class BitcoinNode extends Node {
 
     public void setUnsolicitedBlockReceivedCallback(final DownloadBlockCallback unsolicitedBlockReceivedCallback) {
         _unsolicitedBlockReceivedCallback = unsolicitedBlockReceivedCallback;
+    }
+
+    public List<UnfulfilledSha256HashRequest> getPendingBlockRequests() {
+        return _getPendingSha256HashRequests(_downloadBlockRequests);
+    }
+
+    public List<UnfulfilledSha256HashRequest> getPendingTransactionRequests() {
+        return _getPendingSha256HashRequests(_downloadTransactionRequests);
+    }
+
+    public List<UnfulfilledSha256HashRequest> getPendingBlockHeadersRequests() {
+        return _getPendingSha256HashRequests(_downloadBlockHeadersRequests);
+    }
+
+    public List<UnfulfilledSha256HashRequest> getPendingMerkleBlockRequests() {
+        return _getPendingSha256HashRequests(_downloadMerkleBlockRequests);
+    }
+
+    public List<UnfulfilledPublicKeyRequest> getPendingUtxoCommitmentRequests() {
+        return _getPendingPublicKeyRequests(_downloadUtxoCommitmentRequests);
     }
 }

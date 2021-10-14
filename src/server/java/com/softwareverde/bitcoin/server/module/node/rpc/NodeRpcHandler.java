@@ -17,6 +17,8 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
+import com.softwareverde.bitcoin.server.node.request.UnfulfilledSha256HashRequest;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -42,7 +44,6 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -60,6 +61,16 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public interface ShutdownHandler {
         Boolean shutdown();
+    }
+
+    public interface StatisticsHandler {
+        Float getAverageBlockHeadersPerSecond();
+        Float getAverageBlocksPerSecond();
+        Float getAverageTransactionsPerSecond();
+
+        List<UnfulfilledSha256HashRequest> getActiveBlockDownloads();
+        List<UnfulfilledPublicKeyRequest> getActiveUtxoCommitmentDownloads();
+        List<UnfulfilledSha256HashRequest> getActiveTransactionDownloads();
     }
 
     public interface NodeHandler {
@@ -163,12 +174,6 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         void applyMetadataToTransaction(Transaction transaction, Json transactionJson);
     }
 
-    public static class StatisticsContainer {
-        public Container<Float> averageBlockHeadersPerSecond;
-        public Container<Float> averageBlocksPerSecond;
-        public Container<Float> averageTransactionsPerSecond;
-    }
-
     public enum HookEvent {
         NEW_BLOCK,
         NEW_TRANSACTION,
@@ -227,33 +232,28 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     protected final MasterInflater _masterInflater;
     protected final ThreadPool _threadPool;
-    protected final Container<Float> _averageBlocksPerSecond;
-    protected final Container<Float> _averageBlockHeadersPerSecond;
-    protected final Container<Float> _averageTransactionsPerSecond;
 
-    protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<HookEvent, MutableList<HookListener>>();
+    protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<>();
 
-    protected SynchronizationStatus _synchronizationStatusHandler = null;
-    protected ShutdownHandler _shutdownHandler = null;
-    protected UtxoCacheHandler _utxoCacheHandler = null;
-    protected NodeHandler _nodeHandler = null;
-    protected QueryAddressHandler _queryAddressHandler = null;
-    protected ThreadPoolInquisitor _threadPoolInquisitor = null;
-    protected ServiceInquisitor _serviceInquisitor = null;
-    protected DataHandler _dataHandler = null;
-    protected MetadataHandler _metadataHandler = null;
-    protected QueryBlockchainHandler _queryBlockchainHandler = null;
-    protected LogLevelSetter _logLevelSetter = null;
-    protected IndexerHandler _indexerHandler = null;
+    protected StatisticsHandler _statisticsHandler;
+    protected SynchronizationStatus _synchronizationStatusHandler;
+    protected ShutdownHandler _shutdownHandler;
+    protected UtxoCacheHandler _utxoCacheHandler;
+    protected NodeHandler _nodeHandler;
+    protected QueryAddressHandler _queryAddressHandler;
+    protected ThreadPoolInquisitor _threadPoolInquisitor;
+    protected ServiceInquisitor _serviceInquisitor;
+    protected DataHandler _dataHandler;
+    protected MetadataHandler _metadataHandler;
+    protected QueryBlockchainHandler _queryBlockchainHandler;
+    protected LogLevelSetter _logLevelSetter;
+    protected IndexerHandler _indexerHandler;
 
-    public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
-        this(statisticsContainer, threadPool, new CoreInflater());
+    public NodeRpcHandler(final ThreadPool threadPool) {
+        this(threadPool, new CoreInflater());
     }
 
-    public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool, final MasterInflater masterInflater) {
-        _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
-        _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
-        _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
+    public NodeRpcHandler(final ThreadPool threadPool, final MasterInflater masterInflater) {
         _threadPool = threadPool;
         _masterInflater = masterInflater;
     }
@@ -883,6 +883,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         { // Statistics
+            final StatisticsHandler statisticsHandler = _statisticsHandler;
             final DataHandler dataHandler = _dataHandler;
 
             final Long blockHeight = (dataHandler != null ? dataHandler.getBlockHeight() : null);
@@ -893,12 +894,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             final Json statisticsJson = new Json();
             statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
-            statisticsJson.put("blockHeadersPerSecond", _averageBlockHeadersPerSecond.value);
+            statisticsJson.put("blockHeadersPerSecond", (statisticsHandler != null ? statisticsHandler.getAverageBlockHeadersPerSecond() : null));
             statisticsJson.put("blockHeaderDate", DateUtil.Utc.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
             statisticsJson.put("blockHeaderTimestamp", blockHeaderTimestampInSeconds);
 
             statisticsJson.put("blockHeight", blockHeight);
-            statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
+            statisticsJson.put("blocksPerSecond", (statisticsHandler != null ? statisticsHandler.getAverageBlocksPerSecond() : null));
             statisticsJson.put("blockDate", DateUtil.Utc.timestampToDatetimeString(blockTimestampInSeconds * 1000));
             statisticsJson.put("blockTimestamp", blockTimestampInSeconds);
 
@@ -908,7 +909,56 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             final Float slpIndexingPercentComplete = (dataHandler != null ? dataHandler.getSlpIndexingPercentComplete() : null);
             statisticsJson.put("slpIndexingPercentComplete", slpIndexingPercentComplete);
 
-            statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
+            {
+                final Json activeBlockDownloadsJson = new Json(true);
+                final Json activeTransactionDownloadsJson = new Json(true);
+                final Json activeUtxoCommitmentDownloadsJson = new Json(true);
+                if (statisticsHandler != null) {
+                    { // Block Download Statistics...
+                        final List<UnfulfilledSha256HashRequest> activeBlockDownloads = statisticsHandler.getActiveBlockDownloads();
+                        for (final UnfulfilledSha256HashRequest blockDownloadRequest : activeBlockDownloads) {
+                            final Json activeDownloadJson = new Json(false);
+                            activeDownloadJson.put("nodeId", blockDownloadRequest.bitcoinNode.getId());
+                            // activeDownloadJson.put("ip", blockDownloadRequest.bitcoinNode.getIp());
+                            // activeDownloadJson.put("port", blockDownloadRequest.bitcoinNode.getPort());
+                            activeDownloadJson.put("hash", blockDownloadRequest.hash);
+
+                            activeBlockDownloadsJson.add(activeDownloadJson);
+                        }
+                    }
+
+                    { // Transaction Download Statistics...
+                        final List<UnfulfilledSha256HashRequest> activeTransactionDownloads = statisticsHandler.getActiveBlockDownloads();
+                        for (final UnfulfilledSha256HashRequest blockDownloadRequest : activeTransactionDownloads) {
+                            final Json activeDownloadJson = new Json(false);
+                            activeDownloadJson.put("nodeId", blockDownloadRequest.bitcoinNode.getId());
+                            // activeDownloadJson.put("ip", blockDownloadRequest.bitcoinNode.getIp());
+                            // activeDownloadJson.put("port", blockDownloadRequest.bitcoinNode.getPort());
+                            activeDownloadJson.put("hash", blockDownloadRequest.hash);
+
+                            activeTransactionDownloadsJson.add(activeDownloadJson);
+                        }
+                    }
+
+                    { // Utxo Commitment Download Statistics...
+                        final List<UnfulfilledPublicKeyRequest> activeUtxoSetDownloads = statisticsHandler.getActiveUtxoCommitmentDownloads();
+                        for (final UnfulfilledPublicKeyRequest utxoSetDownloadRequest : activeUtxoSetDownloads) {
+                            final Json activeDownloadJson = new Json(false);
+                            activeDownloadJson.put("nodeId", utxoSetDownloadRequest.bitcoinNode.getId());
+                            // activeDownloadJson.put("ip", utxoSetDownloadRequest.bitcoinNode.getIp());
+                            // activeDownloadJson.put("port", utxoSetDownloadRequest.bitcoinNode.getPort());
+                            activeDownloadJson.put("publicKey", utxoSetDownloadRequest.publicKey);
+
+                            activeUtxoCommitmentDownloadsJson.add(activeDownloadJson);
+                        }
+                    }
+                }
+                statisticsJson.put("activeBlockDownloads", activeBlockDownloadsJson);
+                statisticsJson.put("activeTransactionDownloads", activeTransactionDownloadsJson);
+                statisticsJson.put("activeUtxoCommitmentDownloads", activeUtxoCommitmentDownloadsJson);
+            }
+
+            statisticsJson.put("transactionsPerSecond", (statisticsHandler != null ? statisticsHandler.getAverageTransactionsPerSecond() : null));
             response.put("statistics", statisticsJson);
         }
 
@@ -1709,6 +1759,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     public void setServiceInquisitor(final ServiceInquisitor serviceInquisitor) {
         _serviceInquisitor = serviceInquisitor;
+    }
+
+    public void setStatisticsHandler(final StatisticsHandler statisticsHandler) {
+        _statisticsHandler = statisticsHandler;
     }
 
     public void setDataHandler(final DataHandler dataHandler) {

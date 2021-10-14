@@ -53,7 +53,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.MultiTimer;
@@ -69,7 +68,6 @@ public class BlockProcessor {
     protected final Object _statisticsMutex = new Object();
     protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
-    protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
     protected Boolean _undoLogIsEnabled = false;
     protected Long _headBlockHeight = 0L;
@@ -79,6 +77,7 @@ public class BlockProcessor {
     protected Long _trustedBlockHeight = 0L;
 
     protected final Long _startTime;
+    protected Float _averageTransactionsPerSecond = 0F;
 
     public BlockProcessor(final Context context) {
         _context = context;
@@ -572,7 +571,7 @@ public class BlockProcessor {
             averageTransactionsPerSecond = ( (((float) totalTransactionCount) / ((float) validationTimeElapsed)) * 1000F );
         }
 
-        _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
+        _averageTransactionsPerSecond = averageTransactionsPerSecond;
 
         processBlockTimer.stop();
         multiTimer.stop("commit");
@@ -631,7 +630,7 @@ public class BlockProcessor {
         }
     }
 
-    public Container<Float> getAverageTransactionsPerSecondContainer() {
+    public Float getAverageTransactionsPerSecond() {
         return _averageTransactionsPerSecond;
     }
 

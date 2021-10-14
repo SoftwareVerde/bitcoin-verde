@@ -86,6 +86,7 @@ import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryAddressHand
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.QueryBlockchainHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcDataHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcIndexerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.RpcStatisticsHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ServiceInquisitor;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.ThreadPoolInquisitor;
@@ -1071,20 +1072,14 @@ public class NodeModule {
 
         final Integer rpcPort = _bitcoinProperties.getBitcoinRpcPort();
         if (rpcPort > 0) {
-            final NodeRpcHandler.StatisticsContainer statisticsContainer = new NodeRpcHandler.StatisticsContainer();
-            { // Initialize statistics container...
-                statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
-                statisticsContainer.averageBlocksPerSecond = _blockchainBuilder.getAverageBlocksPerSecondContainer();
-                statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
-            }
-
-            final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(statisticsContainer, _rpcThreadPool, _masterInflater);
+            final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(_rpcThreadPool, _masterInflater);
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, synchronizationStatusHandler);
                 final UtxoCacheHandler utxoCacheHandler = new UtxoCacheHandler(databaseManagerFactory);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _bitcoinNodeFactory);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_generalThreadPool); // TODO: Should combine _generalThreadPool and _networkThreadPool, and/or refactor completely.
+                final RpcStatisticsHandler statisticsHandler = new RpcStatisticsHandler(_blockHeaderDownloader, _blockchainBuilder, blockProcessor, _bitcoinNodeManager);
 
                 final RpcDataHandler rpcDataHandler = new RpcDataHandler(_systemTime, _masterInflater, databaseManagerFactory, _difficultyCalculatorFactory, transactionValidatorFactory, _transactionDownloader, _blockchainBuilder, _blockDownloader, doubleSpendProofStore, _mutableNetworkTime, _upgradeSchedule);
 
@@ -1120,6 +1115,7 @@ public class NodeModule {
                 rpcSocketServerHandler.setQueryAddressHandler(queryAddressHandler);
                 rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
                 rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
+                rpcSocketServerHandler.setStatisticsHandler(statisticsHandler);
                 rpcSocketServerHandler.setDataHandler(rpcDataHandler);
                 rpcSocketServerHandler.setMetadataHandler(metadataHandler);
                 rpcSocketServerHandler.setQueryBlockchainHandler(queryBlockchainHandler);

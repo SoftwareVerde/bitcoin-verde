@@ -33,7 +33,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.logging.Logger;
 import com.softwareverde.network.time.VolatileNetworkTime;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -54,7 +53,6 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final BitcoinNodeBlockInventoryTracker _blockInventoryTracker;
     protected final BitcoinNode.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
 
-    protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
     protected final MilliTimer _timer;
 
     protected final Object _headersDownloadedPin = new Object();
@@ -67,6 +65,8 @@ public class BlockHeaderDownloader extends SleepyService {
     protected BlockHeader _lastBlockHeader = null;
     protected Long _minBlockTimestamp;
     protected Long _blockHeaderCount = 0L;
+
+    protected Float _averageBlockHeadersPerSecond = 0F;
 
     protected NewBlockHeadersAvailableCallback _newBlockHeaderAvailableCallback = null;
 
@@ -366,7 +366,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
             _timer.stop();
             final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
-            _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
+            _averageBlockHeadersPerSecond = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
         }
         catch (final DatabaseException exception) {
             Logger.warn("Processing BlockHeaders failed.", exception);
@@ -534,7 +534,7 @@ public class BlockHeaderDownloader extends SleepyService {
         _minBlockTimestamp = minBlockTimestampInSeconds;
     }
 
-    public Container<Float> getAverageBlockHeadersPerSecondContainer() {
+    public Float getAverageBlockHeadersPerSecond() {
         return _averageBlockHeadersPerSecond;
     }
 
