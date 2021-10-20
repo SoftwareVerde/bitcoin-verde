@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.block.validator.ValidationResult;
 import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.server.node.request.UnfulfilledPublicKeyRequest;
@@ -112,6 +113,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     public interface DataHandler {
+        enum Direction {
+            BEFORE, AFTER
+        }
+
         Long getBlockHeaderHeight();
         Long getBlockHeight();
 
@@ -130,7 +135,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         List<Transaction> getBlockTransactions(Long blockHeight, Integer pageSize, Integer pageNumber);
         List<Transaction> getBlockTransactions(Sha256Hash blockHash, Integer pageSize, Integer pageNumber);
 
-        List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount);
+        List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount, Direction blockHeaderDirection);
 
         Transaction getTransaction(Sha256Hash transactionHash);
 
@@ -295,7 +300,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET: [blockHeight], [maxBlockCount=10], [rawFormat=0]
-    protected void _getBlockHeaders(final Json parameters, final Json response) {
+    protected void _getBlockHeaders(final Json parameters, final Json response, final DataHandler.Direction direction) {
 
         final Long startingBlockHeight;
         {
@@ -310,17 +315,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final int defaultMaxBlockCount = 10;
-        final int maxMaxBlockCount = 1024;
+        final int maxMaxBlockCount = RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT;
         final int maxBlockCount;
-        final String paramMaxBlockCountString = parameters.getString("maxBlockCount");
-        if ( parameters.hasKey("maxBlockCount") && Util.isInt(paramMaxBlockCountString) ) {
-            final Integer paramMaxBlockCount = Util.parseInt(paramMaxBlockCountString);
-            if (paramMaxBlockCount < 0) {
-                maxBlockCount = maxMaxBlockCount;
-            }
-            else {
-                maxBlockCount = Math.min(paramMaxBlockCount, maxMaxBlockCount);
-            }
+        final Integer paramMaxBlockCount = parameters.getOrNull("maxBlockCount", Json.Types.INTEGER);
+        if (paramMaxBlockCount != null) {
+            maxBlockCount = Math.min(paramMaxBlockCount, maxMaxBlockCount);
         }
         else {
             maxBlockCount = defaultMaxBlockCount;
@@ -332,7 +331,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler != null) {
-            final List<BlockHeader> blockHeaders = dataHandler.getBlockHeaders(startingBlockHeight, maxBlockCount);
+            final List<BlockHeader> blockHeaders = dataHandler.getBlockHeaders(startingBlockHeight, maxBlockCount, direction);
             if (blockHeaders == null) {
                 response.put(WAS_SUCCESS_KEY, 0);
                 response.put(ERROR_MESSAGE_KEY, "Error loading BlockHeaders.");
@@ -2014,8 +2013,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
-                            case "BLOCK_HEADERS": {
-                                _getBlockHeaders(parameters, response);
+                            case "BLOCK_HEADERS":
+                            case "BLOCK_HEADERS_BEFORE": {
+                                _getBlockHeaders(parameters, response, DataHandler.Direction.BEFORE);
+                            } break;
+                            case "BLOCK_HEADERS_AFTER": {
+                                _getBlockHeaders(parameters, response, DataHandler.Direction.AFTER);
                             } break;
 
                             case "BLOCK": {

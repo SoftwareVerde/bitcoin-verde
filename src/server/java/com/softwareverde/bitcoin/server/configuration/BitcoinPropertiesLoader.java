@@ -10,7 +10,7 @@ import com.softwareverde.util.Util;
 import java.util.Properties;
 
 public class BitcoinPropertiesLoader {
-    public static BitcoinProperties loadBitcoinProperties(final Properties properties) {
+    public static BitcoinProperties loadProperties(final Properties properties) {
         final BitcoinProperties bitcoinProperties = new BitcoinProperties();
         bitcoinProperties._bitcoinPort = Util.parseInt(properties.getProperty("bitcoin.port", null));
         bitcoinProperties._bitcoinRpcPort = Util.parseInt(properties.getProperty("bitcoin.rpcPort", null));

@@ -258,7 +258,7 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
     }
 
     @Override
-    public List<BlockHeader> getBlockHeaders(final Long nullableBlockHeight, final Integer maxBlockCount) {
+    public List<BlockHeader> getBlockHeaders(final Long nullableBlockHeight, final Integer maxBlockCount, final Direction direction) {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -276,11 +276,12 @@ public class RpcDataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final ImmutableListBuilder<BlockHeader> blockHeaders = new ImmutableListBuilder<BlockHeader>(maxBlockCount);
+            final ImmutableListBuilder<BlockHeader> blockHeaders = new ImmutableListBuilder<>(maxBlockCount);
             for (int i = 0; i < maxBlockCount; ++i) {
-                if (startingBlockHeight < i) { break; }
+                final long nextBlockHeight = ( (direction == Direction.BEFORE) ? (startingBlockHeight - i) : (startingBlockHeight + i) );
+                if (nextBlockHeight < 0L) { break; }
 
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (startingBlockHeight - i));
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, nextBlockHeight);
                 if (blockId == null) { break; }
 
                 final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);

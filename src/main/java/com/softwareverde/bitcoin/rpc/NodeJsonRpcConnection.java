@@ -23,6 +23,10 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class NodeJsonRpcConnection implements AutoCloseable {
+    protected enum BlockHeaderDirection {
+        BEFORE, AFTER
+    }
+
     public interface AnnouncementHookCallback {
         void onNewBlockHeader(Json blockHeaderJson);
         void onNewTransaction(Json transactionJson);
@@ -221,6 +225,24 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    protected Json _getBlockHeaders(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat, final BlockHeaderDirection direction) {
+        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        if (blockHeight != null) {
+            rpcParametersJson.put("blockHeight", blockHeight);
+        }
+        rpcParametersJson.put("maxBlockCount", maxBlockCount);
+        rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", (direction == BlockHeaderDirection.BEFORE ? "BLOCK_HEADERS_BEFORE" : "BLOCK_HEADERS_AFTER"));
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
         this(
             hostname,
@@ -270,35 +292,20 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         }
     }
 
-    public Json getBlockHeaders(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
-
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("blockHeight", blockHeight);
-        rpcParametersJson.put("maxBlockCount", maxBlockCount);
-        rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
-
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK_HEADERS");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlockHeadersBefore(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(blockHeight, maxBlockCount, returnRawFormat, BlockHeaderDirection.BEFORE);
     }
 
-    public Json getBlockHeaders(final Integer maxBlockCount, final Boolean returnRawFormat) {
-        if (_jsonSocket == null) { return null; } // Socket was unable to connect.
+    public Json getBlockHeadersBefore(final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(null, maxBlockCount, returnRawFormat, BlockHeaderDirection.BEFORE);
+    }
 
-        final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("maxBlockCount", maxBlockCount);
-        rpcParametersJson.put("rawFormat", (returnRawFormat ? 1 : 0));
+    public Json getBlockHeadersAfter(final Long blockHeight, final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(blockHeight, maxBlockCount, returnRawFormat, BlockHeaderDirection.AFTER);
+    }
 
-        final Json rpcRequestJson = new Json();
-        rpcRequestJson.put("method", "GET");
-        rpcRequestJson.put("query", "BLOCK_HEADERS");
-        rpcRequestJson.put("parameters", rpcParametersJson);
-
-        return _executeJsonRequest(rpcRequestJson);
+    public Json getBlockHeadersAfter(final Integer maxBlockCount, final Boolean returnRawFormat) {
+        return _getBlockHeaders(null, maxBlockCount, returnRawFormat, BlockHeaderDirection.AFTER);
     }
 
     public Json getDifficulty() {

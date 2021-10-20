@@ -13,6 +13,7 @@ echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"SPV\" \"conf/server.conf\"
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"WALLET\" \"conf/server.conf\"\n" > out/run-wallet.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"VALIDATE\" \"conf/server.conf\" \"\$1\"\n" > out/run-validation.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"STRATUM\" \"conf/server.conf\"\n" > out/run-stratum.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"ELECTRUM\" \"conf/server.conf\"\n" > out/run-electrum.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"PROXY\" \"conf/server.conf\"\n" > out/run-proxy.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"DATABASE\" \"conf/server.conf\"\n" > out/run-database.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"ADDRESS\"\n" > out/run-address.sh

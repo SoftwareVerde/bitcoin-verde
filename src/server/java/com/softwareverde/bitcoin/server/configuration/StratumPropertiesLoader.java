@@ -6,7 +6,7 @@ import com.softwareverde.util.Util;
 import java.util.Properties;
 
 public class StratumPropertiesLoader {
-    public static StratumProperties loadStratumProperties(final Properties properties) {
+    public static StratumProperties loadProperties(final Properties properties) {
         final Integer port = Util.parseInt(properties.getProperty("stratum.port", String.valueOf(StratumProperties.PORT)));
         final Integer rpcPort = Util.parseInt(properties.getProperty("stratum.rpcPort", String.valueOf(StratumProperties.RPC_PORT)));
         final String bitcoinRpcUrl = properties.getProperty("stratum.bitcoinRpcUrl", "");

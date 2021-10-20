@@ -20,6 +20,8 @@ public class Configuration {
     protected final StratumProperties _stratumProperties;
     protected final BitcoinVerdeDatabaseProperties _stratumDatabaseProperties;
 
+    protected final ElectrumProperties _electrumProperties;
+
     protected final WalletProperties _walletProperties;
     protected final ProxyProperties _proxyProperties;
 
@@ -43,11 +45,12 @@ public class Configuration {
         _stratumDatabaseProperties = DatabasePropertiesLoader.loadDatabaseProperties("stratum", _properties);
         _spvDatabaseProperties = DatabasePropertiesLoader.loadDatabaseProperties("spv", _properties);
 
-        _bitcoinProperties = BitcoinPropertiesLoader.loadBitcoinProperties(_properties);
-        _stratumProperties = StratumPropertiesLoader.loadStratumProperties(_properties);
-        _explorerProperties = ExplorerPropertiesLoader.loadExplorerProperties(_properties);
-        _walletProperties = WalletPropertiesLoader.loadWalletProperties(_properties);
-        _proxyProperties = ProxyPropertiesLoader.loadProxyProperties(_properties);
+        _bitcoinProperties = BitcoinPropertiesLoader.loadProperties(_properties);
+        _stratumProperties = StratumPropertiesLoader.loadProperties(_properties);
+        _electrumProperties = ElectrumPropertiesLoader.loadProperties(_properties);
+        _explorerProperties = ExplorerPropertiesLoader.loadProperties(_properties);
+        _walletProperties = WalletPropertiesLoader.loadProperties(_properties);
+        _proxyProperties = ProxyPropertiesLoader.loadProperties(_properties);
     }
 
     public BitcoinProperties getBitcoinProperties() { return _bitcoinProperties; }
@@ -59,6 +62,8 @@ public class Configuration {
 
     public StratumProperties getStratumProperties() { return _stratumProperties; }
     public BitcoinVerdeDatabaseProperties getStratumDatabaseProperties() { return _stratumDatabaseProperties; }
+
+    public ElectrumProperties getElectrumProperties() { return _electrumProperties; }
 
     public WalletProperties getWalletProperties() { return _walletProperties; }
     public ProxyProperties getProxyProperties() { return _proxyProperties; }

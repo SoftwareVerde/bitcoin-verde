@@ -154,7 +154,7 @@ public class BitcoinVerdeStratumServer implements StratumServer {
         {
             final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
             final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
-            final Json blockHeadersResponseJson = nodeRpcConnection.getBlockHeaders(1, true);
+            final Json blockHeadersResponseJson = nodeRpcConnection.getBlockHeadersBefore(1, true);
             final Json blockHeadersJson = blockHeadersResponseJson.get("blockHeaders");
             previousBlockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(blockHeadersJson.getString(0)));
         }
