@@ -58,35 +58,35 @@ public class MerkleTreeNode<T extends Hashable> implements MutableMerkleTree<T> 
         return MutableMerkleRoot.wrap(_hash.getBytes());
     }
 
-    protected void _collectPartialHashes(final ImmutableListBuilder<Sha256Hash> listBuilder) {
-        if (_itemCount == 0) { return; }
-        else if (_item0 != null) {
-            if (_item1 != null) {
-                listBuilder.add(_item1.getHash());
-            }
-        }
-        else {
-            if ( (_childNode1 != null) && (! _childNode1.isEmpty()) ) {
-                listBuilder.add(new ImmutableSha256Hash(_childNode1._getIntermediaryHash()));
-            }
-        }
-    }
-
     protected void _getPartialTree(final int index, final ImmutableListBuilder<Sha256Hash> partialTreeBuilder) {
+        if (_itemCount == 0) { return; }
         if ( (_item0 != null) || (_item1 != null) ) {
-            // Nothing.
+            if (_item0 != null) {
+                // This node is a leaf node, therefore index is either 0 or 1, and therefore add the hash of the opposite element.
+                if (index == 1 || _item1 == null) {
+                    partialTreeBuilder.add(_item0.getHash());
+                }
+                else {
+                    partialTreeBuilder.add(_item1.getHash());
+                }
+            }
         }
         else {
             final int childNode0ItemCount = _childNode0.getItemCount();
             if (index < childNode0ItemCount) {
                 _childNode0._getPartialTree(index, partialTreeBuilder);
+                if (_childNode1 == null) {
+                    partialTreeBuilder.add(_childNode0._getIntermediaryHash().asConst());
+                }
+                else {
+                    partialTreeBuilder.add(_childNode1._getIntermediaryHash().asConst());
+                }
             }
             else {
                 _childNode1._getPartialTree((index - childNode0ItemCount), partialTreeBuilder);
+                partialTreeBuilder.add(_childNode0._getIntermediaryHash().asConst());
             }
         }
-
-        _collectPartialHashes(partialTreeBuilder);
     }
 
     protected void _recalculateHash() {

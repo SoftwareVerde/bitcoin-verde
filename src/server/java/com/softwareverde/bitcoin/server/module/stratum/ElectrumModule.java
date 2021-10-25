@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.configuration.ElectrumProperties;
 import com.softwareverde.bitcoin.server.electrum.socket.ElectrumServerSocket;
 import com.softwareverde.bitcoin.server.message.type.query.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.module.stratum.json.ElectrumJson;
 import com.softwareverde.concurrent.threadpool.CachedThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -54,12 +55,14 @@ public class ElectrumModule {
                 for (final BlockHeader blockHeader : _cachedBlockHeaderMerkleTree.getItems()) {
                     blockHeaderMerkleTree.addItem(blockHeader);
                 }
-                blockHeight = _cachedBlockHeaderMerkleTreeBlockHeight;
+                blockHeight = (_cachedBlockHeaderMerkleTreeBlockHeight + 1L);
             }
         }
 
-        while (blockHeight <= maxBlockHeight) {
-            try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            while (blockHeight <= maxBlockHeight) {
                 final Json blockHeadersJson = nodeConnection.getBlockHeadersAfter(blockHeight, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, true);
                 final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
                 final int blockHeaderCount = blockHeadersArray.length();
@@ -68,9 +71,6 @@ public class ElectrumModule {
                     final String blockHeaderString = blockHeadersArray.getString(i);
                     final BlockHeader blockHeader = blockHeaderInflater.fromBytes(ByteArray.fromHexString(blockHeaderString));
                     blockHeaderMerkleTree.addItem(blockHeader);
-                    if (i >= 700000L) {
-                        System.out.println(blockHeight + ": " + blockHeaderMerkleTree.getMerkleRoot());
-                    }
                     blockHeight += 1L;
 
                     if (blockHeight > maxBlockHeight) { break; } // Include the maxBlockHeight block...
@@ -101,8 +101,8 @@ public class ElectrumModule {
     protected void _handleServerVersionMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json json = new Json(false);
-        final Json resultJson = new Json(true);
+        final Json json = new ElectrumJson(false);
+        final Json resultJson = new ElectrumJson(true);
         resultJson.add("ElectrumVerde 1.0.0");
         resultJson.add("1.4");
 
@@ -115,7 +115,7 @@ public class ElectrumModule {
     protected void _handleBannerMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json json = new Json(false);
+        final Json json = new ElectrumJson(false);
 
         json.put("id", id);
         json.put("result", "ElectrumVerde 1.0.0");
@@ -126,7 +126,7 @@ public class ElectrumModule {
     protected void _handleDonationAddressMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json json = new Json(false);
+        final Json json = new ElectrumJson(false);
 
         json.put("id", id);
         json.put("result", "qqverdefl9xtryyx8y52m6va5j8s2s4eq59fjdn97e");
@@ -137,7 +137,7 @@ public class ElectrumModule {
     protected void _handleMinimumRelayFeeMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json json = new Json(false);
+        final Json json = new ElectrumJson(false);
 
         json.put("id", id);
         json.put("result", "0.0"); // Float; in Bitcoins, not Satoshis...
@@ -148,16 +148,33 @@ public class ElectrumModule {
     protected void _handleSubscribeBlockHeadersMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json blockHeaderJson = new Json(false);
-        blockHeaderJson.put("height", 710400L);
+        final ByteArray blockHeaderBytes;
+        final Long blockHeight;
+        try (final NodeJsonRpcConnection nodeConnection = _getNodeConnection()) {
+            nodeConnection.enableKeepAlive(true);
+
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+
+            final Json blockHeadersJson = nodeConnection.getBlockHeadersBeforeHead(1, true);
+            final Json blockHeadersArray = blockHeadersJson.get("blockHeaders");
+            final String headerString = blockHeadersArray.getString(0);
+            blockHeaderBytes = ByteArray.fromHexString(headerString);
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(blockHeaderBytes);
+
+            final Json blockHeaderHeightJson = nodeConnection.getBlockHeaderHeight(blockHeader.getHash());
+            blockHeight = blockHeaderHeightJson.getLong("blockHeight");
+        }
+
+        final Json blockHeaderJson = new ElectrumJson(false);
+        blockHeaderJson.put("height", blockHeight);
         // BlockHeader MUST be LE...
-        blockHeaderJson.put("hex", "6b0bc8c41805e8ad617050d4c12ec0e3a19cd0aba12961507cf0821c48d8c39f593dd8f34c66f24a9a6fa5b900000000000000000180adbbe7d29b3ac9423533107b462d049fc25936342e6720800000");
+        blockHeaderJson.put("hex", blockHeaderBytes.toReverseEndian());
 
         {
-            final Json paramsJson = new Json(true);
+            final Json paramsJson = new ElectrumJson(true);
             paramsJson.add(blockHeaderJson);
 
-            final Json json = new Json(false);
+            final Json json = new ElectrumJson(false);
             // json.put("jsonrpc", "2.0");
             json.put("method", "blockchain.headers.subscribe");
             json.put("params", paramsJson);
@@ -196,7 +213,7 @@ public class ElectrumModule {
             concatenatedHeadersHexString = headerStringBuilder.toString();
         }
 
-        final Json resultJson = new Json(false);
+        final Json resultJson = new ElectrumJson(false);
         resultJson.put("count", blockHeaderCount);
         resultJson.put("hex", concatenatedHeadersHexString);
         resultJson.put("max", RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT);
@@ -208,14 +225,14 @@ public class ElectrumModule {
             resultJson.put("root", merkleRoot);
 
             final List<Sha256Hash> partialMerkleTree = blockHeaderMerkleTree.getPartialTree(blockHeaderMerkleTree.getItemCount() - 1);
-            final Json merkleHashesJson = new Json(true);
+            final Json merkleHashesJson = new ElectrumJson(true);
             for (final Sha256Hash merkleHash : partialMerkleTree) {
                 merkleHashesJson.add(merkleHash);
             }
             resultJson.put("branch", merkleHashesJson);
         }
 
-        final Json json = new Json(false);
+        final Json json = new ElectrumJson(false);
         json.put("id", id);
         json.put("result", resultJson);
         jsonSocket.write(new JsonProtocolMessage(json));
@@ -230,9 +247,9 @@ public class ElectrumModule {
         for (int i = 0; i < paramsJson.length(); ++i) {
             final String addressString = paramsJson.getString(i);
 
-            final Json notificationJson = new Json(false);
+            final Json notificationJson = new ElectrumJson(false);
 
-            final Json responseJson = new Json(true);
+            final Json responseJson = new ElectrumJson(true);
             responseJson.add(addressString);
             responseJson.add(null);
 
@@ -250,10 +267,10 @@ public class ElectrumModule {
     protected void _handlePeersMessage(final JsonSocket jsonSocket, final Json message) {
         final Integer id = message.getInteger("id");
 
-        final Json json = new Json(false);
+        final Json json = new ElectrumJson(false);
 
         json.put("id", id);
-        json.put("result", new Json(true));
+        json.put("result", new ElectrumJson(true));
         jsonSocket.write(new JsonProtocolMessage(json));
         jsonSocket.flush();
     }
@@ -355,8 +372,8 @@ public class ElectrumModule {
         final Long cachedBlockHeaderMerkleTreeBlockHeight = 700000L; // 600000L;
         // _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
         // _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
-        _cachedBlockHeaderMerkleTree = null;
-        _cachedBlockHeaderMerkleTreeBlockHeight = null;
+        _cachedBlockHeaderMerkleTree = _calculateCheckpointMerkle(cachedBlockHeaderMerkleTreeBlockHeight);
+        _cachedBlockHeaderMerkleTreeBlockHeight = cachedBlockHeaderMerkleTreeBlockHeight;
     }
 
     public void loop() {

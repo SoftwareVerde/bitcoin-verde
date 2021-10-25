@@ -235,6 +235,10 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
+    protected static class JsonConnectionProperties {
+        boolean keepAliveIsEnabled = false;
+    }
+
     protected final MasterInflater _masterInflater;
     protected final ThreadPool _threadPool;
 
@@ -1984,7 +1988,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                         if (! jsonSocket.isConnected()) {
                             iterator.remove();
-                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket.toString());
+                            Logger.debug("Dropping HookEvent: " + HookEvent.NEW_DOUBLE_SPEND_PROOF + " " + jsonSocket);
                         }
                     }
                 }
@@ -1994,6 +1998,9 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
     @Override
     public void run(final JsonSocket socketConnection) {
+        // _jsonConnectionProperties.put(socketConnection, new JsonConnectionProperties());
+        final JsonConnectionProperties jsonConnectionProperties = new JsonConnectionProperties();
+
         socketConnection.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
@@ -2008,7 +2015,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                 response.put(ERROR_MESSAGE_KEY, null);
 
                 final Json parameters = message.get("parameters");
-                boolean closeConnection = true;
+                boolean closeConnection = jsonConnectionProperties.keepAliveIsEnabled;
 
                 switch (method.toUpperCase()) {
                     case "GET": {
@@ -2100,6 +2107,11 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
                             case "SLP_TOKEN_ID": {
                                 _querySlpTokenId(parameters, response);
+                            } break;
+
+                            case "KEEP_ALIVE": {
+                                jsonConnectionProperties.keepAliveIsEnabled = parameters.getBoolean("enableKeepAlive");
+                                closeConnection = jsonConnectionProperties.keepAliveIsEnabled;
                             } break;
 
                             default: {

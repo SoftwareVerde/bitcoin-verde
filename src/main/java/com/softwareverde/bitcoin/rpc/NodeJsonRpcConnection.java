@@ -296,7 +296,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _getBlockHeaders(blockHeight, maxBlockCount, returnRawFormat, BlockHeaderDirection.BEFORE);
     }
 
-    public Json getBlockHeadersBefore(final Integer maxBlockCount, final Boolean returnRawFormat) {
+    public Json getBlockHeadersBeforeHead(final Integer maxBlockCount, final Boolean returnRawFormat) {
         return _getBlockHeaders(null, maxBlockCount, returnRawFormat, BlockHeaderDirection.BEFORE);
     }
 
@@ -304,7 +304,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _getBlockHeaders(blockHeight, maxBlockCount, returnRawFormat, BlockHeaderDirection.AFTER);
     }
 
-    public Json getBlockHeadersAfter(final Integer maxBlockCount, final Boolean returnRawFormat) {
+    public Json getBlockHeadersAfterGenesis(final Integer maxBlockCount, final Boolean returnRawFormat) {
         return _getBlockHeaders(null, maxBlockCount, returnRawFormat, BlockHeaderDirection.AFTER);
     }
 
@@ -825,6 +825,20 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
     public Boolean isConnected() {
         return ( (_jsonSocket != null) && _jsonSocket.isConnected() );
+    }
+
+    public void enableKeepAlive(final Boolean keepAliveIsEnabled) {
+        if (_jsonSocket == null) { return; } // Socket was unable to connect.
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("enableKeepAlive", keepAliveIsEnabled);
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "KEEP_ALIVE");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        _executeJsonRequest(rpcRequestJson);
     }
 
     @Override
